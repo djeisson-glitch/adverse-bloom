@@ -1,7 +1,9 @@
-import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { toast } from "sonner";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +29,23 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/conta-azul-sync`,
+        { method: "POST", headers: { "Content-Type": "application/json" } }
+      );
+      if (!res.ok) throw new Error();
+      toast.success("Dados sincronizados com sucesso!");
+    } catch {
+      toast.error("Erro ao sincronizar dados.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -66,9 +85,17 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-1">
+        <SidebarMenuButton
+          onClick={handleSync}
+          disabled={syncing}
+          className="hover:bg-sidebar-accent/50 text-muted-foreground hover:text-foreground"
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          {!collapsed && <span>{syncing ? "Sincronizando..." : "Sincronizar dados"}</span>}
+        </SidebarMenuButton>
         {!collapsed && user && (
-          <p className="mb-2 truncate px-2 text-xs text-muted-foreground">{user.email}</p>
+          <p className="truncate px-2 text-xs text-muted-foreground">{user.email}</p>
         )}
         <SidebarMenuButton onClick={signOut} className="hover:bg-sidebar-accent/50 text-muted-foreground hover:text-foreground">
           <LogOut className="mr-2 h-4 w-4" />
