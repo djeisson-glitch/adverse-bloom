@@ -14,7 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conta_azul_cache: {
+        Row: {
+          data_type: string
+          fetched_at: string
+          id: string
+          payload: Json | null
+          period: string | null
+        }
+        Insert: {
+          data_type: string
+          fetched_at?: string
+          id?: string
+          payload?: Json | null
+          period?: string | null
+        }
+        Update: {
+          data_type?: string
+          fetched_at?: string
+          id?: string
+          payload?: Json | null
+          period?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          client_name: string
+          created_at: string
+          delivery_date: string | null
+          direct_costs: number | null
+          gross_margin_percent: number | null
+          gross_margin_value: number | null
+          id: string
+          name: string
+          notes: string | null
+          sold_date: string | null
+          sold_value: number | null
+          status: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          delivery_date?: string | null
+          direct_costs?: number | null
+          gross_margin_percent?: number | null
+          gross_margin_value?: number | null
+          id?: string
+          name: string
+          notes?: string | null
+          sold_date?: string | null
+          sold_value?: number | null
+          status?: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          delivery_date?: string | null
+          direct_costs?: number | null
+          gross_margin_percent?: number | null
+          gross_margin_value?: number | null
+          id?: string
+          name?: string
+          notes?: string | null
+          sold_date?: string | null
+          sold_value?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
