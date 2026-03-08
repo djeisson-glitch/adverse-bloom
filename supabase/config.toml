@@ -2,3 +2,6 @@ project_id = "tappbjqwnwaelrvhcogw"
 
 [functions.conta-azul-token]
 verify_jwt = false
+
+[functions.conta-azul-sync]
+verify_jwt = false
