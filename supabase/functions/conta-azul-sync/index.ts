@@ -1,162 +1,76 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-const CONTA_AZUL_BASE = "https://api.contaazul.com/v1";
-
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getContaAzulToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && now < tokenExpiresAt) {
-    return cachedToken;
-  }
-
-  const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID");
-  const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET");
-
-  if (!clientId || !clientSecret) {
-    throw new Error("CONTA_AZUL_CLIENT_ID ou CONTA_AZUL_CLIENT_SECRET não configurados");
-  }
-
-  // Use Basic Auth header as per OAuth2 client_credentials spec
-  const credentials = btoa(`${clientId}:${clientSecret}`);
-  
-  const res = await fetch("https://api.contaazul.com/oauth2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Basic ${credentials}`,
-    },
-    body: JSON.stringify({
-      grant_type: "client_credentials",
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Erro ao obter token: ${res.status} - ${body}`);
-  }
-
-  const data = await res.json();
-  cachedToken = data.access_token;
-  tokenExpiresAt = now + (data.expires_in - 60) * 1000;
-  return cachedToken!;
-}
-
-async function fetchContaAzul(token: string, path: string, params?: Record<string, string>): Promise<unknown> {
-  const url = new URL(`${CONTA_AZUL_BASE}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  }
-
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Erro API Conta Azul ${path}: ${res.status} - ${body}`);
-  }
-
-  return res.json();
-}
-
-function getDateRange() {
-  const now = new Date();
-  const end = now.toISOString().split("T")[0];
-  const start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
-    .toISOString()
-    .split("T")[0];
-  return { start, end };
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders })
   }
 
   try {
-    const token = await getContaAzulToken();
-    const { start, end } = getDateRange();
-    const period = `${start}_${end}`;
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    )
 
-    // Fetch all data sources in parallel
-    const [receivables, payables, accounts, sales] = await Promise.all([
-      fetchContaAzul(token, "/financial-transactions", {
-        type: "RECEIVABLE",
-        start_date: start,
-        end_date: end,
-      }),
-      fetchContaAzul(token, "/financial-transactions", {
-        type: "PAYABLE",
-        start_date: start,
-        end_date: end,
-      }),
-      fetchContaAzul(token, "/financial-accounts"),
-      fetchContaAzul(token, "/sales", {
-        start_date: start,
-        end_date: end,
-      }),
-    ]);
+    const { data: authRow } = await supabase
+      .from("conta_azul_cache").select("payload").eq("data_type", "auth_tokens").single()
 
-    const now = new Date().toISOString();
+    if (!authRow) return new Response(JSON.stringify({ error: "Tokens nao encontrados. Reautentique via OAuth." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
 
-    // Upsert cache entries (delete old, insert new)
-    const dataTypes = [
-      { data_type: "receivables", payload: receivables },
-      { data_type: "payables", payload: payables },
-      { data_type: "financial_accounts", payload: accounts },
-      { data_type: "sales", payload: sales },
-    ];
+    const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: authRow.payload.refresh_token,
+        client_id: Deno.env.get("CONTA_AZUL_CLIENT_ID")!,
+        client_secret: Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
+      }).toString()
+    })
 
-    // Clear old cache for these data types and period
-    await supabase
-      .from("conta_azul_cache")
-      .delete()
-      .in("data_type", dataTypes.map((d) => d.data_type));
-
-    // Insert fresh data
-    const { error: insertError } = await supabase
-      .from("conta_azul_cache")
-      .insert(
-        dataTypes.map((d) => ({
-          data_type: d.data_type,
-          payload: d.payload,
-          fetched_at: now,
-          period,
-        }))
-      );
-
-    if (insertError) {
-      throw new Error(`Erro ao salvar cache: ${insertError.message}`);
+    const tokenData = await tokenRes.json()
+    if (!tokenData.access_token) {
+      return new Response(JSON.stringify({ error: "Token falhou", detail: tokenData }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        synced: dataTypes.map((d) => d.data_type),
-        period,
-        fetched_at: now,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Sync error:", error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    await supabase.from("conta_azul_cache").upsert({
+      data_type: "auth_tokens", payload: { ...authRow.payload, ...tokenData },
+      fetched_at: new Date().toISOString(), period: "auth"
+    }, { onConflict: "data_type" })
+
+    const token = tokenData.access_token
+    const bearer = { Authorization: `Bearer ${token}` }
+    const now = new Date().toISOString()
+    const period = now.slice(0, 7)
+    const results: Record<string, any> = {}
+    const BASE = "https://api-v2.contaazul.com"
+
+    try {
+      const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer })
+      results["accounts"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "accounts", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["accounts"] = { error: String(e) } }
+
+    try {
+      const res = await fetch(`${BASE}/v1/categorias?tamanho_pagina=200`, { headers: bearer })
+      results["categories"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "categories", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["categories"] = { error: String(e) } }
+
+    return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    })
+
+  } catch(e) {
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    })
   }
-});
+})
