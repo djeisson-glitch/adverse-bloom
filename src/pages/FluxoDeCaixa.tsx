@@ -16,9 +16,9 @@ export default function FluxoDeCaixa() {
   const currentBalance = useMemo(() => {
     if (!accountsCache?.payload) return 0;
     try {
-      const accounts = accountsCache.payload as unknown as Array<{ balance?: number }>;
+      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
       if (!Array.isArray(accounts)) return 0;
-      return accounts.reduce((s, a) => s + (a.balance ?? 0), 0);
+      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
     } catch { return 0; }
   }, [accountsCache]);
 
