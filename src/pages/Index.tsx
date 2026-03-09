@@ -15,7 +15,8 @@ import { Loader2 } from "lucide-react";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
-  const { data: transactionsCache } = useContaAzulCache("transactions");
+  const { data: categoriesCache } = useContaAzulCache("categories");
+  const { data: accountsCache } = useContaAzulCache("accounts");
 
   const kpis = useMemo(() => {
     if (!projects) return null;
