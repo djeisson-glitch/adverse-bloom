@@ -25,21 +25,20 @@ export default function Index() {
     const currentYear = now.getFullYear();
 
     const thisYearProjects = projects.filter((p) => {
-      const d = p.sold_date ? new Date(p.sold_date) : new Date(p.created_at);
-      return d.getFullYear() === currentYear;
+      if (!p.sold_date) return false;
+      return new Date(p.sold_date).getFullYear() === currentYear;
     });
 
     const thisMonthProjects = thisYearProjects.filter((p) => {
-      const d = p.sold_date ? new Date(p.sold_date) : new Date(p.created_at);
-      return d.getMonth() === currentMonth;
+      return new Date(p.sold_date!).getMonth() === currentMonth;
     });
 
     const receitaMes = thisMonthProjects.reduce((s, p) => s + (p.sold_value ?? 0), 0);
-    const avgMargin = thisYearProjects.length > 0
-      ? thisYearProjects.reduce((s, p) => s + (p.gross_margin_percent ?? 0), 0) / thisYearProjects.length
+    const avgMargin = projects.length > 0
+      ? projects.reduce((s, p) => s + (p.gross_margin_percent ?? 0), 0) / projects.length
       : 0;
-    const ticketMedio = thisYearProjects.length > 0
-      ? thisYearProjects.reduce((s, p) => s + (p.sold_value ?? 0), 0) / thisYearProjects.length
+    const ticketMedio = projects.length > 0
+      ? projects.reduce((s, p) => s + (p.sold_value ?? 0), 0) / projects.length
       : 0;
 
     return {
