@@ -16,13 +16,13 @@ const PIE_COLORS = [
 ];
 
 export default function Custos() {
-  const { data: payablesCache, isLoading } = useContaAzulCache("payables");
+  const { data: categoriesCache, isLoading } = useContaAzulCache("categories");
 
   const { fixedVsVariable, topCategories, monthVariation } = useMemo(() => {
     const empty = { fixedVsVariable: [] as { name: string; value: number }[], topCategories: [] as { name: string; value: number }[], monthVariation: [] as { mes: string; total: number; variacao: string }[] };
-    if (!payablesCache?.payload) return empty;
+    if (!categoriesCache?.payload) return empty;
     try {
-      const items = payablesCache.payload as unknown as Array<{
+      const items = categoriesCache.payload as unknown as Array<{
         category?: string;
         cost_type?: string;
         amount?: number;
@@ -75,7 +75,7 @@ export default function Custos() {
     } catch {
       return empty;
     }
-  }, [payablesCache]);
+  }, [categoriesCache]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -94,6 +94,11 @@ export default function Custos() {
         <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar os custos.</p>
       ) : (
         <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> Detalhes de despesas (fixo/variável, variação mensal) serão disponibilizados após conclusão da sincronização com o Conta Azul.
+            </p>
+          </motion.div>
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
               <h2 className="font-heading text-lg font-semibold mb-4">Custos Fixos vs Variáveis</h2>

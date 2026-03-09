@@ -9,16 +9,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 
 export default function FluxoDeCaixa() {
-  const { data: accountsCache, isLoading: loadingAccounts } = useContaAzulCache("financial_accounts");
+  const { data: accountsCache, isLoading: loadingAccounts } = useContaAzulCache("accounts");
   const { data: receivablesCache } = useContaAzulCache("receivables");
   const { data: payablesCache } = useContaAzulCache("payables");
 
   const currentBalance = useMemo(() => {
     if (!accountsCache?.payload) return 0;
     try {
-      const accounts = accountsCache.payload as unknown as Array<{ balance?: number }>;
+      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
       if (!Array.isArray(accounts)) return 0;
-      return accounts.reduce((s, a) => s + (a.balance ?? 0), 0);
+      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
     } catch { return 0; }
   }, [accountsCache]);
 
@@ -121,6 +121,13 @@ export default function FluxoDeCaixa() {
         ) : (
           <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar o fluxo de caixa.</p>
         )}
+      </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
+        <AlertTriangle className="h-5 w-5 text-muted-foreground shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          <strong>Nota:</strong> A sincronização de recebíveis e pagáveis está pendente devido a um ajuste na API do Conta Azul. Os dados de entradas e saídas serão atualizados assim que a integração for concluída.
+        </p>
       </motion.div>
     </div>
   );

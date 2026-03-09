@@ -1,4 +1,4 @@
-import { DollarSign, FolderKanban, Percent, Hash } from "lucide-react";
+import { DollarSign, FolderKanban, Percent, Hash, Wallet } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useContaAzulCache } from "@/hooks/useContaAzulCache";
@@ -15,7 +15,8 @@ import { Loader2 } from "lucide-react";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
-  const { data: transactionsCache } = useContaAzulCache("transactions");
+  const { data: categoriesCache } = useContaAzulCache("categories");
+  const { data: accountsCache } = useContaAzulCache("accounts");
 
   const kpis = useMemo(() => {
     if (!projects) return null;
@@ -24,21 +25,20 @@ export default function Index() {
     const currentYear = now.getFullYear();
 
     const thisYearProjects = projects.filter((p) => {
-      const d = p.sold_date ? new Date(p.sold_date) : new Date(p.created_at);
-      return d.getFullYear() === currentYear;
+      if (!p.sold_date) return false;
+      return new Date(p.sold_date).getFullYear() === currentYear;
     });
 
     const thisMonthProjects = thisYearProjects.filter((p) => {
-      const d = p.sold_date ? new Date(p.sold_date) : new Date(p.created_at);
-      return d.getMonth() === currentMonth;
+      return new Date(p.sold_date!).getMonth() === currentMonth;
     });
 
     const receitaMes = thisMonthProjects.reduce((s, p) => s + (p.sold_value ?? 0), 0);
-    const avgMargin = thisYearProjects.length > 0
-      ? thisYearProjects.reduce((s, p) => s + (p.gross_margin_percent ?? 0), 0) / thisYearProjects.length
+    const avgMargin = projects.length > 0
+      ? projects.reduce((s, p) => s + (p.gross_margin_percent ?? 0), 0) / projects.length
       : 0;
-    const ticketMedio = thisYearProjects.length > 0
-      ? thisYearProjects.reduce((s, p) => s + (p.sold_value ?? 0), 0) / thisYearProjects.length
+    const ticketMedio = projects.length > 0
+      ? projects.reduce((s, p) => s + (p.sold_value ?? 0), 0) / projects.length
       : 0;
 
     return {
@@ -70,31 +70,35 @@ export default function Index() {
     return months;
   }, [projects]);
 
+  // Saldo em conta from accounts cache
+  const saldoEmConta = useMemo(() => {
+    if (!accountsCache?.payload) return 0;
+    try {
+      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
+      if (!Array.isArray(accounts)) return 0;
+      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
+    } catch { return 0; }
+  }, [accountsCache]);
+
   // Top 5 expense categories from cache
   const expenseCategories = useMemo(() => {
-    if (!transactionsCache?.payload) return [];
+    if (!categoriesCache?.payload) return [];
     try {
-      const payload = transactionsCache.payload as unknown as Array<{
+      const payload = categoriesCache.payload as unknown as Array<{
+        name?: string;
         category?: string;
-        type?: string;
+        value?: number;
         amount?: number;
       }>;
       if (!Array.isArray(payload)) return [];
-      const categories: Record<string, number> = {};
-      payload
-        .filter((t) => t.type === "PAYABLE" || t.type === "EXPENSE")
-        .forEach((t) => {
-          const cat = t.category || "Outros";
-          categories[cat] = (categories[cat] || 0) + Math.abs(t.amount || 0);
-        });
-      return Object.entries(categories)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, value]) => ({ name, value }));
+      return payload
+        .map((c) => ({ name: c.name || c.category || "Outros", value: Math.abs(c.value ?? c.amount ?? 0) }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
     } catch {
       return [];
     }
-  }, [transactionsCache]);
+  }, [categoriesCache]);
 
   if (loadingProjects) {
     return (
@@ -111,11 +115,12 @@ export default function Index() {
         <p className="text-sm text-muted-foreground">Resumo financeiro da Adverse</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Receita do Mês" value={formatCurrency(kpis?.receitaMes ?? 0)} icon={DollarSign} delay={0} />
         <StatCard title="Margem Bruta Média" value={formatPercent(kpis?.avgMargin ?? 0)} icon={Percent} delay={0.1} />
         <StatCard title="Ticket Médio" value={formatCurrency(kpis?.ticketMedio ?? 0)} icon={Hash} delay={0.2} />
         <StatCard title="Projetos no Ano" value={String(kpis?.totalProjetos ?? 0)} icon={FolderKanban} delay={0.3} />
+        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.4} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
