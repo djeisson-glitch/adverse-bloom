@@ -70,31 +70,35 @@ export default function Index() {
     return months;
   }, [projects]);
 
+  // Saldo em conta from accounts cache
+  const saldoEmConta = useMemo(() => {
+    if (!accountsCache?.payload) return 0;
+    try {
+      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
+      if (!Array.isArray(accounts)) return 0;
+      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
+    } catch { return 0; }
+  }, [accountsCache]);
+
   // Top 5 expense categories from cache
   const expenseCategories = useMemo(() => {
-    if (!transactionsCache?.payload) return [];
+    if (!categoriesCache?.payload) return [];
     try {
-      const payload = transactionsCache.payload as unknown as Array<{
+      const payload = categoriesCache.payload as unknown as Array<{
+        name?: string;
         category?: string;
-        type?: string;
+        value?: number;
         amount?: number;
       }>;
       if (!Array.isArray(payload)) return [];
-      const categories: Record<string, number> = {};
-      payload
-        .filter((t) => t.type === "PAYABLE" || t.type === "EXPENSE")
-        .forEach((t) => {
-          const cat = t.category || "Outros";
-          categories[cat] = (categories[cat] || 0) + Math.abs(t.amount || 0);
-        });
-      return Object.entries(categories)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, value]) => ({ name, value }));
+      return payload
+        .map((c) => ({ name: c.name || c.category || "Outros", value: Math.abs(c.value ?? c.amount ?? 0) }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
     } catch {
       return [];
     }
-  }, [transactionsCache]);
+  }, [categoriesCache]);
 
   if (loadingProjects) {
     return (
