@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 
 export default function FluxoDeCaixa() {
-  const { data: accountsCache, isLoading: loadingAccounts } = useContaAzulCache("financial_accounts");
+  const { data: accountsCache, isLoading: loadingAccounts } = useContaAzulCache("accounts");
   const { data: receivablesCache } = useContaAzulCache("receivables");
   const { data: payablesCache } = useContaAzulCache("payables");
 
