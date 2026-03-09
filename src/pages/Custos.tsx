@@ -16,7 +16,7 @@ const PIE_COLORS = [
 ];
 
 export default function Custos() {
-  const { data: payablesCache, isLoading } = useContaAzulCache("payables");
+  const { data: categoriesCache, isLoading } = useContaAzulCache("categories");
 
   const { fixedVsVariable, topCategories, monthVariation } = useMemo(() => {
     const empty = { fixedVsVariable: [] as { name: string; value: number }[], topCategories: [] as { name: string; value: number }[], monthVariation: [] as { mes: string; total: number; variacao: string }[] };
