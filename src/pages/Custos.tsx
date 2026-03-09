@@ -22,7 +22,7 @@ export default function Custos() {
     const empty = { fixedVsVariable: [] as { name: string; value: number }[], topCategories: [] as { name: string; value: number }[], monthVariation: [] as { mes: string; total: number; variacao: string }[] };
     if (!categoriesCache?.payload) return empty;
     try {
-      const items = payablesCache.payload as unknown as Array<{
+      const items = categoriesCache.payload as unknown as Array<{
         category?: string;
         cost_type?: string;
         amount?: number;
