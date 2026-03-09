@@ -9,11 +9,30 @@ const corsHeaders = {
 
 const CONTA_AZUL_BASE = "https://api.contaazul.com/v1";
 
+let cachedToken: string | null = null;
+let tokenExpiresAt = 0;
+
 async function getContaAzulToken(): Promise<string> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const res = await fetch(`${supabaseUrl}/functions/v1/conta-azul-token`, {
+  const now = Date.now();
+  if (cachedToken && now < tokenExpiresAt) {
+    return cachedToken;
+  }
+
+  const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID");
+  const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET");
+
+  if (!clientId || !clientSecret) {
+    throw new Error("CONTA_AZUL_CLIENT_ID ou CONTA_AZUL_CLIENT_SECRET não configurados");
+  }
+
+  const res = await fetch("https://api.contaazul.com/auth/token", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
   });
 
   if (!res.ok) {
@@ -22,7 +41,9 @@ async function getContaAzulToken(): Promise<string> {
   }
 
   const data = await res.json();
-  return data.access_token;
+  cachedToken = data.access_token;
+  tokenExpiresAt = now + (data.expires_in - 60) * 1000;
+  return cachedToken!;
 }
 
 async function fetchContaAzul(token: string, path: string, params?: Record<string, string>): Promise<unknown> {
