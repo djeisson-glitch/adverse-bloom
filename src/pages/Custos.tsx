@@ -94,6 +94,11 @@ export default function Custos() {
         <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar os custos.</p>
       ) : (
         <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> Detalhes de despesas (fixo/variável, variação mensal) serão disponibilizados após conclusão da sincronização com o Conta Azul.
+            </p>
+          </motion.div>
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
               <h2 className="font-heading text-lg font-semibold mb-4">Custos Fixos vs Variáveis</h2>

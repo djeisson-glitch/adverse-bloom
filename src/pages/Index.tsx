@@ -1,4 +1,4 @@
-import { DollarSign, FolderKanban, Percent, Hash } from "lucide-react";
+import { DollarSign, FolderKanban, Percent, Hash, Wallet } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useContaAzulCache } from "@/hooks/useContaAzulCache";

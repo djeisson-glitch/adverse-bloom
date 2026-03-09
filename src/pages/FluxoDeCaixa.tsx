@@ -122,6 +122,13 @@ export default function FluxoDeCaixa() {
           <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar o fluxo de caixa.</p>
         )}
       </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
+        <AlertTriangle className="h-5 w-5 text-muted-foreground shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          <strong>Nota:</strong> A sincronização de recebíveis e pagáveis está pendente devido a um ajuste na API do Conta Azul. Os dados de entradas e saídas serão atualizados assim que a integração for concluída.
+        </p>
+      </motion.div>
     </div>
   );
 }

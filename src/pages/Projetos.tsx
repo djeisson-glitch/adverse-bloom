@@ -42,7 +42,7 @@ export default function Projetos() {
       const now = new Date();
       const months = parseInt(filterPeriod);
       const cutoff = new Date(now.getFullYear(), now.getMonth() - months, 1);
-      list = list.filter((p) => new Date(p.created_at) >= cutoff);
+      list = list.filter((p) => p.sold_date && new Date(p.sold_date) >= cutoff);
     }
     return list;
   }, [projects, filterStatus, filterPeriod]);
