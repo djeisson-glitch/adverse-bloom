@@ -25,13 +25,17 @@ async function getContaAzulToken(): Promise<string> {
     throw new Error("CONTA_AZUL_CLIENT_ID ou CONTA_AZUL_CLIENT_SECRET não configurados");
   }
 
-  const res = await fetch("https://api.contaazul.com/auth/token", {
+  // Use Basic Auth header as per OAuth2 client_credentials spec
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  
+  const res = await fetch("https://api.contaazul.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${credentials}`,
+    },
+    body: JSON.stringify({
       grant_type: "client_credentials",
-      client_id: clientId,
-      client_secret: clientSecret,
     }),
   });
 
