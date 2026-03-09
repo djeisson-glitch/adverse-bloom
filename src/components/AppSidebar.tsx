@@ -3,7 +3,8 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -30,27 +31,30 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const [syncing, setSyncing] = useState(false);
+  const { toast } = useToast();
 
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await fetch(
-        "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-sync",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtncnpmd2d5Z3Z3c3Rxb3dpcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTcwNjUsImV4cCI6MjA4ODU3MzA2NX0.4u3iB_LXjy1IMClUa8pn-M1wTWD3-DKfAR0Rxj2Ra04",
-          },
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || `Erro ${res.status}`);
+      const { data, error } = await supabase.functions.invoke('conta-azul-sync');
+      
+      if (error) {
+        console.error('Sync error:', error);
+        toast({ 
+          title: "Erro ao sincronizar", 
+          description: error.message, 
+          variant: "destructive" 
+        });
+      } else {
+        toast({ title: "Sincronizado com sucesso!" });
       }
-      toast.success("Dados sincronizados com sucesso!");
     } catch (err) {
-      toast.error((err as Error).message || "Erro ao sincronizar dados.");
+      console.error('Sync error:', err);
+      toast({ 
+        title: "Erro ao sincronizar", 
+        description: "Erro inesperado ao sincronizar dados.", 
+        variant: "destructive" 
+      });
     } finally {
       setSyncing(false);
     }
