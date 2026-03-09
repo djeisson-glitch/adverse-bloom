@@ -35,19 +35,22 @@ export function AppSidebar() {
     setSyncing(true);
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/conta-azul-sync`,
+        "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-sync",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtncnpmd2d5Z3Z3c3Rxb3dpcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTcwNjUsImV4cCI6MjA4ODU3MzA2NX0.4u3iB_LXjy1IMClUa8pn-M1wTWD3-DKfAR0Rxj2Ra04",
           },
         }
       );
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Erro ${res.status}`);
+      }
       toast.success("Dados sincronizados com sucesso!");
-    } catch {
-      toast.error("Erro ao sincronizar dados.");
+    } catch (err) {
+      toast.error((err as Error).message || "Erro ao sincronizar dados.");
     } finally {
       setSyncing(false);
     }
