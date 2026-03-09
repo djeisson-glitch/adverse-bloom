@@ -115,11 +115,12 @@ export default function Index() {
         <p className="text-sm text-muted-foreground">Resumo financeiro da Adverse</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Receita do Mês" value={formatCurrency(kpis?.receitaMes ?? 0)} icon={DollarSign} delay={0} />
         <StatCard title="Margem Bruta Média" value={formatPercent(kpis?.avgMargin ?? 0)} icon={Percent} delay={0.1} />
         <StatCard title="Ticket Médio" value={formatCurrency(kpis?.ticketMedio ?? 0)} icon={Hash} delay={0.2} />
         <StatCard title="Projetos no Ano" value={String(kpis?.totalProjetos ?? 0)} icon={FolderKanban} delay={0.3} />
+        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.4} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
