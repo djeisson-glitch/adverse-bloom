@@ -20,7 +20,7 @@ export default function Custos() {
 
   const { fixedVsVariable, topCategories, monthVariation } = useMemo(() => {
     const empty = { fixedVsVariable: [] as { name: string; value: number }[], topCategories: [] as { name: string; value: number }[], monthVariation: [] as { mes: string; total: number; variacao: string }[] };
-    if (!payablesCache?.payload) return empty;
+    if (!categoriesCache?.payload) return empty;
     try {
       const items = payablesCache.payload as unknown as Array<{
         category?: string;
