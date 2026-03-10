@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useContaAzulCache } from "@/hooks/useContaAzulCache";
+import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
 import { StatCard } from "@/components/StatCard";
 import { Wallet, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
@@ -9,42 +9,38 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 
 export default function FluxoDeCaixa() {
-  const { data: accountsCache, isLoading: loadingAccounts } = useContaAzulCache("accounts");
-  const { data: receivablesCache } = useContaAzulCache("receivables");
-  const { data: payablesCache } = useContaAzulCache("payables");
+  const { accounts, receivables, payables } = useAllContaAzulCache();
+
+  // Log raw payloads
+  useEffect(() => {
+    if (receivables.data?.payload) console.log("[FluxoDeCaixa] receivables raw:", receivables.data.payload);
+    if (payables.data?.payload) console.log("[FluxoDeCaixa] payables raw:", payables.data.payload);
+  }, [receivables.data, payables.data]);
 
   const currentBalance = useMemo(() => {
-    if (!accountsCache?.payload) return 0;
-    try {
-      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
-      if (!Array.isArray(accounts)) return 0;
-      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
-    } catch { return 0; }
-  }, [accountsCache]);
+    const items = extractItems<{ saldo?: number }>(accounts.data?.payload);
+    return items.reduce((s, a) => s + (a?.saldo ?? 0), 0);
+  }, [accounts.data]);
 
-  // Monthly income vs expenses (last 6 months)
+  // Monthly income vs expenses (last 6 months) using data_vencimento and valor
   const monthlyChart = useMemo(() => {
     const now = new Date();
     const months: { label: string; entradas: number; saidas: number }[] = [];
 
-    const parseTransactions = (cache: typeof receivablesCache, field: "entradas" | "saidas") => {
-      if (!cache?.payload) return {};
-      try {
-        const items = cache.payload as unknown as Array<{ due_date?: string; amount?: number }>;
-        if (!Array.isArray(items)) return {};
-        const byMonth: Record<string, number> = {};
-        items.forEach((t) => {
-          if (!t.due_date) return;
-          const d = new Date(t.due_date);
-          const key = `${d.getFullYear()}-${d.getMonth()}`;
-          byMonth[key] = (byMonth[key] || 0) + Math.abs(t.amount || 0);
-        });
-        return byMonth;
-      } catch { return {}; }
+    const groupByMonth = (payload: unknown) => {
+      const items = extractItems<{ valor?: number; data_vencimento?: string }>(payload);
+      const byMonth: Record<string, number> = {};
+      items.forEach((t) => {
+        if (!t?.data_vencimento) return;
+        const d = new Date(t.data_vencimento);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        byMonth[key] = (byMonth[key] || 0) + Math.abs(t?.valor ?? 0);
+      });
+      return byMonth;
     };
 
-    const incomeByMonth = parseTransactions(receivablesCache, "entradas");
-    const expenseByMonth = parseTransactions(payablesCache, "saidas");
+    const incomeByMonth = groupByMonth(receivables.data?.payload);
+    const expenseByMonth = groupByMonth(payables.data?.payload);
 
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -57,7 +53,7 @@ export default function FluxoDeCaixa() {
       });
     }
     return months;
-  }, [receivablesCache, payablesCache]);
+  }, [receivables.data, payables.data]);
 
   const avgMonthlyNet = useMemo(() => {
     if (monthlyChart.length === 0) return 0;
@@ -73,7 +69,7 @@ export default function FluxoDeCaixa() {
   const totalEntradas = monthlyChart.reduce((s, m) => s + m.entradas, 0);
   const totalSaidas = monthlyChart.reduce((s, m) => s + m.saidas, 0);
 
-  if (loadingAccounts) {
+  if (accounts.isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
@@ -121,13 +117,6 @@ export default function FluxoDeCaixa() {
         ) : (
           <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar o fluxo de caixa.</p>
         )}
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
-        <AlertTriangle className="h-5 w-5 text-muted-foreground shrink-0" />
-        <p className="text-sm text-muted-foreground">
-          <strong>Nota:</strong> A sincronização de recebíveis e pagáveis está pendente devido a um ajuste na API do Conta Azul. Os dados de entradas e saídas serão atualizados assim que a integração for concluída.
-        </p>
       </motion.div>
     </div>
   );
