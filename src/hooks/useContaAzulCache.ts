@@ -26,13 +26,14 @@ export function useAllContaAzulCache() {
   return { accounts, receivables, payables, categories };
 }
 
-/** Extract items array from payload (handles array or {items: []} shape) */
+/** Extract items array from payload (handles array, {itens: []}, or {items: []} shape) */
 export function extractItems<T = any>(payload: unknown): T[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as T[];
-  if (typeof payload === "object" && payload !== null && "items" in payload) {
-    const items = (payload as any).items;
-    if (Array.isArray(items)) return items as T[];
+  if (typeof payload === "object" && payload !== null) {
+    const p = payload as any;
+    if (Array.isArray(p.itens)) return p.itens as T[];
+    if (Array.isArray(p.items)) return p.items as T[];
   }
   return [];
 }
