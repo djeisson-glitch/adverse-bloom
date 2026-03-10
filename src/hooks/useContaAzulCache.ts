@@ -18,6 +18,25 @@ export function useContaAzulCache(dataType: string) {
   });
 }
 
+export function useAllContaAzulCache() {
+  const accounts = useContaAzulCache("accounts");
+  const receivables = useContaAzulCache("receivables");
+  const payables = useContaAzulCache("payables");
+  const categories = useContaAzulCache("categories");
+  return { accounts, receivables, payables, categories };
+}
+
+/** Extract items array from payload (handles array or {items: []} shape) */
+export function extractItems<T = any>(payload: unknown): T[] {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload as T[];
+  if (typeof payload === "object" && payload !== null && "items" in payload) {
+    const items = (payload as any).items;
+    if (Array.isArray(items)) return items as T[];
+  }
+  return [];
+}
+
 export function useSyncContaAzul() {
   return async () => {
     const res = await fetch(

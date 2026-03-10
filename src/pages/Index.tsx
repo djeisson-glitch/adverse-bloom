@@ -1,7 +1,7 @@
 import { DollarSign, FolderKanban, Percent, Hash, Wallet } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
-import { useContaAzulCache } from "@/hooks/useContaAzulCache";
+import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { motion } from "framer-motion";
 import {
@@ -9,15 +9,31 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, ResponsiveContainer } from "recharts";
-import { useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts";
+import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
-  const { data: categoriesCache } = useContaAzulCache("categories");
-  const { data: accountsCache } = useContaAzulCache("accounts");
+  const { accounts, receivables, payables, categories } = useAllContaAzulCache();
 
+  // Log raw payloads for inspection
+  useEffect(() => {
+    if (receivables.data?.payload) {
+      console.log("[ContaAzul] receivables raw payload:", receivables.data.payload);
+    }
+    if (payables.data?.payload) {
+      console.log("[ContaAzul] payables raw payload:", payables.data.payload);
+    }
+    if (accounts.data?.payload) {
+      console.log("[ContaAzul] accounts raw payload:", accounts.data.payload);
+    }
+    if (categories.data?.payload) {
+      console.log("[ContaAzul] categories raw payload:", categories.data.payload);
+    }
+  }, [receivables.data, payables.data, accounts.data, categories.data]);
+
+  // Project-based KPIs (keep existing)
   const kpis = useMemo(() => {
     if (!projects) return null;
     const now = new Date();
@@ -49,56 +65,78 @@ export default function Index() {
     };
   }, [projects]);
 
-  // Revenue last 6 months from projects
-  const revenueChart = useMemo(() => {
-    if (!projects) return [];
+  // Saldo em Conta: sum "saldo" from accounts
+  const saldoEmConta = useMemo(() => {
+    const items = extractItems<{ saldo?: number }>(accounts.data?.payload);
+    return items.reduce((s, a) => s + (a?.saldo ?? 0), 0);
+  }, [accounts.data]);
+
+  // Receita do Mês from receivables: sum "valor" where data_vencimento is current month AND status is RECEBIDO or LIQUIDADO
+  const receitaMesContaAzul = useMemo(() => {
+    const items = extractItems<{ valor?: number; data_vencimento?: string; status?: string }>(receivables.data?.payload);
     const now = new Date();
-    const months: { label: string; receita: number }[] = [];
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    return items
+      .filter((r) => {
+        if (!r?.data_vencimento) return false;
+        const d = new Date(r.data_vencimento);
+        if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
+        const st = r?.status?.toUpperCase?.();
+        return st === "RECEBIDO" || st === "LIQUIDADO";
+      })
+      .reduce((s, r) => s + (r?.valor ?? 0), 0);
+  }, [receivables.data]);
+
+  // Fluxo de Caixa chart: last 6 months receivables vs payables by data_vencimento
+  const fluxoChart = useMemo(() => {
+    const recItems = extractItems<{ valor?: number; data_vencimento?: string }>(receivables.data?.payload);
+    const payItems = extractItems<{ valor?: number; data_vencimento?: string }>(payables.data?.payload);
+    const now = new Date();
+    const months: { label: string; receitas: number; despesas: number }[] = [];
+
+    const groupByMonth = (items: typeof recItems) => {
+      const byMonth: Record<string, number> = {};
+      items.forEach((t) => {
+        if (!t?.data_vencimento) return;
+        const d = new Date(t.data_vencimento);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        byMonth[key] = (byMonth[key] || 0) + Math.abs(t?.valor ?? 0);
+      });
+      return byMonth;
+    };
+
+    const recByMonth = groupByMonth(recItems);
+    const payByMonth = groupByMonth(payItems);
+
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const month = d.getMonth();
-      const year = d.getFullYear();
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-      const receita = projects
-        .filter((p) => {
-          const pd = p.sold_date ? new Date(p.sold_date) : new Date(p.created_at);
-          return pd.getMonth() === month && pd.getFullYear() === year;
-        })
-        .reduce((s, p) => s + (p.sold_value ?? 0), 0);
-      months.push({ label, receita });
+      months.push({
+        label,
+        receitas: recByMonth[key] || 0,
+        despesas: payByMonth[key] || 0,
+      });
     }
     return months;
-  }, [projects]);
+  }, [receivables.data, payables.data]);
 
-  // Saldo em conta from accounts cache
-  const saldoEmConta = useMemo(() => {
-    if (!accountsCache?.payload) return 0;
-    try {
-      const accounts = accountsCache.payload as unknown as Array<{ balance?: number; saldo?: number }>;
-      if (!Array.isArray(accounts)) return 0;
-      return accounts.reduce((s, a) => s + (a.balance ?? a.saldo ?? 0), 0);
-    } catch { return 0; }
-  }, [accountsCache]);
-
-  // Top 5 expense categories from cache
+  // Top 5 categorias de gastos: group payables by categoria.nome
   const expenseCategories = useMemo(() => {
-    if (!categoriesCache?.payload) return [];
-    try {
-      const payload = categoriesCache.payload as unknown as Array<{
-        name?: string;
-        category?: string;
-        value?: number;
-        amount?: number;
-      }>;
-      if (!Array.isArray(payload)) return [];
-      return payload
-        .map((c) => ({ name: c.name || c.category || "Outros", value: Math.abs(c.value ?? c.amount ?? 0) }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5);
-    } catch {
-      return [];
-    }
-  }, [categoriesCache]);
+    const items = extractItems<{ valor?: number; categoria?: { nome?: string } }>(payables.data?.payload);
+    const byCategory: Record<string, number> = {};
+    items.forEach((item) => {
+      const catName = item?.categoria?.nome || "Outros";
+      byCategory[catName] = (byCategory[catName] || 0) + Math.abs(item?.valor ?? 0);
+    });
+    return Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [payables.data]);
+
+  const hasFluxoData = fluxoChart.some((m) => m.receitas > 0 || m.despesas > 0);
 
   if (loadingProjects) {
     return (
@@ -116,7 +154,7 @@ export default function Index() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Receita do Mês" value={formatCurrency(kpis?.receitaMes ?? 0)} icon={DollarSign} delay={0} />
+        <StatCard title="Receita do Mês (CA)" value={formatCurrency(receitaMesContaAzul)} icon={DollarSign} delay={0} />
         <StatCard title="Margem Bruta Média" value={formatPercent(kpis?.avgMargin ?? 0)} icon={Percent} delay={0.1} />
         <StatCard title="Ticket Médio" value={formatCurrency(kpis?.ticketMedio ?? 0)} icon={Hash} delay={0.2} />
         <StatCard title="Projetos no Ano" value={String(kpis?.totalProjetos ?? 0)} icon={FolderKanban} delay={0.3} />
@@ -125,19 +163,23 @@ export default function Index() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
-          <h2 className="font-heading text-lg font-semibold mb-4">Receita - Últimos 6 Meses</h2>
-          {revenueChart.length > 0 ? (
-            <ChartContainer config={{ receita: { label: "Receita", color: "hsl(var(--primary))" } }} className="h-[250px]">
-              <LineChart data={revenueChart}>
+          <h2 className="font-heading text-lg font-semibold mb-4">Fluxo de Caixa - Últimos 6 Meses</h2>
+          {hasFluxoData ? (
+            <ChartContainer config={{
+              receitas: { label: "Receitas", color: "hsl(var(--success))" },
+              despesas: { label: "Despesas", color: "hsl(var(--destructive))" },
+            }} className="h-[250px]">
+              <LineChart data={fluxoChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="receita" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+                <Line type="monotone" dataKey="receitas" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
+                <Line type="monotone" dataKey="despesas" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ fill: "hsl(var(--destructive))" }} />
               </LineChart>
             </ChartContainer>
           ) : (
-            <p className="text-sm text-muted-foreground py-10 text-center">Sem dados de projetos ainda.</p>
+            <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para ver o fluxo.</p>
           )}
         </motion.div>
 
