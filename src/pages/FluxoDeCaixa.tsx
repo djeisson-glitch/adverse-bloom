@@ -8,33 +8,41 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 
-export default function FluxoDeCaixa() {
-  const { accounts, receivables, payables } = useAllContaAzulCache();
+interface CAItem {
+  total?: number;
+  pago?: number;
+  status?: string;
+  data_vencimento?: string;
+}
 
-  // Log raw payloads
+export default function FluxoDeCaixa() {
+  const { receivables, payables } = useAllContaAzulCache();
+
   useEffect(() => {
     if (receivables.data?.payload) console.log("[FluxoDeCaixa] receivables raw:", receivables.data.payload);
     if (payables.data?.payload) console.log("[FluxoDeCaixa] payables raw:", payables.data.payload);
   }, [receivables.data, payables.data]);
 
+  // Saldo: receivables totais.pago.valor - payables totais.pago.valor
   const currentBalance = useMemo(() => {
-    const items = extractItems<{ saldo?: number }>(accounts.data?.payload);
-    return items.reduce((s, a) => s + (a?.saldo ?? 0), 0);
-  }, [accounts.data]);
+    const recTotal = (receivables.data?.payload as any)?.totais?.pago?.valor ?? 0;
+    const payTotal = (payables.data?.payload as any)?.totais?.pago?.valor ?? 0;
+    return recTotal - payTotal;
+  }, [receivables.data, payables.data]);
 
-  // Monthly income vs expenses (last 6 months) using data_vencimento and valor
+  // Monthly chart: last 6 months, ACQUITTED only, sum pago
   const monthlyChart = useMemo(() => {
     const now = new Date();
     const months: { label: string; entradas: number; saidas: number }[] = [];
 
     const groupByMonth = (payload: unknown) => {
-      const items = extractItems<{ valor?: number; data_vencimento?: string }>(payload);
+      const items = extractItems<CAItem>(payload);
       const byMonth: Record<string, number> = {};
       items.forEach((t) => {
-        if (!t?.data_vencimento) return;
+        if (!t?.data_vencimento || t?.status !== "ACQUITTED") return;
         const d = new Date(t.data_vencimento);
         const key = `${d.getFullYear()}-${d.getMonth()}`;
-        byMonth[key] = (byMonth[key] || 0) + Math.abs(t?.valor ?? 0);
+        byMonth[key] = (byMonth[key] || 0) + (t?.pago ?? 0);
       });
       return byMonth;
     };
@@ -46,19 +54,14 @@ export default function FluxoDeCaixa() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-      months.push({
-        label,
-        entradas: incomeByMonth[key] || 0,
-        saidas: expenseByMonth[key] || 0,
-      });
+      months.push({ label, entradas: incomeByMonth[key] || 0, saidas: expenseByMonth[key] || 0 });
     }
     return months;
   }, [receivables.data, payables.data]);
 
   const avgMonthlyNet = useMemo(() => {
     if (monthlyChart.length === 0) return 0;
-    const total = monthlyChart.reduce((s, m) => s + m.entradas - m.saidas, 0);
-    return total / monthlyChart.length;
+    return monthlyChart.reduce((s, m) => s + m.entradas - m.saidas, 0) / monthlyChart.length;
   }, [monthlyChart]);
 
   const now = new Date();
@@ -69,7 +72,7 @@ export default function FluxoDeCaixa() {
   const totalEntradas = monthlyChart.reduce((s, m) => s + m.entradas, 0);
   const totalSaidas = monthlyChart.reduce((s, m) => s + m.saidas, 0);
 
-  if (accounts.isLoading) {
+  if (receivables.isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
