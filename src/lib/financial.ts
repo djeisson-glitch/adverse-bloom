@@ -82,10 +82,10 @@ export function calcCustosFixos(payItems: CAItem[], period: PeriodRange): number
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// 5. Custos Variáveis - VARIABLE_COSTS includes cat, data_vencimento in period, field total
+// 5. Custos Variáveis (competência) - VARIABLE_COSTS includes cat, data_competencia in period, field total
 export function calcCustosVariaveis(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
