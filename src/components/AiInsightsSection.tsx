@@ -115,6 +115,36 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
     }
   }, [financialData, hasData]);
 
+  const generateReport = useCallback(async () => {
+    if (!hasData) {
+      toast.error("Sincronize os dados antes de gerar o relatório.");
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-report", {
+        body: { financialData },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const html = data.html;
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Permita pop-ups para gerar o relatório.");
+        return;
+      }
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 500);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Erro ao gerar relatório");
+    } finally {
+      setReportLoading(false);
+    }
+  }, [financialData, hasData]);
+
   const timeAgo = lastAnalysis
     ? (() => {
         const mins = Math.floor((Date.now() - lastAnalysis.getTime()) / 60000);
