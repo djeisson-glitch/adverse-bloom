@@ -202,6 +202,17 @@ export default function Insights() {
             <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={TrendingUp} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
           </div>
 
+          <DiagnosticoResultado
+            recItems={recItems}
+            payItems={payItems}
+            period={period}
+            receitaTotal={receitaTotal}
+            custosFixos={custosFixos}
+            custosVariaveis={custosVariaveis}
+            lucroLiquido={lucroLiquido}
+            margemLiquida={margemLiquida}
+          />
+
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[200px]">
               <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
