@@ -44,8 +44,16 @@ export default function Index() {
     return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
   });
 
-  const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
-  const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
+  const recItems = useMemo(() => {
+    const items = extractItems<CAItem>(receivables.data?.payload);
+    console.log(`[Dashboard] Receivables loaded: ${items.length} items`);
+    return items;
+  }, [receivables.data]);
+  const payItems = useMemo(() => {
+    const items = extractItems<CAItem>(payables.data?.payload);
+    console.log(`[Dashboard] Payables loaded: ${items.length} items`);
+    return items;
+  }, [payables.data]);
 
   // KPI 1: Receita do Período - sum total, data_vencimento in period, all statuses
   const receitaPeriodo = useMemo(() =>
