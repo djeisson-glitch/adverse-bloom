@@ -1,157 +1,139 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useContaAzulCache } from "@/hooks/useContaAzulCache";
+import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from "recharts";
-import { Loader2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Loader2, Wallet, CreditCard } from "lucide-react";
+import { StatCard } from "@/components/StatCard";
+import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 
-const PIE_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--destructive))",
-  "hsl(var(--success))",
-  "hsl(var(--warning))",
-  "hsl(210, 70%, 65%)",
-  "hsl(280, 60%, 55%)",
-];
+interface PayItem {
+  id?: string;
+  total?: number;
+  pago?: number;
+  status?: string;
+  status_traduzido?: string;
+  descricao?: string;
+  data_vencimento?: string;
+  categorias?: { nome?: string }[];
+  fornecedor?: { nome?: string };
+}
+
+function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
+  if (!dateStr) return false;
+  return dateStr >= range.from && dateStr <= range.to;
+}
 
 export default function Custos() {
-  const { data: categoriesCache, isLoading } = useContaAzulCache("categories");
+  const { data: payablesCache, isLoading } = useContaAzulCache("payables");
 
-  const { fixedVsVariable, topCategories, monthVariation } = useMemo(() => {
-    const empty = { fixedVsVariable: [] as { name: string; value: number }[], topCategories: [] as { name: string; value: number }[], monthVariation: [] as { mes: string; total: number; variacao: string }[] };
-    if (!categoriesCache?.payload) return empty;
-    try {
-      const items = categoriesCache.payload as unknown as Array<{
-        category?: string;
-        cost_type?: string;
-        amount?: number;
-        due_date?: string;
-      }>;
-      if (!Array.isArray(items)) return empty;
+  const [period, setPeriod] = useState<PeriodRange>(() => {
+    const now = new Date();
+    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const lastDay = new Date(py, pm + 1, 0).getDate();
+    return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
+  });
 
-      // Fixed vs Variable
-      let fixed = 0, variable = 0;
-      const categories: Record<string, number> = {};
-      const byMonth: Record<string, number> = {};
+  const allItems = useMemo(() => extractItems<PayItem>(payablesCache?.payload), [payablesCache]);
 
-      items.forEach((t) => {
-        const amount = Math.abs(t.amount || 0);
-        if (t.cost_type === "FIXED") fixed += amount;
-        else variable += amount;
+  const filtered = useMemo(() => allItems.filter(i => isInRange(i?.data_vencimento, period)), [allItems, period]);
 
-        const cat = t.category || "Outros";
-        categories[cat] = (categories[cat] || 0) + amount;
+  const totalDespesas = useMemo(() => filtered.reduce((s, i) => s + (i?.total ?? 0), 0), [filtered]);
+  const totalPago = useMemo(() => filtered.reduce((s, i) => s + (i?.pago ?? 0), 0), [filtered]);
 
-        if (t.due_date) {
-          const d = new Date(t.due_date);
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          byMonth[key] = (byMonth[key] || 0) + amount;
-        }
-      });
-
-      const fixedVsVariable = [
-        { name: "Fixos", value: fixed },
-        { name: "Variáveis", value: variable },
-      ].filter((d) => d.value > 0);
-
-      const topCategories = Object.entries(categories)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([name, value]) => ({ name, value }));
-
-      const sortedMonths = Object.keys(byMonth).sort();
-      const monthVariation = sortedMonths.map((key, i) => {
-        const [y, m] = key.split("-");
-        const d = new Date(parseInt(y), parseInt(m) - 1);
-        const mes = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
-        const total = byMonth[key];
-        const prev = i > 0 ? byMonth[sortedMonths[i - 1]] : total;
-        const pct = prev > 0 ? ((total - prev) / prev) * 100 : 0;
-        return { mes, total, variacao: i === 0 ? "—" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` };
-      });
-
-      return { fixedVsVariable, topCategories, monthVariation };
-    } catch {
-      return empty;
-    }
-  }, [categoriesCache]);
+  const categoryChart = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    filtered.forEach(item => {
+      const catName = item?.categorias?.[0]?.nome || "Outros";
+      byCategory[catName] = (byCategory[catName] || 0) + Math.abs(item?.total ?? 0);
+    });
+    return Object.entries(byCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [filtered]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const hasData = topCategories.length > 0;
+  const hasData = allItems.length > 0;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Custos</h1>
-        <p className="text-sm text-muted-foreground">Análise detalhada de despesas</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Custos</h1>
+          <p className="text-sm text-muted-foreground">Análise detalhada de despesas</p>
+        </div>
+        <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
       {!hasData ? (
-        <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados do Conta Azul para visualizar os custos.</p>
+        <p className="text-sm text-muted-foreground py-10 text-center">Sincronize os dados para visualizar os custos.</p>
       ) : (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-4">
-            <p className="text-sm text-muted-foreground">
-              <strong>Nota:</strong> Detalhes de despesas (fixo/variável, variação mensal) serão disponibilizados após conclusão da sincronização com o Conta Azul.
-            </p>
-          </motion.div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
-              <h2 className="font-heading text-lg font-semibold mb-4">Custos Fixos vs Variáveis</h2>
-              <ChartContainer config={{
-                Fixos: { label: "Fixos", color: PIE_COLORS[0] },
-                Variáveis: { label: "Variáveis", color: PIE_COLORS[1] },
-              }} className="h-[280px]">
-                <PieChart>
-                  <Pie data={fixedVsVariable} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {fixedVsVariable.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </PieChart>
-              </ChartContainer>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-6">
-              <h2 className="font-heading text-lg font-semibold mb-4">Top 10 Categorias de Despesas</h2>
-              <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--primary))" } }} className="h-[280px]">
-                <BarChart data={topCategories} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={130} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ChartContainer>
-            </motion.div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard title="Despesas do Período" value={formatCurrency(totalDespesas)} icon={Wallet} delay={0} />
+            <StatCard title="Pago no Período" value={formatCurrency(totalPago)} icon={CreditCard} delay={0.05} />
+            <StatCard title="Itens no Período" value={String(filtered.length)} icon={Wallet} delay={0.1} />
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card overflow-hidden">
-            <h2 className="font-heading text-lg font-semibold p-6 pb-2">Variação Mensal de Custos</h2>
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-6">
+            <h2 className="font-heading text-lg font-semibold mb-4">Top 10 Categorias de Despesas</h2>
+            {categoryChart.length > 0 ? (
+              <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[320px]">
+                <BarChart data={categoryChart} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={160} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-10 text-center">Nenhuma despesa no período selecionado.</p>
+            )}
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="glass-card overflow-hidden">
+            <h2 className="font-heading text-lg font-semibold p-6 pb-2">Detalhamento de Despesas</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="p-4 font-medium">Mês</th>
+                    <th className="p-4 font-medium">Vencimento</th>
+                    <th className="p-4 font-medium">Descrição</th>
+                    <th className="p-4 font-medium">Categoria</th>
                     <th className="p-4 font-medium text-right">Total</th>
-                    <th className="p-4 font-medium text-right">Variação</th>
+                    <th className="p-4 font-medium text-right">Pago</th>
+                    <th className="p-4 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {monthVariation.map((m) => (
-                    <tr key={m.mes} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                      <td className="p-4 font-medium capitalize">{m.mes}</td>
-                      <td className="p-4 text-right font-heading">{formatCurrency(m.total)}</td>
-                      <td className={`p-4 text-right font-medium ${m.variacao.startsWith("+") ? "text-destructive" : m.variacao.startsWith("-") ? "text-success" : "text-muted-foreground"}`}>
-                        {m.variacao}
+                  {filtered.slice(0, 100).map((item, idx) => (
+                    <tr key={item.id || idx} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                      <td className="p-4 whitespace-nowrap">{item.data_vencimento ?? "—"}</td>
+                      <td className="p-4 max-w-[300px] truncate">{item.descricao ?? "—"}</td>
+                      <td className="p-4 whitespace-nowrap">{item.categorias?.[0]?.nome ?? "—"}</td>
+                      <td className="p-4 text-right font-heading whitespace-nowrap">{formatCurrency(item.total ?? 0)}</td>
+                      <td className="p-4 text-right font-heading whitespace-nowrap">{formatCurrency(item.pago ?? 0)}</td>
+                      <td className="p-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          item.status === "ACQUITTED" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
+                        }`}>
+                          {item.status_traduzido ?? item.status ?? "—"}
+                        </span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {filtered.length > 100 && (
+                <p className="p-4 text-xs text-muted-foreground text-center">Mostrando 100 de {filtered.length} itens</p>
+              )}
             </div>
           </motion.div>
         </>
