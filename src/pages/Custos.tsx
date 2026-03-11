@@ -29,13 +29,7 @@ function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
 export default function Custos() {
   const { data: payablesCache, isLoading } = useContaAzulCache("payables");
 
-  const [period, setPeriod] = useState<PeriodRange>(() => {
-    const now = new Date();
-    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const lastDay = new Date(py, pm + 1, 0).getDate();
-    return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
-  });
+  const { period, setPeriod } = usePeriod();
 
   const allItems = useMemo(() => extractItems<PayItem>(payablesCache?.payload), [payablesCache]);
 
