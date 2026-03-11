@@ -1,4 +1,4 @@
-import { DollarSign, FolderKanban, Wallet, ArrowDownLeft, CheckCircle } from "lucide-react";
+import { DollarSign, FolderKanban, Wallet, ArrowDownLeft, CheckCircle, Receipt } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
@@ -9,9 +9,10 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 
 interface CAItem {
   total?: number;
@@ -23,112 +24,85 @@ interface CAItem {
   cliente?: { nome?: string };
 }
 
+function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
+  if (!dateStr) return false;
+  return dateStr >= range.from && dateStr <= range.to;
+}
+
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
-  const { accounts, receivables, payables, categories } = useAllContaAzulCache();
+  const { accounts, receivables, payables } = useAllContaAzulCache();
 
-  const currentYearMonth = useMemo(() => {
+  const [period, setPeriod] = useState<PeriodRange>(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+    return { from: `${y}-${m}-01`, to: `${y}-${m}-${lastDay}` };
+  });
 
-  // 1. Receita do Mês: sum total from receivables where data_competencia starts with current month
-  const receitaMes = useMemo(() => {
-    const items = extractItems<CAItem>(receivables.data?.payload);
-    return items
-      .filter((r) => r?.data_competencia?.startsWith(currentYearMonth))
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-  }, [receivables.data, currentYearMonth]);
+  const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
+  const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  // 2. Recebido no Mês: sum pago where data_competencia current month AND ACQUITTED
-  const recebidoMes = useMemo(() => {
-    const items = extractItems<CAItem>(receivables.data?.payload);
-    return items
-      .filter((r) => r?.data_competencia?.startsWith(currentYearMonth) && r?.status === "ACQUITTED")
-      .reduce((s, r) => s + (r?.pago ?? 0), 0);
-  }, [receivables.data, currentYearMonth]);
+  // KPI 1: Receita do Mês - sum total, data_vencimento in period, all statuses
+  const receitaPeriodo = useMemo(() =>
+    recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
+    [recItems, period]);
 
-  // 3. A Receber: sum total where PENDING (all months)
-  const aReceber = useMemo(() => {
-    const items = extractItems<CAItem>(receivables.data?.payload);
-    return items
-      .filter((r) => r?.status === "PENDING")
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-  }, [receivables.data]);
+  // KPI 2: Recebido - sum pago, data_vencimento in period, ACQUITTED
+  const recebidoPeriodo = useMemo(() =>
+    recItems.filter(r => isInRange(r?.data_vencimento, period) && r?.status === "ACQUITTED").reduce((s, r) => s + (r?.pago ?? 0), 0),
+    [recItems, period]);
 
-  // 4. Despesas do Mês: sum total from payables where data_competencia current month
-  const despesasMes = useMemo(() => {
-    const items = extractItems<CAItem>(payables.data?.payload);
-    return items
-      .filter((r) => r?.data_competencia?.startsWith(currentYearMonth))
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-  }, [payables.data, currentYearMonth]);
+  // KPI 3: Faturamento - sum total, data_competencia in period, all statuses
+  const faturamentoPeriodo = useMemo(() =>
+    recItems.filter(r => isInRange(r?.data_competencia, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
+    [recItems, period]);
 
-  // 5. Saldo em Conta: sum saldo from all accounts
+  // KPI 4: A Receber - PENDING, no period filter
+  const aReceber = useMemo(() =>
+    recItems.filter(r => r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0),
+    [recItems]);
+
+  // KPI 5: Despesas do Período - sum total, data_vencimento in period
+  const despesasPeriodo = useMemo(() =>
+    payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
+    [payItems, period]);
+
+  // KPI 6: Saldo em Conta
   const saldoEmConta = useMemo(() => {
     const accs = extractItems<{ saldo?: number }>(accounts.data?.payload);
     return accs.reduce((s, a) => s + (a?.saldo ?? 0), 0);
   }, [accounts.data]);
 
-  // Projects KPI
-  const totalProjetosAno = useMemo(() => {
-    if (!projects) return 0;
-    const cy = new Date().getFullYear();
-    return projects.filter((p) => p.sold_date && new Date(p.sold_date).getFullYear() === cy).length;
-  }, [projects]);
-
-  // Fluxo chart: last 6 months with Caixa (data_vencimento, pago, ACQUITTED) and Competência (data_competencia, total, all)
+  // Fluxo chart: always last 6 months
   const fluxoChart = useMemo(() => {
-    const recItems = extractItems<CAItem>(receivables.data?.payload);
-    const payItems = extractItems<CAItem>(payables.data?.payload);
     const now = new Date();
+    const months: { label: string; recebido: number; faturado: number }[] = [];
 
-    const groupCaixa = (items: CAItem[]) => {
-      const byMonth: Record<string, number> = {};
-      items.forEach((t) => {
-        if (!t?.data_vencimento || t?.status !== "ACQUITTED") return;
-        const key = t.data_vencimento.slice(0, 7);
-        byMonth[key] = (byMonth[key] || 0) + (t?.pago ?? 0);
-      });
-      return byMonth;
-    };
-
-    const groupCompetencia = (items: CAItem[]) => {
-      const byMonth: Record<string, number> = {};
-      items.forEach((t) => {
-        if (!t?.data_competencia) return;
-        const key = t.data_competencia.slice(0, 7);
-        byMonth[key] = (byMonth[key] || 0) + (t?.total ?? 0);
-      });
-      return byMonth;
-    };
-
-    const recCaixa = groupCaixa(recItems);
-    const payCaixa = groupCaixa(payItems);
-    const recComp = groupCompetencia(recItems);
-    const payComp = groupCompetencia(payItems);
-
-    const months: { label: string; caixaRec: number; caixaDes: number; compRec: number; compDes: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-      months.push({
-        label,
-        caixaRec: recCaixa[key] || 0,
-        caixaDes: payCaixa[key] || 0,
-        compRec: recComp[key] || 0,
-        compDes: payComp[key] || 0,
-      });
+
+      const recebido = recItems
+        .filter(r => r?.data_vencimento?.startsWith(key) && r?.status === "ACQUITTED")
+        .reduce((s, r) => s + (r?.pago ?? 0), 0);
+
+      const faturado = recItems
+        .filter(r => r?.data_competencia?.startsWith(key))
+        .reduce((s, r) => s + (r?.total ?? 0), 0);
+
+      months.push({ label, recebido, faturado });
     }
     return months;
-  }, [receivables.data, payables.data]);
+  }, [recItems]);
 
-  // Top 5 categorias
+  // Top 5 categorias filtered by period using data_vencimento
   const expenseCategories = useMemo(() => {
-    const items = extractItems<CAItem>(payables.data?.payload);
+    const filtered = payItems.filter(r => isInRange(r?.data_vencimento, period));
     const byCategory: Record<string, number> = {};
-    items.forEach((item) => {
+    filtered.forEach(item => {
       const catName = item?.categorias?.[0]?.nome || "Outros";
       byCategory[catName] = (byCategory[catName] || 0) + Math.abs(item?.total ?? 0);
     });
@@ -136,9 +110,9 @@ export default function Index() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [payables.data]);
+  }, [payItems, period]);
 
-  const hasFluxoData = fluxoChart.some((m) => m.caixaRec > 0 || m.caixaDes > 0 || m.compRec > 0 || m.compDes > 0);
+  const hasFluxoData = fluxoChart.some(m => m.recebido > 0 || m.faturado > 0);
 
   if (loadingProjects) {
     return (
@@ -150,17 +124,20 @@ export default function Index() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Visão Geral</h1>
-        <p className="text-sm text-muted-foreground">Resumo financeiro da Adverse</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Visão Geral</h1>
+          <p className="text-sm text-muted-foreground">Resumo financeiro da Adverse</p>
+        </div>
+        <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard title="Receita do Mês" value={formatCurrency(receitaMes)} icon={DollarSign} delay={0} />
-        <StatCard title="Recebido no Mês" value={formatCurrency(recebidoMes)} icon={CheckCircle} delay={0.05} />
-        <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.1} />
-        <StatCard title="Despesas do Mês" value={formatCurrency(despesasMes)} icon={Wallet} delay={0.15} />
-        <StatCard title="Projetos no Ano" value={String(totalProjetosAno)} icon={FolderKanban} delay={0.2} />
+        <StatCard title="Receita do Período" value={formatCurrency(receitaPeriodo)} icon={DollarSign} delay={0} />
+        <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05} />
+        <StatCard title="Faturamento" value={formatCurrency(faturamentoPeriodo)} icon={Receipt} delay={0.1} />
+        <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.15} />
+        <StatCard title="Despesas do Período" value={formatCurrency(despesasPeriodo)} icon={Wallet} delay={0.2} />
         <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.25} />
       </div>
 
@@ -169,21 +146,17 @@ export default function Index() {
           <h2 className="font-heading text-lg font-semibold mb-4">Fluxo de Caixa - Últimos 6 Meses</h2>
           {hasFluxoData ? (
             <ChartContainer config={{
-              caixaRec: { label: "Caixa - Receitas", color: "hsl(var(--success))" },
-              caixaDes: { label: "Caixa - Despesas", color: "hsl(var(--destructive))" },
-              compRec: { label: "Competência - Receitas", color: "hsl(142 71% 65%)" },
-              compDes: { label: "Competência - Despesas", color: "hsl(0 72% 65%)" },
+              recebido: { label: "Recebido (Caixa)", color: "hsl(var(--success))" },
+              faturado: { label: "Faturado (Competência)", color: "hsl(var(--primary))" },
             }} className="h-[280px]">
               <LineChart data={fluxoChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
-                <Line type="monotone" dataKey="caixaRec" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
-                <Line type="monotone" dataKey="caixaDes" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ fill: "hsl(var(--destructive))" }} />
-                <Line type="monotone" dataKey="compRec" stroke="hsl(142 71% 65%)" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: "hsl(142 71% 65%)" }} />
-                <Line type="monotone" dataKey="compDes" stroke="hsl(0 72% 65%)" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: "hsl(0 72% 65%)" }} />
+                <Line type="monotone" dataKey="recebido" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
+                <Line type="monotone" dataKey="faturado" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: "hsl(var(--primary))" }} />
               </LineChart>
             </ChartContainer>
           ) : (
@@ -197,7 +170,7 @@ export default function Index() {
             <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[280px]">
               <BarChart data={expenseCategories} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={120} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
