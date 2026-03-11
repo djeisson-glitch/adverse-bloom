@@ -42,6 +42,12 @@ export default function Insights() {
   const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
   const variaveisPorCat = useMemo(() => calcCustosVariaveisPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
 
+  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
+  const runway = burnRate > 0 ? saldoEmConta / burnRate : 0;
+
+  const mesAtual = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
   // Revenue concentration (competência)
   const topClientConcentration = useMemo(() => {
     const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, ytdPeriod));
