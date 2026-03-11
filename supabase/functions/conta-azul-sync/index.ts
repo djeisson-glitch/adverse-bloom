@@ -94,7 +94,7 @@ serve(async (req) => {
 
     try {
       let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 10; pagina++) {
+      for (let pagina = 1; pagina <= 20; pagina++) {
         const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
         const res = await fetch(url, { headers: bearer });
         if (!res.ok) break;
@@ -116,7 +116,7 @@ serve(async (req) => {
 
     try {
       let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 10; pagina++) {
+      for (let pagina = 1; pagina <= 20; pagina++) {
         const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
         const res = await fetch(url, { headers: bearer });
         if (!res.ok) break;
