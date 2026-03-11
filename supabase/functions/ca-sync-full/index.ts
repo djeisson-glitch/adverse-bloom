@@ -61,7 +61,7 @@ serve(async (req) => {
     const period = now.slice(0, 7);
     const results: Record<string, any> = {};
     const BASE = "https://api-v2.contaazul.com";
-    const dataInicio = "2025-01-01";
+    const dataInicio = "2024-01-01";
     const dataFim = "2026-12-31";
 
     // Accounts
