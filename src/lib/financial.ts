@@ -68,10 +68,10 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
   return recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
-// 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
+// 3. Despesas Operacionais (competência) - !isExcluded, data_competencia in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
