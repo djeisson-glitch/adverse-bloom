@@ -50,34 +50,23 @@ serve(async (req) => {
     const results: Record<string, any> = {}
     const BASE = "https://api-v2.contaazul.com"
     const anoAtual = new Date().getFullYear()
-    const dataInicio = `${anoAtual}-01-01`
+    const dataInicio = `${anoAtual - 1}-01-01`
     const dataFim = `${anoAtual}-12-31`
 
-    try {
-      const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer })
-      results["accounts"] = { status: res.status }
-      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "accounts", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
-    } catch(e) { results["accounts"] = { error: String(e) } }
-
-    try {
-      const res = await fetch(`${BASE}/v1/categorias?tamanho_pagina=200`, { headers: bearer })
-      results["categories"] = { status: res.status }
-      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "categories", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
-    } catch(e) { results["categories"] = { error: String(e) } }
-
-    try {
-      const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=1&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
-      const res = await fetch(url, { headers: bearer })
-      results["receivables"] = { status: res.status }
-      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "receivables", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
-    } catch(e) { results["receivables"] = { error: String(e) } }
-
-    try {
-      const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=1&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
-      const res = await fetch(url, { headers: bearer })
-      results["payables"] = { status: res.status }
-      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "payables", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
-    } catch(e) { results["payables"] = { error: String(e) } }
+    async function fetchPaginated(urlBase: string, headers: Record<string, string>): Promise<any[]> {
+      const allItems: any[] = []
+      for (let page = 1; page <= 10; page++) {
+        const sep = urlBase.includes("?") ? "&" : "?"
+        const url = `${urlBase}${sep}pagina=${page}&tamanho_pagina=200`
+        const res = await fetch(url, { headers })
+        if (!res.ok) break
+        const data = await res.json()
+        const items = Array.isArray(data) ? data : (data.itens || data.items || [])
+        allItems.push(...items)
+        if (items.length < 200) break
+      }
+      return allItems
+    }
 
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
