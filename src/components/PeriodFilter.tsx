@@ -19,7 +19,7 @@ export interface PeriodRange {
   to: string;   // YYYY-MM-DD
 }
 
-type Preset = "mes_atual" | "mes_anterior" | "trimestre_atual" | "ano_atual" | "personalizado";
+export type Preset = "mes_atual" | "mes_anterior" | "trimestre_atual" | "ano_atual" | "personalizado";
 
 function getPresetRange(preset: Preset): PeriodRange | null {
   const now = new Date();
@@ -57,10 +57,11 @@ function toDateStr(d: Date): string {
 interface Props {
   value: PeriodRange;
   onChange: (range: PeriodRange) => void;
+  defaultPreset?: Preset;
 }
 
-export function PeriodFilter({ value, onChange }: Props) {
-  const [preset, setPreset] = useState<Preset>("mes_atual");
+export function PeriodFilter({ value, onChange, defaultPreset = "mes_atual" }: Props) {
+  const [preset, setPreset] = useState<Preset>(defaultPreset);
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
 

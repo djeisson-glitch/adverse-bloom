@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, TrendingUp, Lightbulb, BarChart3, Percent } from "lucide-react";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
@@ -13,44 +13,50 @@ import {
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
-import type { PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 
 const META_TICKET = 50000;
 const META_ANUAL = 1500000;
 
+function getYearPeriod(): PeriodRange {
+  const y = new Date().getFullYear();
+  return { from: `${y}-01-01`, to: `${y}-12-31` };
+}
+
 export default function Insights() {
   const { receivables, payables } = useAllContaAzulCache();
+  const [period, setPeriod] = useState<PeriodRange>(getYearPeriod);
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
   const now = new Date();
-  const currentYear = now.getFullYear();
 
-  // YTD period (competência for receita, vencimento for despesas)
-  const ytdPeriod: PeriodRange = { from: `${currentYear}-01-01`, to: `${currentYear}-12-31` };
-
-  const receitaTotal = useMemo(() => calcReceitaTotal(recItems, ytdPeriod), [recItems, currentYear]);
-  const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, ytdPeriod), [payItems, currentYear]);
-  const custosFixos = useMemo(() => calcCustosFixos(payItems, ytdPeriod), [payItems, currentYear]);
-  const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, ytdPeriod), [payItems, currentYear]);
+  const receitaTotal = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
+  const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
+  const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
   const { pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
   const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
-  const { valor: ticketMedio, qtde: qtdeProjetos } = calcTicketMedio(recItems, ytdPeriod, receitaTotal);
+  const { valor: ticketMedio } = calcTicketMedio(recItems, period, receitaTotal);
 
-  const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
-  const variaveisPorCat = useMemo(() => calcCustosVariaveisPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
+  const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, period), [payItems, period]);
+  const variaveisPorCat = useMemo(() => calcCustosVariaveisPorCategoria(payItems, period), [payItems, period]);
 
   const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
   const runway = burnRate > 0 ? saldoEmConta / burnRate : 0;
 
-  const mesAtual = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const periodLabel = (() => {
+    const fromDate = new Date(period.from + "T00:00:00");
+    const toDate = new Date(period.to + "T00:00:00");
+    return `${fromDate.toLocaleDateString("pt-BR")} a ${toDate.toLocaleDateString("pt-BR")}`;
+  })();
 
   // Revenue concentration (competência)
   const topClientConcentration = useMemo(() => {
-    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, ytdPeriod));
+    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
     const byClient: Record<string, number> = {};
     recFiltered.forEach(item => {
       const name = item?.cliente?.nome || "Sem cliente";
@@ -59,24 +65,28 @@ export default function Insights() {
     const sorted = Object.values(byClient).sort((a, b) => b - a);
     const top3 = sorted.slice(0, 3).reduce((s, v) => s + v, 0);
     return receitaTotal > 0 ? (top3 / receitaTotal) * 100 : 0;
-  }, [recItems, receitaTotal, currentYear]);
+  }, [recItems, receitaTotal, period]);
 
-  // Monthly margins for checking negative (competência for receita, vencimento for despesas)
+  // Monthly margins within selected period
   const monthlyMargins = useMemo(() => {
+    const fromDate = new Date(period.from + "T00:00:00");
+    const toDate = new Date(period.to + "T00:00:00");
     const results: { month: string; margem: number }[] = [];
-    for (let m = 0; m < 12; m++) {
-      const k = monthKey(currentYear, m);
+    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
+    while (d <= toDate) {
+      const k = monthKey(d.getFullYear(), d.getMonth());
       const rec = monthlyReceitaTotal(recItems, k);
       const desp = monthlyDespesasOp(payItems, k);
       if (rec > 0 || desp > 0) {
         const lucro = rec - desp;
         const margem = rec > 0 ? (lucro / rec) * 100 : -100;
-        const label = new Date(currentYear, m, 1).toLocaleDateString("pt-BR", { month: "long" });
+        const label = d.toLocaleDateString("pt-BR", { month: "long" });
         results.push({ month: label, margem });
       }
+      d.setMonth(d.getMonth() + 1);
     }
     return results;
-  }, [recItems, payItems, currentYear]);
+  }, [recItems, payItems, period]);
 
   const negativeMarginsMonths = monthlyMargins.filter(m => m.margem < 0);
   const fixosPctReceita = receitaTotal > 0 ? (custosFixos / receitaTotal) * 100 : 0;
@@ -134,7 +144,7 @@ export default function Insights() {
   // Dynamic banner
   const bannerText = useMemo(() => {
     const parts: string[] = [];
-    if (receitaTotal > 0) parts.push(`Receita acumulada de ${formatCurrency(receitaTotal)} no ano`);
+    if (receitaTotal > 0) parts.push(`Receita de ${formatCurrency(receitaTotal)} no período`);
     if (lucroLiquido > 0) parts.push(`lucro de ${formatCurrency(lucroLiquido)}`);
     else if (lucroLiquido < 0) parts.push(`prejuízo de ${formatCurrency(Math.abs(lucroLiquido))}`);
     if (margemLiquida !== 0) parts.push(`margem líquida de ${formatPercent(margemLiquida)}`);
@@ -145,9 +155,12 @@ export default function Insights() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Insights</h1>
-        <p className="text-sm text-muted-foreground">Análise inteligente e alertas automáticos — Ano {currentYear}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Insights</h1>
+          <p className="text-sm text-muted-foreground">Análise inteligente e alertas automáticos</p>
+        </div>
+        <PeriodFilter value={period} onChange={setPeriod} defaultPreset="ano_atual" />
       </div>
 
       {!hasData ? (
@@ -174,7 +187,7 @@ export default function Insights() {
               concentracaoReceita: Math.round(topClientConcentration * 10) / 10,
               metaAnual: META_ANUAL,
               receitaAcumulada: receitaTotal,
-              mesAtual,
+              mesAtual: periodLabel,
             }}
             hasData={hasData}
           />
@@ -186,14 +199,14 @@ export default function Insights() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6">
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[200px]">
               <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning" /> Alertas
               </h2>
               {alerts.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3 overflow-y-auto max-h-[300px]">
                   {alerts.map((a, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm ${a.severity === "critical" ? "bg-destructive/10 border border-destructive/30 text-destructive" : "bg-warning/10 border border-warning/30 text-warning"}`}>
+                    <div key={i} className={`p-3 rounded-lg text-sm break-words ${a.severity === "critical" ? "bg-destructive/10 border border-destructive/30 text-destructive" : "bg-warning/10 border border-warning/30 text-warning"}`}>
                       {a.text}
                     </div>
                   ))}
@@ -203,14 +216,14 @@ export default function Insights() {
               )}
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 min-h-[200px]">
               <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-success" /> Oportunidades
               </h2>
               {opportunities.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3 overflow-y-auto max-h-[300px]">
                   {opportunities.map((o, i) => (
-                    <div key={i} className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success">
+                    <div key={i} className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success break-words">
                       {o}
                     </div>
                   ))}
