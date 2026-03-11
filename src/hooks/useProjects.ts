@@ -33,15 +33,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Project> & { id: string }) => {
-      const soldValue = updates.sold_value;
-      const directCosts = updates.direct_costs;
-      if (soldValue !== undefined || directCosts !== undefined) {
-        const sv = soldValue ?? 0;
-        const dc = directCosts ?? 0;
-        updates.gross_margin_value = sv - dc;
-        updates.gross_margin_percent = sv > 0 ? Math.round(((sv - dc) / sv) * 100 * 100) / 100 : 0;
-      }
+    mutationFn: async ({ id, gross_margin_value, gross_margin_percent, ...updates }: Partial<Project> & { id: string }) => {
       const { data, error } = await supabase.from("projects").update(updates).eq("id", id).select().single();
       if (error) throw error;
       return data;
