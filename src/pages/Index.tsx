@@ -14,9 +14,10 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
