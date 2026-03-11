@@ -5,12 +5,24 @@ import { formatCurrency, formatPercent } from "@/lib/format";
 import { motion } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
 import {
-  type CAItem, isInRange,
-  calcReceitaTotal, calcReceitaRecebida, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
-  calcMargemContribuicao, calcLucroLiquido, calcTicketMedio,
-  calcCustosFixosPorCategoria, calcCustosVariaveisPorCategoria,
-  calcBurnRate, calcSaldoEmConta,
-  monthKey, monthlyReceitaTotal, monthlyDespesasOp,
+  type CAItem,
+  isInRange,
+  calcReceitaTotal,
+  calcReceitaRecebida,
+  calcDespesasOperacionais,
+  calcCustosFixos,
+  calcCustosVariaveis,
+  calcMargemContribuicao,
+  calcLucroLiquido,
+  calcTicketMedio,
+  calcLucroLiquidoFinal,
+  calcCustosFixosPorCategoria,
+  calcCustosVariaveisPorCategoria,
+  calcBurnRate,
+  calcSaldoEmConta,
+  monthKey,
+  monthlyReceitaTotal,
+  monthlyDespesasOp,
 } from "@/lib/financial";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
 import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
@@ -40,7 +52,7 @@ export default function Insights() {
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
   const { pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
-  const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
+  const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquidoFinal(receitaTotal, payItems, period);
   const { valor: ticketMedio } = calcTicketMedio(recItems, period, receitaTotal);
 
   const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, period), [payItems, period]);
@@ -58,9 +70,9 @@ export default function Insights() {
 
   // Revenue concentration (competência)
   const topClientConcentration = useMemo(() => {
-    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
+    const recFiltered = recItems.filter((r) => isInRange(r?.data_competencia, period));
     const byClient: Record<string, number> = {};
-    recFiltered.forEach(item => {
+    recFiltered.forEach((item) => {
       const name = item?.cliente?.nome || "Sem cliente";
       byClient[name] = (byClient[name] || 0) + (item?.total ?? 0);
     });
@@ -90,12 +102,13 @@ export default function Insights() {
     return results;
   }, [recItems, payItems, period]);
 
-  const negativeMarginsMonths = monthlyMargins.filter(m => m.margem < 0);
+  const negativeMarginsMonths = monthlyMargins.filter((m) => m.margem < 0);
   const fixosPctReceita = receitaTotal > 0 ? (custosFixos / receitaTotal) * 100 : 0;
 
   // Growth: last 6 vs previous 6 (competência)
   const { recentRev, previousRev } = useMemo(() => {
-    let recent = 0, prev = 0;
+    let recent = 0,
+      prev = 0;
     for (let i = 0; i < 6; i++) {
       const d1 = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const k1 = monthKey(d1.getFullYear(), d1.getMonth());
@@ -112,7 +125,7 @@ export default function Insights() {
   // Best month ever (competência)
   const bestMonth = useMemo(() => {
     const byMonth: Record<string, number> = {};
-    recItems.forEach(r => {
+    recItems.forEach((r) => {
       const key = r?.data_competencia?.slice(0, 7);
       if (key) byMonth[key] = (byMonth[key] || 0) + (r?.total ?? 0);
     });
@@ -127,20 +140,32 @@ export default function Insights() {
   // Alerts
   const alerts: { text: string; severity: "warning" | "critical" }[] = [];
   if (ticketMedio > 0 && ticketMedio < META_TICKET)
-    alerts.push({ text: `Ticket médio (${formatCurrency(ticketMedio)}) está abaixo da meta de ${formatCurrency(META_TICKET)}.`, severity: "warning" });
+    alerts.push({
+      text: `Ticket médio (${formatCurrency(ticketMedio)}) está abaixo da meta de ${formatCurrency(META_TICKET)}.`,
+      severity: "warning",
+    });
   if (topClientConcentration > 50)
-    alerts.push({ text: `Top 3 clientes concentram ${formatPercent(topClientConcentration)} da receita. Risco de dependência.`, severity: "critical" });
+    alerts.push({
+      text: `Top 3 clientes concentram ${formatPercent(topClientConcentration)} da receita. Risco de dependência.`,
+      severity: "critical",
+    });
   if (fixosPctReceita > 35)
-    alerts.push({ text: `Custos fixos representam ${formatPercent(fixosPctReceita)} da receita (ideal < 35%).`, severity: "warning" });
+    alerts.push({
+      text: `Custos fixos representam ${formatPercent(fixosPctReceita)} da receita (ideal < 35%).`,
+      severity: "warning",
+    });
   if (lucroLiquido < 0)
     alerts.push({ text: `Lucro líquido negativo no período: ${formatCurrency(lucroLiquido)}.`, severity: "critical" });
-  negativeMarginsMonths.forEach(m =>
-    alerts.push({ text: `Margem negativa em ${m.month}: ${formatPercent(m.margem)}.`, severity: "critical" }));
+  negativeMarginsMonths.forEach((m) =>
+    alerts.push({ text: `Margem negativa em ${m.month}: ${formatPercent(m.margem)}.`, severity: "critical" }),
+  );
 
   // Opportunities
   const opportunities: string[] = [];
-  if (margemContribuicao > 55) opportunities.push(`Margem de contribuição saudável: ${formatPercent(margemContribuicao)}.`);
-  if (growthPct > 0) opportunities.push(`Crescimento de ${formatPercent(growthPct)} nos últimos 6 meses vs anteriores.`);
+  if (margemContribuicao > 55)
+    opportunities.push(`Margem de contribuição saudável: ${formatPercent(margemContribuicao)}.`);
+  if (growthPct > 0)
+    opportunities.push(`Crescimento de ${formatPercent(growthPct)} nos últimos 6 meses vs anteriores.`);
   if (bestMonth) opportunities.push(`Melhor mês histórico: ${bestMonth.label} com ${formatCurrency(bestMonth.value)}.`);
 
   // Dynamic banner
@@ -166,10 +191,16 @@ export default function Insights() {
       </div>
 
       {!hasData ? (
-        <div className="glass-card p-10 text-center text-muted-foreground">Sincronize os dados para visualizar os insights.</div>
+        <div className="glass-card p-10 text-center text-muted-foreground">
+          Sincronize os dados para visualizar os insights.
+        </div>
       ) : (
         <>
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5 border-l-4 border-l-primary">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-5 border-l-4 border-l-primary"
+          >
             <p className="text-sm font-medium">{bannerText}</p>
           </motion.div>
 
@@ -197,9 +228,21 @@ export default function Insights() {
           />
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard title="Margem de Contribuição" value={formatPercent(margemContribuicao)} icon={BarChart3} delay={0} />
+            <StatCard
+              title="Margem de Contribuição"
+              value={formatPercent(margemContribuicao)}
+              icon={BarChart3}
+              delay={0}
+            />
             <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} delay={0.05} />
-            <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={TrendingUp} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
+            <StatCard
+              title="Lucro Líquido"
+              value={formatCurrency(lucroLiquido)}
+              icon={TrendingUp}
+              change={lucroLiquido >= 0 ? "Positivo" : "Negativo"}
+              changeType={lucroLiquido >= 0 ? "positive" : "negative"}
+              delay={0.1}
+            />
           </div>
 
           <DiagnosticoResultado
@@ -214,14 +257,22 @@ export default function Insights() {
           />
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[200px]">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="glass-card p-6 min-h-[200px]"
+            >
               <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning" /> Alertas
               </h2>
               {alerts.length > 0 ? (
                 <div className="space-y-3 overflow-y-auto max-h-[300px]">
                   {alerts.map((a, i) => (
-                    <div key={i} className={`p-3 rounded-lg text-sm break-words ${a.severity === "critical" ? "bg-destructive/10 border border-destructive/30 text-destructive" : "bg-warning/10 border border-warning/30 text-warning"}`}>
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg text-sm break-words ${a.severity === "critical" ? "bg-destructive/10 border border-destructive/30 text-destructive" : "bg-warning/10 border border-warning/30 text-warning"}`}
+                    >
                       {a.text}
                     </div>
                   ))}
@@ -231,26 +282,41 @@ export default function Insights() {
               )}
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 min-h-[200px]">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="glass-card p-6 min-h-[200px]"
+            >
               <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-success" /> Oportunidades
               </h2>
               {opportunities.length > 0 ? (
                 <div className="space-y-3 overflow-y-auto max-h-[300px]">
                   {opportunities.map((o, i) => (
-                    <div key={i} className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success break-words">
+                    <div
+                      key={i}
+                      className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success break-words"
+                    >
                       {o}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-4">Continue coletando dados para identificar oportunidades.</p>
+                <p className="text-sm text-muted-foreground py-4">
+                  Continue coletando dados para identificar oportunidades.
+                </p>
               )}
             </motion.div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="glass-card p-6"
+            >
               <h2 className="font-heading text-lg font-semibold mb-4">Custos Fixos por Categoria</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -266,16 +332,25 @@ export default function Insights() {
                       <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="py-2">{cat}</td>
                         <td className="py-2 text-right">{formatCurrency(val)}</td>
-                        <td className="py-2 text-right">{custosFixos > 0 ? formatPercent((val / custosFixos) * 100) : "0%"}</td>
+                        <td className="py-2 text-right">
+                          {custosFixos > 0 ? formatPercent((val / custosFixos) * 100) : "0%"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {fixosPorCat.length === 0 && <p className="text-center text-muted-foreground py-6">Sem custos fixos identificados.</p>}
+                {fixosPorCat.length === 0 && (
+                  <p className="text-center text-muted-foreground py-6">Sem custos fixos identificados.</p>
+                )}
               </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="glass-card p-6"
+            >
               <h2 className="font-heading text-lg font-semibold mb-4">Custos Variáveis por Categoria</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -291,12 +366,16 @@ export default function Insights() {
                       <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="py-2">{cat}</td>
                         <td className="py-2 text-right">{formatCurrency(val)}</td>
-                        <td className="py-2 text-right">{custosVariaveis > 0 ? formatPercent((val / custosVariaveis) * 100) : "0%"}</td>
+                        <td className="py-2 text-right">
+                          {custosVariaveis > 0 ? formatPercent((val / custosVariaveis) * 100) : "0%"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {variaveisPorCat.length === 0 && <p className="text-center text-muted-foreground py-6">Sem custos variáveis identificados.</p>}
+                {variaveisPorCat.length === 0 && (
+                  <p className="text-center text-muted-foreground py-6">Sem custos variáveis identificados.</p>
+                )}
               </div>
             </motion.div>
           </div>
