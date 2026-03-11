@@ -175,6 +175,7 @@ export default function Insights() {
           <AiInsightsSection
             financialData={{
               receitaTotal,
+              receitaRecebida,
               despesasOperacionais: despesasOp,
               lucroLiquido,
               margemLiquida,
@@ -189,6 +190,7 @@ export default function Insights() {
               metaAnual: META_ANUAL,
               receitaAcumulada: receitaTotal,
               mesAtual: periodLabel,
+              periodoLabel,
             }}
             hasData={hasData}
           />
