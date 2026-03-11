@@ -15,9 +15,11 @@ serve(async (req) => {
 
     const prompt = `Você é um consultor financeiro especializado em empresas de produção audiovisual. Analise os dados financeiros abaixo e retorne um JSON com insights práticos e diretos.
 
-DADOS DO PERÍODO SELECIONADO:
-- Receita Total: R$ ${financialData.receitaTotal}
-- Despesas Operacionais: R$ ${financialData.despesasOperacionais}
+PERÍODO ANALISADO: ${financialData.mesAtual}
+
+DADOS DO PERÍODO:
+- Receita Total (competência): R$ ${financialData.receitaTotal}
+- Despesas Operacionais (vencimento): R$ ${financialData.despesasOperacionais}
 - Lucro Líquido: R$ ${financialData.lucroLiquido}
 - Margem Líquida: ${financialData.margemLiquida}%
 - Margem de Contribuição: ${financialData.margemContribuicao}%
@@ -30,7 +32,6 @@ DADOS DO PERÍODO SELECIONADO:
 - Top 3 clientes representam: ${financialData.concentracaoReceita}% da receita
 - Meta Anual: R$ ${financialData.metaAnual}
 - Receita acumulada no ano: R$ ${financialData.receitaAcumulada}
-- Mês atual: ${financialData.mesAtual}
 
 Retorne APENAS um JSON válido, sem markdown, neste formato exato:
 {
@@ -84,7 +85,6 @@ Retorne APENAS um JSON válido, sem markdown, neste formato exato:
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content || "";
     
-    // Try to parse JSON from response, handling potential markdown wrapping
     let cleanText = text.trim();
     if (cleanText.startsWith("```")) {
       cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");

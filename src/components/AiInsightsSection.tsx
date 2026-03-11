@@ -61,6 +61,18 @@ const severidadeColor: Record<string, string> = {
   baixa: "bg-primary/10 border-primary/30 text-primary",
 };
 
+const prazoLabel: Record<string, string> = {
+  imediato: "Imediato",
+  "30 dias": "30 dias",
+  "90 dias": "90 dias",
+};
+
+const impactoLabel: Record<string, string> = {
+  alto: "Alto",
+  medio: "Médio",
+  baixo: "Baixo",
+};
+
 const prazoColor: Record<string, string> = {
   imediato: "destructive",
   "30 dias": "default",
@@ -143,7 +155,7 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
             className="glass-card p-8 text-center"
           >
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
-            <p className="text-sm text-muted-foreground">Analisando dados financeiros...</p>
+            <p className="text-sm text-muted-foreground">Analisando dados financeiros do período {financialData.mesAtual}...</p>
           </motion.div>
         )}
 
@@ -157,19 +169,19 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Alertas IA */}
               {insights.alertas.length > 0 && (
-                <div className="glass-card p-5">
+                <div className="glass-card p-5 min-h-[180px]">
                   <h3 className="font-heading text-base font-semibold mb-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-warning" /> Alertas IA
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2 overflow-y-auto max-h-[280px]">
                     {insights.alertas.map((a, i) => (
                       <div key={i} className={`p-3 rounded-lg text-sm border ${severidadeColor[a.severidade]}`}>
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium">{a.titulo}</p>
-                            <p className="mt-1 opacity-80">{a.descricao}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{a.titulo}</p>
+                            <p className="mt-1 opacity-80 line-clamp-2">{a.descricao}</p>
                           </div>
-                          <Badge variant={a.severidade === "alta" ? "destructive" : a.severidade === "media" ? "default" : "secondary"} className="shrink-0">
+                          <Badge variant={a.severidade === "alta" ? "destructive" : a.severidade === "media" ? "default" : "secondary"} className="shrink-0 text-xs">
                             {a.impacto}
                           </Badge>
                         </div>
@@ -181,19 +193,19 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
 
               {/* Oportunidades IA */}
               {insights.oportunidades.length > 0 && (
-                <div className="glass-card p-5">
+                <div className="glass-card p-5 min-h-[180px]">
                   <h3 className="font-heading text-base font-semibold mb-3 flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-success" /> Oportunidades IA
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2 overflow-y-auto max-h-[280px]">
                     {insights.oportunidades.map((o, i) => (
                       <div key={i} className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success">
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium">{o.titulo}</p>
-                            <p className="mt-1 opacity-80">{o.descricao}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{o.titulo}</p>
+                            <p className="mt-1 opacity-80 line-clamp-2">{o.descricao}</p>
                           </div>
-                          <Badge className="shrink-0 bg-success/20 text-success border-success/30">{o.potencial}</Badge>
+                          <Badge className="shrink-0 bg-success/20 text-success border-success/30 text-xs">{o.potencial}</Badge>
                         </div>
                       </div>
                     ))}
@@ -202,24 +214,35 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
               )}
             </div>
 
-            {/* Ações */}
+            {/* Ações como tabela */}
             {insights.acoes.length > 0 && (
               <div className="glass-card p-5">
                 <h3 className="font-heading text-base font-semibold mb-3 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" /> Ações Recomendadas
                 </h3>
-                <div className="space-y-2">
-                  {insights.acoes.map((a, i) => (
-                    <div key={i} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm font-medium">{a.acao}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant={prazoColor[a.prazo] as any}>{a.prazo}</Badge>
-                        <Badge variant={impactoColor[a.impacto] as any} className="text-xs">
-                          {a.impacto}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted-foreground">
+                        <th className="pb-3 font-medium">Ação</th>
+                        <th className="pb-3 font-medium text-center w-[100px]">Prazo</th>
+                        <th className="pb-3 font-medium text-center w-[100px]">Impacto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {insights.acoes.map((a, i) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                          <td className="py-3 pr-4">{a.acao}</td>
+                          <td className="py-3 text-center">
+                            <Badge variant={prazoColor[a.prazo] as any} className="text-xs">{prazoLabel[a.prazo] || a.prazo}</Badge>
+                          </td>
+                          <td className="py-3 text-center">
+                            <Badge variant={impactoColor[a.impacto] as any} className="text-xs">{impactoLabel[a.impacto] || a.impacto}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
