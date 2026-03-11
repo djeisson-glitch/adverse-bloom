@@ -6,7 +6,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Loader2, Wallet, CreditCard } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
-import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 interface PayItem {
   id?: string;
