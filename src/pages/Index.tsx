@@ -74,7 +74,7 @@ export default function Index() {
 
   // Top 5 categorias filtered by period using data_vencimento
   const expenseCategories = useMemo(() => {
-    const filtered = payItems.filter(r => isInRange(r?.data_vencimento, period));
+    const filtered = payItems.filter(r => isInRange(r?.data_competencia, period));
     const byCategory: Record<string, number> = {};
     filtered.forEach(item => {
       const catName = item?.categorias?.[0]?.nome || "Outros";

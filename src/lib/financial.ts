@@ -68,24 +68,24 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
   return recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
-// 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
+// 3. Despesas Operacionais (competência) - !isExcluded, data_competencia in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// 4. Custos Fixos - FIXED_COSTS includes cat && !isExcluded, data_vencimento in period, field total
+// 4. Custos Fixos (competência) - FIXED_COSTS includes cat && !isExcluded, data_competencia in period, field total
 export function calcCustosFixos(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// 5. Custos Variáveis - VARIABLE_COSTS includes cat, data_vencimento in period, field total
+// 5. Custos Variáveis (competência) - VARIABLE_COSTS includes cat, data_competencia in period, field total
 export function calcCustosVariaveis(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
@@ -137,11 +137,11 @@ export function calcSaldoEmConta(recItems: CAItem[], payItems: CAItem[]): number
   return SALDO_INICIAL + recebido - pago;
 }
 
-// Custos Fixos grouped by category
+// Custos Fixos grouped by category (competência)
 export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .forEach(item => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
@@ -149,11 +149,11 @@ export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRa
   return Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
 }
 
-// Custos Variáveis grouped by category
+// Custos Variáveis grouped by category (competência)
 export function calcCustosVariaveisPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .forEach(item => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
@@ -171,9 +171,9 @@ export function monthlyReceitaTotal(recItems: CAItem[], key: string): number {
   return recItems.filter(r => r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// Monthly despesas operacionais for a given month key
+// Monthly despesas operacionais (competência) for a given month key
 export function monthlyDespesasOp(payItems: CAItem[], key: string): number {
   return payItems
-    .filter(r => !isExcluded(r) && r?.data_vencimento?.startsWith(key))
+    .filter(r => !isExcluded(r) && r?.data_competencia?.startsWith(key))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }

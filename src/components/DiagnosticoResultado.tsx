@@ -57,7 +57,7 @@ export function DiagnosticoResultado({
 
   // Top 3 cost categories
   const topCategorias = useMemo(() => {
-    const filtered = payItems.filter(p => !isExcluded(p) && isInRange(p?.data_vencimento, period));
+    const filtered = payItems.filter(p => !isExcluded(p) && isInRange(p?.data_competencia, period));
     const byCat: Record<string, number> = {};
     filtered.forEach(item => {
       const cat = getCat(item);
