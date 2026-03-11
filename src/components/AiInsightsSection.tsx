@@ -173,10 +173,16 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
             </span>
           )}
         </div>
-        <Button onClick={analyze} disabled={loading || !hasData} size="sm" className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-          {loading ? "Analisando dados..." : "🤖 Analisar com IA"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={analyze} disabled={loading || reportLoading || !hasData} size="sm" className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+            {loading ? "Analisando dados..." : "🤖 Analisar com IA"}
+          </Button>
+          <Button onClick={generateReport} disabled={reportLoading || loading || !hasData} size="sm" variant="outline" className="gap-2">
+            {reportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {reportLoading ? "Gerando relatório..." : "📄 Gerar Relatório"}
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>
