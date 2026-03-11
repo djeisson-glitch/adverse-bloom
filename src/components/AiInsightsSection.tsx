@@ -90,6 +90,7 @@ const impactoColor: Record<string, string> = {
 export function AiInsightsSection({ financialData, hasData }: Props) {
   const [insights, setInsights] = useState<AiInsightsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<Date | null>(null);
 
   const analyze = useCallback(async () => {
