@@ -20,7 +20,7 @@ serve(async (req) => {
     const { data: authRow } = await supabase
       .from("conta_azul_cache").select("payload").eq("data_type", "auth_tokens").single()
 
-    if (!authRow) return new Response(JSON.stringify({ error: "Tokens nao encontrados. Reautentique via OAuth." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
+    if (!authRow) return new Response(JSON.stringify({ error: "Tokens nao encontrados." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } })
 
     const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
       method: "POST",
@@ -44,11 +44,14 @@ serve(async (req) => {
     }, { onConflict: "data_type" })
 
     const token = tokenData.access_token
-    const bearer = { Authorization: `Bearer ${token}` }
+    const bearer = { Authorization: `Bearer ${token}`, Accept: "application/json" }
     const now = new Date().toISOString()
     const period = now.slice(0, 7)
     const results: Record<string, any> = {}
     const BASE = "https://api-v2.contaazul.com"
+    const anoAtual = new Date().getFullYear()
+    const dataInicio = `${anoAtual}-01-01`
+    const dataFim = `${anoAtual}-12-31`
 
     try {
       const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer })
@@ -62,15 +65,27 @@ serve(async (req) => {
       if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "categories", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
     } catch(e) { results["categories"] = { error: String(e) } }
 
+    try {
+      const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=1&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+      const res = await fetch(url, { headers: bearer })
+      results["receivables"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "receivables", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["receivables"] = { error: String(e) } }
+
+    try {
+      const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=1&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+      const res = await fetch(url, { headers: bearer })
+      results["payables"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "payables", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["payables"] = { error: String(e) } }
+
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
 
   } catch(e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
   }
 })
