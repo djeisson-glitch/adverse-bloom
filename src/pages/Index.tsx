@@ -85,13 +85,13 @@ export default function Index() {
     payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
     [payItems, period]);
 
-  // KPI 7: Saldo em Conta = saldo_inicial + recebido desde ref - pago desde ref
+  // KPI 7: Saldo em Conta - no status filter, pago is 0 for unpaid
   const saldoEmConta = useMemo(() => {
     const recebidoDesdeRef = recItems
-      .filter(r => r?.status === "ACQUITTED" && r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
       .reduce((s, r) => s + (r?.pago ?? 0), 0);
     const pagoDesdeRef = payItems
-      .filter(r => r?.status === "ACQUITTED" && r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
       .reduce((s, r) => s + (r?.pago ?? 0), 0);
     return SALDO_INICIAL + recebidoDesdeRef - pagoDesdeRef;
   }, [recItems, payItems]);
