@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.conta-azul-sync]
 verify_jwt = false
+
+[functions.ca-sync-full]
+verify_jwt = false

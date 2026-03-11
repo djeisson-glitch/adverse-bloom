@@ -36,7 +36,7 @@ export function AppSidebar() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('conta-azul-sync');
+      const { data, error } = await supabase.functions.invoke('ca-sync-full');
       
       if (error) {
         console.error('Sync error:', error);
