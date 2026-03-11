@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Bot, Loader2, Clock, AlertTriangle, Lightbulb, Zap } from "lucide-react";
+import { Bot, Loader2, Clock, AlertTriangle, Lightbulb, Zap, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
