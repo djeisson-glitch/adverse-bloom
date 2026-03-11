@@ -1,0 +1,223 @@
+import { useMemo, useState } from "react";
+import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
+import { formatCurrency, formatPercent } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { motion } from "framer-motion";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { Badge } from "@/components/ui/badge";
+
+interface CAItem {
+  total?: number;
+  pago?: number;
+  data_vencimento?: string;
+}
+
+const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+export default function Projecoes2026() {
+  const { receivables } = useAllContaAzulCache();
+  const [metaAnual, setMetaAnual] = useState(1500000);
+  const [useRecebida, setUseRecebida] = useState(true); // true = pago (recebida), false = total (emitida)
+
+  const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
+
+  // Monthly revenue by year
+  const getMonthlyByYear = (year: number) => {
+    const months: number[] = Array(12).fill(0);
+    recItems.forEach(item => {
+      const dv = item?.data_vencimento;
+      if (!dv?.startsWith(String(year))) return;
+      const m = Number(dv.slice(5, 7)) - 1;
+      if (m >= 0 && m < 12) {
+        months[m] += useRecebida ? (item?.pago ?? 0) : (item?.total ?? 0);
+      }
+    });
+    return months;
+  };
+
+  const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems, useRecebida]);
+  const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems, useRecebida]);
+
+  // Seasonality from 2024 + 2025
+  const seasonality = useMemo(() => {
+    const combined = data2024.map((v, i) => v + data2025[i]);
+    const total = combined.reduce((s, v) => s + v, 0);
+    return combined.map(v => total > 0 ? (v / total) * 100 : 100 / 12);
+  }, [data2024, data2025]);
+
+  // Classify months
+  const avgSeason = 100 / 12;
+  const classify = (pct: number) => {
+    if (pct > avgSeason * 1.3) return "Pico";
+    if (pct < avgSeason * 0.7) return "Baixa";
+    return "Normal";
+  };
+
+  // Projections 2026
+  const proj2026Base = seasonality.map(pct => (metaAnual * pct) / 100);
+  const proj2026Conservador = proj2026Base.map(v => v * 0.9);
+  const proj2026Agressivo = proj2026Base.map(v => v * 1.1);
+
+  // Chart data
+  const chartData = useMemo(() =>
+    MONTH_LABELS.map((label, i) => ({
+      label,
+      real2024: data2024[i],
+      real2025: data2025[i],
+      proj2026: proj2026Base[i],
+    })),
+    [data2024, data2025, proj2026Base]);
+
+  // Table data
+  const tableData = MONTH_LABELS.map((label, i) => ({
+    month: label,
+    seasonPct: seasonality[i],
+    classification: classify(seasonality[i]),
+    meta2026: proj2026Base[i],
+    conservador: proj2026Conservador[i],
+    agressivo: proj2026Agressivo[i],
+    real2024: data2024[i],
+    real2025: data2025[i],
+    gap2024: data2024[i] > 0 ? proj2026Base[i] - data2024[i] : 0,
+  }));
+
+  const total2024 = data2024.reduce((s, v) => s + v, 0);
+  const total2025 = data2025.reduce((s, v) => s + v, 0);
+
+  const hasData = recItems.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-bold">Projeções 2026</h1>
+        <p className="text-sm text-muted-foreground">Cenários e sazonalidade baseados em dados históricos</p>
+      </div>
+
+      {/* Config */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="w-[200px]">
+            <Label className="text-xs text-muted-foreground">Meta Anual 2026 (R$)</Label>
+            <Input type="number" value={metaAnual} onChange={e => setMetaAnual(Number(e.target.value))} className="h-8 mt-1" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Receita Emitida</Label>
+            <Switch checked={useRecebida} onCheckedChange={setUseRecebida} />
+            <Label className="text-xs text-muted-foreground">Receita Recebida</Label>
+          </div>
+        </div>
+      </motion.div>
+
+      {!hasData ? (
+        <div className="glass-card p-10 text-center text-muted-foreground">Sincronize os dados para ver as projeções.</div>
+      ) : (
+        <>
+          {/* Scenario Summary */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Conservador (-10%)", value: metaAnual * 0.9, color: "text-warning" },
+              { label: "Base", value: metaAnual, color: "text-primary" },
+              { label: "Agressivo (+10%)", value: metaAnual * 1.1, color: "text-success" },
+            ].map((s, i) => (
+              <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-card p-5">
+                <p className="text-sm text-muted-foreground">{s.label}</p>
+                <p className={`font-heading text-2xl font-bold mt-1 ${s.color}`}>{formatCurrency(s.value)}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Historical summary */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="glass-card p-5">
+              <p className="text-sm text-muted-foreground">Total 2024</p>
+              <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2024)}</p>
+            </div>
+            <div className="glass-card p-5">
+              <p className="text-sm text-muted-foreground">Total 2025 (até agora)</p>
+              <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2025)}</p>
+            </div>
+          </div>
+
+          {/* Comparison Chart */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+            <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
+            <ChartContainer config={{
+              real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
+              real2025: { label: "2025 Real", color: "hsl(var(--success))" },
+              proj2026: { label: "2026 Projeção", color: "hsl(var(--primary))" },
+            }} className="h-[320px]">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Line type="monotone" dataKey="real2024" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
+                <Line type="monotone" dataKey="proj2026" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+              </LineChart>
+            </ChartContainer>
+          </motion.div>
+
+          {/* Monthly detail table */}
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+            <h2 className="font-heading text-lg font-semibold mb-4">Detalhamento Mensal</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="pb-3 font-medium">Mês</th>
+                    <th className="pb-3 font-medium text-center">Sazonalidade</th>
+                    <th className="pb-3 font-medium text-right">Meta 2026</th>
+                    <th className="pb-3 font-medium text-right">Conservador</th>
+                    <th className="pb-3 font-medium text-right">Agressivo</th>
+                    <th className="pb-3 font-medium text-right">Real 2024</th>
+                    <th className="pb-3 font-medium text-right">Real 2025</th>
+                    <th className="pb-3 font-medium text-right">Gap vs 2024</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableData.map((row, i) => (
+                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                      <td className="py-2 font-medium">{row.month}</td>
+                      <td className="py-2 text-center">
+                        <Badge variant={row.classification === "Pico" ? "default" : row.classification === "Baixa" ? "destructive" : "secondary"} className="text-xs">
+                          {formatPercent(row.seasonPct)} · {row.classification}
+                        </Badge>
+                      </td>
+                      <td className="py-2 text-right">{formatCurrency(row.meta2026)}</td>
+                      <td className="py-2 text-right text-warning">{formatCurrency(row.conservador)}</td>
+                      <td className="py-2 text-right text-success">{formatCurrency(row.agressivo)}</td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
+                      <td className={`py-2 text-right ${row.gap2024 >= 0 ? "text-success" : "text-destructive"}`}>
+                        {row.real2024 > 0 ? formatCurrency(row.gap2024) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-border font-semibold">
+                    <td className="py-2">Total</td>
+                    <td className="py-2 text-center">100%</td>
+                    <td className="py-2 text-right">{formatCurrency(metaAnual)}</td>
+                    <td className="py-2 text-right text-warning">{formatCurrency(metaAnual * 0.9)}</td>
+                    <td className="py-2 text-right text-success">{formatCurrency(metaAnual * 1.1)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
+                    <td className="py-2 text-right">{formatCurrency(metaAnual - total2024)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </div>
+  );
+}

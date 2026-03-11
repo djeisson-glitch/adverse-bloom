@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw, Target, Vault, Lightbulb, LineChart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,10 @@ const items = [
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Fluxo de Caixa", url: "/fluxo-de-caixa", icon: TrendingUp },
   { title: "Custos", url: "/custos", icon: Receipt },
+  { title: "Resultados & Metas", url: "/resultados-metas", icon: Target },
+  { title: "Caixa & Runway", url: "/caixa-runway", icon: Vault },
+  { title: "Insights", url: "/insights", icon: Lightbulb },
+  { title: "Projeções 2026", url: "/projecoes-2026", icon: LineChart },
 ];
 
 export function AppSidebar() {
