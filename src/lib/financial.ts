@@ -137,11 +137,11 @@ export function calcSaldoEmConta(recItems: CAItem[], payItems: CAItem[]): number
   return SALDO_INICIAL + recebido - pago;
 }
 
-// Custos Fixos grouped by category
+// Custos Fixos grouped by category (competência)
 export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .forEach(item => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
