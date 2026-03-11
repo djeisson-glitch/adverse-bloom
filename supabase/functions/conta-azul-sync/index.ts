@@ -68,6 +68,32 @@ serve(async (req) => {
       return allItems
     }
 
+    try {
+      const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer })
+      results["accounts"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "accounts", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["accounts"] = { error: String(e) } }
+
+    try {
+      const res = await fetch(`${BASE}/v1/categorias?tamanho_pagina=200`, { headers: bearer })
+      results["categories"] = { status: res.status }
+      if (res.ok) await supabase.from("conta_azul_cache").upsert({ data_type: "categories", payload: await res.json(), fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["categories"] = { error: String(e) } }
+
+    try {
+      const urlBase = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+      const allItems = await fetchPaginated(urlBase, bearer)
+      results["receivables"] = { status: 200, count: allItems.length }
+      await supabase.from("conta_azul_cache").upsert({ data_type: "receivables", payload: { itens: allItems }, fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["receivables"] = { error: String(e) } }
+
+    try {
+      const urlBase = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+      const allItems = await fetchPaginated(urlBase, bearer)
+      results["payables"] = { status: 200, count: allItems.length }
+      await supabase.from("conta_azul_cache").upsert({ data_type: "payables", payload: { itens: allItems }, fetched_at: now, period }, { onConflict: "data_type" })
+    } catch(e) { results["payables"] = { error: String(e) } }
+
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     })
