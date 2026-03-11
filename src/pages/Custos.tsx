@@ -34,7 +34,7 @@ export default function Custos() {
 
   const allItems = useMemo(() => extractItems<PayItem>(payablesCache?.payload), [payablesCache]);
 
-  const filtered = useMemo(() => allItems.filter(i => isInRange(i?.data_vencimento, period)), [allItems, period]);
+  const filtered = useMemo(() => allItems.filter(i => isInRange(i?.data_competencia, period)), [allItems, period]);
 
   const totalDespesas = useMemo(() => filtered.reduce((s, i) => s + (i?.total ?? 0), 0), [filtered]);
   const totalPago = useMemo(() => filtered.reduce((s, i) => s + (i?.pago ?? 0), 0), [filtered]);

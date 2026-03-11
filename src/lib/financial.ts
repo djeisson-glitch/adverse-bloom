@@ -171,9 +171,9 @@ export function monthlyReceitaTotal(recItems: CAItem[], key: string): number {
   return recItems.filter(r => r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// Monthly despesas operacionais for a given month key
+// Monthly despesas operacionais (competência) for a given month key
 export function monthlyDespesasOp(payItems: CAItem[], key: string): number {
   return payItems
-    .filter(r => !isExcluded(r) && r?.data_vencimento?.startsWith(key))
+    .filter(r => !isExcluded(r) && r?.data_competencia?.startsWith(key))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
