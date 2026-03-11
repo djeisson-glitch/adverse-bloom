@@ -9,11 +9,14 @@ import {
   calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcTicketMedio,
   calcCustosFixosPorCategoria, calcCustosVariaveisPorCategoria,
+  calcBurnRate, calcSaldoEmConta,
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
+import { AiInsightsSection } from "@/components/AiInsightsSection";
 import type { PeriodRange } from "@/components/PeriodFilter";
 
 const META_TICKET = 50000;
+const META_ANUAL = 1500000;
 
 export default function Insights() {
   const { receivables, payables } = useAllContaAzulCache();
@@ -38,6 +41,12 @@ export default function Insights() {
 
   const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
   const variaveisPorCat = useMemo(() => calcCustosVariaveisPorCategoria(payItems, ytdPeriod), [payItems, currentYear]);
+
+  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
+  const runway = burnRate > 0 ? saldoEmConta / burnRate : 0;
+
+  const mesAtual = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   // Revenue concentration (competência)
   const topClientConcentration = useMemo(() => {
@@ -148,6 +157,27 @@ export default function Insights() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5 border-l-4 border-l-primary">
             <p className="text-sm font-medium">{bannerText}</p>
           </motion.div>
+
+          <AiInsightsSection
+            financialData={{
+              receitaTotal,
+              despesasOperacionais: despesasOp,
+              lucroLiquido,
+              margemLiquida,
+              margemContribuicao,
+              custosFixos,
+              custosVariaveis,
+              ticketMedio,
+              saldoEmConta,
+              burnRate,
+              runway: Math.round(runway * 10) / 10,
+              concentracaoReceita: Math.round(topClientConcentration * 10) / 10,
+              metaAnual: META_ANUAL,
+              receitaAcumulada: receitaTotal,
+              mesAtual,
+            }}
+            hasData={hasData}
+          />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <StatCard title="Margem de Contribuição" value={formatPercent(margemContribuicao)} icon={BarChart3} delay={0} />
