@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
 import {
   type CAItem, isInRange,
-  calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
+  calcReceitaTotal, calcReceitaRecebida, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcTicketMedio,
   calcCustosFixosPorCategoria, calcCustosVariaveisPorCategoria,
   calcBurnRate, calcSaldoEmConta,
