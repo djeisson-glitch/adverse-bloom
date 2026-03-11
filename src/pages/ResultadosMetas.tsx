@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { DollarSign, TrendingUp, Target, BarChart3, Users, Percent, Calculator, Hash } from "lucide-react";
+import { DollarSign, TrendingUp, Target, BarChart3, Percent, Calculator, Hash } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
-import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
