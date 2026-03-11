@@ -158,6 +158,27 @@ export default function Insights() {
             <p className="text-sm font-medium">{bannerText}</p>
           </motion.div>
 
+          <AiInsightsSection
+            financialData={{
+              receitaTotal,
+              despesasOperacionais: despesasOp,
+              lucroLiquido,
+              margemLiquida,
+              margemContribuicao,
+              custosFixos,
+              custosVariaveis,
+              ticketMedio,
+              saldoEmConta,
+              burnRate,
+              runway: Math.round(runway * 10) / 10,
+              concentracaoReceita: Math.round(topClientConcentration * 10) / 10,
+              metaAnual: META_ANUAL,
+              receitaAcumulada: receitaTotal,
+              mesAtual,
+            }}
+            hasData={hasData}
+          />
+
           <div className="grid gap-4 sm:grid-cols-3">
             <StatCard title="Margem de Contribuição" value={formatPercent(margemContribuicao)} icon={BarChart3} delay={0} />
             <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} delay={0.05} />
