@@ -80,9 +80,9 @@ export default function Index() {
     payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
     [payItems, period]);
 
-  // KPI 6: Pago no Período - sum pago, data_vencimento in period, ACQUITTED
+  // KPI 6: Pago no Período - sum pago, data_vencimento in period, no status filter
   const pagoPeriodo = useMemo(() =>
-    payItems.filter(r => isInRange(r?.data_vencimento, period) && r?.status === "ACQUITTED").reduce((s, r) => s + (r?.pago ?? 0), 0),
+    payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
     [payItems, period]);
 
   // KPI 7: Saldo em Conta = saldo_inicial + recebido desde ref - pago desde ref
