@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Bot, Loader2, Clock, AlertTriangle, Lightbulb, Zap } from "lucide-react";
+import { Bot, Loader2, Clock, AlertTriangle, Lightbulb, Zap, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,6 +34,7 @@ interface AiInsightsData {
 
 export interface FinancialDataForAi {
   receitaTotal: number;
+  receitaRecebida: number;
   despesasOperacionais: number;
   lucroLiquido: number;
   margemLiquida: number;
@@ -48,6 +49,7 @@ export interface FinancialDataForAi {
   metaAnual: number;
   receitaAcumulada: number;
   mesAtual: string;
+  periodoLabel: string;
 }
 
 interface Props {
@@ -88,6 +90,7 @@ const impactoColor: Record<string, string> = {
 export function AiInsightsSection({ financialData, hasData }: Props) {
   const [insights, setInsights] = useState<AiInsightsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<Date | null>(null);
 
   const analyze = useCallback(async () => {
@@ -109,6 +112,36 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
       toast.error(e.message || "Erro ao analisar com IA");
     } finally {
       setLoading(false);
+    }
+  }, [financialData, hasData]);
+
+  const generateReport = useCallback(async () => {
+    if (!hasData) {
+      toast.error("Sincronize os dados antes de gerar o relatório.");
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-report", {
+        body: { financialData },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const html = data.html;
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Permita pop-ups para gerar o relatório.");
+        return;
+      }
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 500);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Erro ao gerar relatório");
+    } finally {
+      setReportLoading(false);
     }
   }, [financialData, hasData]);
 
@@ -140,10 +173,16 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
             </span>
           )}
         </div>
-        <Button onClick={analyze} disabled={loading || !hasData} size="sm" className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
-          {loading ? "Analisando dados..." : "🤖 Analisar com IA"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={analyze} disabled={loading || reportLoading || !hasData} size="sm" className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+            {loading ? "Analisando dados..." : "🤖 Analisar com IA"}
+          </Button>
+          <Button onClick={generateReport} disabled={reportLoading || loading || !hasData} size="sm" variant="outline" className="gap-2">
+            {reportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {reportLoading ? "Gerando relatório..." : "📄 Gerar Relatório"}
+          </Button>
+        </div>
       </div>
 
       <AnimatePresence>

@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
 import {
   type CAItem, isInRange,
-  calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
+  calcReceitaTotal, calcReceitaRecebida, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcTicketMedio,
   calcCustosFixosPorCategoria, calcCustosVariaveisPorCategoria,
   calcBurnRate, calcSaldoEmConta,
@@ -33,6 +33,7 @@ export default function Insights() {
   const now = new Date();
 
   const receitaTotal = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  const receitaRecebida = useMemo(() => calcReceitaRecebida(recItems, period), [recItems, period]);
   const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
   const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
@@ -174,6 +175,7 @@ export default function Insights() {
           <AiInsightsSection
             financialData={{
               receitaTotal,
+              receitaRecebida,
               despesasOperacionais: despesasOp,
               lucroLiquido,
               margemLiquida,
@@ -188,6 +190,7 @@ export default function Insights() {
               metaAnual: META_ANUAL,
               receitaAcumulada: receitaTotal,
               mesAtual: periodLabel,
+              periodoLabel: periodLabel,
             }}
             hasData={hasData}
           />
