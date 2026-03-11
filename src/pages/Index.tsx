@@ -38,10 +38,10 @@ export default function Index() {
 
   const [period, setPeriod] = useState<PeriodRange>(() => {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
-    return { from: `${y}-${m}-01`, to: `${y}-${m}-${lastDay}` };
+    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const lastDay = new Date(py, pm + 1, 0).getDate();
+    return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
   });
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
