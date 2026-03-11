@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { DollarSign, TrendingUp, Target, BarChart3, Users, Percent, Calculator, Hash } from "lucide-react";
+import { DollarSign, TrendingUp, Target, BarChart3, Percent, Calculator, Hash } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
-import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
@@ -23,10 +24,7 @@ import {
 export default function ResultadosMetas() {
   const { receivables, payables } = useAllContaAzulCache();
 
-  const [period, setPeriod] = useState<PeriodRange>(() => {
-    const now = new Date();
-    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
-  });
+  const { period, setPeriod } = usePeriod();
 
   const [metaAnual, setMetaAnual] = useState(1500000);
   const [metaTicket, setMetaTicket] = useState(50000);

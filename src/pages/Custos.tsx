@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Loader2, Wallet, CreditCard } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 interface PayItem {
   id?: string;
@@ -28,13 +29,7 @@ function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
 export default function Custos() {
   const { data: payablesCache, isLoading } = useContaAzulCache("payables");
 
-  const [period, setPeriod] = useState<PeriodRange>(() => {
-    const now = new Date();
-    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const lastDay = new Date(py, pm + 1, 0).getDate();
-    return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
-  });
+  const { period, setPeriod } = usePeriod();
 
   const allItems = useMemo(() => extractItems<PayItem>(payablesCache?.payload), [payablesCache]);
 

@@ -14,21 +14,16 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { PeriodFilter } from "@/components/PeriodFilter";
+import { usePeriod } from "@/contexts/PeriodContext";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
   const { accounts, receivables, payables } = useAllContaAzulCache();
 
-  const [period, setPeriod] = useState<PeriodRange>(() => {
-    const now = new Date();
-    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const lastDay = new Date(py, pm + 1, 0).getDate();
-    return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
-  });
+  const { period, setPeriod } = usePeriod();
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
