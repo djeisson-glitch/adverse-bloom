@@ -34,6 +34,7 @@ interface AiInsightsData {
 
 export interface FinancialDataForAi {
   receitaTotal: number;
+  receitaRecebida: number;
   despesasOperacionais: number;
   lucroLiquido: number;
   margemLiquida: number;
@@ -48,6 +49,7 @@ export interface FinancialDataForAi {
   metaAnual: number;
   receitaAcumulada: number;
   mesAtual: string;
+  periodoLabel: string;
 }
 
 interface Props {
