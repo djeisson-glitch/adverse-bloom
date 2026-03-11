@@ -22,16 +22,7 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (project: Omit<TablesInsert<"projects">, "id" | "created_at" | "gross_margin_value" | "gross_margin_percent">) => {
-      const soldValue = project.sold_value ?? 0;
-      const directCosts = project.direct_costs ?? 0;
-      const grossMarginValue = soldValue - directCosts;
-      const grossMarginPercent = soldValue > 0 ? (grossMarginValue / soldValue) * 100 : 0;
-
-      const { data, error } = await supabase.from("projects").insert({
-        ...project,
-        gross_margin_value: grossMarginValue,
-        gross_margin_percent: Math.round(grossMarginPercent * 100) / 100,
-      }).select().single();
+      const { data, error } = await supabase.from("projects").insert(project as any).select().single();
       if (error) throw error;
       return data;
     },
