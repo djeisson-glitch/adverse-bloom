@@ -1,4 +1,4 @@
-import { DollarSign, FolderKanban, Wallet, ArrowDownLeft, CheckCircle, Receipt } from "lucide-react";
+import { DollarSign, Wallet, ArrowDownLeft, CheckCircle, Receipt, CreditCard } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
@@ -13,6 +13,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } f
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+
+const SALDO_INICIAL = 16307.73;
+const SALDO_INICIAL_DATA = "2025-01-07";
 
 interface CAItem {
   total?: number;
@@ -44,7 +47,7 @@ export default function Index() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  // KPI 1: Receita do Mês - sum total, data_vencimento in period, all statuses
+  // KPI 1: Receita do Período - sum total, data_vencimento in period, all statuses
   const receitaPeriodo = useMemo(() =>
     recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems, period]);
@@ -64,16 +67,26 @@ export default function Index() {
     recItems.filter(r => r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems]);
 
-  // KPI 5: Despesas do Período - sum total, data_vencimento in period
+  // KPI 5: Despesas do Período - sum total, data_vencimento in period, all statuses
   const despesasPeriodo = useMemo(() =>
     payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
     [payItems, period]);
 
-  // KPI 6: Saldo em Conta
+  // KPI 6: Pago no Período - sum pago, data_vencimento in period, ACQUITTED
+  const pagoPeriodo = useMemo(() =>
+    payItems.filter(r => isInRange(r?.data_vencimento, period) && r?.status === "ACQUITTED").reduce((s, r) => s + (r?.pago ?? 0), 0),
+    [payItems, period]);
+
+  // KPI 7: Saldo em Conta = saldo_inicial + recebido desde ref - pago desde ref
   const saldoEmConta = useMemo(() => {
-    const accs = extractItems<{ saldo?: number }>(accounts.data?.payload);
-    return accs.reduce((s, a) => s + (a?.saldo ?? 0), 0);
-  }, [accounts.data]);
+    const recebidoDesdeRef = recItems
+      .filter(r => r?.status === "ACQUITTED" && r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+      .reduce((s, r) => s + (r?.pago ?? 0), 0);
+    const pagoDesdeRef = payItems
+      .filter(r => r?.status === "ACQUITTED" && r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+      .reduce((s, r) => s + (r?.pago ?? 0), 0);
+    return SALDO_INICIAL + recebidoDesdeRef - pagoDesdeRef;
+  }, [recItems, payItems]);
 
   // Fluxo chart: always last 6 months
   const fluxoChart = useMemo(() => {
@@ -132,13 +145,14 @@ export default function Index() {
         <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard title="Receita do Período" value={formatCurrency(receitaPeriodo)} icon={DollarSign} delay={0} />
         <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05} />
         <StatCard title="Faturamento" value={formatCurrency(faturamentoPeriodo)} icon={Receipt} delay={0.1} />
         <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.15} />
         <StatCard title="Despesas do Período" value={formatCurrency(despesasPeriodo)} icon={Wallet} delay={0.2} />
-        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.25} />
+        <StatCard title="Pago no Período" value={formatCurrency(pagoPeriodo)} icon={CreditCard} delay={0.25} />
+        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.3} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
