@@ -60,9 +60,9 @@ export default function Index() {
     recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems, period]);
 
-  // KPI 2: Recebido - sum pago, data_vencimento in period, ACQUITTED
+  // KPI 2: Recebido - sum pago, data_vencimento in period, no status filter
   const recebidoPeriodo = useMemo(() =>
-    recItems.filter(r => isInRange(r?.data_vencimento, period) && r?.status === "ACQUITTED").reduce((s, r) => s + (r?.pago ?? 0), 0),
+    recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
     [recItems, period]);
 
   // KPI 3: Faturamento - sum total, data_competencia in period, all statuses
