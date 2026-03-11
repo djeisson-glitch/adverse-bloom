@@ -9,11 +9,14 @@ import {
   calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcTicketMedio,
   calcCustosFixosPorCategoria, calcCustosVariaveisPorCategoria,
+  calcBurnRate, calcSaldoEmConta,
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
+import { AiInsightsSection } from "@/components/AiInsightsSection";
 import type { PeriodRange } from "@/components/PeriodFilter";
 
 const META_TICKET = 50000;
+const META_ANUAL = 1500000;
 
 export default function Insights() {
   const { receivables, payables } = useAllContaAzulCache();
