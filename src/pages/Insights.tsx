@@ -13,6 +13,7 @@ import {
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
+import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 
 const META_TICKET = 50000;
