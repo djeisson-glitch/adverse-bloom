@@ -2,32 +2,20 @@ import { useMemo, useState } from "react";
 import { Wallet, TrendingDown, Clock, CalendarDays, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import { formatDate } from "@/lib/format";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-
-const SALDO_INICIAL = 16307.73;
-const SALDO_INICIAL_DATA = "2025-01-07";
-
-interface CAItem {
-  total?: number;
-  pago?: number;
-  status?: string;
-  status_traduzido?: string;
-  data_vencimento?: string;
-  data_competencia?: string;
-  categorias?: { nome?: string }[];
-  cliente?: { nome?: string };
-  descricao?: string;
-}
+import {
+  type CAItem,
+  calcSaldoEmConta, calcBurnRate,
+} from "@/lib/financial";
 
 export default function CaixaRunway() {
   const { receivables, payables } = useAllContaAzulCache();
@@ -39,48 +27,24 @@ export default function CaixaRunway() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  // Saldo Atual
-  const saldoAtual = useMemo(() => {
-    const recebido = recItems
-      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
-      .reduce((s, r) => s + (r?.pago ?? 0), 0);
-    const pago = payItems
-      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
-      .reduce((s, r) => s + (r?.pago ?? 0), 0);
-    return SALDO_INICIAL + recebido - pago;
-  }, [recItems, payItems]);
-
-  // Burn Rate - avg monthly payables pago last 3 months
-  const burnRate = useMemo(() => {
-    const now = new Date();
-    let total = 0;
-    for (let i = 1; i <= 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      total += payItems.filter(r => r?.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r?.pago ?? 0), 0);
-    }
-    return total / 3;
-  }, [payItems]);
-
+  const saldoAtual = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
   const runway = burnRate > 0 ? saldoAtual / burnRate : Infinity;
 
-  // This month
   const now = new Date();
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const entradasMes = useMemo(() => recItems.filter(r => r?.data_vencimento?.startsWith(thisMonthKey)).reduce((s, r) => s + (r?.pago ?? 0), 0), [recItems, thisMonthKey]);
   const saidasMes = useMemo(() => payItems.filter(r => r?.data_vencimento?.startsWith(thisMonthKey)).reduce((s, r) => s + (r?.pago ?? 0), 0), [payItems, thisMonthKey]);
 
-  // Projected balance end of month
   const recPendingMonth = useMemo(() => recItems.filter(r => r?.data_vencimento?.startsWith(thisMonthKey) && r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0), [recItems, thisMonthKey]);
   const payPendingMonth = useMemo(() => payItems.filter(r => r?.data_vencimento?.startsWith(thisMonthKey) && r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0), [payItems, thisMonthKey]);
   const saldoProjetado = saldoAtual + recPendingMonth - payPendingMonth;
 
-  // Simulators impact
   const newBurnWithSim = burnRate + simProLabore + simContratacao;
   const saldoAfterInvestment = saldoAtual - simInvestimento;
   const runwaySim = newBurnWithSim > 0 ? saldoAfterInvestment / newBurnWithSim : Infinity;
 
-  // Monthly cash flow chart (last 6 + next 3 months)
   const cashFlowChart = useMemo(() => {
     const months: { label: string; realizado: number; projetado: number }[] = [];
     for (let i = 5; i >= -3; i--) {
@@ -101,7 +65,6 @@ export default function CaixaRunway() {
     return months;
   }, [recItems, payItems]);
 
-  // Upcoming receivables (next 30 days)
   const today = now.toISOString().slice(0, 10);
   const in30 = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
   const upcomingRec = useMemo(() =>
@@ -123,7 +86,6 @@ export default function CaixaRunway() {
         <p className="text-sm text-muted-foreground">Gestão de caixa, projeções e simulações</p>
       </div>
 
-      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Saldo Atual" value={formatCurrency(saldoAtual)} icon={Wallet} delay={0} />
         <StatCard title="Burn Rate Médio" value={formatCurrency(burnRate)} icon={TrendingDown} change="Últimos 3 meses" delay={0.05} />
@@ -133,7 +95,6 @@ export default function CaixaRunway() {
         <StatCard title="Saídas do Mês" value={formatCurrency(saidasMes)} icon={ArrowUpRight} delay={0.25} />
       </div>
 
-      {/* Simulators */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
         <h2 className="font-heading text-lg font-semibold mb-4">Simuladores de Impacto no Runway</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -172,7 +133,6 @@ export default function CaixaRunway() {
         )}
       </motion.div>
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
           <h2 className="font-heading text-lg font-semibold mb-4">Fluxo de Caixa Realizado vs Projetado</h2>
@@ -219,7 +179,6 @@ export default function CaixaRunway() {
         </motion.div>
       </div>
 
-      {/* Upcoming tables */}
       <div className="grid gap-4 lg:grid-cols-2">
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card p-6">
           <h2 className="font-heading text-lg font-semibold mb-4">Contas a Receber - Próx. 30 dias</h2>

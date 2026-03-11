@@ -12,29 +12,24 @@ import {
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
-
-interface CAItem {
-  total?: number;
-  pago?: number;
-  data_vencimento?: string;
-}
+import { type CAItem } from "@/lib/financial";
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export default function Projecoes2026() {
   const { receivables } = useAllContaAzulCache();
   const [metaAnual, setMetaAnual] = useState(1500000);
-  const [useRecebida, setUseRecebida] = useState(true); // true = pago (recebida), false = total (emitida)
+  const [useRecebida, setUseRecebida] = useState(true);
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
 
-  // Monthly revenue by year
+  // Seasonality uses data_competencia for both modes
   const getMonthlyByYear = (year: number) => {
     const months: number[] = Array(12).fill(0);
     recItems.forEach(item => {
-      const dv = item?.data_vencimento;
-      if (!dv?.startsWith(String(year))) return;
-      const m = Number(dv.slice(5, 7)) - 1;
+      const dc = item?.data_competencia;
+      if (!dc?.startsWith(String(year))) return;
+      const m = Number(dc.slice(5, 7)) - 1;
       if (m >= 0 && m < 12) {
         months[m] += useRecebida ? (item?.pago ?? 0) : (item?.total ?? 0);
       }
@@ -52,7 +47,6 @@ export default function Projecoes2026() {
     return combined.map(v => total > 0 ? (v / total) * 100 : 100 / 12);
   }, [data2024, data2025]);
 
-  // Classify months
   const avgSeason = 100 / 12;
   const classify = (pct: number) => {
     if (pct > avgSeason * 1.3) return "Pico";
@@ -60,12 +54,10 @@ export default function Projecoes2026() {
     return "Normal";
   };
 
-  // Projections 2026
   const proj2026Base = seasonality.map(pct => (metaAnual * pct) / 100);
   const proj2026Conservador = proj2026Base.map(v => v * 0.9);
   const proj2026Agressivo = proj2026Base.map(v => v * 1.1);
 
-  // Chart data
   const chartData = useMemo(() =>
     MONTH_LABELS.map((label, i) => ({
       label,
@@ -75,7 +67,6 @@ export default function Projecoes2026() {
     })),
     [data2024, data2025, proj2026Base]);
 
-  // Table data
   const tableData = MONTH_LABELS.map((label, i) => ({
     month: label,
     seasonPct: seasonality[i],
@@ -90,7 +81,6 @@ export default function Projecoes2026() {
 
   const total2024 = data2024.reduce((s, v) => s + v, 0);
   const total2025 = data2025.reduce((s, v) => s + v, 0);
-
   const hasData = recItems.length > 0;
 
   return (
@@ -100,7 +90,6 @@ export default function Projecoes2026() {
         <p className="text-sm text-muted-foreground">Cenários e sazonalidade baseados em dados históricos</p>
       </div>
 
-      {/* Config */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
           <div className="w-[200px]">
@@ -119,7 +108,6 @@ export default function Projecoes2026() {
         <div className="glass-card p-10 text-center text-muted-foreground">Sincronize os dados para ver as projeções.</div>
       ) : (
         <>
-          {/* Scenario Summary */}
           <div className="grid gap-4 sm:grid-cols-3">
             {[
               { label: "Conservador (-10%)", value: metaAnual * 0.9, color: "text-warning" },
@@ -133,7 +121,6 @@ export default function Projecoes2026() {
             ))}
           </div>
 
-          {/* Historical summary */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="glass-card p-5">
               <p className="text-sm text-muted-foreground">Total 2024</p>
@@ -145,7 +132,6 @@ export default function Projecoes2026() {
             </div>
           </div>
 
-          {/* Comparison Chart */}
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
             <ChartContainer config={{
@@ -166,7 +152,6 @@ export default function Projecoes2026() {
             </ChartContainer>
           </motion.div>
 
-          {/* Monthly detail table */}
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Detalhamento Mensal</h2>
             <div className="overflow-x-auto">
