@@ -13,21 +13,12 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar, ReferenceLine } from "recharts";
-
-interface CAItem {
-  total?: number;
-  pago?: number;
-  status?: string;
-  data_vencimento?: string;
-  data_competencia?: string;
-  categorias?: { nome?: string }[];
-  cliente?: { nome?: string };
-}
-
-function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
-  if (!dateStr) return false;
-  return dateStr >= range.from && dateStr <= range.to;
-}
+import {
+  type CAItem, isInRange,
+  calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
+  calcMargemContribuicao, calcLucroLiquido, calcPontoEquilibrio, calcTicketMedio,
+  monthKey, monthlyReceitaTotal, monthlyDespesasOp,
+} from "@/lib/financial";
 
 export default function ResultadosMetas() {
   const { receivables, payables } = useAllContaAzulCache();
@@ -44,67 +35,50 @@ export default function ResultadosMetas() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  const recFiltered = useMemo(() => recItems.filter(r => isInRange(r?.data_vencimento, period)), [recItems, period]);
-  const payFiltered = useMemo(() => payItems.filter(r => isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const receitaTotal = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
+  const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
+  const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
-  const receitaTotal = useMemo(() => recFiltered.reduce((s, r) => s + (r?.total ?? 0), 0), [recFiltered]);
-  const despesasTotal = useMemo(() => payFiltered.reduce((s, r) => s + (r?.total ?? 0), 0), [payFiltered]);
-  const lucroLiquido = receitaTotal - despesasTotal;
-  const margemLiquida = receitaTotal > 0 ? (lucroLiquido / receitaTotal) * 100 : 0;
-  const qtdeProjetos = recFiltered.length;
-  const ticketMedio = qtdeProjetos > 0 ? receitaTotal / qtdeProjetos : 0;
+  const { valor: margemContribValor, pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
+  const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
+  const pontoEquilibrio = calcPontoEquilibrio(custosFixos, margemContribuicao);
+  const { valor: ticketMedio, qtde: qtdeProjetos } = calcTicketMedio(recItems, period, receitaTotal);
 
-  // Fixed vs Variable costs - heuristic: categories with "fixo", "aluguel", "salário", "contador" are fixed
-  const FIXED_KEYWORDS = ["fixo", "aluguel", "salário", "salario", "contador", "pro-labore", "pró-labore", "internet", "telefone", "software", "assinatura"];
-  const { custosFixos, custosVariaveis } = useMemo(() => {
-    let fixos = 0, variaveis = 0;
-    payFiltered.forEach(item => {
-      const catName = (item?.categorias?.[0]?.nome || "").toLowerCase();
-      if (FIXED_KEYWORDS.some(k => catName.includes(k))) {
-        fixos += item?.total ?? 0;
-      } else {
-        variaveis += item?.total ?? 0;
-      }
-    });
-    return { custosFixos: fixos, custosVariaveis: variaveis };
-  }, [payFiltered]);
-
-  const margemContribuicao = receitaTotal > 0 ? ((receitaTotal - custosVariaveis) / receitaTotal) * 100 : 0;
-  const pontoEquilibrio = margemContribuicao > 0 ? custosFixos / (margemContribuicao / 100) : 0;
-
-  // Monthly evolution - last 12 months
+  // Monthly evolution - last 12 months (competência for receita, vencimento for despesas)
   const monthlyData = useMemo(() => {
     const now = new Date();
     const months: { label: string; key: string; receita: number; despesas: number; margem: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const k = monthKey(d.getFullYear(), d.getMonth());
       const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
-      const rec = recItems.filter(r => r?.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
-      const desp = payItems.filter(r => r?.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
+      const rec = monthlyReceitaTotal(recItems, k);
+      const desp = monthlyDespesasOp(payItems, k);
       const margem = rec > 0 ? ((rec - desp) / rec) * 100 : 0;
-      months.push({ label, key, receita: rec, despesas: desp, margem });
+      months.push({ label, key: k, receita: rec, despesas: desp, margem });
     }
     return months;
   }, [recItems, payItems]);
 
-  // Faturamento vs Meta monthly (current year)
+  // Faturamento vs Meta monthly (current year, competência)
   const fatVsMetaData = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
     const metaMensal = metaAnual / 12;
     const months: { label: string; faturamento: number; meta: number }[] = [];
     for (let m = 0; m < 12; m++) {
-      const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const k = monthKey(y, m);
       const label = new Date(y, m, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-      const fat = recItems.filter(r => r?.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
+      const fat = monthlyReceitaTotal(recItems, k);
       months.push({ label, faturamento: fat, meta: metaMensal });
     }
     return months;
   }, [recItems, metaAnual]);
 
-  // Top clients by revenue
+  // Top clients by revenue (competência)
   const topClients = useMemo(() => {
+    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
     const byClient: Record<string, { revenue: number; count: number }> = {};
     recFiltered.forEach(item => {
       const name = item?.cliente?.nome || "Sem cliente";
@@ -116,7 +90,7 @@ export default function ResultadosMetas() {
       .map(([name, d]) => ({ name, revenue: d.revenue, projects: d.count, ticket: d.count > 0 ? d.revenue / d.count : 0 }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 15);
-  }, [recFiltered]);
+  }, [recItems, period]);
 
   return (
     <div className="space-y-6">
@@ -128,7 +102,6 @@ export default function ResultadosMetas() {
         <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
-      {/* Goals config */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
         <h3 className="font-heading text-sm font-semibold mb-3 text-muted-foreground">Metas Configuráveis</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -147,10 +120,9 @@ export default function ResultadosMetas() {
         </div>
       </motion.div>
 
-      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Receita Total" value={formatCurrency(receitaTotal)} icon={DollarSign} delay={0} />
-        <StatCard title="Despesas Totais" value={formatCurrency(despesasTotal)} icon={TrendingUp} delay={0.05} />
+        <StatCard title="Despesas Operacionais" value={formatCurrency(despesasOp)} icon={TrendingUp} delay={0.05} />
         <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={Target} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
         <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} change={`Meta: ${metaMargem}%`} changeType={margemLiquida >= metaMargem ? "positive" : "negative"} delay={0.15} />
         <StatCard title="Ticket Médio" value={formatCurrency(ticketMedio)} icon={BarChart3} change={`Meta: ${formatCurrency(metaTicket)}`} changeType={ticketMedio >= metaTicket ? "positive" : "negative"} delay={0.2} />
@@ -163,7 +135,6 @@ export default function ResultadosMetas() {
         <StatCard title="Ponto de Equilíbrio" value={formatCurrency(pontoEquilibrio)} icon={Target} delay={0.45} />
       </div>
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
           <h2 className="font-heading text-lg font-semibold mb-4">Receita vs Despesas - 12 Meses</h2>
@@ -216,7 +187,6 @@ export default function ResultadosMetas() {
         </ChartContainer>
       </motion.div>
 
-      {/* Top Clients Table */}
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card p-6">
         <h2 className="font-heading text-lg font-semibold mb-4">Top Clientes por Receita</h2>
         <div className="overflow-x-auto">

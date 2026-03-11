@@ -3,6 +3,10 @@ import { StatCard } from "@/components/StatCard";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
+import {
+  type CAItem, isInRange, calcReceitaTotal, calcReceitaRecebida,
+  calcDespesasOperacionais, calcSaldoEmConta,
+} from "@/lib/financial";
 import { motion } from "framer-motion";
 import {
   ChartContainer,
@@ -13,24 +17,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } f
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
-
-const SALDO_INICIAL = 16307.73;
-const SALDO_INICIAL_DATA = "2025-01-07";
-
-interface CAItem {
-  total?: number;
-  pago?: number;
-  status?: string;
-  data_vencimento?: string;
-  data_competencia?: string;
-  categorias?: { nome?: string }[];
-  cliente?: { nome?: string };
-}
-
-function isInRange(dateStr: string | undefined, range: PeriodRange): boolean {
-  if (!dateStr) return false;
-  return dateStr >= range.from && dateStr <= range.to;
-}
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
@@ -44,76 +30,48 @@ export default function Index() {
     return { from: `${py}-${String(pm + 1).padStart(2, "0")}-01`, to: `${py}-${String(pm + 1).padStart(2, "0")}-${lastDay}` };
   });
 
-  const recItems = useMemo(() => {
-    const items = extractItems<CAItem>(receivables.data?.payload);
-    console.log(`[Dashboard] Receivables loaded: ${items.length} items`);
-    return items;
-  }, [receivables.data]);
-  const payItems = useMemo(() => {
-    const items = extractItems<CAItem>(payables.data?.payload);
-    console.log(`[Dashboard] Payables loaded: ${items.length} items`);
-    return items;
-  }, [payables.data]);
+  const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
+  const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  // KPI 1: Receita do Período - sum total, data_vencimento in period, all statuses
-  const receitaPeriodo = useMemo(() =>
-    recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
-    [recItems, period]);
+  // KPI 1: Receita do Período (competência)
+  const receitaPeriodo = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
 
-  // KPI 2: Recebido - sum pago, data_vencimento in period, no status filter
-  const recebidoPeriodo = useMemo(() =>
-    recItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
-    [recItems, period]);
+  // KPI 2: Recebido (caixa)
+  const recebidoPeriodo = useMemo(() => calcReceitaRecebida(recItems, period), [recItems, period]);
 
-  // KPI 3: Faturamento - sum total, data_competencia in period, all statuses
-  const faturamentoPeriodo = useMemo(() =>
-    recItems.filter(r => isInRange(r?.data_competencia, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
-    [recItems, period]);
+  // KPI 3: Faturamento (competência) - same as receita total
+  const faturamentoPeriodo = receitaPeriodo;
 
   // KPI 4: A Receber - PENDING, no period filter
   const aReceber = useMemo(() =>
     recItems.filter(r => r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems]);
 
-  // KPI 5: Despesas do Período - sum total, data_vencimento in period, all statuses
-  const despesasPeriodo = useMemo(() =>
-    payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.total ?? 0), 0),
-    [payItems, period]);
+  // KPI 5: Despesas Operacionais do Período
+  const despesasPeriodo = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
 
-  // KPI 6: Pago no Período - sum pago, data_vencimento in period, no status filter
+  // KPI 6: Pago no Período
   const pagoPeriodo = useMemo(() =>
     payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
     [payItems, period]);
 
-  // KPI 7: Saldo em Conta - no status filter, pago is 0 for unpaid
-  const saldoEmConta = useMemo(() => {
-    const recebidoDesdeRef = recItems
-      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
-      .reduce((s, r) => s + (r?.pago ?? 0), 0);
-    const pagoDesdeRef = payItems
-      .filter(r => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
-      .reduce((s, r) => s + (r?.pago ?? 0), 0);
-    return SALDO_INICIAL + recebidoDesdeRef - pagoDesdeRef;
-  }, [recItems, payItems]);
+  // KPI 7: Saldo em Conta
+  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
 
   // Fluxo chart: always last 6 months
   const fluxoChart = useMemo(() => {
     const now = new Date();
     const months: { label: string; recebido: number; faturado: number }[] = [];
-
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-
       const recebido = recItems
         .filter(r => r?.data_vencimento?.startsWith(key) && r?.status === "ACQUITTED")
         .reduce((s, r) => s + (r?.pago ?? 0), 0);
-
       const faturado = recItems
         .filter(r => r?.data_competencia?.startsWith(key))
         .reduce((s, r) => s + (r?.total ?? 0), 0);
-
       months.push({ label, recebido, faturado });
     }
     return months;
