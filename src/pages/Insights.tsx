@@ -190,7 +190,7 @@ export default function Insights() {
               metaAnual: META_ANUAL,
               receitaAcumulada: receitaTotal,
               mesAtual: periodLabel,
-              periodoLabel,
+              periodoLabel: periodLabel,
             }}
             hasData={hasData}
           />
