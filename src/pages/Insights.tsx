@@ -13,6 +13,7 @@ import {
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
+import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 
 const META_TICKET = 50000;
@@ -200,6 +201,17 @@ export default function Insights() {
             <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} delay={0.05} />
             <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={TrendingUp} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
           </div>
+
+          <DiagnosticoResultado
+            recItems={recItems}
+            payItems={payItems}
+            period={period}
+            receitaTotal={receitaTotal}
+            custosFixos={custosFixos}
+            custosVariaveis={custosVariaveis}
+            lucroLiquido={lucroLiquido}
+            margemLiquida={margemLiquida}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-6 min-h-[200px]">
