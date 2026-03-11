@@ -24,10 +24,7 @@ import {
 export default function ResultadosMetas() {
   const { receivables, payables } = useAllContaAzulCache();
 
-  const [period, setPeriod] = useState<PeriodRange>(() => {
-    const now = new Date();
-    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
-  });
+  const { period, setPeriod } = usePeriod();
 
   const [metaAnual, setMetaAnual] = useState(1500000);
   const [metaTicket, setMetaTicket] = useState(50000);
