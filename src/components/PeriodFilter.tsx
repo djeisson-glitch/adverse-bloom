@@ -60,7 +60,7 @@ interface Props {
 }
 
 export function PeriodFilter({ value, onChange }: Props) {
-  const [preset, setPreset] = useState<Preset>("mes_anterior");
+  const [preset, setPreset] = useState<Preset>("mes_atual");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
 
