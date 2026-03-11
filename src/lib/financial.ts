@@ -149,11 +149,11 @@ export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRa
   return Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
 }
 
-// Custos Variáveis grouped by category
+// Custos Variáveis grouped by category (competência)
 export function calcCustosVariaveisPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter(r => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .forEach(item => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
