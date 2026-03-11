@@ -75,10 +75,10 @@ export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
-// 4. Custos Fixos - FIXED_COSTS includes cat && !isExcluded, data_vencimento in period, field total
+// 4. Custos Fixos (competência) - FIXED_COSTS includes cat && !isExcluded, data_competencia in period, field total
 export function calcCustosFixos(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter(r => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
