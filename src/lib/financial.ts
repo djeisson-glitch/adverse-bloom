@@ -140,9 +140,9 @@ export function calcLucroLiquido(receitaTotal: number, despesasOperacionais: num
 
 // 7b. Lucro Líquido Final (inclui empréstimos e investimentos)
 export function calcLucroLiquidoFinal(receitaTotal: number, payItems: CAItem[], period: PeriodRange) {
-  // Soma TODAS as despesas, incluindo as que estão em EXCLUDED_FROM_MARGIN
+  // Soma TODAS as despesas por COMPETÊNCIA, incluindo as que estão em EXCLUDED_FROM_MARGIN
   const todasDespesas = payItems
-    .filter((r) => isInRange(r?.data_vencimento, period))
+    .filter((r) => isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 
   const valor = receitaTotal - todasDespesas;
