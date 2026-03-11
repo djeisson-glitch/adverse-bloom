@@ -11,6 +11,10 @@ import Projetos from "./pages/Projetos";
 import Clientes from "./pages/Clientes";
 import FluxoDeCaixa from "./pages/FluxoDeCaixa";
 import Custos from "./pages/Custos";
+import ResultadosMetas from "./pages/ResultadosMetas";
+import CaixaRunway from "./pages/CaixaRunway";
+import Insights from "./pages/Insights";
+import Projecoes2026 from "./pages/Projecoes2026";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -41,6 +45,10 @@ const App = () => (
             <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
             <Route path="/fluxo-de-caixa" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
             <Route path="/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
+            <Route path="/resultados-metas" element={<ProtectedRoute><ResultadosMetas /></ProtectedRoute>} />
+            <Route path="/caixa-runway" element={<ProtectedRoute><CaixaRunway /></ProtectedRoute>} />
+            <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+            <Route path="/projecoes-2026" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
