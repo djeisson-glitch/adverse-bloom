@@ -53,20 +53,7 @@ serve(async (req) => {
     const dataInicio = `${anoAtual - 1}-01-01`
     const dataFim = `${anoAtual}-12-31`
 
-    async function fetchPaginated(urlBase: string, headers: Record<string, string>): Promise<any[]> {
-      const allItems: any[] = []
-      for (let page = 1; page <= 10; page++) {
-        const sep = urlBase.includes("?") ? "&" : "?"
-        const url = `${urlBase}${sep}pagina=${page}&tamanho_pagina=200`
-        const res = await fetch(url, { headers })
-        if (!res.ok) break
-        const data = await res.json()
-        const items = Array.isArray(data) ? data : (data.itens || data.items || [])
-        allItems.push(...items)
-        if (items.length < 200) break
-      }
-      return allItems
-    }
+
 
     try {
       const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer })
