@@ -81,17 +81,37 @@ serve(async (req) => {
     } catch(e) { results["categories"] = { error: String(e) } }
 
     try {
-      const urlBase = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
-      const allItems = await fetchPaginated(urlBase, bearer)
-      results["receivables"] = { status: 200, count: allItems.length }
-      await supabase.from("conta_azul_cache").upsert({ data_type: "receivables", payload: { itens: allItems }, fetched_at: now, period }, { onConflict: "data_type" })
+      let allReceivables: any[] = []
+      let pageR = 1
+      while (pageR <= 10) {
+        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=${pageR}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+        const res = await fetch(url, { headers: bearer })
+        if (!res.ok) break
+        const json = await res.json()
+        const items = json.itens || []
+        allReceivables = allReceivables.concat(items)
+        if (items.length < 200) break
+        pageR++
+      }
+      results["receivables"] = { status: 200, count: allReceivables.length }
+      await supabase.from("conta_azul_cache").upsert({ data_type: "receivables", payload: { itens: allReceivables }, fetched_at: now, period }, { onConflict: "data_type" })
     } catch(e) { results["receivables"] = { error: String(e) } }
 
     try {
-      const urlBase = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
-      const allItems = await fetchPaginated(urlBase, bearer)
-      results["payables"] = { status: 200, count: allItems.length }
-      await supabase.from("conta_azul_cache").upsert({ data_type: "payables", payload: { itens: allItems }, fetched_at: now, period }, { onConflict: "data_type" })
+      let allPayables: any[] = []
+      let pageP = 1
+      while (pageP <= 10) {
+        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=${pageP}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`
+        const res = await fetch(url, { headers: bearer })
+        if (!res.ok) break
+        const json = await res.json()
+        const items = json.itens || []
+        allPayables = allPayables.concat(items)
+        if (items.length < 200) break
+        pageP++
+      }
+      results["payables"] = { status: 200, count: allPayables.length }
+      await supabase.from("conta_azul_cache").upsert({ data_type: "payables", payload: { itens: allPayables }, fetched_at: now, period }, { onConflict: "data_type" })
     } catch(e) { results["payables"] = { error: String(e) } }
 
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
