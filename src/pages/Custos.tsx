@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
