@@ -33,6 +33,7 @@ export default function Insights() {
   const now = new Date();
 
   const receitaTotal = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  const receitaRecebida = useMemo(() => calcReceitaRecebida(recItems, period), [recItems, period]);
   const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
   const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
