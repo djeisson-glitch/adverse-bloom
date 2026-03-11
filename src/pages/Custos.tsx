@@ -17,6 +17,7 @@ interface PayItem {
   status_traduzido?: string;
   descricao?: string;
   data_vencimento?: string;
+  data_competencia?: string;
   categorias?: { nome?: string }[];
   fornecedor?: { nome?: string };
 }
