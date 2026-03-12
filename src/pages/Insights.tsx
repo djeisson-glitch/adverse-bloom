@@ -27,6 +27,7 @@ import {
 import { AiInsightsSection } from "@/components/AiInsightsSection";
 import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
+import { SurvivalWidget } from "@/components/SurvivalWidget";
 
 const META_TICKET = 50000;
 const META_ANUAL = 1500000;
@@ -189,6 +190,8 @@ export default function Insights() {
         </div>
         <PeriodFilter value={period} onChange={setPeriod} defaultPreset="ano_atual" />
       </div>
+
+      <SurvivalWidget burnRate={burnRate} />
 
       {!hasData ? (
         <div className="glass-card p-10 text-center text-muted-foreground">
