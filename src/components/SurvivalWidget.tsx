@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AlertTriangle, ShieldAlert, CheckCircle, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { motion } from "framer-motion";
@@ -11,15 +11,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import type { CAItem } from "@/lib/financial";
 
 interface SurvivalWidgetProps {
   burnRate: number;
-  metaMensalMinima?: number;
+  recItems: CAItem[];
+  payItems: CAItem[];
 }
 
 const LS_KEY = "adverse_saldo_atual";
 
-export function SurvivalWidget({ burnRate, metaMensalMinima = 90000 }: SurvivalWidgetProps) {
+export function SurvivalWidget({ burnRate, recItems, payItems }: SurvivalWidgetProps) {
   const [saldoAtual, setSaldoAtual] = useState(() => {
     const saved = localStorage.getItem(LS_KEY);
     return saved ? Number(saved) : 37000;
@@ -27,15 +29,27 @@ export function SurvivalWidget({ burnRate, metaMensalMinima = 90000 }: SurvivalW
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
-  const queimaMedia = burnRate > 0 ? burnRate : 20000;
-  const runway = queimaMedia > 0 ? saldoAtual / queimaMedia : 0;
-
   const now = new Date();
+  const mesAtual = now.toISOString().slice(0, 7);
   const diasAteFinsMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
 
-  // Calculate survival date
+  const receberEsteMes = recItems
+    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && r?.status !== "RECEIVED")
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+
+  const pagarEsteMes = payItems
+    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && r?.status !== "PAID")
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+
+  const saldoProjetado = saldoAtual + receberEsteMes - pagarEsteMes;
+  const queimaMedia = burnRate > 0 ? burnRate : 20000;
+  const runway = queimaMedia > 0 ? saldoProjetado / queimaMedia : 0;
+
+  const metaVendas = Math.max(0, queimaMedia - receberEsteMes);
+
+  // Survival date based on projected balance
   const survivalDate = new Date(now);
-  survivalDate.setDate(survivalDate.getDate() + Math.floor(runway * 30));
+  survivalDate.setDate(survivalDate.getDate() + Math.floor(Math.max(0, runway) * 30));
   const survivalLabel = survivalDate.toLocaleDateString("pt-BR", { day: "numeric", month: "long" });
 
   const cor = runway < 2 ? "destructive" : runway < 3 ? "warning" : "success";
@@ -93,22 +107,26 @@ export function SurvivalWidget({ burnRate, metaMensalMinima = 90000 }: SurvivalW
                 RUNWAY: {runway.toFixed(1)} meses
               </span>
               <span className="text-sm text-muted-foreground">
-                (Sobrevive até {survivalLabel} sem vender nada)
+                (Saldo projetado fim do mês: {formatCurrency(saldoProjetado)})
               </span>
             </div>
 
-            <p className="text-sm font-medium">
-              VOCÊ PRECISA VENDER{" "}
-              <span className={cor === "destructive" ? "text-destructive" : cor === "warning" ? "text-warning" : "text-success"}>
-                {formatCurrency(metaMensalMinima)}
-              </span>{" "}
-              NOS PRÓXIMOS {diasAteFinsMes} DIAS para manter a operação funcionando.
-            </p>
+            {metaVendas > 0 && (
+              <p className="text-sm font-medium">
+                VOCÊ PRECISA VENDER{" "}
+                <span className={cor === "destructive" ? "text-destructive" : cor === "warning" ? "text-warning" : "text-success"}>
+                  {formatCurrency(metaVendas)}
+                </span>{" "}
+                NOS PRÓXIMOS {diasAteFinsMes} DIAS para manter a operação funcionando.
+              </p>
+            )}
 
-            <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
               <span>Saldo atual: {formatCurrency(saldoAtual)}</span>
               <span>•</span>
-              <span>Burn rate: {formatCurrency(queimaMedia)}/mês</span>
+              <span>A receber este mês: {formatCurrency(receberEsteMes)}</span>
+              <span>•</span>
+              <span>A pagar este mês: {formatCurrency(pagarEsteMes)}</span>
             </div>
           </div>
 
