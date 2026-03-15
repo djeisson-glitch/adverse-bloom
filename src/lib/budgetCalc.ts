@@ -10,6 +10,7 @@ export interface BudgetTotals {
   totalValue: number;
   marginValue: number;
   marginPercent: number;
+  supplierTotal: number;
   categoryBreakdown: Record<string, number>;
 }
 
