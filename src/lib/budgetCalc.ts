@@ -30,26 +30,24 @@ export function calcBudgetTotals(
   const commissionValue = (subtotal1 + markupValue) * (commissionPercent / 100);
   const subtotal2 = subtotal1 + markupValue + commissionValue;
 
-  // Recursive BV + Tax calculation:
-  // BV = bv% × Total, Tax = tax% × (ST2 + BV)
-  // Total = ST2 × (1 + tax%) / (1 - bv% - tax% × bv%)
+  // Recursive: Total = ST2 / (1 - bv% - tax%)
+  // BV = bv% × Total, Imposto = tax% × Total
   const bv = bvPercent / 100;
   const tax = taxPercent / 100;
-  const denominator = 1 - bv - tax * bv;
+  const denominator = 1 - bv - tax;
 
   let totalBeforeAdj: number;
   let bvValue: number;
   let taxValue: number;
 
   if (denominator > 0) {
-    totalBeforeAdj = subtotal2 * (1 + tax) / denominator;
+    totalBeforeAdj = subtotal2 / denominator;
     bvValue = bv * totalBeforeAdj;
-    taxValue = tax * (subtotal2 + bvValue);
+    taxValue = tax * totalBeforeAdj;
   } else {
-    // Fallback if percentages are invalid
     totalBeforeAdj = subtotal2;
     bvValue = 0;
-    taxValue = subtotal2 * tax;
+    taxValue = 0;
   }
 
   const totalValue = Math.ceil(totalBeforeAdj + addition - discount);
