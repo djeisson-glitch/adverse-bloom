@@ -102,6 +102,12 @@ export function BudgetForm({ budgetId, onClose }: Props) {
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
       setCommissionPercent(settings.commission_default);
+      if ('commission_djeisson_percent' in settings) {
+        setDjPercent((settings as any).commission_djeisson_percent ?? 3);
+        setRobertPercent((settings as any).commission_robert_percent ?? 3);
+        setDjEnabled((settings as any).commission_djeisson_enabled ?? true);
+        setRobertEnabled((settings as any).commission_robert_enabled ?? true);
+      }
     }
   }, [existing, settings]);
 
