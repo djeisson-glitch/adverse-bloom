@@ -1,9 +1,12 @@
-import { Copy, Edit, Trash2 } from "lucide-react";
+import { Copy, Edit, Trash2, FileDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import type { Budget } from "@/hooks/useBudgets";
+import { generateBudgetPDF } from "@/lib/generateBudgetPDF";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
@@ -25,6 +28,22 @@ interface Props {
 }
 
 export function BudgetCard({ budget, onEdit, onDuplicate, onDelete }: Props) {
+  const { toast } = useToast();
+
+  const handlePDF = async () => {
+    try {
+      const { data: items, error } = await supabase
+        .from("budget_items")
+        .select("*")
+        .eq("budget_id", budget.id)
+        .order("order_index", { ascending: true });
+      if (error) throw error;
+      generateBudgetPDF(budget, (items || []) as BudgetItem[]);
+    } catch {
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    }
+  };
+
   return (
     <Card className="group relative transition-colors hover:border-primary/30">
       <CardHeader className="pb-2">
@@ -57,12 +76,15 @@ export function BudgetCard({ budget, onEdit, onDuplicate, onDelete }: Props) {
         </div>
         <p className="text-xs text-muted-foreground">{formatDate(budget.created_at)}</p>
 
-        <div className="flex gap-1 pt-1">
+        <div className="flex gap-1 pt-1 flex-wrap">
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Edit className="h-3.5 w-3.5 mr-1" /> Editar
           </Button>
           <Button variant="ghost" size="sm" onClick={onDuplicate}>
             <Copy className="h-3.5 w-3.5 mr-1" /> Duplicar
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handlePDF}>
+            <FileDown className="h-3.5 w-3.5 mr-1" /> PDF
           </Button>
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir

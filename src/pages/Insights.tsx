@@ -28,6 +28,7 @@ import { AiInsightsSection } from "@/components/AiInsightsSection";
 import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
 import { SurvivalWidget } from "@/components/SurvivalWidget";
+import { BudgetMarginCard } from "@/components/budgets/BudgetMarginCard";
 
 const META_TICKET = 50000;
 const META_ANUAL = 1500000;
@@ -312,6 +313,8 @@ export default function Insights() {
               )}
             </motion.div>
           </div>
+
+          <BudgetMarginCard />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div

@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBudgets, useDeleteBudget, useDuplicateBudget } from "@/hooks/useBudgets";
+import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } from "@/hooks/useBudgets";
 import { BudgetCard } from "@/components/budgets/BudgetCard";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
+import { CostManagement } from "@/components/budgets/CostManagement";
 
 export default function Orcamentos() {
   const { data: budgets = [], isLoading } = useBudgets();
@@ -12,6 +13,9 @@ export default function Orcamentos() {
   const duplicateBudget = useDuplicateBudget();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [costBudgetId, setCostBudgetId] = useState<string | null>(null);
+
+  const { data: costBudget } = useBudgetWithItems(costBudgetId);
 
   if (creating || editingId) {
     return (
@@ -65,6 +69,28 @@ export default function Orcamentos() {
                       onDelete={() => deleteBudget.mutate(b.id)}
                     />
                   ))}
+                </div>
+              )}
+
+              {/* Cost Management for approved budgets */}
+              {status === "approved" && list.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h2 className="font-heading text-lg font-semibold">Gestão de Custos</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    {list.map((b) => (
+                      <Button
+                        key={b.id}
+                        variant={costBudgetId === b.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCostBudgetId(costBudgetId === b.id ? null : b.id)}
+                      >
+                        {b.project_name}
+                      </Button>
+                    ))}
+                  </div>
+                  {costBudget && (
+                    <CostManagement budget={costBudget} items={costBudget.budget_items} />
+                  )}
                 </div>
               )}
             </TabsContent>
