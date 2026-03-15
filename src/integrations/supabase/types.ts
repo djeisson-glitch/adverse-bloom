@@ -14,6 +14,161 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_items: {
+        Row: {
+          budget_id: string
+          category: string
+          client_price: number
+          created_at: string
+          id: string
+          item_name: string
+          margin_percent: number | null
+          margin_value: number | null
+          order_index: number | null
+          quantity: number
+          supplier_cost: number
+          unit_type: string | null
+        }
+        Insert: {
+          budget_id: string
+          category: string
+          client_price?: number
+          created_at?: string
+          id?: string
+          item_name: string
+          margin_percent?: number | null
+          margin_value?: number | null
+          order_index?: number | null
+          quantity?: number
+          supplier_cost?: number
+          unit_type?: string | null
+        }
+        Update: {
+          budget_id?: string
+          category?: string
+          client_price?: number
+          created_at?: string
+          id?: string
+          item_name?: string
+          margin_percent?: number | null
+          margin_value?: number | null
+          order_index?: number | null
+          quantity?: number
+          supplier_cost?: number
+          unit_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_settings: {
+        Row: {
+          bv_options: string[]
+          commission_default: number
+          created_at: string
+          id: string
+          markup_default: number
+          tax_default: number
+          updated_at: string
+        }
+        Insert: {
+          bv_options?: string[]
+          commission_default?: number
+          created_at?: string
+          id?: string
+          markup_default?: number
+          tax_default?: number
+          updated_at?: string
+        }
+        Update: {
+          bv_options?: string[]
+          commission_default?: number
+          created_at?: string
+          id?: string
+          markup_default?: number
+          tax_default?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      budgets: {
+        Row: {
+          addition: number
+          bv_percent: number
+          bv_value: number | null
+          client_name: string
+          commission_percent: number
+          commission_value: number | null
+          created_at: string
+          created_by: string | null
+          discount: number
+          id: string
+          margin_percent: number | null
+          margin_value: number | null
+          markup_percent: number
+          project_name: string
+          status: string
+          subtotal_1: number | null
+          subtotal_2: number | null
+          tax_percent: number
+          tax_value: number | null
+          total_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          addition?: number
+          bv_percent?: number
+          bv_value?: number | null
+          client_name: string
+          commission_percent?: number
+          commission_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          discount?: number
+          id?: string
+          margin_percent?: number | null
+          margin_value?: number | null
+          markup_percent?: number
+          project_name: string
+          status?: string
+          subtotal_1?: number | null
+          subtotal_2?: number | null
+          tax_percent?: number
+          tax_value?: number | null
+          total_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          addition?: number
+          bv_percent?: number
+          bv_value?: number | null
+          client_name?: string
+          commission_percent?: number
+          commission_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          discount?: number
+          id?: string
+          margin_percent?: number | null
+          margin_value?: number | null
+          markup_percent?: number
+          project_name?: string
+          status?: string
+          subtotal_1?: number | null
+          subtotal_2?: number | null
+          tax_percent?: number
+          tax_value?: number | null
+          total_value?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conta_azul_cache: {
         Row: {
           data_type: string
@@ -37,6 +192,60 @@ export type Database = {
           period?: string | null
         }
         Relationships: []
+      }
+      project_costs: {
+        Row: {
+          amount: number
+          budget_id: string
+          budget_item_id: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          payment_date: string | null
+          sent_to_conta_azul: boolean
+          supplier: string | null
+        }
+        Insert: {
+          amount?: number
+          budget_id: string
+          budget_item_id?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          payment_date?: string | null
+          sent_to_conta_azul?: boolean
+          supplier?: string | null
+        }
+        Update: {
+          amount?: number
+          budget_id?: string
+          budget_item_id?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          payment_date?: string | null
+          sent_to_conta_azul?: boolean
+          supplier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_costs_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_costs_budget_item_id_fkey"
+            columns: ["budget_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
