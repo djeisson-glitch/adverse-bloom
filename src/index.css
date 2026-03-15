@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,50 +6,65 @@
 
 @layer base {
   :root {
-    --font-heading: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --font-heading: 'Montserrat', sans-serif;
+    --font-body: 'Montserrat', sans-serif;
 
-    --background: 220 20% 7%;
-    --foreground: 210 20% 92%;
+    /* #1a1a1a */
+    --background: 0 0% 10%;
+    --foreground: 0 0% 100%;
 
-    --card: 220 18% 10%;
-    --card-foreground: 210 20% 92%;
+    /* #262626 */
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 220 18% 10%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 210 100% 55%;
+    /* #FF0000 */
+    --primary: 0 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 16%;
-    --secondary-foreground: 210 20% 85%;
+    /* #333333 */
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 50%;
+    /* #2a2a2a */
+    --muted: 0 0% 17%;
+    /* #a3a3a3 */
+    --muted-foreground: 0 0% 64%;
 
-    --accent: 210 100% 55%;
+    --accent: 0 100% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    /* #ef4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 210 100% 55%;
+    /* #404040 */
+    --border: 0 0% 25%;
+    /* #1a1a1a */
+    --input: 0 0% 10%;
+    --ring: 0 100% 50%;
 
     --radius: 0.75rem;
 
-    --success: 142 71% 45%;
+    /* #10b981 */
+    --success: 160 84% 39%;
+    /* #f59e0b */
     --warning: 38 92% 50%;
 
-    --sidebar-background: 220 20% 9%;
-    --sidebar-foreground: 210 15% 70%;
-    --sidebar-primary: 210 100% 55%;
+    /* #1a1a1a */
+    --sidebar-background: 0 0% 10%;
+    /* #a3a3a3 */
+    --sidebar-foreground: 0 0% 64%;
+    --sidebar-primary: 0 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 14%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 15%;
-    --sidebar-ring: 210 100% 55%;
+    /* #262626 */
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    /* #404040 */
+    --sidebar-border: 0 0% 25%;
+    --sidebar-ring: 0 100% 50%;
   }
 }
 
