@@ -18,52 +18,61 @@ export type Database = {
         Row: {
           budget_id: string
           category: string
+          client_days: number
+          client_people: number
           client_price: number
+          client_unit_price: number
           created_at: string
-          days: number
           id: string
           item_name: string
           margin_percent: number | null
           margin_value: number | null
           order_index: number | null
-          people_count: number
           quantity: number
           supplier_cost: number
-          unit_price: number
+          supplier_days: number
+          supplier_people: number
+          supplier_unit_price: number
           unit_type: string | null
         }
         Insert: {
           budget_id: string
           category: string
+          client_days?: number
+          client_people?: number
           client_price?: number
+          client_unit_price?: number
           created_at?: string
-          days?: number
           id?: string
           item_name: string
           margin_percent?: number | null
           margin_value?: number | null
           order_index?: number | null
-          people_count?: number
           quantity?: number
           supplier_cost?: number
-          unit_price?: number
+          supplier_days?: number
+          supplier_people?: number
+          supplier_unit_price?: number
           unit_type?: string | null
         }
         Update: {
           budget_id?: string
           category?: string
+          client_days?: number
+          client_people?: number
           client_price?: number
+          client_unit_price?: number
           created_at?: string
-          days?: number
           id?: string
           item_name?: string
           margin_percent?: number | null
           margin_value?: number | null
           order_index?: number | null
-          people_count?: number
           quantity?: number
           supplier_cost?: number
-          unit_price?: number
+          supplier_days?: number
+          supplier_people?: number
+          supplier_unit_price?: number
           unit_type?: string | null
         }
         Relationships: [
