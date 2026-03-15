@@ -240,8 +240,9 @@ export default function Orcamentos() {
         .order("order_index", { ascending: true });
       if (error) throw error;
       generateBudgetPDF(budget, (items || []) as BudgetItem[]);
-    } catch {
-      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    } catch (err: any) {
+      console.error("PDF generation error:", err);
+      toast({ title: "Erro ao gerar PDF", description: err?.message || "Erro desconhecido", variant: "destructive" });
     }
   };
 
