@@ -1,0 +1,1 @@
+ALTER TABLE public.budgets ADD COLUMN proposal_name TEXT;

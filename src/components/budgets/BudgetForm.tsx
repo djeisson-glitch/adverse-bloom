@@ -190,6 +190,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
     }
   };
 
+  const proposalName = useMemo(() => {
+    const num = existing?.budget_number;
+    const ver = existing?.version ?? 1;
+    const numPart = num ? `#${num}` : "#???";
+    const verPart = ver > 1 ? ` v${ver}` : "";
+    return `Proposta Adverse ${numPart}${verPart} - ${clientName || "..."} | ${projectName || "..."}`;
+  }, [existing?.budget_number, existing?.version, clientName, projectName]);
+
   const handleSave = (status: string) => {
     saveBudget.mutate(
       {
@@ -217,7 +225,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
           version: existing?.version ?? 1,
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
-        },
+          proposal_name: proposalName,
+        } as any,
         items,
       },
       { onSuccess: () => onClose() }
@@ -306,14 +315,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Informações Básicas</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Nome do projeto</Label>
-                <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="Ex: Campanha X" disabled={isApproved} />
+                <Label className="text-muted-foreground text-xs">Nome da Proposta (gerado automaticamente)</Label>
+                <Input value={proposalName} readOnly className="bg-muted/50 text-muted-foreground cursor-default" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Cliente</Label>
-                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" disabled={isApproved} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Cliente</Label>
+                  <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" disabled={isApproved} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nome do projeto</Label>
+                  <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="Ex: Campanha X" disabled={isApproved} />
+                </div>
               </div>
             </CardContent>
           </Card>

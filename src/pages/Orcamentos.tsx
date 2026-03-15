@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, FileDown, Trash2, History, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +14,7 @@ import { CostManagement } from "@/components/budgets/CostManagement";
 import { SupplierManagement } from "@/components/budgets/SupplierManagement";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { generateBudgetPDF } from "@/lib/generateBudgetPDF";
+// import { generateBudgetPDF } from "@/lib/generateBudgetPDF"; // PDF desativado temporariamente
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -231,20 +231,21 @@ export default function Orcamentos() {
     }));
   }, []);
 
-  const handlePDF = async (budget: Budget) => {
-    try {
-      const { data: items, error } = await supabase
-        .from("budget_items")
-        .select("*")
-        .eq("budget_id", budget.id)
-        .order("order_index", { ascending: true });
-      if (error) throw error;
-      generateBudgetPDF(budget, (items || []) as BudgetItem[]);
-    } catch (err: any) {
-      console.error("PDF generation error:", err);
-      toast({ title: "Erro ao gerar PDF", description: err?.message || "Erro desconhecido", variant: "destructive" });
-    }
-  };
+  // PDF desativado temporariamente
+  // const handlePDF = async (budget: Budget) => {
+  //   try {
+  //     const { data: items, error } = await supabase
+  //       .from("budget_items")
+  //       .select("*")
+  //       .eq("budget_id", budget.id)
+  //       .order("order_index", { ascending: true });
+  //     if (error) throw error;
+  //     generateBudgetPDF(budget, (items || []) as BudgetItem[]);
+  //   } catch (err: any) {
+  //     console.error("PDF generation error:", err);
+  //     toast({ title: "Erro ao gerar PDF", description: err?.message || "Erro desconhecido", variant: "destructive" });
+  //   }
+  // };
 
   const exportCSV = useCallback(() => {
     const headers = ["Número", "Versão", "Projeto", "Cliente", "Status", "Total", "Margem %", "Data"];
@@ -407,7 +408,7 @@ export default function Orcamentos() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePDF(b)}><FileDown className="h-3.5 w-3.5 mr-2" />PDF</DropdownMenuItem>
+                {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                 <DropdownMenuItem className="text-destructive" onClick={() => deleteBudget.mutate(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
               </DropdownMenuContent>
@@ -475,7 +476,7 @@ export default function Orcamentos() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePDF(b)}><FileDown className="h-3.5 w-3.5 mr-2" />PDF</DropdownMenuItem>
+                      {/* PDF desativado temporariamente */}
                       {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                       <DropdownMenuItem className="text-destructive" onClick={() => deleteBudget.mutate(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                     </DropdownMenuContent>
