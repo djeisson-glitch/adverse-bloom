@@ -151,15 +151,15 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
 
   doc.setFontSize(42);
   doc.setTextColor(ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]);
-  doc.text(formatBRL(budget.total_value), 105, 100, { align: "center" });
+  doc.text(formatBRL(budget.total_value ?? 0), 105, 100, { align: "center" });
 
   doc.setFontSize(11);
   doc.setTextColor(GRAY[0], GRAY[1], GRAY[2]);
   const breakdown = [
-    `Sub-Total: ${formatBRL(budget.subtotal_2)}`,
-    `Impostos: ${formatBRL(budget.tax_value)}`,
-    budget.bv_value > 0 ? `BV: ${formatBRL(budget.bv_value)}` : null,
-    budget.commission_value > 0 ? `Comissão: ${formatBRL(budget.commission_value)}` : null,
+    `Sub-Total: ${formatBRL(budget.subtotal_2 ?? 0)}`,
+    `Impostos: ${formatBRL(budget.tax_value ?? 0)}`,
+    (budget.bv_value ?? 0) > 0 ? `BV: ${formatBRL(budget.bv_value ?? 0)}` : null,
+    (budget.commission_value ?? 0) > 0 ? `Comissão: ${formatBRL(budget.commission_value ?? 0)}` : null,
   ].filter(Boolean) as string[];
 
   breakdown.forEach((line, i) => {
