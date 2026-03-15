@@ -1,14 +1,6 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
-
-// Extend jsPDF type for autotable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-    lastAutoTable: { finalY: number };
-  }
-}
 
 const ADVERSE_RED = [220, 38, 38];
 const DARK_BG = [26, 26, 26];
