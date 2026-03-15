@@ -77,6 +77,12 @@ export function BudgetForm({ budgetId, onClose }: Props) {
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
 
+  // Commission split
+  const [djEnabled, setDjEnabled] = useState(true);
+  const [djPercent, setDjPercent] = useState(3);
+  const [robertEnabled, setRobertEnabled] = useState(true);
+  const [robertPercent, setRobertPercent] = useState(3);
+
   useEffect(() => {
     if (existing) {
       setProjectName(existing.project_name);
@@ -96,8 +102,20 @@ export function BudgetForm({ budgetId, onClose }: Props) {
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
       setCommissionPercent(settings.commission_default);
+      if ('commission_djeisson_percent' in settings) {
+        setDjPercent((settings as any).commission_djeisson_percent ?? 3);
+        setRobertPercent((settings as any).commission_robert_percent ?? 3);
+        setDjEnabled((settings as any).commission_djeisson_enabled ?? true);
+        setRobertEnabled((settings as any).commission_robert_enabled ?? true);
+      }
     }
   }, [existing, settings]);
+
+  // Auto-calc commission from split
+  useEffect(() => {
+    const total = (djEnabled ? djPercent : 0) + (robertEnabled ? robertPercent : 0);
+    setCommissionPercent(total);
+  }, [djEnabled, djPercent, robertEnabled, robertPercent]);
 
   const totals = useMemo(
     () => calcBudgetTotals(items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition),
@@ -297,11 +315,40 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Comissão %</Label>
-                  <NumInput value={commissionPercent} onChange={setCommissionPercent} className="h-8 text-sm" />
+              </div>
+
+              <Separator />
+
+              {/* Commission Split */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Comissão — Distribuição</p>
+                <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Checkbox checked={djEnabled} onCheckedChange={(c) => setDjEnabled(!!c)} />
+                    <span className="text-sm flex-1">Djêisson</span>
+                    <NumInput value={djPercent} onChange={setDjPercent} className="h-7 text-sm w-16" min={0} />
+                    <span className="text-xs text-muted-foreground">%</span>
+                    <span className="text-xs font-medium w-20 text-right">
+                      {djEnabled ? formatCurrency(totals.subtotal2 * (djPercent / 100)) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox checked={robertEnabled} onCheckedChange={(c) => setRobertEnabled(!!c)} />
+                    <span className="text-sm flex-1">Robert</span>
+                    <NumInput value={robertPercent} onChange={setRobertPercent} className="h-7 text-sm w-16" min={0} />
+                    <span className="text-xs text-muted-foreground">%</span>
+                    <span className="text-xs font-medium w-20 text-right">
+                      {robertEnabled ? formatCurrency(totals.subtotal2 * (robertPercent / 100)) : "—"}
+                    </span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Total comissão</span>
+                    <span className="font-semibold">{commissionPercent}% ({formatCurrency(totals.commissionValue)})</span>
+                  </div>
                 </div>
               </div>
+
               <Separator />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -339,6 +386,33 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                 <p className={`text-lg font-bold ${marginColor(totals.marginPercent)}`}>
                   {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
                 </p>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-background p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">📊 Custos Reais do Projeto</p>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Custos de fornecedores</span>
+                    <span className="font-medium">{formatCurrency(totals.supplierTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Markup aplicado</span>
+                    <span className="font-medium">{formatCurrency(totals.markupValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Impostos</span>
+                    <span className="font-medium">{formatCurrency(totals.taxValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ BV</span>
+                    <span className="font-medium">{formatCurrency(totals.bvValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">└ Comissão sócios</span>
+                    <span className="font-medium">{formatCurrency(totals.commissionValue)}</span>
+                  </div>
+                </div>
               </div>
 
               {Object.keys(totals.categoryBreakdown).length > 0 && (
