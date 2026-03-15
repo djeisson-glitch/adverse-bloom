@@ -11,6 +11,7 @@ export interface BudgetItem {
   client_people: number;
   client_unit_price: number;
   client_price: number;
+  has_supplier_cost: boolean;
   supplier_days: number;
   supplier_people: number;
   supplier_unit_price: number;
