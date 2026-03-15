@@ -77,6 +77,12 @@ export function BudgetForm({ budgetId, onClose }: Props) {
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
 
+  // Commission split
+  const [djEnabled, setDjEnabled] = useState(true);
+  const [djPercent, setDjPercent] = useState(3);
+  const [robertEnabled, setRobertEnabled] = useState(true);
+  const [robertPercent, setRobertPercent] = useState(3);
+
   useEffect(() => {
     if (existing) {
       setProjectName(existing.project_name);
