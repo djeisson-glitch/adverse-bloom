@@ -388,6 +388,33 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                 </p>
               </div>
 
+              {/* Cost Breakdown */}
+              <div className="mt-3 space-y-1.5 rounded-lg border border-border bg-background p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">📊 Custos Reais do Projeto</p>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Custos de fornecedores</span>
+                    <span className="font-medium">{formatCurrency(totals.supplierTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Markup aplicado</span>
+                    <span className="font-medium">{formatCurrency(totals.markupValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ Impostos</span>
+                    <span className="font-medium">{formatCurrency(totals.taxValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">├ BV</span>
+                    <span className="font-medium">{formatCurrency(totals.bvValue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">└ Comissão sócios</span>
+                    <span className="font-medium">{formatCurrency(totals.commissionValue)}</span>
+                  </div>
+                </div>
+              </div>
+
               {Object.keys(totals.categoryBreakdown).length > 0 && (
                 <div className="mt-3 space-y-1.5">
                   <p className="text-xs text-muted-foreground font-medium">Breakdown por categoria</p>
