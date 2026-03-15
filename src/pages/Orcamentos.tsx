@@ -13,6 +13,7 @@ import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { CostManagement } from "@/components/budgets/CostManagement";
 import { SupplierManagement } from "@/components/budgets/SupplierManagement";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 // import { generateBudgetPDF } from "@/lib/generateBudgetPDF"; // PDF desativado temporariamente
 import { supabase } from "@/integrations/supabase/client";
@@ -125,6 +126,7 @@ export default function Orcamentos() {
   const [creating, setCreating] = useState(false);
   const [costBudgetId, setCostBudgetId] = useState<string | null>(null);
   const [versionBudget, setVersionBudget] = useState<Budget | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { toast } = useToast();
@@ -410,7 +412,7 @@ export default function Orcamentos() {
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                 {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
-                <DropdownMenuItem className="text-destructive" onClick={() => deleteBudget.mutate(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -478,7 +480,7 @@ export default function Orcamentos() {
                       <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                       {/* PDF desativado temporariamente */}
                       {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
-                      <DropdownMenuItem className="text-destructive" onClick={() => deleteBudget.mutate(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -563,6 +565,27 @@ export default function Orcamentos() {
           onClose={() => setVersionBudget(null)}
         />
       )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir orçamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O orçamento e todos os seus itens serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deleteId) { deleteBudget.mutate(deleteId); setDeleteId(null); } }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
