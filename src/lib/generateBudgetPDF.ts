@@ -1,14 +1,6 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
-
-// Extend jsPDF type for autotable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-    lastAutoTable: { finalY: number };
-  }
-}
 
 const ADVERSE_RED = [220, 38, 38];
 const DARK_BG = [26, 26, 26];
@@ -111,7 +103,7 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       startY = 30;
     }
 
-    doc.autoTable({
+    autoTable(doc, {
       startY,
       head: [[cat, "Dias", "Pessoas", "Unit.", "Total"]],
       body: catItems.map((item) => [
@@ -123,9 +115,9 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       ]),
       theme: "plain",
       headStyles: {
-        fillColor: [ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]],
-        textColor: WHITE,
-        fontStyle: "bold",
+        fillColor: [ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]] as [number, number, number],
+        textColor: WHITE as unknown as [number, number, number],
+        fontStyle: "bold" as const,
         fontSize: 9,
       },
       bodyStyles: {
@@ -141,7 +133,7 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       margin: { left: 20, right: 20 },
     });
 
-    startY = doc.lastAutoTable.finalY + 10;
+    startY = (doc as any).lastAutoTable.finalY + 10;
   });
 
   // ─── PAGE 5: INVESTIMENTO - VALOR ──────────────────
