@@ -105,12 +105,13 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
 
     doc.autoTable({
       startY,
-      head: [[cat, "Qtd", "Tipo", "Valor"]],
+      head: [[cat, "Dias", "Pessoas", "Unit.", "Total"]],
       body: catItems.map((item) => [
         item.item_name,
-        String(item.quantity),
-        item.unit_type,
-        formatBRL(item.client_price * item.quantity),
+        String(item.days),
+        String(item.people_count),
+        formatBRL(item.unit_price),
+        formatBRL(item.client_price),
       ]),
       theme: "plain",
       headStyles: {
