@@ -23,6 +23,7 @@ export type Database = {
           client_price: number
           client_unit_price: number
           created_at: string
+          has_supplier_cost: boolean
           id: string
           item_name: string
           margin_percent: number | null
@@ -43,6 +44,7 @@ export type Database = {
           client_price?: number
           client_unit_price?: number
           created_at?: string
+          has_supplier_cost?: boolean
           id?: string
           item_name: string
           margin_percent?: number | null
@@ -63,6 +65,7 @@ export type Database = {
           client_price?: number
           client_unit_price?: number
           created_at?: string
+          has_supplier_cost?: boolean
           id?: string
           item_name?: string
           margin_percent?: number | null

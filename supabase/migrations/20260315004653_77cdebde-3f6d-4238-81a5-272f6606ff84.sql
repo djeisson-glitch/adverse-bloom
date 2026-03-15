@@ -1,0 +1,1 @@
+ALTER TABLE public.budget_items ADD COLUMN has_supplier_cost boolean NOT NULL DEFAULT false;
