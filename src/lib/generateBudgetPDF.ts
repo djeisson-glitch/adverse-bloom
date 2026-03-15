@@ -133,7 +133,7 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       margin: { left: 20, right: 20 },
     });
 
-    startY = doc.lastAutoTable.finalY + 10;
+    startY = (doc as any).lastAutoTable.finalY + 10;
   });
 
   // ─── PAGE 5: INVESTIMENTO - VALOR ──────────────────
