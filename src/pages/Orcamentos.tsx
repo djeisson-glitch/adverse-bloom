@@ -6,6 +6,7 @@ import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } f
 import { BudgetCard } from "@/components/budgets/BudgetCard";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { CostManagement } from "@/components/budgets/CostManagement";
+import { SupplierManagement } from "@/components/budgets/SupplierManagement";
 
 export default function Orcamentos() {
   const { data: budgets = [], isLoading } = useBudgets();
