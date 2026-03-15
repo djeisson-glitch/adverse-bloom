@@ -48,6 +48,7 @@ export function calcBudgetTotals(
     totalValue,
     marginValue,
     marginPercent,
+    supplierTotal,
     categoryBreakdown,
   };
 }
