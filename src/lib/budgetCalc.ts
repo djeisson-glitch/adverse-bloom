@@ -29,7 +29,7 @@ export function calcBudgetTotals(
   const bvValue = subtotal2 * (bvPercent / 100);
   const commissionValue = subtotal2 * (commissionPercent / 100);
   const totalValue = Math.ceil(subtotal2 + taxValue + bvValue + commissionValue + addition - discount);
-  const marginValue = items.reduce((s, i) => s + ((i.client_price - i.supplier_cost) * i.quantity), 0);
+  const marginValue = items.reduce((s, i) => s + (i.client_price - i.supplier_cost), 0);
   const marginPercent = totalValue > 0 ? (marginValue / totalValue) * 100 : 0;
 
   const categoryBreakdown: Record<string, number> = {};
