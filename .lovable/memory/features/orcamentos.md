@@ -21,8 +21,9 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs, su
 3. subtotal2 = subtotal1 + markup
 4. tax/bv/commission = subtotal2 * respective%
 5. total = ceil(subtotal2 + tax + bv + commission + addition - discount)
-6. margin = sum(client_price - supplier_cost)
-7. supplierTotal = sum(supplier_cost)
+6. marginValue = total - supplierTotal - bvValue - commissionValue (impostos NÃO descontados - custo fixo operacional)
+7. marginPercent = marginValue / total * 100
+8. supplierTotal = sum(supplier_cost)
 - Margin indicators (per item): >=35% green, 15-35% orange, <15% red
 
 ## Commission Split
