@@ -11,15 +11,15 @@ import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useBudgetWithItems, useSaveBudget, useBudgetSettings, type BudgetItem } from "@/hooks/useBudgets";
 
 const DEFAULT_CATEGORIES = ["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"];
-const UNIT_TYPES = ["dias", "horas", "unidades"];
 const BV_OPTIONS = [0, 10, 15, 20];
 
 function emptyItem(category: string, orderIndex: number): BudgetItem {
   return {
     category,
     item_name: "",
-    quantity: 1,
-    unit_type: "dias",
+    days: 1,
+    people_count: 1,
+    unit_price: 0,
     client_price: 0,
     supplier_cost: 0,
     margin_value: 0,
