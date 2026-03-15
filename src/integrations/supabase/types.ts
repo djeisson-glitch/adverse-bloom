@@ -133,6 +133,7 @@ export type Database = {
       budgets: {
         Row: {
           addition: number
+          budget_number: number | null
           bv_percent: number
           bv_value: number | null
           client_name: string
@@ -142,9 +143,11 @@ export type Database = {
           created_by: string | null
           discount: number
           id: string
+          is_latest_version: boolean
           margin_percent: number | null
           margin_value: number | null
           markup_percent: number
+          parent_budget_id: string | null
           project_name: string
           status: string
           subtotal_1: number | null
@@ -153,9 +156,11 @@ export type Database = {
           tax_value: number | null
           total_value: number | null
           updated_at: string
+          version: number
         }
         Insert: {
           addition?: number
+          budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
           client_name: string
@@ -165,9 +170,11 @@ export type Database = {
           created_by?: string | null
           discount?: number
           id?: string
+          is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
           markup_percent?: number
+          parent_budget_id?: string | null
           project_name: string
           status?: string
           subtotal_1?: number | null
@@ -176,9 +183,11 @@ export type Database = {
           tax_value?: number | null
           total_value?: number | null
           updated_at?: string
+          version?: number
         }
         Update: {
           addition?: number
+          budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
           client_name?: string
@@ -188,9 +197,11 @@ export type Database = {
           created_by?: string | null
           discount?: number
           id?: string
+          is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
           markup_percent?: number
+          parent_budget_id?: string | null
           project_name?: string
           status?: string
           subtotal_1?: number | null
@@ -199,8 +210,17 @@ export type Database = {
           tax_value?: number | null
           total_value?: number | null
           updated_at?: string
+          version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "budgets_parent_budget_id_fkey"
+            columns: ["parent_budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conta_azul_cache: {
         Row: {
@@ -390,7 +410,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      next_budget_number: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
