@@ -17,10 +17,13 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
   return {
     category,
     item_name: "",
-    days: 1,
-    people_count: 1,
-    unit_price: 0,
+    client_days: 1,
+    client_people: 1,
+    client_unit_price: 0,
     client_price: 0,
+    supplier_days: 0,
+    supplier_people: 0,
+    supplier_unit_price: 0,
     supplier_cost: 0,
     margin_value: 0,
     margin_percent: 0,
@@ -82,11 +85,10 @@ export function BudgetForm({ budgetId, onClose }: Props) {
     setItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
-      // Recalculate client_price from days × people × unit_price
-      const days = copy[index].days;
-      const people = copy[index].people_count;
-      const unitPrice = copy[index].unit_price;
-      copy[index].client_price = days * people * unitPrice;
+      // Recalculate client_price
+      copy[index].client_price = copy[index].client_days * copy[index].client_people * copy[index].client_unit_price;
+      // Recalculate supplier_cost
+      copy[index].supplier_cost = copy[index].supplier_days * copy[index].supplier_people * copy[index].supplier_unit_price;
       const cp = copy[index].client_price;
       const sc = copy[index].supplier_cost;
       copy[index].margin_value = cp - sc;
@@ -194,11 +196,18 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                     <p className="text-sm text-muted-foreground text-center py-3">Nenhum item nesta categoria.</p>
                   )}
                   {catItems.map(({ item, idx }) => {
-                    const marginOk = item.margin_percent >= 20;
+                    const marginOk = item.margin_percent >= 50;
+                    const marginMid = item.margin_percent >= 20;
+                    const marginColor = marginOk
+                      ? "text-[hsl(var(--success))]"
+                      : marginMid
+                      ? "text-[hsl(var(--warning))]"
+                      : "text-destructive";
                     return (
-                      <div key={idx} className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                        <div className="grid gap-3 sm:grid-cols-4">
-                          <div className="space-y-1 sm:col-span-2">
+                      <div key={idx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+                        {/* Name + Delete */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 space-y-1">
                             <Label className="text-xs">Nome</Label>
                             <Input
                               value={item.item_name}
@@ -207,71 +216,63 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                               className="h-8 text-sm"
                             />
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Dias</Label>
-                            <Input
-                              type="number"
-                              value={item.days}
-                              onChange={(e) => updateItem(idx, "days", Number(e.target.value))}
-                              className="h-8 text-sm"
-                              min={0}
-                              step={0.1}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Pessoas</Label>
-                            <Input
-                              type="number"
-                              value={item.people_count}
-                              onChange={(e) => updateItem(idx, "people_count", Number(e.target.value))}
-                              className="h-8 text-sm"
-                              min={1}
-                              step={1}
-                            />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={() => removeItem(idx)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        {/* COBRA DO CLIENTE */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobra do cliente</p>
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Dias</Label>
+                              <Input type="number" value={item.client_days} onChange={(e) => updateItem(idx, "client_days", Number(e.target.value))} className="h-8 text-sm" min={0} step={0.1} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Pessoas</Label>
+                              <Input type="number" value={item.client_people} onChange={(e) => updateItem(idx, "client_people", Number(e.target.value))} className="h-8 text-sm" min={1} step={1} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Valor unit. R$</Label>
+                              <Input type="number" value={item.client_unit_price} onChange={(e) => updateItem(idx, "client_unit_price", Number(e.target.value))} className="h-8 text-sm" min={0} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Total R$</Label>
+                              <Input type="number" value={item.client_price} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-3 items-end">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Valor unitário R$</Label>
-                            <Input
-                              type="number"
-                              value={item.unit_price}
-                              onChange={(e) => updateItem(idx, "unit_price", Number(e.target.value))}
-                              className="h-8 text-sm"
-                              min={0}
-                            />
+
+                        {/* PAGA FORNECEDOR */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Paga fornecedor</p>
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Dias</Label>
+                              <Input type="number" value={item.supplier_days} onChange={(e) => updateItem(idx, "supplier_days", Number(e.target.value))} className="h-8 text-sm" min={0} step={0.1} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Pessoas</Label>
+                              <Input type="number" value={item.supplier_people} onChange={(e) => updateItem(idx, "supplier_people", Number(e.target.value))} className="h-8 text-sm" min={0} step={1} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Valor unit. R$</Label>
+                              <Input type="number" value={item.supplier_unit_price} onChange={(e) => updateItem(idx, "supplier_unit_price", Number(e.target.value))} className="h-8 text-sm" min={0} />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Total R$</Label>
+                              <Input type="number" value={item.supplier_cost} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
+                            </div>
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Total cliente R$</Label>
-                            <Input
-                              type="number"
-                              value={item.client_price}
-                              className="h-8 text-sm bg-muted"
-                              readOnly
-                              tabIndex={-1}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Paga fornecedor R$</Label>
-                            <Input
-                              type="number"
-                              value={item.supplier_cost}
-                              onChange={(e) => updateItem(idx, "supplier_cost", Number(e.target.value))}
-                              className="h-8 text-sm"
-                              min={0}
-                            />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-sm font-medium ${marginOk ? "text-[hsl(var(--success))]" : "text-[hsl(var(--warning))]"}`}
-                            >
-                              {formatCurrency(item.margin_value)} ({formatPercent(item.margin_percent)})
-                              {marginOk ? " ✅" : " ⚠️"}
-                            </span>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                        </div>
+
+                        {/* SOBRA */}
+                        <div className="flex items-center justify-end pt-1">
+                          <span className={`text-sm font-semibold ${marginColor}`}>
+                            Sobra: {formatCurrency(item.margin_value)} ({formatPercent(item.margin_percent)})
+                            {marginOk ? " ✅" : marginMid ? " ⚠️" : " ❌"}
+                          </span>
                         </div>
                       </div>
                     );

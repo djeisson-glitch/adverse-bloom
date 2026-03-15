@@ -11,13 +11,16 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs), P
 - BudgetMarginCard: top 5 approved budgets by margin, shown on Insights page
 
 ## Calculations (budgetCalc.ts)
-- Items have: days, people_count, unit_price → client_price = days × people_count × unit_price
+- Items have dual structure:
+  - Client: client_days × client_people × client_unit_price = client_price
+  - Supplier: supplier_days × supplier_people × supplier_unit_price = supplier_cost
 1. subtotal1 = sum(client_price)
 2. markup = subtotal1 * markup%
 3. subtotal2 = subtotal1 + markup
 4. tax/bv/commission = subtotal2 * respective%
 5. total = ceil(subtotal2 + tax + bv + commission + addition - discount)
 6. margin = sum(client_price - supplier_cost)
+- Margin indicators: >=50% green, 20-50% orange, <20% red
 
 ## PDF (generateBudgetPDF.ts)
 Uses jsPDF + jspdf-autotable. Dark themed pages: cover, about, method, investment briefing, investment value, não inclui, contato.
