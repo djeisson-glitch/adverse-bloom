@@ -14,7 +14,7 @@ import { CostManagement } from "@/components/budgets/CostManagement";
 import { SupplierManagement } from "@/components/budgets/SupplierManagement";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { generateBudgetPDF } from "@/lib/generateBudgetPDF";
+// import { generateBudgetPDF } from "@/lib/generateBudgetPDF"; // PDF desativado temporariamente
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
