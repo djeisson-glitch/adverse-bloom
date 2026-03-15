@@ -115,9 +115,9 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       ]),
       theme: "plain",
       headStyles: {
-        fillColor: [ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]],
-        textColor: WHITE,
-        fontStyle: "bold",
+        fillColor: [ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]] as [number, number, number],
+        textColor: WHITE as unknown as [number, number, number],
+        fontStyle: "bold" as const,
         fontSize: 9,
       },
       bodyStyles: {
