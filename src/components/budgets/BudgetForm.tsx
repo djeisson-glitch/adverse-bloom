@@ -85,11 +85,10 @@ export function BudgetForm({ budgetId, onClose }: Props) {
     setItems((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
-      // Recalculate client_price from days × people × unit_price
-      const days = copy[index].days;
-      const people = copy[index].people_count;
-      const unitPrice = copy[index].unit_price;
-      copy[index].client_price = days * people * unitPrice;
+      // Recalculate client_price
+      copy[index].client_price = copy[index].client_days * copy[index].client_people * copy[index].client_unit_price;
+      // Recalculate supplier_cost
+      copy[index].supplier_cost = copy[index].supplier_days * copy[index].supplier_people * copy[index].supplier_unit_price;
       const cp = copy[index].client_price;
       const sc = copy[index].supplier_cost;
       copy[index].margin_value = cp - sc;
