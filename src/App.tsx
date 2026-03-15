@@ -52,6 +52,7 @@ const App = () => (
               <Route path="/caixa-runway" element={<ProtectedRoute><CaixaRunway /></ProtectedRoute>} />
               <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
               <Route path="/projecoes-2026" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
+              <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PeriodProvider>

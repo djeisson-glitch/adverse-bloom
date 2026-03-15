@@ -27,6 +27,7 @@ const items = [
   { title: "Caixa & Runway", url: "/caixa-runway", icon: Vault },
   { title: "Insights", url: "/insights", icon: Lightbulb },
   { title: "Projeções 2026", url: "/projecoes-2026", icon: LineChart },
+  { title: "Orçamentos", url: "/orcamentos", icon: Calculator },
 ];
 
 export function AppSidebar() {
