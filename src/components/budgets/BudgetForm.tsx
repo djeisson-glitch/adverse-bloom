@@ -190,6 +190,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
     }
   };
 
+  const proposalName = useMemo(() => {
+    const num = existing?.budget_number;
+    const ver = existing?.version ?? 1;
+    const numPart = num ? `#${num}` : "#???";
+    const verPart = ver > 1 ? ` v${ver}` : "";
+    return `Proposta Adverse ${numPart}${verPart} - ${clientName || "..."} | ${projectName || "..."}`;
+  }, [existing?.budget_number, existing?.version, clientName, projectName]);
+
   const handleSave = (status: string) => {
     saveBudget.mutate(
       {
@@ -217,7 +225,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
           version: existing?.version ?? 1,
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
-        },
+          proposal_name: proposalName,
+        } as any,
         items,
       },
       { onSuccess: () => onClose() }
