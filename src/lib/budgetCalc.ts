@@ -22,7 +22,7 @@ export function calcBudgetTotals(
   discount: number,
   addition: number
 ): BudgetTotals {
-  const subtotal1 = items.reduce((s, i) => s + (i.client_price * i.quantity), 0);
+  const subtotal1 = items.reduce((s, i) => s + i.client_price, 0);
   const markupValue = subtotal1 * (markupPercent / 100);
   const subtotal2 = subtotal1 + markupValue;
   const taxValue = subtotal2 * (taxPercent / 100);
