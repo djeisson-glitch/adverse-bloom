@@ -10,7 +10,7 @@ declare module "jspdf" {
   }
 }
 
-const ADVERSE_RED = [220, 38, 38]; // hsl 0 72% 51% approx
+const ADVERSE_RED = [220, 38, 38];
 const DARK_BG = [26, 26, 26];
 const WHITE = [255, 255, 255];
 const GRAY = [160, 160, 160];
@@ -33,6 +33,10 @@ function formatBRL(v: number): string {
 export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   const doc = new jsPDF();
 
+  const versionLabel = budget.budget_number
+    ? `Orçamento #${budget.budget_number} v${budget.version}`
+    : "Orçamento";
+
   // ─── PAGE 1: CAPA ──────────────────
   setDarkPage(doc);
   doc.setFontSize(48);
@@ -42,6 +46,7 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   centerText(doc, "PROPOSTA COMERCIAL", 170, 18);
   centerText(doc, budget.project_name.toUpperCase(), 185, 12, GRAY);
   centerText(doc, budget.client_name, 195, 11, GRAY);
+  centerText(doc, versionLabel, 210, 10, GRAY);
 
   // ─── PAGE 2: SOBRE ──────────────────
   doc.addPage();
@@ -89,14 +94,17 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
   doc.text(`Projeto: ${budget.project_name}`, 20, 50);
   doc.text(`Cliente: ${budget.client_name}`, 20, 58);
+  if (budget.budget_number) {
+    doc.setTextColor(GRAY[0], GRAY[1], GRAY[2]);
+    doc.text(versionLabel, 20, 66);
+  }
 
-  // Group items by category
   const categories = [...new Set(items.map((i) => i.category))];
-  let startY = 75;
+  let startY = budget.budget_number ? 80 : 75;
 
   categories.forEach((cat) => {
     const catItems = items.filter((i) => i.category === cat);
-    
+
     if (startY > 240) {
       doc.addPage();
       setDarkPage(doc);
@@ -161,6 +169,11 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   centerText(doc, "Condições de pagamento:", 165, 12);
   centerText(doc, "50% na aprovação + 50% na entrega", 178, 11, GRAY);
 
+  // Footer note for versioned budgets
+  if (budget.budget_number && budget.version > 1) {
+    centerText(doc, "Este orçamento substitui as versões anteriores.", 200, 9, GRAY);
+  }
+
   // ─── PAGE 6: NÃO INCLUI ──────────────────
   doc.addPage();
   setDarkPage(doc);
@@ -192,5 +205,6 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   centerText(doc, "www.adverse.com.br", 172, 11, GRAY);
 
   // Save
-  doc.save(`Adverse_${budget.project_name.replace(/\s+/g, "_")}.pdf`);
+  const suffix = budget.budget_number ? `_${budget.budget_number}_v${budget.version}` : "";
+  doc.save(`Adverse_${budget.project_name.replace(/\s+/g, "_")}${suffix}.pdf`);
 }

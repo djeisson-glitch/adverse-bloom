@@ -43,6 +43,10 @@ export interface Budget {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  budget_number: number | null;
+  version: number;
+  parent_budget_id: string | null;
+  is_latest_version: boolean;
 }
 
 export interface BudgetWithItems extends Budget {
@@ -56,6 +60,7 @@ export function useBudgets() {
       const { data, error } = await supabase
         .from("budgets")
         .select("*")
+        .eq("is_latest_version", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Budget[];
@@ -87,6 +92,36 @@ export function useBudgetWithItems(id: string | null) {
   });
 }
 
+export function useBudgetVersions(budgetNumber: number | null) {
+  return useQuery({
+    queryKey: ["budget_versions", budgetNumber],
+    enabled: !!budgetNumber,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("budget_number", budgetNumber!)
+        .order("version", { ascending: true });
+      if (error) throw error;
+      return data as Budget[];
+    },
+  });
+}
+
+async function getNextBudgetNumber(): Promise<number> {
+  const { data, error } = await supabase.rpc("next_budget_number");
+  if (error) {
+    // Fallback: query max manually
+    const { data: maxData } = await supabase
+      .from("budgets")
+      .select("budget_number")
+      .order("budget_number", { ascending: false })
+      .limit(1);
+    return (maxData?.[0]?.budget_number ?? 157) + 1;
+  }
+  return data as number;
+}
+
 export function useSaveBudget() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -108,9 +143,11 @@ export function useSaveBudget() {
           .eq("id", budgetId);
         if (error) throw error;
       } else {
+        // New budget: assign budget_number
+        const budgetNumber = await getNextBudgetNumber();
         const { data, error } = await supabase
           .from("budgets")
-          .insert(budget)
+          .insert({ ...budget, budget_number: budgetNumber, version: 1, is_latest_version: true })
           .select("id")
           .single();
         if (error) throw error;
@@ -136,10 +173,84 @@ export function useSaveBudget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["budget"] });
+      queryClient.invalidateQueries({ queryKey: ["budget_versions"] });
       toast({ title: "Orçamento salvo com sucesso!" });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao salvar orçamento", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useCreateNewVersion() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (sourceId: string) => {
+      // Fetch source budget
+      const { data: source, error } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("id", sourceId)
+        .single();
+      if (error) throw error;
+
+      const { data: items, error: itemsErr } = await supabase
+        .from("budget_items")
+        .select("*")
+        .eq("budget_id", sourceId);
+      if (itemsErr) throw itemsErr;
+
+      // Get max version for this budget_number
+      const { data: versions } = await supabase
+        .from("budgets")
+        .select("version")
+        .eq("budget_number", source.budget_number)
+        .order("version", { ascending: false })
+        .limit(1);
+      const nextVersion = (versions?.[0]?.version ?? 0) + 1;
+
+      // Mark all previous versions as not latest
+      await supabase
+        .from("budgets")
+        .update({ is_latest_version: false })
+        .eq("budget_number", source.budget_number);
+
+      // Insert new version
+      const { id: _id, created_at, updated_at, ...rest } = source;
+      const { data: newBudget, error: insertErr } = await supabase
+        .from("budgets")
+        .insert({
+          ...rest,
+          version: nextVersion,
+          parent_budget_id: sourceId,
+          is_latest_version: true,
+          status: "draft",
+        })
+        .select("id")
+        .single();
+      if (insertErr) throw insertErr;
+
+      // Duplicate items
+      if (items && items.length > 0) {
+        const newItems = items.map(({ id: _iid, budget_id, created_at: _ca, ...itemRest }) => ({
+          ...itemRest,
+          budget_id: newBudget.id,
+        }));
+        await supabase.from("budget_items").insert(newItems);
+      }
+
+      return newBudget.id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget"] });
+      queryClient.invalidateQueries({ queryKey: ["budget_versions"] });
+      toast({ title: "Nova versão criada!" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao criar versão", description: err.message, variant: "destructive" });
     },
   });
 }
@@ -150,11 +261,37 @@ export function useDeleteBudget() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Check if this budget has child versions
+      const { data: children } = await supabase
+        .from("budgets")
+        .select("id")
+        .eq("parent_budget_id", id);
+
+      if (children && children.length > 0) {
+        throw new Error("Não é possível excluir: existem versões baseadas neste orçamento.");
+      }
+
+      // Get budget info before deleting
+      const { data: budget } = await supabase
+        .from("budgets")
+        .select("budget_number, version, is_latest_version, parent_budget_id")
+        .eq("id", id)
+        .single();
+
       const { error } = await supabase.from("budgets").delete().eq("id", id);
       if (error) throw error;
+
+      // If deleted was latest, mark previous version as latest
+      if (budget?.is_latest_version && budget.parent_budget_id) {
+        await supabase
+          .from("budgets")
+          .update({ is_latest_version: true })
+          .eq("id", budget.parent_budget_id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget_versions"] });
       toast({ title: "Orçamento excluído." });
     },
     onError: (err: any) => {
@@ -169,7 +306,6 @@ export function useDuplicateBudget() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Fetch original
       const { data: original, error } = await supabase
         .from("budgets")
         .select("*")
@@ -183,11 +319,20 @@ export function useDuplicateBudget() {
         .eq("budget_id", id);
       if (itemsErr) throw itemsErr;
 
-      // Insert copy
+      // New budget number for the copy
+      const budgetNumber = await getNextBudgetNumber();
       const { id: _id, created_at, updated_at, ...rest } = original;
       const { data: newBudget, error: insertErr } = await supabase
         .from("budgets")
-        .insert({ ...rest, project_name: `${rest.project_name} (cópia)`, status: "draft" })
+        .insert({
+          ...rest,
+          project_name: `${rest.project_name} (cópia)`,
+          status: "draft",
+          budget_number: budgetNumber,
+          version: 1,
+          parent_budget_id: null,
+          is_latest_version: true,
+        })
         .select("id")
         .single();
       if (insertErr) throw insertErr;

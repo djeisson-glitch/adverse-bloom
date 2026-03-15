@@ -1,4 +1,4 @@
-import { Copy, Edit, Trash2, FileDown } from "lucide-react";
+import { Copy, Edit, Trash2, FileDown, History } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,9 +25,11 @@ interface Props {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onShowVersions?: () => void;
+  versionCount?: number;
 }
 
-export function BudgetCard({ budget, onEdit, onDuplicate, onDelete }: Props) {
+export function BudgetCard({ budget, onEdit, onDuplicate, onDelete, onShowVersions, versionCount }: Props) {
   const { toast } = useToast();
 
   const handlePDF = async () => {
@@ -44,12 +46,19 @@ export function BudgetCard({ budget, onEdit, onDuplicate, onDelete }: Props) {
     }
   };
 
+  const budgetLabel = budget.budget_number
+    ? `#${budget.budget_number} v${budget.version}`
+    : "";
+
   return (
     <Card className="group relative transition-colors hover:border-primary/30">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-base">{budget.project_name}</CardTitle>
+            <CardTitle className="text-base">
+              {budgetLabel && <span className="text-muted-foreground mr-2">{budgetLabel}</span>}
+              {budget.project_name}
+            </CardTitle>
             <p className="text-sm text-muted-foreground">{budget.client_name}</p>
           </div>
           <Badge variant={statusVariants[budget.status]}>{statusLabels[budget.status]}</Badge>
@@ -86,6 +95,11 @@ export function BudgetCard({ budget, onEdit, onDuplicate, onDelete }: Props) {
           <Button variant="ghost" size="sm" onClick={handlePDF}>
             <FileDown className="h-3.5 w-3.5 mr-1" /> PDF
           </Button>
+          {versionCount && versionCount > 1 && onShowVersions && (
+            <Button variant="ghost" size="sm" onClick={onShowVersions}>
+              <History className="h-3.5 w-3.5 mr-1" /> {versionCount} versões
+            </Button>
+          )}
           <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
           </Button>
