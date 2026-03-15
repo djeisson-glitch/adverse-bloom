@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw, Target, Vault, Lightbulb, LineChart, Calculator } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw, Target, Vault, Lightbulb, LineChart, Calculator, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,7 @@ const items = [
   { title: "Insights", url: "/insights", icon: Lightbulb },
   { title: "Projeções 2026", url: "/projecoes-2026", icon: LineChart },
   { title: "Orçamentos", url: "/orcamentos", icon: Calculator },
+  { title: "Contas a Pagar", url: "/contas-a-pagar", icon: CreditCard },
 ];
 
 export function AppSidebar() {

@@ -1,13 +1,15 @@
-Budget module: tables (budget_settings, budgets, budget_items, project_costs), PDF generation with jsPDF, cost management for approved budgets
+Budget module: tables (budget_settings, budgets, budget_items, project_costs, suppliers), PDF generation with jsPDF, cost management for approved budgets
 
 ## Tables
-- budget_settings: default markup/tax/commission/bv
+- budget_settings: default markup/tax/commission/bv + commission split (djeisson/robert percent/enabled)
 - budgets: full budget with calculated totals
-- budget_items: line items by category with client_price/supplier_cost
+- budget_items: line items by category with client_price/supplier_cost, has_supplier_cost toggle
 - project_costs: real costs tracked against approved budgets
+- suppliers: registered suppliers per budget item (name, doc, amount, payment_date, status, sent_to_conta_azul)
 
 ## Pages
-- /orcamentos: listing with tabs (draft/approved/rejected), create/edit form, cost management
+- /orcamentos: listing with tabs (draft/approved/rejected), create/edit form, cost + supplier management
+- /contas-a-pagar: all suppliers table with filters, bulk mark paid, CSV export to Conta Azul
 - BudgetMarginCard: top 5 approved budgets by margin, shown on Insights page
 
 ## Calculations (budgetCalc.ts)
@@ -30,3 +32,10 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs), P
 
 ## Cost Breakdown (Rentabilidade panel)
 - Shows: supplier costs, markup, taxes, BV, commission
+
+## Supplier Management (post-approval)
+- Cards per item with has_supplier_cost, register supplier details, track payment status
+- CSV export to Conta Azul with sent_to_conta_azul tracking
+
+## PDF (generateBudgetPDF.ts)
+Uses jsPDF + jspdf-autotable. Dark themed pages: cover, about, method, investment briefing, investment value, não inclui, contato.

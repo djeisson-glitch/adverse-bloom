@@ -325,6 +325,66 @@ export type Database = {
         }
         Relationships: []
       }
+      suppliers: {
+        Row: {
+          amount: number
+          budget_id: string
+          budget_item_id: string | null
+          conta_azul_id: string | null
+          created_at: string
+          id: string
+          payment_date: string | null
+          sent_to_conta_azul: boolean
+          status: string
+          supplier_doc: string | null
+          supplier_name: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          budget_id: string
+          budget_item_id?: string | null
+          conta_azul_id?: string | null
+          created_at?: string
+          id?: string
+          payment_date?: string | null
+          sent_to_conta_azul?: boolean
+          status?: string
+          supplier_doc?: string | null
+          supplier_name: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          budget_id?: string
+          budget_item_id?: string | null
+          conta_azul_id?: string | null
+          created_at?: string
+          id?: string
+          payment_date?: string | null
+          sent_to_conta_azul?: boolean
+          status?: string
+          supplier_doc?: string | null
+          supplier_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_budget_item_id_fkey"
+            columns: ["budget_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

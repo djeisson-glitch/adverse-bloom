@@ -6,6 +6,7 @@ import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } f
 import { BudgetCard } from "@/components/budgets/BudgetCard";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { CostManagement } from "@/components/budgets/CostManagement";
+import { SupplierManagement } from "@/components/budgets/SupplierManagement";
 
 export default function Orcamentos() {
   const { data: budgets = [], isLoading } = useBudgets();
@@ -72,10 +73,10 @@ export default function Orcamentos() {
                 </div>
               )}
 
-              {/* Cost Management for approved budgets */}
+              {/* Cost Management + Supplier Management for approved budgets */}
               {status === "approved" && list.length > 0 && (
                 <div className="mt-6 space-y-4">
-                  <h2 className="font-heading text-lg font-semibold">Gestão de Custos</h2>
+                  <h2 className="font-heading text-lg font-semibold">Gestão de Custos & Fornecedores</h2>
                   <div className="flex gap-2 flex-wrap">
                     {list.map((b) => (
                       <Button
@@ -89,7 +90,10 @@ export default function Orcamentos() {
                     ))}
                   </div>
                   {costBudget && (
-                    <CostManagement budget={costBudget} items={costBudget.budget_items} />
+                    <div className="space-y-4">
+                      <CostManagement budget={costBudget} items={costBudget.budget_items} />
+                      <SupplierManagement budget={costBudget} items={costBudget.budget_items} />
+                    </div>
                   )}
                 </div>
               )}
