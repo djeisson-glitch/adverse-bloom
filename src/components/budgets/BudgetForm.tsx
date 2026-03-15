@@ -463,11 +463,17 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
               {discount > 0 && <Row label="- Desconto" value={`-${formatCurrency(discount)}`} />}
               {addition > 0 && <Row label="+ Acréscimo" value={formatCurrency(addition)} />}
               <Separator />
-              <Row label="TOTAL" value={formatCurrency(totals.totalValue)} bold className="text-base" />
 
-              <div className="mt-4 rounded-lg bg-muted/50 p-3 text-center">
+              <div className="mt-2 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">TOTAL</p>
+                <p className="text-[2.5rem] leading-tight font-bold text-foreground">
+                  {formatCurrency(totals.totalValue)}
+                </p>
+              </div>
+
+              <div className="mt-3 rounded-lg bg-muted/50 p-3 text-center">
                 <p className="text-xs text-muted-foreground">💰 Margem Real</p>
-                <p className={`text-lg font-bold ${marginColor(totals.marginPercent)}`}>
+                <p className={`text-xl font-semibold ${marginColor(totals.marginPercent)}`}>
                   {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
                 </p>
               </div>
