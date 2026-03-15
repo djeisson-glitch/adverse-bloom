@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw, Target, Vault, Lightbulb, LineChart, Calculator } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, TrendingUp, Receipt, LogOut, Film, RefreshCw, Target, Vault, Lightbulb, LineChart, Calculator, CreditCard } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
