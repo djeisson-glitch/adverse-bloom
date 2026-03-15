@@ -126,6 +126,7 @@ export default function Orcamentos() {
   const [creating, setCreating] = useState(false);
   const [costBudgetId, setCostBudgetId] = useState<string | null>(null);
   const [versionBudget, setVersionBudget] = useState<Budget | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { toast } = useToast();
