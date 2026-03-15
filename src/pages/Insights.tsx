@@ -314,6 +314,8 @@ export default function Insights() {
             </motion.div>
           </div>
 
+          <BudgetMarginCard />
+
           <div className="grid gap-4 lg:grid-cols-2">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
