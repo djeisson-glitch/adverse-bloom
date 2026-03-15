@@ -231,20 +231,21 @@ export default function Orcamentos() {
     }));
   }, []);
 
-  const handlePDF = async (budget: Budget) => {
-    try {
-      const { data: items, error } = await supabase
-        .from("budget_items")
-        .select("*")
-        .eq("budget_id", budget.id)
-        .order("order_index", { ascending: true });
-      if (error) throw error;
-      generateBudgetPDF(budget, (items || []) as BudgetItem[]);
-    } catch (err: any) {
-      console.error("PDF generation error:", err);
-      toast({ title: "Erro ao gerar PDF", description: err?.message || "Erro desconhecido", variant: "destructive" });
-    }
-  };
+  // PDF desativado temporariamente
+  // const handlePDF = async (budget: Budget) => {
+  //   try {
+  //     const { data: items, error } = await supabase
+  //       .from("budget_items")
+  //       .select("*")
+  //       .eq("budget_id", budget.id)
+  //       .order("order_index", { ascending: true });
+  //     if (error) throw error;
+  //     generateBudgetPDF(budget, (items || []) as BudgetItem[]);
+  //   } catch (err: any) {
+  //     console.error("PDF generation error:", err);
+  //     toast({ title: "Erro ao gerar PDF", description: err?.message || "Erro desconhecido", variant: "destructive" });
+  //   }
+  // };
 
   const exportCSV = useCallback(() => {
     const headers = ["Número", "Versão", "Projeto", "Cliente", "Status", "Total", "Margem %", "Data"];
