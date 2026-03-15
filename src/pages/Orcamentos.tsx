@@ -408,7 +408,7 @@ export default function Orcamentos() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handlePDF(b)}><FileDown className="h-3.5 w-3.5 mr-2" />PDF</DropdownMenuItem>
+                {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                 <DropdownMenuItem className="text-destructive" onClick={() => deleteBudget.mutate(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
               </DropdownMenuContent>
