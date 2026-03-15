@@ -17,6 +17,7 @@ import CaixaRunway from "./pages/CaixaRunway";
 import Insights from "./pages/Insights";
 import Projecoes2026 from "./pages/Projecoes2026";
 import Orcamentos from "./pages/Orcamentos";
+import ContasAPagar from "./pages/ContasAPagar";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
