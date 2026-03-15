@@ -481,22 +481,28 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                     <span className="font-medium">{formatCurrency(totals.supplierTotal)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Markup aplicado</span>
-                    <span className="font-medium">{formatCurrency(totals.markupValue)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Impostos</span>
-                    <span className="font-medium">{formatCurrency(totals.taxValue)}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">├ BV</span>
                     <span className="font-medium">{formatCurrency(totals.bvValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">└ Comissão sócios</span>
+                    <span className="text-muted-foreground">├ Comissão sócios</span>
                     <span className="font-medium">{formatCurrency(totals.commissionValue)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground/60 italic">└ Impostos: {formatCurrency(totals.taxValue)}</span>
+                    <span className="text-muted-foreground/60 italic text-xs">não alocado</span>
+                  </div>
                 </div>
+                <Separator className="my-1.5" />
+                <div className="flex justify-between font-semibold text-sm">
+                  <span>MARGEM REAL</span>
+                  <span className={marginColor(totals.marginPercent)}>
+                    {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground/70 mt-1 leading-tight">
+                  Margem Real = lucro após custos variáveis (fornecedores, BV, comissão). Impostos não são alocados por projeto (custo fixo operacional).
+                </p>
               </div>
 
               {Object.keys(totals.categoryBreakdown).length > 0 && (

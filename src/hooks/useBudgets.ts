@@ -158,12 +158,14 @@ export function useSaveBudget() {
       await supabase.from("budget_items").delete().eq("budget_id", budgetId);
 
       if (items.length > 0) {
-        const itemsToInsert = items.map((item, idx) => ({
-          ...item,
-          budget_id: budgetId,
-          order_index: idx,
-          id: undefined,
-        }));
+        const itemsToInsert = items.map((item, idx) => {
+          const { id, budget_id, ...rest } = item as any;
+          return {
+            ...rest,
+            budget_id: budgetId,
+            order_index: idx,
+          };
+        });
         const { error } = await supabase.from("budget_items").insert(itemsToInsert);
         if (error) throw error;
       }
