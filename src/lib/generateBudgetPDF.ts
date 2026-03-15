@@ -103,7 +103,7 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       startY = 30;
     }
 
-    doc.autoTable({
+    autoTable(doc, {
       startY,
       head: [[cat, "Dias", "Pessoas", "Unit.", "Total"]],
       body: catItems.map((item) => [
