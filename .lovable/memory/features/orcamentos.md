@@ -13,14 +13,20 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs), P
 ## Calculations (budgetCalc.ts)
 - Items have dual structure:
   - Client: client_days × client_people × client_unit_price = client_price
-  - Supplier: supplier_days × supplier_people × supplier_unit_price = supplier_cost
+  - Supplier: supplier_days × supplier_people × supplier_unit_price = supplier_cost (only if has_supplier_cost=true)
 1. subtotal1 = sum(client_price)
 2. markup = subtotal1 * markup%
 3. subtotal2 = subtotal1 + markup
 4. tax/bv/commission = subtotal2 * respective%
 5. total = ceil(subtotal2 + tax + bv + commission + addition - discount)
 6. margin = sum(client_price - supplier_cost)
-- Margin indicators: >=50% green, 20-50% orange, <20% red
+7. supplierTotal = sum(supplier_cost)
+- Margin indicators (per item): >=35% green, 15-35% orange, <15% red
 
-## PDF (generateBudgetPDF.ts)
-Uses jsPDF + jspdf-autotable. Dark themed pages: cover, about, method, investment briefing, investment value, não inclui, contato.
+## Commission Split
+- Djêisson + Robert, each with enabled toggle + individual %
+- Total commission = sum of enabled partner percentages
+- Stored in budget_settings: commission_djeisson_percent/enabled, commission_robert_percent/enabled
+
+## Cost Breakdown (Rentabilidade panel)
+- Shows: supplier costs, markup, taxes, BV, commission
