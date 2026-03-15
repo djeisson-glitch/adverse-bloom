@@ -111,6 +111,12 @@ export function BudgetForm({ budgetId, onClose }: Props) {
     }
   }, [existing, settings]);
 
+  // Auto-calc commission from split
+  useEffect(() => {
+    const total = (djEnabled ? djPercent : 0) + (robertEnabled ? robertPercent : 0);
+    setCommissionPercent(total);
+  }, [djEnabled, djPercent, robertEnabled, robertPercent]);
+
   const totals = useMemo(
     () => calcBudgetTotals(items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition),
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
