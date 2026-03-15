@@ -7,10 +7,13 @@ export interface BudgetItem {
   budget_id?: string;
   category: string;
   item_name: string;
-  days: number;
-  people_count: number;
-  unit_price: number;
+  client_days: number;
+  client_people: number;
+  client_unit_price: number;
   client_price: number;
+  supplier_days: number;
+  supplier_people: number;
+  supplier_unit_price: number;
   supplier_cost: number;
   margin_value: number;
   margin_percent: number;

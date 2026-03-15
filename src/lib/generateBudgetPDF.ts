@@ -108,9 +108,9 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
       head: [[cat, "Dias", "Pessoas", "Unit.", "Total"]],
       body: catItems.map((item) => [
         item.item_name,
-        String(item.days),
-        String(item.people_count),
-        formatBRL(item.unit_price),
+        String(item.client_days),
+        String(item.client_people),
+        formatBRL(item.client_unit_price),
         formatBRL(item.client_price),
       ]),
       theme: "plain",
