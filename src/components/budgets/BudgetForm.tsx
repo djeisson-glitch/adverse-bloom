@@ -197,55 +197,62 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                     const marginOk = item.margin_percent >= 20;
                     return (
                       <div key={idx} className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="space-y-1">
+                        <div className="grid gap-3 sm:grid-cols-4">
+                          <div className="space-y-1 sm:col-span-2">
                             <Label className="text-xs">Nome</Label>
                             <Input
                               value={item.item_name}
                               onChange={(e) => updateItem(idx, "item_name", e.target.value)}
-                              placeholder="Nome do item"
+                              placeholder="Ex: Operador de câmera"
                               className="h-8 text-sm"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Qtd</Label>
-                              <Input
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(idx, "quantity", Number(e.target.value))}
-                                className="h-8 text-sm"
-                                min={0}
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Tipo</Label>
-                              <Select value={item.unit_type} onValueChange={(v) => updateItem(idx, "unit_type", v)}>
-                                <SelectTrigger className="h-8 text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {UNIT_TYPES.map((u) => (
-                                    <SelectItem key={u} value={u}>{u}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3 items-end">
                           <div className="space-y-1">
-                            <Label className="text-xs">Cobra do cliente</Label>
+                            <Label className="text-xs">Dias</Label>
                             <Input
                               type="number"
-                              value={item.client_price}
-                              onChange={(e) => updateItem(idx, "client_price", Number(e.target.value))}
+                              value={item.days}
+                              onChange={(e) => updateItem(idx, "days", Number(e.target.value))}
+                              className="h-8 text-sm"
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Pessoas</Label>
+                            <Input
+                              type="number"
+                              value={item.people_count}
+                              onChange={(e) => updateItem(idx, "people_count", Number(e.target.value))}
+                              className="h-8 text-sm"
+                              min={1}
+                              step={1}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-3 items-end">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Valor unitário R$</Label>
+                            <Input
+                              type="number"
+                              value={item.unit_price}
+                              onChange={(e) => updateItem(idx, "unit_price", Number(e.target.value))}
                               className="h-8 text-sm"
                               min={0}
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Paga fornecedor</Label>
+                            <Label className="text-xs">Total cliente R$</Label>
+                            <Input
+                              type="number"
+                              value={item.client_price}
+                              className="h-8 text-sm bg-muted"
+                              readOnly
+                              tabIndex={-1}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Paga fornecedor R$</Label>
                             <Input
                               type="number"
                               value={item.supplier_cost}

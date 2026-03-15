@@ -20,13 +20,16 @@ export type Database = {
           category: string
           client_price: number
           created_at: string
+          days: number
           id: string
           item_name: string
           margin_percent: number | null
           margin_value: number | null
           order_index: number | null
+          people_count: number
           quantity: number
           supplier_cost: number
+          unit_price: number
           unit_type: string | null
         }
         Insert: {
@@ -34,13 +37,16 @@ export type Database = {
           category: string
           client_price?: number
           created_at?: string
+          days?: number
           id?: string
           item_name: string
           margin_percent?: number | null
           margin_value?: number | null
           order_index?: number | null
+          people_count?: number
           quantity?: number
           supplier_cost?: number
+          unit_price?: number
           unit_type?: string | null
         }
         Update: {
@@ -48,13 +54,16 @@ export type Database = {
           category?: string
           client_price?: number
           created_at?: string
+          days?: number
           id?: string
           item_name?: string
           margin_percent?: number | null
           margin_value?: number | null
           order_index?: number | null
+          people_count?: number
           quantity?: number
           supplier_cost?: number
+          unit_price?: number
           unit_type?: string | null
         }
         Relationships: [

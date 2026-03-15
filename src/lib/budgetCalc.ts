@@ -34,7 +34,7 @@ export function calcBudgetTotals(
 
   const categoryBreakdown: Record<string, number> = {};
   items.forEach((i) => {
-    categoryBreakdown[i.category] = (categoryBreakdown[i.category] || 0) + (i.client_price * i.quantity);
+    categoryBreakdown[i.category] = (categoryBreakdown[i.category] || 0) + i.client_price;
   });
 
   return {
