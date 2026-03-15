@@ -26,6 +26,9 @@ export default function Orcamentos() {
           setEditingId(null);
           setCreating(false);
         }}
+        onOpenVersion={(id) => {
+          setEditingId(id);
+        }}
       />
     );
   }
@@ -68,6 +71,8 @@ export default function Orcamentos() {
                       onEdit={() => setEditingId(b.id)}
                       onDuplicate={() => duplicateBudget.mutate(b.id)}
                       onDelete={() => deleteBudget.mutate(b.id)}
+                      versionCount={b.version}
+                      onShowVersions={() => setEditingId(b.id)}
                     />
                   ))}
                 </div>
@@ -85,7 +90,7 @@ export default function Orcamentos() {
                         size="sm"
                         onClick={() => setCostBudgetId(costBudgetId === b.id ? null : b.id)}
                       >
-                        {b.project_name}
+                        {b.budget_number ? `#${b.budget_number} ` : ""}{b.project_name}
                       </Button>
                     ))}
                   </div>

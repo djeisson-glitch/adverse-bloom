@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Check, Copy, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
-import { useBudgetWithItems, useSaveBudget, useBudgetSettings, type BudgetItem } from "@/hooks/useBudgets";
+import {
+  useBudgetWithItems,
+  useSaveBudget,
+  useBudgetSettings,
+  useCreateNewVersion,
+  useBudgetVersions,
+  type BudgetItem,
+} from "@/hooks/useBudgets";
 
 const DEFAULT_CATEGORIES = ["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"];
 const BV_OPTIONS = [0, 10, 15, 20];
@@ -36,6 +45,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
 interface Props {
   budgetId: string | null;
   onClose: () => void;
+  onOpenVersion?: (id: string) => void;
 }
 
 /** Numeric input that strips leading zeros */
@@ -60,10 +70,13 @@ function NumInput({
   );
 }
 
-export function BudgetForm({ budgetId, onClose }: Props) {
+export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   const { data: existing } = useBudgetWithItems(budgetId);
   const { data: settings } = useBudgetSettings();
   const saveBudget = useSaveBudget();
+  const createNewVersion = useCreateNewVersion();
+
+  const { data: versions = [] } = useBudgetVersions(existing?.budget_number ?? null);
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
@@ -200,6 +213,10 @@ export function BudgetForm({ budgetId, onClose }: Props) {
           margin_value: totals.marginValue,
           margin_percent: totals.marginPercent,
           created_by: null,
+          budget_number: existing?.budget_number ?? null,
+          version: existing?.version ?? 1,
+          parent_budget_id: existing?.parent_budget_id ?? null,
+          is_latest_version: existing?.is_latest_version ?? true,
         },
         items,
       },
@@ -207,16 +224,78 @@ export function BudgetForm({ budgetId, onClose }: Props) {
     );
   };
 
+  const handleNewVersion = () => {
+    if (!budgetId) return;
+    createNewVersion.mutate(budgetId, {
+      onSuccess: (newId) => {
+        if (onOpenVersion) {
+          onOpenVersion(newId);
+        }
+      },
+    });
+  };
+
+  const isApproved = existing?.status === "approved";
+  const budgetLabel = existing?.budget_number
+    ? `#${existing.budget_number} v${existing.version}`
+    : "Novo";
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="font-heading text-2xl font-bold text-foreground">
-          {budgetId ? "Editar Orçamento" : "Novo Orçamento"}
-        </h1>
+      <div className="space-y-2">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="font-heading text-2xl font-bold text-foreground">
+                Orçamento {budgetLabel}
+              </h1>
+              {existing && (
+                <Badge variant={existing.status === "approved" ? "default" : "secondary"}>
+                  {existing.status === "approved" ? "Aprovado" : existing.status === "rejected" ? "Rejeitado" : "Rascunho"}
+                </Badge>
+              )}
+            </div>
+            {existing && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {existing.project_name} — {existing.client_name}
+              </p>
+            )}
+          </div>
+          {budgetId && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleNewVersion} disabled={createNewVersion.isPending}>
+                <Copy className="h-3.5 w-3.5 mr-1" /> Nova Versão
+              </Button>
+              {existing?.budget_number && versions.length > 1 && (
+                <VersionHistoryModal
+                  versions={versions}
+                  currentId={budgetId}
+                  onOpenVersion={onOpenVersion}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Version timeline */}
+        {existing?.budget_number && versions.length > 1 && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground ml-14">
+            <span>Histórico:</span>
+            {versions.map((v, i) => (
+              <span key={v.id} className="flex items-center gap-1">
+                {i > 0 && <span>→</span>}
+                <span className={v.id === budgetId ? "text-primary font-semibold" : ""}>
+                  v{v.version} ({formatDate(v.created_at)})
+                </span>
+                {v.is_latest_version && <span>✓</span>}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
@@ -230,11 +309,11 @@ export function BudgetForm({ budgetId, onClose }: Props) {
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Nome do projeto</Label>
-                <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="Ex: Campanha X" />
+                <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="Ex: Campanha X" disabled={isApproved} />
               </div>
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
-                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" />
+                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" disabled={isApproved} />
               </div>
             </CardContent>
           </Card>
@@ -250,9 +329,11 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => addItem(cat)}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
-                    </Button>
+                    {!isApproved && (
+                      <Button variant="outline" size="sm" onClick={() => addItem(cat)}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -266,6 +347,7 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                       onUpdate={(field, value) => updateItem(idx, field, value)}
                       onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
                       onRemove={() => removeItem(idx)}
+                      readOnly={isApproved}
                     />
                   ))}
                 </CardContent>
@@ -274,18 +356,20 @@ export function BudgetForm({ budgetId, onClose }: Props) {
           })}
 
           {/* Add Category */}
-          <div className="flex gap-2">
-            <Input
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="Nova categoria..."
-              className="max-w-xs"
-              onKeyDown={(e) => e.key === "Enter" && addCategory()}
-            />
-            <Button variant="outline" onClick={addCategory}>
-              <Plus className="h-4 w-4 mr-1" /> Nova Categoria
-            </Button>
-          </div>
+          {!isApproved && (
+            <div className="flex gap-2">
+              <Input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Nova categoria..."
+                className="max-w-xs"
+                onKeyDown={(e) => e.key === "Enter" && addCategory()}
+              />
+              <Button variant="outline" onClick={addCategory}>
+                <Plus className="h-4 w-4 mr-1" /> Nova Categoria
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -298,15 +382,15 @@ export function BudgetForm({ budgetId, onClose }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Markup %</Label>
-                  <NumInput value={markupPercent} onChange={setMarkupPercent} className="h-8 text-sm" />
+                  <NumInput value={markupPercent} onChange={setMarkupPercent} className="h-8 text-sm" disabled={isApproved} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Imposto %</Label>
-                  <NumInput value={taxPercent} onChange={setTaxPercent} className="h-8 text-sm" />
+                  <NumInput value={taxPercent} onChange={setTaxPercent} className="h-8 text-sm" disabled={isApproved} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">BV %</Label>
-                  <Select value={String(bvPercent)} onValueChange={(v) => setBvPercent(Number(v))}>
+                  <Select value={String(bvPercent)} onValueChange={(v) => setBvPercent(Number(v))} disabled={isApproved}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {BV_OPTIONS.map((v) => (
@@ -324,18 +408,18 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Comissão — Distribuição</p>
                 <div className="rounded-lg border border-border bg-background p-3 space-y-2">
                   <div className="flex items-center gap-3">
-                    <Checkbox checked={djEnabled} onCheckedChange={(c) => setDjEnabled(!!c)} />
+                    <Checkbox checked={djEnabled} onCheckedChange={(c) => setDjEnabled(!!c)} disabled={isApproved} />
                     <span className="text-sm flex-1">Djêisson</span>
-                    <NumInput value={djPercent} onChange={setDjPercent} className="h-7 text-sm w-16" min={0} />
+                    <NumInput value={djPercent} onChange={setDjPercent} className="h-7 text-sm w-16" min={0} disabled={isApproved} />
                     <span className="text-xs text-muted-foreground">%</span>
                     <span className="text-xs font-medium w-20 text-right">
                       {djEnabled ? formatCurrency(totals.subtotal2 * (djPercent / 100)) : "—"}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Checkbox checked={robertEnabled} onCheckedChange={(c) => setRobertEnabled(!!c)} />
+                    <Checkbox checked={robertEnabled} onCheckedChange={(c) => setRobertEnabled(!!c)} disabled={isApproved} />
                     <span className="text-sm flex-1">Robert</span>
-                    <NumInput value={robertPercent} onChange={setRobertPercent} className="h-7 text-sm w-16" min={0} />
+                    <NumInput value={robertPercent} onChange={setRobertPercent} className="h-7 text-sm w-16" min={0} disabled={isApproved} />
                     <span className="text-xs text-muted-foreground">%</span>
                     <span className="text-xs font-medium w-20 text-right">
                       {robertEnabled ? formatCurrency(totals.subtotal2 * (robertPercent / 100)) : "—"}
@@ -353,11 +437,11 @@ export function BudgetForm({ budgetId, onClose }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Desconto R$</Label>
-                  <NumInput value={discount} onChange={setDiscount} className="h-8 text-sm" />
+                  <NumInput value={discount} onChange={setDiscount} className="h-8 text-sm" disabled={isApproved} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Acréscimo R$</Label>
-                  <NumInput value={addition} onChange={setAddition} className="h-8 text-sm" />
+                  <NumInput value={addition} onChange={setAddition} className="h-8 text-sm" disabled={isApproved} />
                 </div>
               </div>
             </CardContent>
@@ -437,15 +521,79 @@ export function BudgetForm({ budgetId, onClose }: Props) {
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 border-t border-border pt-4">
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button variant="secondary" onClick={() => handleSave("draft")} disabled={saveBudget.isPending}>
-          Salvar Rascunho
-        </Button>
-        <Button onClick={() => handleSave("approved")} disabled={saveBudget.isPending}>
-          <Check className="mr-2 h-4 w-4" />
-          Aprovar
-        </Button>
+        {isApproved ? (
+          <Button onClick={handleNewVersion} disabled={createNewVersion.isPending}>
+            <Copy className="mr-2 h-4 w-4" />
+            Criar Nova Versão para Editar
+          </Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => handleSave("draft")} disabled={saveBudget.isPending}>
+              Salvar Rascunho
+            </Button>
+            <Button onClick={() => handleSave("approved")} disabled={saveBudget.isPending}>
+              <Check className="mr-2 h-4 w-4" />
+              Aprovar
+            </Button>
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+/* ── Version History Modal ── */
+
+function VersionHistoryModal({
+  versions,
+  currentId,
+  onOpenVersion,
+}: {
+  versions: any[];
+  currentId: string;
+  onOpenVersion?: (id: string) => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <History className="h-3.5 w-3.5 mr-1" /> {versions.length} versões
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Histórico — Orçamento #{versions[0]?.budget_number}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 mt-2">
+          {[...versions].reverse().map((v) => (
+            <div
+              key={v.id}
+              className={`flex items-center justify-between rounded-lg border p-3 ${
+                v.id === currentId ? "border-primary bg-primary/5" : "border-border"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {v.is_latest_version && <span className="text-[hsl(var(--success))]">✓</span>}
+                <span className="font-medium text-sm">
+                  v{v.version} — {formatDate(v.created_at)}
+                </span>
+                {v.is_latest_version && (
+                  <Badge variant="default" className="text-xs">ATUAL</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">{formatCurrency(v.total_value)}</span>
+                {v.id !== currentId && onOpenVersion && (
+                  <Button variant="ghost" size="sm" onClick={() => onOpenVersion(v.id)}>
+                    Ver
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -470,11 +618,13 @@ function BudgetItemCard({
   onUpdate,
   onToggleSupplier,
   onRemove,
+  readOnly,
 }: {
   item: BudgetItem;
   onUpdate: (field: keyof BudgetItem, value: any) => void;
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
@@ -487,11 +637,14 @@ function BudgetItemCard({
             onChange={(e) => onUpdate("item_name", e.target.value)}
             placeholder="Ex: Operador de câmera"
             className="h-8 text-sm"
+            disabled={readOnly}
           />
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={onRemove}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {!readOnly && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={onRemove}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* COBRA DO CLIENTE */}
@@ -500,15 +653,15 @@ function BudgetItemCard({
         <div className="grid grid-cols-4 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">Dias</Label>
-            <NumInput value={item.client_days} onChange={(v) => onUpdate("client_days", v)} className="h-8 text-sm" min={0} step={0.1} />
+            <NumInput value={item.client_days} onChange={(v) => onUpdate("client_days", v)} className="h-8 text-sm" min={0} step={0.1} disabled={readOnly} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Pessoas</Label>
-            <NumInput value={item.client_people} onChange={(v) => onUpdate("client_people", v)} className="h-8 text-sm" min={1} step={1} />
+            <NumInput value={item.client_people} onChange={(v) => onUpdate("client_people", v)} className="h-8 text-sm" min={1} step={1} disabled={readOnly} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Valor unit. R$</Label>
-            <NumInput value={item.client_unit_price} onChange={(v) => onUpdate("client_unit_price", v)} className="h-8 text-sm" min={0} />
+            <NumInput value={item.client_unit_price} onChange={(v) => onUpdate("client_unit_price", v)} className="h-8 text-sm" min={0} disabled={readOnly} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Total R$</Label>
@@ -527,6 +680,7 @@ function BudgetItemCard({
           <Checkbox
             checked={item.has_supplier_cost}
             onCheckedChange={(checked) => onToggleSupplier(!!checked)}
+            disabled={readOnly}
           />
           <span className="text-xs font-medium text-muted-foreground">Tem custo de fornecedor?</span>
         </label>
@@ -537,15 +691,15 @@ function BudgetItemCard({
             <div className="grid grid-cols-4 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Dias</Label>
-                <NumInput value={item.supplier_days} onChange={(v) => onUpdate("supplier_days", v)} className="h-8 text-sm" min={0} step={0.1} />
+                <NumInput value={item.supplier_days} onChange={(v) => onUpdate("supplier_days", v)} className="h-8 text-sm" min={0} step={0.1} disabled={readOnly} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Pessoas</Label>
-                <NumInput value={item.supplier_people} onChange={(v) => onUpdate("supplier_people", v)} className="h-8 text-sm" min={0} step={1} />
+                <NumInput value={item.supplier_people} onChange={(v) => onUpdate("supplier_people", v)} className="h-8 text-sm" min={0} step={1} disabled={readOnly} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Valor unit. R$</Label>
-                <NumInput value={item.supplier_unit_price} onChange={(v) => onUpdate("supplier_unit_price", v)} className="h-8 text-sm" min={0} />
+                <NumInput value={item.supplier_unit_price} onChange={(v) => onUpdate("supplier_unit_price", v)} className="h-8 text-sm" min={0} disabled={readOnly} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Total R$</Label>
