@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2, GripVertical, Check } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useBudgetWithItems, useSaveBudget, useBudgetSettings, type BudgetItem } from "@/hooks/useBudgets";
@@ -21,6 +22,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
     client_people: 1,
     client_unit_price: 0,
     client_price: 0,
+    has_supplier_cost: false,
     supplier_days: 0,
     supplier_people: 0,
     supplier_unit_price: 0,
@@ -34,6 +36,28 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
 interface Props {
   budgetId: string | null;
   onClose: () => void;
+}
+
+/** Numeric input that strips leading zeros */
+function NumInput({
+  value,
+  onChange,
+  ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value" | "type"> & {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <Input
+      type="number"
+      value={value || ""}
+      onChange={(e) => {
+        const raw = e.target.value;
+        onChange(raw === "" ? 0 : Number(raw));
+      }}
+      {...rest}
+    />
+  );
 }
 
 export function BudgetForm({ budgetId, onClose }: Props) {
@@ -53,7 +77,6 @@ export function BudgetForm({ budgetId, onClose }: Props) {
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
 
-  // Load existing budget or defaults
   useEffect(() => {
     if (existing) {
       setProjectName(existing.project_name);
@@ -81,18 +104,41 @@ export function BudgetForm({ budgetId, onClose }: Props) {
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
+  const recalcItem = (item: BudgetItem): BudgetItem => {
+    const cp = item.client_days * item.client_people * item.client_unit_price;
+    const sc = item.has_supplier_cost
+      ? item.supplier_days * item.supplier_people * item.supplier_unit_price
+      : 0;
+    return {
+      ...item,
+      client_price: cp,
+      supplier_cost: sc,
+      supplier_days: item.has_supplier_cost ? item.supplier_days : 0,
+      supplier_people: item.has_supplier_cost ? item.supplier_people : 0,
+      supplier_unit_price: item.has_supplier_cost ? item.supplier_unit_price : 0,
+      margin_value: cp - sc,
+      margin_percent: cp > 0 ? ((cp - sc) / cp) * 100 : 0,
+    };
+  };
+
   const updateItem = (index: number, field: keyof BudgetItem, value: any) => {
     setItems((prev) => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: value };
-      // Recalculate client_price
-      copy[index].client_price = copy[index].client_days * copy[index].client_people * copy[index].client_unit_price;
-      // Recalculate supplier_cost
-      copy[index].supplier_cost = copy[index].supplier_days * copy[index].supplier_people * copy[index].supplier_unit_price;
-      const cp = copy[index].client_price;
-      const sc = copy[index].supplier_cost;
-      copy[index].margin_value = cp - sc;
-      copy[index].margin_percent = cp > 0 ? ((cp - sc) / cp) * 100 : 0;
+      copy[index] = recalcItem({ ...copy[index], [field]: value });
+      return copy;
+    });
+  };
+
+  const toggleSupplier = (index: number, checked: boolean) => {
+    setItems((prev) => {
+      const copy = [...prev];
+      const item = { ...copy[index], has_supplier_cost: checked };
+      if (!checked) {
+        item.supplier_days = 0;
+        item.supplier_people = 0;
+        item.supplier_unit_price = 0;
+      }
+      copy[index] = recalcItem(item);
       return copy;
     });
   };
@@ -156,7 +202,7 @@ export function BudgetForm({ budgetId, onClose }: Props) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Left Column — 60% */}
+        {/* Left Column */}
         <div className="lg:col-span-3 space-y-6">
           {/* Basic Info */}
           <Card>
@@ -195,88 +241,15 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                   {catItems.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-3">Nenhum item nesta categoria.</p>
                   )}
-                  {catItems.map(({ item, idx }) => {
-                    const marginOk = item.margin_percent >= 50;
-                    const marginMid = item.margin_percent >= 20;
-                    const marginColor = marginOk
-                      ? "text-[hsl(var(--success))]"
-                      : marginMid
-                      ? "text-[hsl(var(--warning))]"
-                      : "text-destructive";
-                    return (
-                      <div key={idx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
-                        {/* Name + Delete */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-xs">Nome</Label>
-                            <Input
-                              value={item.item_name}
-                              onChange={(e) => updateItem(idx, "item_name", e.target.value)}
-                              placeholder="Ex: Operador de câmera"
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={() => removeItem(idx)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-
-                        {/* COBRA DO CLIENTE */}
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobra do cliente</p>
-                          <div className="grid grid-cols-4 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Dias</Label>
-                              <Input type="number" value={item.client_days} onChange={(e) => updateItem(idx, "client_days", Number(e.target.value))} className="h-8 text-sm" min={0} step={0.1} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Pessoas</Label>
-                              <Input type="number" value={item.client_people} onChange={(e) => updateItem(idx, "client_people", Number(e.target.value))} className="h-8 text-sm" min={1} step={1} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Valor unit. R$</Label>
-                              <Input type="number" value={item.client_unit_price} onChange={(e) => updateItem(idx, "client_unit_price", Number(e.target.value))} className="h-8 text-sm" min={0} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Total R$</Label>
-                              <Input type="number" value={item.client_price} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* PAGA FORNECEDOR */}
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Paga fornecedor</p>
-                          <div className="grid grid-cols-4 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Dias</Label>
-                              <Input type="number" value={item.supplier_days} onChange={(e) => updateItem(idx, "supplier_days", Number(e.target.value))} className="h-8 text-sm" min={0} step={0.1} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Pessoas</Label>
-                              <Input type="number" value={item.supplier_people} onChange={(e) => updateItem(idx, "supplier_people", Number(e.target.value))} className="h-8 text-sm" min={0} step={1} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Valor unit. R$</Label>
-                              <Input type="number" value={item.supplier_unit_price} onChange={(e) => updateItem(idx, "supplier_unit_price", Number(e.target.value))} className="h-8 text-sm" min={0} />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Total R$</Label>
-                              <Input type="number" value={item.supplier_cost} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* SOBRA */}
-                        <div className="flex items-center justify-end pt-1">
-                          <span className={`text-sm font-semibold ${marginColor}`}>
-                            Sobra: {formatCurrency(item.margin_value)} ({formatPercent(item.margin_percent)})
-                            {marginOk ? " ✅" : marginMid ? " ⚠️" : " ❌"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {catItems.map(({ item, idx }) => (
+                    <BudgetItemCard
+                      key={idx}
+                      item={item}
+                      onUpdate={(field, value) => updateItem(idx, field, value)}
+                      onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                      onRemove={() => removeItem(idx)}
+                    />
+                  ))}
                 </CardContent>
               </Card>
             );
@@ -297,9 +270,8 @@ export function BudgetForm({ budgetId, onClose }: Props) {
           </div>
         </div>
 
-        {/* Right Column — 40% */}
+        {/* Right Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Settings */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Configurações</CardTitle>
@@ -308,18 +280,16 @@ export function BudgetForm({ budgetId, onClose }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Markup %</Label>
-                  <Input type="number" value={markupPercent} onChange={(e) => setMarkupPercent(Number(e.target.value))} className="h-8 text-sm" />
+                  <NumInput value={markupPercent} onChange={setMarkupPercent} className="h-8 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Imposto %</Label>
-                  <Input type="number" value={taxPercent} onChange={(e) => setTaxPercent(Number(e.target.value))} className="h-8 text-sm" />
+                  <NumInput value={taxPercent} onChange={setTaxPercent} className="h-8 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">BV %</Label>
                   <Select value={String(bvPercent)} onValueChange={(v) => setBvPercent(Number(v))}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {BV_OPTIONS.map((v) => (
                         <SelectItem key={v} value={String(v)}>{v}%</SelectItem>
@@ -329,18 +299,18 @@ export function BudgetForm({ budgetId, onClose }: Props) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Comissão %</Label>
-                  <Input type="number" value={commissionPercent} onChange={(e) => setCommissionPercent(Number(e.target.value))} className="h-8 text-sm" />
+                  <NumInput value={commissionPercent} onChange={setCommissionPercent} className="h-8 text-sm" />
                 </div>
               </div>
               <Separator />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Desconto R$</Label>
-                  <Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="h-8 text-sm" />
+                  <NumInput value={discount} onChange={setDiscount} className="h-8 text-sm" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Acréscimo R$</Label>
-                  <Input type="number" value={addition} onChange={(e) => setAddition(Number(e.target.value))} className="h-8 text-sm" />
+                  <NumInput value={addition} onChange={setAddition} className="h-8 text-sm" />
                 </div>
               </div>
             </CardContent>
@@ -366,20 +336,11 @@ export function BudgetForm({ budgetId, onClose }: Props) {
 
               <div className="mt-4 rounded-lg bg-muted/50 p-3 text-center">
                 <p className="text-xs text-muted-foreground">💰 Margem Real</p>
-                <p
-                  className={`text-lg font-bold ${
-                    totals.marginPercent >= 20
-                      ? "text-[hsl(var(--success))]"
-                      : totals.marginPercent >= 10
-                      ? "text-[hsl(var(--warning))]"
-                      : "text-destructive"
-                  }`}
-                >
+                <p className={`text-lg font-bold ${marginColor(totals.marginPercent)}`}>
                   {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
                 </p>
               </div>
 
-              {/* Category Breakdown */}
               {Object.keys(totals.categoryBreakdown).length > 0 && (
                 <div className="mt-3 space-y-1.5">
                   <p className="text-xs text-muted-foreground font-medium">Breakdown por categoria</p>
@@ -409,6 +370,123 @@ export function BudgetForm({ budgetId, onClose }: Props) {
           <Check className="mr-2 h-4 w-4" />
           Aprovar
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Helpers ── */
+
+function marginColor(percent: number) {
+  if (percent >= 35) return "text-[hsl(var(--success))]";
+  if (percent >= 15) return "text-[hsl(var(--warning))]";
+  return "text-destructive";
+}
+
+function marginIcon(percent: number) {
+  if (percent >= 35) return "✅";
+  if (percent >= 15) return "⚠️";
+  return "❌";
+}
+
+/* ── Item Card ── */
+
+function BudgetItemCard({
+  item,
+  onUpdate,
+  onToggleSupplier,
+  onRemove,
+}: {
+  item: BudgetItem;
+  onUpdate: (field: keyof BudgetItem, value: any) => void;
+  onToggleSupplier: (checked: boolean) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+      {/* Name + Delete */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 space-y-1">
+          <Label className="text-xs">Nome</Label>
+          <Input
+            value={item.item_name}
+            onChange={(e) => onUpdate("item_name", e.target.value)}
+            placeholder="Ex: Operador de câmera"
+            className="h-8 text-sm"
+          />
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={onRemove}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* COBRA DO CLIENTE */}
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobra do cliente</p>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Dias</Label>
+            <NumInput value={item.client_days} onChange={(v) => onUpdate("client_days", v)} className="h-8 text-sm" min={0} step={0.1} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Pessoas</Label>
+            <NumInput value={item.client_people} onChange={(v) => onUpdate("client_people", v)} className="h-8 text-sm" min={1} step={1} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Valor unit. R$</Label>
+            <NumInput value={item.client_unit_price} onChange={(v) => onUpdate("client_unit_price", v)} className="h-8 text-sm" min={0} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Total R$</Label>
+            <Input type="number" value={item.client_price} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
+          </div>
+        </div>
+      </div>
+
+      {/* SUPPLIER TOGGLE */}
+      <div
+        className={`rounded-lg border transition-all duration-200 ${
+          item.has_supplier_cost ? "border-border bg-background p-3" : "border-border/50 p-3"
+        }`}
+      >
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <Checkbox
+            checked={item.has_supplier_cost}
+            onCheckedChange={(checked) => onToggleSupplier(!!checked)}
+          />
+          <span className="text-xs font-medium text-muted-foreground">Tem custo de fornecedor?</span>
+        </label>
+
+        {item.has_supplier_cost && (
+          <div className="mt-3 space-y-1.5 animate-fade-in">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Paga fornecedor</p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Dias</Label>
+                <NumInput value={item.supplier_days} onChange={(v) => onUpdate("supplier_days", v)} className="h-8 text-sm" min={0} step={0.1} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Pessoas</Label>
+                <NumInput value={item.supplier_people} onChange={(v) => onUpdate("supplier_people", v)} className="h-8 text-sm" min={0} step={1} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Valor unit. R$</Label>
+                <NumInput value={item.supplier_unit_price} onChange={(v) => onUpdate("supplier_unit_price", v)} className="h-8 text-sm" min={0} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Total R$</Label>
+                <Input type="number" value={item.supplier_cost} className="h-8 text-sm bg-muted" readOnly tabIndex={-1} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SOBRA */}
+      <div className="flex items-center justify-end pt-1">
+        <span className={`text-sm font-semibold ${marginColor(item.margin_percent)}`}>
+          Sobra: {formatCurrency(item.margin_value)} ({formatPercent(item.margin_percent)}) {marginIcon(item.margin_percent)}
+        </span>
       </div>
     </div>
   );
