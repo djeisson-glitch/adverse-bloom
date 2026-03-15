@@ -92,6 +92,10 @@ export type Database = {
         Row: {
           bv_options: string[]
           commission_default: number
+          commission_djeisson_enabled: boolean
+          commission_djeisson_percent: number
+          commission_robert_enabled: boolean
+          commission_robert_percent: number
           created_at: string
           id: string
           markup_default: number
@@ -101,6 +105,10 @@ export type Database = {
         Insert: {
           bv_options?: string[]
           commission_default?: number
+          commission_djeisson_enabled?: boolean
+          commission_djeisson_percent?: number
+          commission_robert_enabled?: boolean
+          commission_robert_percent?: number
           created_at?: string
           id?: string
           markup_default?: number
@@ -110,6 +118,10 @@ export type Database = {
         Update: {
           bv_options?: string[]
           commission_default?: number
+          commission_djeisson_enabled?: boolean
+          commission_djeisson_percent?: number
+          commission_robert_enabled?: boolean
+          commission_robert_percent?: number
           created_at?: string
           id?: string
           markup_default?: number
