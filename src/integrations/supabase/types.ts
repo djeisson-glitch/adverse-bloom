@@ -149,6 +149,7 @@ export type Database = {
           markup_percent: number
           parent_budget_id: string | null
           project_name: string
+          proposal_name: string | null
           status: string
           subtotal_1: number | null
           subtotal_2: number | null
@@ -176,6 +177,7 @@ export type Database = {
           markup_percent?: number
           parent_budget_id?: string | null
           project_name: string
+          proposal_name?: string | null
           status?: string
           subtotal_1?: number | null
           subtotal_2?: number | null
@@ -203,6 +205,7 @@ export type Database = {
           markup_percent?: number
           parent_budget_id?: string | null
           project_name?: string
+          proposal_name?: string | null
           status?: string
           subtotal_1?: number | null
           subtotal_2?: number | null
