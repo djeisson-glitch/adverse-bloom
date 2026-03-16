@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { QuarterlyTargets } from "@/components/projections/QuarterlyTargets";
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
