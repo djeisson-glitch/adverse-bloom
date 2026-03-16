@@ -67,6 +67,22 @@ export default function Projecoes2026() {
     })),
     [data2024, data2025, proj2026Base]);
 
+  const getSeasonColor = (pct: number) => {
+    if (pct >= 13) return "#FF0000";
+    if (pct >= 9) return "#f59e0b";
+    if (pct >= 6) return "#10b981";
+    return "#ef4444";
+  };
+
+  const seasonChartData = useMemo(() =>
+    MONTH_LABELS.map((label, i) => ({
+      label,
+      value: seasonality[i],
+      label_pct: `${seasonality[i].toFixed(1)}%`,
+      fill: getSeasonColor(seasonality[i]),
+    })),
+    [seasonality]);
+
   const tableData = MONTH_LABELS.map((label, i) => ({
     month: label,
     seasonPct: seasonality[i],
