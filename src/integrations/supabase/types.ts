@@ -402,6 +402,36 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_contacts: {
+        Row: {
+          created_at: string | null
+          document: string | null
+          id: string
+          is_generic: boolean | null
+          last_used_at: string | null
+          name: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document?: string | null
+          id?: string
+          is_generic?: boolean | null
+          last_used_at?: string | null
+          name: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document?: string | null
+          id?: string
+          is_generic?: boolean | null
+          last_used_at?: string | null
+          name?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           amount: number
