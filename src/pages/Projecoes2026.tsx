@@ -141,14 +141,18 @@ export default function Projecoes2026() {
             ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="glass-card p-5">
-              <p className="text-sm text-muted-foreground">Total 2024</p>
+              <p className="text-sm text-muted-foreground">Total 2024 <span className="opacity-60">(ano completo)</span></p>
               <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2024)}</p>
             </div>
             <div className="glass-card p-5">
-              <p className="text-sm text-muted-foreground">Total 2025 (até agora)</p>
+              <p className="text-sm text-muted-foreground">Total 2025 <span className="opacity-60">(ano completo)</span></p>
               <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2025)}</p>
+            </div>
+            <div className="glass-card p-5">
+              <p className="text-sm text-muted-foreground">Total 2026 <span className="opacity-60">(até agora)</span></p>
+              <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2026)}</p>
             </div>
           </div>
 
