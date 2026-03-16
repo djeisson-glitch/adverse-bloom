@@ -357,8 +357,8 @@ export function CostEntryTab({ budget, items }: Props) {
                     >
                       <Plus className="h-3.5 w-3.5 inline mr-1" /> Criar novo fornecedor
                     </button>
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
