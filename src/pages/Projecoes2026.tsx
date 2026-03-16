@@ -11,8 +11,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
-import { Badge } from "@/components/ui/badge";
-import { type CAItem } from "@/lib/financial";
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
