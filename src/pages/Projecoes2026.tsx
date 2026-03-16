@@ -201,6 +201,27 @@ export default function Projecoes2026() {
               </table>
             </div>
           </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
+            <h2 className="font-heading text-lg font-semibold mb-4">Visualização de Sazonalidade</h2>
+            <ChartContainer config={{
+              seasonality: { label: "Sazonalidade", color: "hsl(var(--primary))" },
+            }} className="h-[400px] sm:h-[400px] max-sm:h-[300px]">
+              <BarChart data={seasonChartData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v.toFixed(0)}%`} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ReferenceLine y={avgSeason} stroke="hsl(var(--muted-foreground))" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Média ${avgSeason.toFixed(1)}%`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} name="Sazonalidade">
+                  <LabelList dataKey="label_pct" position="top" fill="hsl(var(--foreground))" fontSize={10} />
+                  {seasonChartData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </motion.div>
         </>
       )}
     </div>
