@@ -136,6 +136,15 @@ export default function Projecoes2026() {
         <div className="glass-card p-10 text-center text-muted-foreground">Sincronize os dados para ver as projeções.</div>
       ) : (
         <>
+          <QuarterlyTargets
+            data2024={data2024}
+            data2025={data2025}
+            data2026={data2026}
+            seasonality={seasonality}
+            metaAnual={metaAnual}
+            onMetaChange={setMetaAnual}
+          />
+        <>
           <div className="grid gap-4 sm:grid-cols-3">
             {[
               { label: "Conservador (-10%)", value: metaAnual * 0.9, color: "text-warning" },
