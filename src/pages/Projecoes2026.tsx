@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
+import { type CAItem, getCat } from "@/lib/financial";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { type CAItem } from "@/lib/financial";
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -25,6 +25,7 @@ export default function Projecoes2026() {
   const getMonthlyByYear = (year: number) => {
     const months: number[] = Array(12).fill(0);
     recItems.forEach(item => {
+      if (getCat(item) === 'Empréstimos de Bancos') return;
       const dc = item?.data_competencia;
       if (!dc?.startsWith(String(year))) return;
       const m = Number(dc.slice(5, 7)) - 1;
