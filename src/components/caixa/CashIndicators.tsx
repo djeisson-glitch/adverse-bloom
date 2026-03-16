@@ -134,9 +134,9 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
         <KpiCard title="Break-Even Mensal" value={formatCurrency(breakEven)}
           subtitle={`A receber: ${formatCurrency(aReceberMes)}`} level={breakLevel} icon={TrendingDown} delay={0.45} />
         <KpiCard title="Inadimplência" value={formatCurrency(inadimplencia)}
-          subtitle="Em atraso" level={inadLevel} icon={AlertTriangle} delay={0.5} />
-        <KpiCard title="Descasamento 3m" value={formatCurrency(descasamento.valor)}
-          subtitle={`${descasamento.pct.toFixed(0)}% do faturado`} level={descLevel} icon={ArrowLeftRight} delay={0.55} />
+          subtitle="Vencido e não recebido" level={inadLevel} icon={AlertTriangle} delay={0.5} />
+        <KpiCard title="Faturamento vs Meta" value={formatCurrency(faturadoAno)}
+          subtitle={`${fatPct.toFixed(0)}% da meta (${formatCurrency(metaProRata)})`} level={fatLevel} icon={BarChart3} delay={0.55} />
         <KpiCard title="Gap Comercial" value={formatCurrency(gapComercial)}
           subtitle={`Falta fechar (${gapPct.toFixed(0)}% da meta)`} level={gapLevel} icon={Target} delay={0.6} />
         <KpiCard title="Ciclo Conversão" value={`${cicloDias} dias`}
