@@ -39,6 +39,7 @@ export default function Projecoes2026() {
 
   const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems, useRecebida]);
   const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems, useRecebida]);
+  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems, useRecebida]);
 
   // Seasonality from 2024 + 2025
   const seasonality = useMemo(() => {
@@ -63,9 +64,10 @@ export default function Projecoes2026() {
       label,
       real2024: data2024[i],
       real2025: data2025[i],
+      real2026: data2026[i] || null,
       proj2026: proj2026Base[i],
     })),
-    [data2024, data2025, proj2026Base]);
+    [data2024, data2025, data2026, proj2026Base]);
 
   const getSeasonColor = (pct: number) => {
     if (pct >= 13) return "#FF0000";
@@ -92,11 +94,13 @@ export default function Projecoes2026() {
     agressivo: proj2026Agressivo[i],
     real2024: data2024[i],
     real2025: data2025[i],
-    gap2024: data2024[i] > 0 ? proj2026Base[i] - data2024[i] : 0,
+    real2026: data2026[i],
+    gap2026: data2026[i] > 0 ? data2026[i] - proj2026Base[i] : 0,
   }));
 
   const total2024 = data2024.reduce((s, v) => s + v, 0);
   const total2025 = data2025.reduce((s, v) => s + v, 0);
+  const total2026 = data2026.reduce((s, v) => s + v, 0);
   const hasData = recItems.length > 0;
 
   return (
@@ -137,14 +141,18 @@ export default function Projecoes2026() {
             ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="glass-card p-5">
-              <p className="text-sm text-muted-foreground">Total 2024</p>
+              <p className="text-sm text-muted-foreground">Total 2024 <span className="opacity-60">(ano completo)</span></p>
               <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2024)}</p>
             </div>
             <div className="glass-card p-5">
-              <p className="text-sm text-muted-foreground">Total 2025 (até agora)</p>
+              <p className="text-sm text-muted-foreground">Total 2025 <span className="opacity-60">(ano completo)</span></p>
               <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2025)}</p>
+            </div>
+            <div className="glass-card p-5">
+              <p className="text-sm text-muted-foreground">Total 2026 <span className="opacity-60">(até agora)</span></p>
+              <p className="font-heading text-xl font-bold mt-1">{formatCurrency(total2026)}</p>
             </div>
           </div>
 
@@ -153,7 +161,8 @@ export default function Projecoes2026() {
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
-              proj2026: { label: "2026 Projeção", color: "hsl(var(--primary))" },
+              real2026: { label: "2026 Real", color: "hsl(var(--warning))" },
+              proj2026: { label: "2026 Meta", color: "hsl(var(--primary))" },
             }} className="h-[320px]">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -163,6 +172,7 @@ export default function Projecoes2026() {
                 <Legend />
                 <Line type="monotone" dataKey="real2024" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                 <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
+                <Line type="monotone" dataKey="real2026" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 3" dot={{ fill: "hsl(var(--warning))" }} connectNulls={false} />
                 <Line type="monotone" dataKey="proj2026" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
               </LineChart>
             </ChartContainer>
@@ -176,12 +186,13 @@ export default function Projecoes2026() {
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="pb-3 font-medium">Mês</th>
                     <th className="pb-3 font-medium text-center">Sazonalidade</th>
+                    <th className="pb-3 font-medium text-right">Real 2024</th>
+                    <th className="pb-3 font-medium text-right">Real 2025</th>
+                    <th className="pb-3 font-medium text-right">Real 2026</th>
                     <th className="pb-3 font-medium text-right">Meta 2026</th>
                     <th className="pb-3 font-medium text-right">Conservador</th>
                     <th className="pb-3 font-medium text-right">Agressivo</th>
-                    <th className="pb-3 font-medium text-right">Real 2024</th>
-                    <th className="pb-3 font-medium text-right">Real 2025</th>
-                    <th className="pb-3 font-medium text-right">Gap vs 2024</th>
+                    <th className="pb-3 font-medium text-right">Gap 2026</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -193,25 +204,27 @@ export default function Projecoes2026() {
                           {formatPercent(row.seasonPct)} · {row.classification}
                         </Badge>
                       </td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
+                      <td className="py-2 text-right">{row.real2026 > 0 ? formatCurrency(row.real2026) : "—"}</td>
                       <td className="py-2 text-right">{formatCurrency(row.meta2026)}</td>
                       <td className="py-2 text-right text-warning">{formatCurrency(row.conservador)}</td>
                       <td className="py-2 text-right text-success">{formatCurrency(row.agressivo)}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
-                      <td className={`py-2 text-right ${row.gap2024 >= 0 ? "text-success" : "text-destructive"}`}>
-                        {row.real2024 > 0 ? formatCurrency(row.gap2024) : "—"}
+                      <td className={`py-2 text-right ${row.gap2026 >= 0 ? "text-success" : "text-destructive"}`}>
+                        {row.real2026 > 0 ? formatCurrency(row.gap2026) : "—"}
                       </td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-border font-semibold">
                     <td className="py-2">Total</td>
                     <td className="py-2 text-center">100%</td>
+                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2026)}</td>
                     <td className="py-2 text-right">{formatCurrency(metaAnual)}</td>
                     <td className="py-2 text-right text-warning">{formatCurrency(metaAnual * 0.9)}</td>
                     <td className="py-2 text-right text-success">{formatCurrency(metaAnual * 1.1)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
-                    <td className="py-2 text-right">{formatCurrency(metaAnual - total2024)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2026 - metaAnual)}</td>
                   </tr>
                 </tbody>
               </table>
