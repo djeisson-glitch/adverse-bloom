@@ -281,6 +281,17 @@ export default function Orcamentos() {
     );
   }
 
+  // ── Approved budget view with tabs ──
+  if (costBudgetId && costBudget) {
+    return (
+      <BudgetCostTabs
+        budget={costBudget}
+        onClose={() => setCostBudgetId(null)}
+        onEdit={() => { setCostBudgetId(null); setEditingId(costBudget.id); }}
+      />
+    );
+  }
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (filters.sort !== field) return null;
     return filters.sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 inline" /> : <ChevronDown className="h-3 w-3 ml-1 inline" />;
