@@ -231,11 +231,12 @@ export function CostEntryTab({ budget, items }: Props) {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="rounded-lg bg-primary/10 p-3">
               <p className="text-xs text-muted-foreground">Orçado</p>
-              <p className="font-semibold text-primary">{formatCurrency(supplierTotal)}</p>
+              <p className="font-semibold text-primary">{formatCurrency(orcado)}</p>
+              <p className="text-[10px] text-muted-foreground">(Sub-Total 1)</p>
             </div>
-            <div className={`rounded-lg p-3 ${totalExecutado > supplierTotal ? "bg-destructive/10" : "bg-[hsl(var(--success))]/10"}`}>
+            <div className={`rounded-lg p-3 ${totalExecutado > orcado ? "bg-destructive/10" : "bg-[hsl(var(--success))]/10"}`}>
               <p className="text-xs text-muted-foreground">Executado</p>
-              <p className={`font-semibold ${totalExecutado > supplierTotal ? "text-destructive" : "text-[hsl(var(--success))]"}`}>
+              <p className={`font-semibold ${totalExecutado > orcado ? "text-destructive" : "text-[hsl(var(--success))]"}`}>
                 {formatCurrency(totalExecutado)}
               </p>
             </div>
@@ -243,20 +244,32 @@ export function CostEntryTab({ budget, items }: Props) {
               <p className="text-xs text-muted-foreground">Saldo</p>
               <p className={`font-semibold ${saldo >= 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
                 {formatCurrency(saldo)}
-                {saldo >= 0 && supplierTotal > 0 && (
-                  <span className="text-xs font-normal ml-1">({((saldo / supplierTotal) * 100).toFixed(0)}%)</span>
+                {orcado > 0 && (
+                  <span className="text-xs font-normal ml-1">({percentualSaldo.toFixed(1)}%)</span>
                 )}
               </p>
             </div>
           </div>
 
-          {totalExecutado > supplierTotal && (
+          {percentualExecutado > 100 && (
             <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <div>
-                <p className="font-medium">Custo executado ultrapassou o orçado</p>
-                <p className="text-xs">Impacto na margem: {formatCurrency(saldo)}</p>
+                <p className="font-medium">🔴 CRÍTICO: Custos ultrapassaram o orçado</p>
+                <p className="text-xs">Prejuízo: {formatCurrency(Math.abs(saldo))}</p>
               </div>
+            </div>
+          )}
+          {percentualExecutado > 90 && percentualExecutado <= 100 && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <p className="font-medium">🔴 ATENÇÃO: Margem baixa ({percentualExecutado.toFixed(0)}% do orçado consumido)</p>
+            </div>
+          )}
+          {percentualExecutado > 70 && percentualExecutado <= 90 && (
+            <div className="flex items-center gap-2 rounded-lg bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20 p-3 text-sm text-[hsl(var(--warning))]">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <p className="font-medium">🟡 Custos já representam {percentualExecutado.toFixed(0)}% do orçado</p>
             </div>
           )}
 
