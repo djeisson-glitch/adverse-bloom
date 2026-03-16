@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierContacts, useCreateSupplierContact, useTouchSupplierContact, type SupplierContact } from "@/hooks/useSupplierContacts";
@@ -295,26 +295,29 @@ export function CostEntryTab({ budget, items }: Props) {
               </div>
 
               {/* Supplier with search dropdown */}
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <Label className="text-xs">Fornecedor</Label>
-                <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        className="pl-8 h-9 text-sm"
-                        placeholder="Buscar ou criar fornecedor..."
-                        value={supplierSearch}
-                        onChange={e => {
-                          setSupplierSearch(e.target.value);
-                          setSupplierName(e.target.value);
-                          if (!supplierPopoverOpen) setSupplierPopoverOpen(true);
-                        }}
-                        onFocus={() => setSupplierPopoverOpen(true)}
-                      />
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[250px] overflow-y-auto" align="start">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-8 h-9 text-sm"
+                    placeholder="Buscar ou criar fornecedor..."
+                    value={supplierSearch}
+                    onChange={e => {
+                      setSupplierSearch(e.target.value);
+                      setSupplierName(e.target.value);
+                      if (!supplierPopoverOpen) setSupplierPopoverOpen(true);
+                    }}
+                    onFocus={() => setSupplierPopoverOpen(true)}
+                    onBlur={(e) => {
+                      // delay to allow click on dropdown items
+                      setTimeout(() => setSupplierPopoverOpen(false), 200);
+                    }}
+                  />
+                </div>
+                {supplierPopoverOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-[250px] overflow-y-auto">
+                  
                     {genericContacts.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-1">Genéricos</p>
@@ -354,8 +357,8 @@ export function CostEntryTab({ budget, items }: Props) {
                     >
                       <Plus className="h-3.5 w-3.5 inline mr-1" /> Criar novo fornecedor
                     </button>
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
