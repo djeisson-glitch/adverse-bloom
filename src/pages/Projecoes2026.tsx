@@ -144,8 +144,7 @@ export default function Projecoes2026() {
             metaAnual={metaAnual}
             onMetaChange={setMetaAnual}
           />
-        <>
-          <div className="grid gap-4 sm:grid-cols-3">
+
             {[
               { label: "Conservador (-10%)", value: metaAnual * 0.9, color: "text-warning" },
               { label: "Base", value: metaAnual, color: "text-primary" },
