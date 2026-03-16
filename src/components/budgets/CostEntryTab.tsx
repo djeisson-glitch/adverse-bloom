@@ -172,8 +172,10 @@ export function CostEntryTab({ budget, items }: Props) {
   });
 
   const totalExecutado = costs.reduce((s, c) => s + c.amount, 0);
-  const supplierTotal = items.filter(i => i.has_supplier_cost).reduce((s, i) => s + i.supplier_cost, 0);
-  const saldo = supplierTotal - totalExecutado;
+  const orcado = budget.subtotal_1 ?? 0;
+  const saldo = orcado - totalExecutado;
+  const percentualSaldo = orcado > 0 ? (saldo / orcado) * 100 : 100;
+  const percentualExecutado = orcado > 0 ? (totalExecutado / orcado) * 100 : 0;
 
   // Selected item info
   const selectedItem = budgetItemId ? items.find(i => i.id === budgetItemId) : null;
