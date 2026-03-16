@@ -10,7 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { type CAItem } from "@/lib/financial";
 
@@ -66,6 +66,22 @@ export default function Projecoes2026() {
       proj2026: proj2026Base[i],
     })),
     [data2024, data2025, proj2026Base]);
+
+  const getSeasonColor = (pct: number) => {
+    if (pct >= 13) return "#FF0000";
+    if (pct >= 9) return "#f59e0b";
+    if (pct >= 6) return "#10b981";
+    return "#ef4444";
+  };
+
+  const seasonChartData = useMemo(() =>
+    MONTH_LABELS.map((label, i) => ({
+      label,
+      value: seasonality[i],
+      label_pct: `${seasonality[i].toFixed(1)}%`,
+      fill: getSeasonColor(seasonality[i]),
+    })),
+    [seasonality]);
 
   const tableData = MONTH_LABELS.map((label, i) => ({
     month: label,
@@ -200,6 +216,27 @@ export default function Projecoes2026() {
                 </tbody>
               </table>
             </div>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
+            <h2 className="font-heading text-lg font-semibold mb-4">Visualização de Sazonalidade</h2>
+            <ChartContainer config={{
+              seasonality: { label: "Sazonalidade", color: "hsl(var(--primary))" },
+            }} className="h-[400px] sm:h-[400px] max-sm:h-[300px]">
+              <BarChart data={seasonChartData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${v.toFixed(0)}%`} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ReferenceLine y={avgSeason} stroke="hsl(var(--muted-foreground))" strokeDasharray="6 4" strokeWidth={1.5} label={{ value: `Média ${avgSeason.toFixed(1)}%`, position: "insideTopRight", fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} name="Sazonalidade">
+                  <LabelList dataKey="label_pct" position="top" fill="hsl(var(--foreground))" fontSize={10} />
+                  {seasonChartData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
           </motion.div>
         </>
       )}
