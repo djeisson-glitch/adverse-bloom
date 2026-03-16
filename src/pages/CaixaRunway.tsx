@@ -16,6 +16,9 @@ import {
   type CAItem,
   calcSaldoEmConta, calcBurnRate,
 } from "@/lib/financial";
+import { CashIndicators } from "@/components/caixa/CashIndicators";
+import { AccountsDetail } from "@/components/caixa/AccountsDetail";
+import { CashAlerts } from "@/components/caixa/CashAlerts";
 
 export default function CaixaRunway() {
   const { receivables, payables } = useAllContaAzulCache();
