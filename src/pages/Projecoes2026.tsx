@@ -22,7 +22,7 @@ export default function Projecoes2026() {
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
 
-  // Seasonality uses data_competencia for both modes
+  // Always use data_competencia + item.total (faturamento, not recebimento)
   const getMonthlyByYear = (year: number) => {
     const months: number[] = Array(12).fill(0);
     recItems.forEach(item => {
@@ -30,15 +30,15 @@ export default function Projecoes2026() {
       if (!dc?.startsWith(String(year))) return;
       const m = Number(dc.slice(5, 7)) - 1;
       if (m >= 0 && m < 12) {
-        months[m] += useRecebida ? (item?.pago ?? 0) : (item?.total ?? 0);
+        months[m] += item?.total ?? 0;
       }
     });
     return months;
   };
 
-  const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems, useRecebida]);
-  const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems, useRecebida]);
-  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems, useRecebida]);
+  const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems]);
+  const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems]);
+  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems]);
 
   // Seasonality from 2024 + 2025
   const seasonality = useMemo(() => {
