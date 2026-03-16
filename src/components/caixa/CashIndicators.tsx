@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  Calendar, TrendingDown, AlertTriangle, ArrowLeftRight,
+  Calendar, TrendingDown, AlertTriangle, BarChart3,
   Target, Timer, CreditCard, Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
@@ -64,27 +64,30 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
     [recItems, thisMonthKey]);
   const breakLevel = aReceberMes < breakEven * 0.9 ? "red" : aReceberMes < breakEven * 1.1 ? "orange" : "green";
 
-  // 3. Inadimplência
+  // 3. Inadimplência (somente vencidos E não recebidos)
   const inadimplencia = useMemo(() =>
-    recItems.filter(r => r?.data_vencimento && r.data_vencimento < today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-      .reduce((s, r) => s + (r?.total ?? 0), 0),
+    recItems.filter(r =>
+      r?.data_vencimento &&
+      r.data_vencimento < today &&
+      r?.status !== "RECEIVED" &&
+      getCat(r) !== "Empréstimos de Bancos"
+    ).reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems, today]);
   const inadLevel = inadimplencia === 0 ? "green" : inadimplencia < 10000 ? "orange" : "red";
 
-  // 4. Descasamento Competência vs Caixa (últimos 3 meses)
-  const descasamento = useMemo(() => {
-    let faturado = 0, recebido = 0;
-    for (let i = 1; i <= 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      faturado += recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && r?.data_competencia?.startsWith(key))
-        .reduce((s, r) => s + (r?.total ?? 0), 0);
-      recebido += recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && r?.data_vencimento?.startsWith(key) && r?.status === "RECEIVED")
-        .reduce((s, r) => s + (r?.pago ?? 0), 0);
-    }
-    return { valor: faturado - recebido, pct: faturado > 0 ? ((faturado - recebido) / faturado) * 100 : 0 };
-  }, [recItems]);
-  const descLevel = descasamento.pct < 30 ? "green" : descasamento.pct < 50 ? "orange" : "red";
+  // 4. Faturamento vs Meta (acumulado no ano)
+  const currentYear = now.getFullYear();
+  const metaAnual = 1500000;
+  const mesesPassados = now.getMonth() + 1; // 1-based
+  const metaProRata = (metaAnual / 12) * mesesPassados;
+  const faturadoAno = useMemo(() =>
+    recItems.filter(r =>
+      r?.data_competencia?.startsWith(String(currentYear)) &&
+      getCat(r) !== "Empréstimos de Bancos"
+    ).reduce((s, r) => s + (r?.total ?? 0), 0),
+    [recItems, currentYear]);
+  const fatPct = metaProRata > 0 ? (faturadoAno / metaProRata) * 100 : 0;
+  const fatLevel = fatPct >= 100 ? "green" : fatPct >= 70 ? "orange" : "red";
 
   // 5. Gap Comercial - uses budgets table
   const { data: budgetsMonth } = useQuery({
@@ -131,9 +134,9 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
         <KpiCard title="Break-Even Mensal" value={formatCurrency(breakEven)}
           subtitle={`A receber: ${formatCurrency(aReceberMes)}`} level={breakLevel} icon={TrendingDown} delay={0.45} />
         <KpiCard title="Inadimplência" value={formatCurrency(inadimplencia)}
-          subtitle="Em atraso" level={inadLevel} icon={AlertTriangle} delay={0.5} />
-        <KpiCard title="Descasamento 3m" value={formatCurrency(descasamento.valor)}
-          subtitle={`${descasamento.pct.toFixed(0)}% do faturado`} level={descLevel} icon={ArrowLeftRight} delay={0.55} />
+          subtitle="Vencido e não recebido" level={inadLevel} icon={AlertTriangle} delay={0.5} />
+        <KpiCard title="Faturamento vs Meta" value={formatCurrency(faturadoAno)}
+          subtitle={`${fatPct.toFixed(0)}% da meta (${formatCurrency(metaProRata)})`} level={fatLevel} icon={BarChart3} delay={0.55} />
         <KpiCard title="Gap Comercial" value={formatCurrency(gapComercial)}
           subtitle={`Falta fechar (${gapPct.toFixed(0)}% da meta)`} level={gapLevel} icon={Target} delay={0.6} />
         <KpiCard title="Ciclo Conversão" value={`${cicloDias} dias`}
