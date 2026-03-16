@@ -10,7 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { type CAItem } from "@/lib/financial";
 
