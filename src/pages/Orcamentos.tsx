@@ -281,6 +281,17 @@ export default function Orcamentos() {
     );
   }
 
+  // ── Approved budget view with tabs ──
+  if (costBudgetId && costBudget) {
+    return (
+      <BudgetCostTabs
+        budget={costBudget}
+        onClose={() => setCostBudgetId(null)}
+        onEdit={() => { setCostBudgetId(null); setEditingId(costBudget.id); }}
+      />
+    );
+  }
+
   const SortIcon = ({ field }: { field: SortField }) => {
     if (filters.sort !== field) return null;
     return filters.sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 inline" /> : <ChevronDown className="h-3 w-3 ml-1 inline" />;
@@ -386,7 +397,7 @@ export default function Orcamentos() {
   const mobileCards = (
     <div className="space-y-2">
       {filtered.map(b => (
-        <div key={b.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+        <div key={b.id} className="bg-card rounded-lg border border-border p-3 space-y-2 cursor-pointer" onClick={() => b.status === "approved" ? setCostBudgetId(b.id) : setEditingId(b.id)}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">
@@ -446,7 +457,7 @@ export default function Orcamentos() {
               <TableRow
                 key={b.id}
                 className="cursor-pointer hover:bg-secondary/50 transition-colors"
-                onClick={() => setEditingId(b.id)}
+                onClick={() => b.status === "approved" ? setCostBudgetId(b.id) : setEditingId(b.id)}
               >
                 <TableCell className="font-mono text-sm">
                   <button
@@ -527,27 +538,6 @@ export default function Orcamentos() {
               <p className="text-muted-foreground py-8 text-center">Carregando...</p>
             ) : isMobile ? mobileCards : desktopTable}
 
-            {/* Cost Management for approved */}
-            {status === "approved" && filtered.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h2 className="font-heading text-lg font-semibold">Gestão de Custos & Fornecedores</h2>
-                <div className="flex gap-2 flex-wrap">
-                  {filtered.map(b => (
-                    <Button
-                      key={b.id}
-                      variant={costBudgetId === b.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCostBudgetId(costBudgetId === b.id ? null : b.id)}
-                    >
-                      {b.budget_number ? `#${b.budget_number} ` : ""}{b.project_name}
-                    </Button>
-                  ))}
-                </div>
-                {costBudget && (
-                  <BudgetCostTabs budget={costBudget} />
-                )}
-              </div>
-            )}
           </TabsContent>
         ))}
       </Tabs>
