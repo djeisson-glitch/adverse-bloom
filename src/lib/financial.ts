@@ -94,8 +94,11 @@ export function isInRange(dateStr: string | undefined, range: PeriodRange): bool
 }
 
 // 1. Receita Total (competência) - data_competencia in period, all statuses, field total
+// Excludes loans ("Empréstimos de Bancos")
 export function calcReceitaTotal(recItems: CAItem[], period: PeriodRange): number {
-  return recItems.filter((r) => isInRange(r?.data_competencia, period)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  return recItems
+    .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period))
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 2. Receita Recebida (caixa) - data_vencimento in period, field pago
