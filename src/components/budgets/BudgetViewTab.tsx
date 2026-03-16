@@ -1,14 +1,26 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { FileText, Edit } from "lucide-react";
+import { Edit } from "lucide-react";
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import type { BudgetWithItems } from "@/hooks/useBudgets";
 
 interface Props {
   budget: BudgetWithItems;
   onEdit: () => void;
+}
+
+function sobraColor(pct: number) {
+  if (pct >= 50) return "text-[hsl(var(--success))]";
+  if (pct >= 20) return "text-[hsl(var(--warning))]";
+  return "text-destructive";
+}
+
+function sobraIcon(pct: number) {
+  if (pct >= 50) return "✅";
+  if (pct >= 20) return "⚠️";
+  return "❌";
 }
 
 export function BudgetViewTab({ budget, onEdit }: Props) {
@@ -19,10 +31,6 @@ export function BudgetViewTab({ budget, onEdit }: Props) {
       items: budget.budget_items.filter(i => i.category === cat),
     }));
   }, [budget.budget_items]);
-
-  const supplierTotal = budget.budget_items
-    .filter(i => i.has_supplier_cost)
-    .reduce((s, i) => s + i.supplier_cost, 0);
 
   return (
     <div className="space-y-4">
@@ -43,7 +51,7 @@ export function BudgetViewTab({ budget, onEdit }: Props) {
             </div>
             <div>
               <span className="text-muted-foreground">Status:</span>{" "}
-              <Badge variant="default" className="ml-1 text-[10px]">✅ Aprovado</Badge>
+              <span className="font-medium text-[hsl(var(--success))]">✅ Aprovado</span>
             </div>
             <div>
               <span className="text-muted-foreground">Data:</span>{" "}
@@ -69,44 +77,56 @@ export function BudgetViewTab({ budget, onEdit }: Props) {
         </CardContent>
       </Card>
 
-      {/* Items by category */}
+      {/* Items by category — compact table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Entregas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {categories.map(cat => (
-            <div key={cat.name} className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</h4>
-              <div className="space-y-2">
-                {cat.items.map(item => {
-                  const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
-                  const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
-                  return (
-                    <div key={item.id} className="rounded-lg border border-border p-3 space-y-1.5">
-                      <div className="flex items-start justify-between">
-                        <p className="text-sm font-medium text-foreground">{item.item_name}</p>
-                        <p className="text-sm font-semibold text-foreground">{formatCurrency(item.client_price)}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {item.client_days} {item.client_days === 1 ? "diária" : "diárias"} × {item.client_people} {item.client_people === 1 ? "pessoa" : "pessoas"} × {formatCurrency(item.client_unit_price)}
-                      </p>
-                      {item.has_supplier_cost ? (
-                        <p className="text-xs text-muted-foreground">
-                          Custo fornecedor: {item.supplier_days} dias × {item.supplier_people} pessoa(s) × {formatCurrency(item.supplier_unit_price)} = {formatCurrency(item.supplier_cost)}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Sem custo de fornecedor</p>
-                      )}
-                      <p className={`text-xs font-medium ${sobraPct >= 50 ? "text-[hsl(var(--success))]" : sobraPct >= 20 ? "text-[hsl(var(--warning))]" : "text-destructive"}`}>
-                        Sobra: {formatCurrency(sobra)} ({sobraPct.toFixed(0)}%)
-                      </p>
-                    </div>
-                  );
-                })}
+          {categories.map(cat => {
+            return (
+              <div key={cat.name} className="space-y-1">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</h4>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="text-xs h-8 px-3">Item</TableHead>
+                        <TableHead className="text-xs h-8 px-3 text-center">Qtd</TableHead>
+                        <TableHead className="text-xs h-8 px-3 text-right">Cliente</TableHead>
+                        <TableHead className="text-xs h-8 px-3 text-right">Forn.</TableHead>
+                        <TableHead className="text-xs h-8 px-3 text-right">Sobra</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cat.items.map(item => {
+                        const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
+                        const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
+                        const unitLabel = "d";
+                        return (
+                          <TableRow key={item.id} className="border-border/50">
+                            <TableCell className="py-2 px-3 text-sm font-medium">{item.item_name}</TableCell>
+                            <TableCell className="py-2 px-3 text-xs text-muted-foreground text-center whitespace-nowrap">
+                              {item.client_days}{unitLabel} × {item.client_people}p
+                            </TableCell>
+                            <TableCell className="py-2 px-3 text-sm text-right font-medium whitespace-nowrap">
+                              {formatCurrency(item.client_price)}
+                            </TableCell>
+                            <TableCell className="py-2 px-3 text-sm text-right whitespace-nowrap text-muted-foreground">
+                              {item.has_supplier_cost ? formatCurrency(item.supplier_cost) : "—"}
+                            </TableCell>
+                            <TableCell className={`py-2 px-3 text-sm text-right font-medium whitespace-nowrap ${sobraColor(sobraPct)}`}>
+                              {formatCurrency(sobra)} {sobraIcon(sobraPct)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
