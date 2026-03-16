@@ -125,10 +125,8 @@ export default function Projecoes2026() {
             <Label className="text-xs text-muted-foreground">Meta Anual 2026 (R$)</Label>
             <Input type="number" value={metaAnual} onChange={e => setMetaAnual(Number(e.target.value))} className="h-8 mt-1" />
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Receita Emitida</Label>
-            <Switch checked={useRecebida} onCheckedChange={setUseRecebida} />
-            <Label className="text-xs text-muted-foreground">Receita Recebida</Label>
+          <div className="text-xs text-muted-foreground mt-1">
+            Base: faturamento por competência (data_competencia)
           </div>
         </div>
       </motion.div>
