@@ -39,6 +39,7 @@ export default function Projecoes2026() {
 
   const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems, useRecebida]);
   const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems, useRecebida]);
+  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems, useRecebida]);
 
   // Seasonality from 2024 + 2025
   const seasonality = useMemo(() => {
@@ -63,9 +64,10 @@ export default function Projecoes2026() {
       label,
       real2024: data2024[i],
       real2025: data2025[i],
+      real2026: data2026[i] || null,
       proj2026: proj2026Base[i],
     })),
-    [data2024, data2025, proj2026Base]);
+    [data2024, data2025, data2026, proj2026Base]);
 
   const getSeasonColor = (pct: number) => {
     if (pct >= 13) return "#FF0000";
@@ -92,11 +94,13 @@ export default function Projecoes2026() {
     agressivo: proj2026Agressivo[i],
     real2024: data2024[i],
     real2025: data2025[i],
-    gap2024: data2024[i] > 0 ? proj2026Base[i] - data2024[i] : 0,
+    real2026: data2026[i],
+    gap2026: data2026[i] > 0 ? data2026[i] - proj2026Base[i] : 0,
   }));
 
   const total2024 = data2024.reduce((s, v) => s + v, 0);
   const total2025 = data2025.reduce((s, v) => s + v, 0);
+  const total2026 = data2026.reduce((s, v) => s + v, 0);
   const hasData = recItems.length > 0;
 
   return (
