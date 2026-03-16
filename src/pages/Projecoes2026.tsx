@@ -3,7 +3,6 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
 import {
   ChartContainer,
@@ -19,11 +18,10 @@ const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "S
 export default function Projecoes2026() {
   const { receivables } = useAllContaAzulCache();
   const [metaAnual, setMetaAnual] = useState(1500000);
-  const [useRecebida, setUseRecebida] = useState(true);
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
 
-  // Seasonality uses data_competencia for both modes
+  // Always use data_competencia + item.total (faturamento, not recebimento)
   const getMonthlyByYear = (year: number) => {
     const months: number[] = Array(12).fill(0);
     recItems.forEach(item => {
@@ -31,15 +29,15 @@ export default function Projecoes2026() {
       if (!dc?.startsWith(String(year))) return;
       const m = Number(dc.slice(5, 7)) - 1;
       if (m >= 0 && m < 12) {
-        months[m] += useRecebida ? (item?.pago ?? 0) : (item?.total ?? 0);
+        months[m] += item?.total ?? 0;
       }
     });
     return months;
   };
 
-  const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems, useRecebida]);
-  const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems, useRecebida]);
-  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems, useRecebida]);
+  const data2024 = useMemo(() => getMonthlyByYear(2024), [recItems]);
+  const data2025 = useMemo(() => getMonthlyByYear(2025), [recItems]);
+  const data2026 = useMemo(() => getMonthlyByYear(2026), [recItems]);
 
   // Seasonality from 2024 + 2025
   const seasonality = useMemo(() => {
@@ -126,10 +124,8 @@ export default function Projecoes2026() {
             <Label className="text-xs text-muted-foreground">Meta Anual 2026 (R$)</Label>
             <Input type="number" value={metaAnual} onChange={e => setMetaAnual(Number(e.target.value))} className="h-8 mt-1" />
           </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Receita Emitida</Label>
-            <Switch checked={useRecebida} onCheckedChange={setUseRecebida} />
-            <Label className="text-xs text-muted-foreground">Receita Recebida</Label>
+          <div className="text-xs text-muted-foreground mt-1">
+            Base: faturamento por competência (data_competencia)
           </div>
         </div>
       </motion.div>
@@ -167,7 +163,7 @@ export default function Projecoes2026() {
           </div>
 
            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
-            <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
+            <h2 className="font-heading text-lg font-semibold mb-4">Faturamento Mensal — Comparativo Anual</h2>
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
