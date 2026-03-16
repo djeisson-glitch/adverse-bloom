@@ -186,12 +186,13 @@ export default function Projecoes2026() {
                   <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="pb-3 font-medium">Mês</th>
                     <th className="pb-3 font-medium text-center">Sazonalidade</th>
+                    <th className="pb-3 font-medium text-right">Real 2024</th>
+                    <th className="pb-3 font-medium text-right">Real 2025</th>
+                    <th className="pb-3 font-medium text-right">Real 2026</th>
                     <th className="pb-3 font-medium text-right">Meta 2026</th>
                     <th className="pb-3 font-medium text-right">Conservador</th>
                     <th className="pb-3 font-medium text-right">Agressivo</th>
-                    <th className="pb-3 font-medium text-right">Real 2024</th>
-                    <th className="pb-3 font-medium text-right">Real 2025</th>
-                    <th className="pb-3 font-medium text-right">Gap vs 2024</th>
+                    <th className="pb-3 font-medium text-right">Gap 2026</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,25 +204,27 @@ export default function Projecoes2026() {
                           {formatPercent(row.seasonPct)} · {row.classification}
                         </Badge>
                       </td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
+                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
+                      <td className="py-2 text-right">{row.real2026 > 0 ? formatCurrency(row.real2026) : "—"}</td>
                       <td className="py-2 text-right">{formatCurrency(row.meta2026)}</td>
                       <td className="py-2 text-right text-warning">{formatCurrency(row.conservador)}</td>
                       <td className="py-2 text-right text-success">{formatCurrency(row.agressivo)}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
-                      <td className={`py-2 text-right ${row.gap2024 >= 0 ? "text-success" : "text-destructive"}`}>
-                        {row.real2024 > 0 ? formatCurrency(row.gap2024) : "—"}
+                      <td className={`py-2 text-right ${row.gap2026 >= 0 ? "text-success" : "text-destructive"}`}>
+                        {row.real2026 > 0 ? formatCurrency(row.gap2026) : "—"}
                       </td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-border font-semibold">
                     <td className="py-2">Total</td>
                     <td className="py-2 text-center">100%</td>
+                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2026)}</td>
                     <td className="py-2 text-right">{formatCurrency(metaAnual)}</td>
                     <td className="py-2 text-right text-warning">{formatCurrency(metaAnual * 0.9)}</td>
                     <td className="py-2 text-right text-success">{formatCurrency(metaAnual * 1.1)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
-                    <td className="py-2 text-right">{formatCurrency(metaAnual - total2024)}</td>
+                    <td className="py-2 text-right">{formatCurrency(total2026 - metaAnual)}</td>
                   </tr>
                 </tbody>
               </table>
