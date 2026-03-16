@@ -130,6 +130,45 @@ export type Database = {
         }
         Relationships: []
       }
+      budget_targets: {
+        Row: {
+          annual_target: number
+          auto_calculated: boolean | null
+          created_at: string | null
+          id: string
+          q1_percent: number
+          q2_percent: number
+          q3_percent: number
+          q4_percent: number
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          annual_target?: number
+          auto_calculated?: boolean | null
+          created_at?: string | null
+          id?: string
+          q1_percent?: number
+          q2_percent?: number
+          q3_percent?: number
+          q4_percent?: number
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          annual_target?: number
+          auto_calculated?: boolean | null
+          created_at?: string | null
+          id?: string
+          q1_percent?: number
+          q2_percent?: number
+          q3_percent?: number
+          q4_percent?: number
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       budgets: {
         Row: {
           addition: number

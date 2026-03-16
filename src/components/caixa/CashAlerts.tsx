@@ -27,11 +27,13 @@ export function CashAlerts({ recItems, payItems, saldoAtual, burnRate, runway }:
   const alerts = useMemo(() => {
     const list: Alert[] = [];
 
+    // Inadimplência: only past-due, not received, excluding loans, outstanding amount
+    const inadimplencia = recItems
+      .filter(r => r?.data_vencimento && r.data_vencimento < today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
+      .reduce((s, r) => s + Math.max(0, (r?.total ?? 0) - (r?.pago ?? 0)), 0);
+
     // 1. Runway < 2 meses
     if (runway < 2 && runway !== Infinity) {
-      const inadimplencia = recItems
-        .filter(r => r?.data_vencimento && r.data_vencimento < today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-        .reduce((s, r) => s + (r?.total ?? 0), 0);
       list.push({
         level: "critical",
         title: "Runway Crítico",
@@ -58,19 +60,15 @@ export function CashAlerts({ recItems, payItems, saldoAtual, burnRate, runway }:
     }
 
     // 3. Inadimplência > R$ 10k
-    const inadTotal = recItems
-      .filter(r => r?.data_vencimento && r.data_vencimento < today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-    if (inadTotal >= 10000) {
+    if (inadimplencia >= 10000) {
       list.push({
         level: "warning",
         title: "Inadimplência Elevada",
-        message: `${formatCurrency(inadTotal)} em inadimplência`,
+        message: `${formatCurrency(inadimplencia)} em inadimplência`,
         actions: ["Acionar clientes inadimplentes", "Avaliar desconto para antecipação"],
       });
     }
 
-    // Info if everything ok
     if (list.length === 0) {
       list.push({
         level: "info",
