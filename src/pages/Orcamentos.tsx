@@ -544,10 +544,7 @@ export default function Orcamentos() {
                   ))}
                 </div>
                 {costBudget && (
-                  <div className="space-y-4">
-                    <CostManagement budget={costBudget} items={costBudget.budget_items} />
-                    <SupplierManagement budget={costBudget} items={costBudget.budget_items} />
-                  </div>
+                  <BudgetCostTabs budget={costBudget} />
                 )}
               </div>
             )}
