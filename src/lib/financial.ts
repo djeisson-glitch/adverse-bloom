@@ -224,8 +224,9 @@ export function monthKey(year: number, month: number): string {
 }
 
 // Monthly receita total (competência) for a given month key
+// Excludes loans
 export function monthlyReceitaTotal(recItems: CAItem[], key: string): number {
-  return recItems.filter((r) => r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // Monthly despesas operacionais for a given month key
