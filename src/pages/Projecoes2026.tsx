@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
+import { type CAItem, getCat } from "@/lib/financial";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
