@@ -166,14 +166,15 @@ export default function Projecoes2026() {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
-              real2026: { label: "2026 Real", color: "hsl(var(--warning))" },
-              proj2026: { label: "2026 Meta", color: "hsl(var(--primary))" },
-            }} className="h-[320px]">
+              solid2026: { label: "2026 Real", color: "#3b82f6" },
+              dash2026: { label: "2026 Projeção", color: "#3b82f6" },
+              meta2026: { label: "2026 Meta", color: "#fbbf24" },
+            }} className="h-[500px] max-sm:h-[350px]">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
@@ -181,9 +182,10 @@ export default function Projecoes2026() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 <Line type="monotone" dataKey="real2024" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
-                <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
-                <Line type="monotone" dataKey="real2026" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 3" dot={{ fill: "hsl(var(--warning))" }} connectNulls={false} />
-                <Line type="monotone" dataKey="proj2026" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+                <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))", r: 3 }} />
+                <Line type="monotone" dataKey="solid2026" stroke="#3b82f6" strokeWidth={3} dot={{ fill: "#3b82f6", r: 4, strokeWidth: 2 }} connectNulls={false} />
+                <Line type="monotone" dataKey="dash2026" stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 4" dot={{ fill: "#3b82f6", r: 3 }} connectNulls={false} />
+                <Line type="monotone" dataKey="meta2026" stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               </LineChart>
             </ChartContainer>
           </motion.div>
