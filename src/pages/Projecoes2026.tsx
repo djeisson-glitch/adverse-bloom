@@ -59,15 +59,25 @@ export default function Projecoes2026() {
   const proj2026Conservador = proj2026Base.map(v => v * 0.9);
   const proj2026Agressivo = proj2026Base.map(v => v * 1.1);
 
+  // Dynamic: months before current month = real, from current month onward = projection
+  const currentMonth = new Date().getMonth(); // 0-indexed (Mar = 2)
+
   const chartData = useMemo(() =>
-    MONTH_LABELS.map((label, i) => ({
-      label,
-      real2024: data2024[i],
-      real2025: data2025[i],
-      real2026: data2026[i] || null,
-      proj2026: proj2026Base[i],
-    })),
-    [data2024, data2025, data2026, proj2026Base]);
+    MONTH_LABELS.map((label, i) => {
+      const isReal = i < currentMonth && data2026[i] > 0;
+      const isTransition = i === currentMonth - 1; // last real month bridges to projection
+      return {
+        label,
+        real2024: data2024[i],
+        real2025: data2025[i],
+        // Solid line: real data for closed months
+        solid2026: isReal ? data2026[i] : (isTransition ? data2026[i] : null),
+        // Dashed line: projection from current month onward, overlapping last real point for continuity
+        dash2026: i >= currentMonth ? proj2026Base[i] : (isTransition && data2026[i] > 0 ? data2026[i] : null),
+        meta2026: proj2026Base[i],
+      };
+    }),
+    [data2024, data2025, data2026, proj2026Base, currentMonth]);
 
   const getSeasonColor = (pct: number) => {
     if (pct >= 13) return "#FF0000";
