@@ -16,6 +16,9 @@ import {
   type CAItem,
   calcSaldoEmConta, calcBurnRate,
 } from "@/lib/financial";
+import { CashIndicators } from "@/components/caixa/CashIndicators";
+import { AccountsDetail } from "@/components/caixa/AccountsDetail";
+import { CashAlerts } from "@/components/caixa/CashAlerts";
 
 export default function CaixaRunway() {
   const { receivables, payables } = useAllContaAzulCache();
@@ -179,61 +182,11 @@ export default function CaixaRunway() {
         </motion.div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card p-6">
-          <h2 className="font-heading text-lg font-semibold mb-4">Contas a Receber - Próx. 30 dias</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="pb-3 font-medium">Cliente</th>
-                  <th className="pb-3 font-medium text-right">Valor</th>
-                  <th className="pb-3 font-medium text-right">Vencimento</th>
-                  <th className="pb-3 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingRec.map((item, i) => (
-                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="py-2">{item.cliente?.nome || "—"}</td>
-                    <td className="py-2 text-right">{formatCurrency(item.total ?? 0)}</td>
-                    <td className="py-2 text-right">{formatDate(item.data_vencimento || null)}</td>
-                    <td className="py-2 text-right">{item.status_traduzido || item.status || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {upcomingRec.length === 0 && <p className="text-center text-muted-foreground py-6">Nenhuma conta a receber nos próximos 30 dias.</p>}
-          </div>
-        </motion.div>
+      <CashIndicators recItems={recItems} payItems={payItems} saldoAtual={saldoAtual} burnRate={burnRate} />
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="glass-card p-6">
-          <h2 className="font-heading text-lg font-semibold mb-4">Contas a Pagar - Próx. 30 dias</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="pb-3 font-medium">Descrição</th>
-                  <th className="pb-3 font-medium text-right">Valor</th>
-                  <th className="pb-3 font-medium text-right">Vencimento</th>
-                  <th className="pb-3 font-medium text-right">Categoria</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingPay.map((item, i) => (
-                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="py-2 max-w-[200px] truncate">{item.descricao || "—"}</td>
-                    <td className="py-2 text-right">{formatCurrency(item.total ?? 0)}</td>
-                    <td className="py-2 text-right">{formatDate(item.data_vencimento || null)}</td>
-                    <td className="py-2 text-right">{item.categorias?.[0]?.nome || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {upcomingPay.length === 0 && <p className="text-center text-muted-foreground py-6">Nenhuma conta a pagar nos próximos 30 dias.</p>}
-          </div>
-        </motion.div>
-      </div>
+      <AccountsDetail recItems={recItems} payItems={payItems} />
+
+      <CashAlerts recItems={recItems} payItems={payItems} saldoAtual={saldoAtual} burnRate={burnRate} runway={runway} />
     </div>
   );
 }
