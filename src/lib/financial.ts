@@ -102,8 +102,11 @@ export function calcReceitaTotal(recItems: CAItem[], period: PeriodRange): numbe
 }
 
 // 2. Receita Recebida (caixa) - data_vencimento in period, field pago
+// Excludes loans ("Empréstimos de Bancos")
 export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): number {
-  return recItems.filter((r) => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0);
+  return recItems
+    .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period))
+    .reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
