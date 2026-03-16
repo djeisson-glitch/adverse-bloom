@@ -317,7 +317,7 @@ export function CostEntryTab({ budget, items }: Props) {
                 </div>
                 {supplierPopoverOpen && (
                   <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-[250px] overflow-y-auto">
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[250px] overflow-y-auto" align="start">
+                  
                     {genericContacts.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-1">Genéricos</p>
