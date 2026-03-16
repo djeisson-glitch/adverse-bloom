@@ -1,0 +1,7 @@
+
+ALTER TABLE public.project_costs
+  ADD COLUMN IF NOT EXISTS supplier_name TEXT,
+  ADD COLUMN IF NOT EXISTS supplier_doc TEXT,
+  ADD COLUMN IF NOT EXISTS service_date DATE,
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS conta_azul_id TEXT;
