@@ -397,7 +397,7 @@ export default function Orcamentos() {
   const mobileCards = (
     <div className="space-y-2">
       {filtered.map(b => (
-        <div key={b.id} className="bg-card rounded-lg border border-border p-3 space-y-2">
+        <div key={b.id} className="bg-card rounded-lg border border-border p-3 space-y-2 cursor-pointer" onClick={() => b.status === "approved" ? setCostBudgetId(b.id) : setEditingId(b.id)}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-semibold text-foreground">
