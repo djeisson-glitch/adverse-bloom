@@ -163,7 +163,7 @@ export default function Projecoes2026() {
           </div>
 
            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
-            <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
+            <h2 className="font-heading text-lg font-semibold mb-4">Faturamento Mensal — Comparativo Anual</h2>
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
