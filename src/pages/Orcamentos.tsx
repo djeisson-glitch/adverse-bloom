@@ -538,27 +538,6 @@ export default function Orcamentos() {
               <p className="text-muted-foreground py-8 text-center">Carregando...</p>
             ) : isMobile ? mobileCards : desktopTable}
 
-            {/* Cost Management for approved */}
-            {status === "approved" && filtered.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h2 className="font-heading text-lg font-semibold">Gestão de Custos & Fornecedores</h2>
-                <div className="flex gap-2 flex-wrap">
-                  {filtered.map(b => (
-                    <Button
-                      key={b.id}
-                      variant={costBudgetId === b.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCostBudgetId(costBudgetId === b.id ? null : b.id)}
-                    >
-                      {b.budget_number ? `#${b.budget_number} ` : ""}{b.project_name}
-                    </Button>
-                  ))}
-                </div>
-                {costBudget && (
-                  <BudgetCostTabs budget={costBudget} />
-                )}
-              </div>
-            )}
           </TabsContent>
         ))}
       </Tabs>
