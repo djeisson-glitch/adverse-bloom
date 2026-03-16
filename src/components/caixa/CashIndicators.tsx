@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  Calendar, TrendingDown, AlertTriangle, ArrowLeftRight,
+  Calendar, TrendingDown, AlertTriangle, BarChart3,
   Target, Timer, CreditCard, Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
