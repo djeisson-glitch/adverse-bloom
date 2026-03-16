@@ -161,7 +161,8 @@ export default function Projecoes2026() {
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
-              proj2026: { label: "2026 Projeção", color: "hsl(var(--primary))" },
+              real2026: { label: "2026 Real", color: "hsl(var(--warning))" },
+              proj2026: { label: "2026 Meta", color: "hsl(var(--primary))" },
             }} className="h-[320px]">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -171,6 +172,7 @@ export default function Projecoes2026() {
                 <Legend />
                 <Line type="monotone" dataKey="real2024" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                 <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
+                <Line type="monotone" dataKey="real2026" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 3" dot={{ fill: "hsl(var(--warning))" }} connectNulls={false} />
                 <Line type="monotone" dataKey="proj2026" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
               </LineChart>
             </ChartContainer>
