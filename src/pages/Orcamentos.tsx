@@ -457,7 +457,7 @@ export default function Orcamentos() {
               <TableRow
                 key={b.id}
                 className="cursor-pointer hover:bg-secondary/50 transition-colors"
-                onClick={() => setEditingId(b.id)}
+                onClick={() => b.status === "approved" ? setCostBudgetId(b.id) : setEditingId(b.id)}
               >
                 <TableCell className="font-mono text-sm">
                   <button
