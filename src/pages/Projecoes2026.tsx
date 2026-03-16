@@ -19,7 +19,6 @@ const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "S
 export default function Projecoes2026() {
   const { receivables } = useAllContaAzulCache();
   const [metaAnual, setMetaAnual] = useState(1500000);
-  const [useRecebida, setUseRecebida] = useState(true);
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
 
