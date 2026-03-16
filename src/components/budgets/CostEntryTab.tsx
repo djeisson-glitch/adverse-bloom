@@ -295,25 +295,28 @@ export function CostEntryTab({ budget, items }: Props) {
               </div>
 
               {/* Supplier with search dropdown */}
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <Label className="text-xs">Fornecedor</Label>
-                <Popover open={supplierPopoverOpen} onOpenChange={setSupplierPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        className="pl-8 h-9 text-sm"
-                        placeholder="Buscar ou criar fornecedor..."
-                        value={supplierSearch}
-                        onChange={e => {
-                          setSupplierSearch(e.target.value);
-                          setSupplierName(e.target.value);
-                          if (!supplierPopoverOpen) setSupplierPopoverOpen(true);
-                        }}
-                        onFocus={() => setSupplierPopoverOpen(true)}
-                      />
-                    </div>
-                  </PopoverTrigger>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-8 h-9 text-sm"
+                    placeholder="Buscar ou criar fornecedor..."
+                    value={supplierSearch}
+                    onChange={e => {
+                      setSupplierSearch(e.target.value);
+                      setSupplierName(e.target.value);
+                      if (!supplierPopoverOpen) setSupplierPopoverOpen(true);
+                    }}
+                    onFocus={() => setSupplierPopoverOpen(true)}
+                    onBlur={(e) => {
+                      // delay to allow click on dropdown items
+                      setTimeout(() => setSupplierPopoverOpen(false), 200);
+                    }}
+                  />
+                </div>
+                {supplierPopoverOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-[250px] overflow-y-auto">
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 max-h-[250px] overflow-y-auto" align="start">
                     {genericContacts.length > 0 && (
                       <div>
