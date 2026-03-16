@@ -294,36 +294,51 @@ export type Database = {
           budget_id: string
           budget_item_id: string | null
           category: string | null
+          conta_azul_id: string | null
           created_at: string
           description: string | null
           id: string
           payment_date: string | null
           sent_to_conta_azul: boolean
+          service_date: string | null
+          status: string
           supplier: string | null
+          supplier_doc: string | null
+          supplier_name: string | null
         }
         Insert: {
           amount?: number
           budget_id: string
           budget_item_id?: string | null
           category?: string | null
+          conta_azul_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           payment_date?: string | null
           sent_to_conta_azul?: boolean
+          service_date?: string | null
+          status?: string
           supplier?: string | null
+          supplier_doc?: string | null
+          supplier_name?: string | null
         }
         Update: {
           amount?: number
           budget_id?: string
           budget_item_id?: string | null
           category?: string | null
+          conta_azul_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           payment_date?: string | null
           sent_to_conta_azul?: boolean
+          service_date?: string | null
+          status?: string
           supplier?: string | null
+          supplier_doc?: string | null
+          supplier_name?: string | null
         }
         Relationships: [
           {

@@ -10,8 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } from "@/hooks/useBudgets";
 import { BudgetForm } from "@/components/budgets/BudgetForm";
-import { CostManagement } from "@/components/budgets/CostManagement";
-import { SupplierManagement } from "@/components/budgets/SupplierManagement";
+import { BudgetCostTabs } from "@/components/budgets/BudgetCostTabs";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
@@ -545,10 +544,7 @@ export default function Orcamentos() {
                   ))}
                 </div>
                 {costBudget && (
-                  <div className="space-y-4">
-                    <CostManagement budget={costBudget} items={costBudget.budget_items} />
-                    <SupplierManagement budget={costBudget} items={costBudget.budget_items} />
-                  </div>
+                  <BudgetCostTabs budget={costBudget} />
                 )}
               </div>
             )}
