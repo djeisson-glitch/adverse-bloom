@@ -25,7 +25,7 @@ export default function Projecoes2026() {
   const getMonthlyByYear = (year: number) => {
     const months: number[] = Array(12).fill(0);
     recItems.forEach(item => {
-      if ((item as any)?.receita === 'Empréstimos de Bancos') return;
+      if (getCat(item) === 'Empréstimos de Bancos') return;
       const dc = item?.data_competencia;
       if (!dc?.startsWith(String(year))) return;
       const m = Number(dc.slice(5, 7)) - 1;
