@@ -59,15 +59,25 @@ export default function Projecoes2026() {
   const proj2026Conservador = proj2026Base.map(v => v * 0.9);
   const proj2026Agressivo = proj2026Base.map(v => v * 1.1);
 
+  // Dynamic: months before current month = real, from current month onward = projection
+  const currentMonth = new Date().getMonth(); // 0-indexed (Mar = 2)
+
   const chartData = useMemo(() =>
-    MONTH_LABELS.map((label, i) => ({
-      label,
-      real2024: data2024[i],
-      real2025: data2025[i],
-      real2026: data2026[i] || null,
-      proj2026: proj2026Base[i],
-    })),
-    [data2024, data2025, data2026, proj2026Base]);
+    MONTH_LABELS.map((label, i) => {
+      const isReal = i < currentMonth && data2026[i] > 0;
+      const isTransition = i === currentMonth - 1; // last real month bridges to projection
+      return {
+        label,
+        real2024: data2024[i],
+        real2025: data2025[i],
+        // Solid line: real data for closed months
+        solid2026: isReal ? data2026[i] : (isTransition ? data2026[i] : null),
+        // Dashed line: projection from current month onward, overlapping last real point for continuity
+        dash2026: i >= currentMonth ? proj2026Base[i] : (isTransition && data2026[i] > 0 ? data2026[i] : null),
+        meta2026: proj2026Base[i],
+      };
+    }),
+    [data2024, data2025, data2026, proj2026Base, currentMonth]);
 
   const getSeasonColor = (pct: number) => {
     if (pct >= 13) return "#FF0000";
@@ -156,14 +166,15 @@ export default function Projecoes2026() {
             </div>
           </div>
 
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Comparativo Anual</h2>
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
               real2025: { label: "2025 Real", color: "hsl(var(--success))" },
-              real2026: { label: "2026 Real", color: "hsl(var(--warning))" },
-              proj2026: { label: "2026 Meta", color: "hsl(var(--primary))" },
-            }} className="h-[320px]">
+              solid2026: { label: "2026 Real", color: "#3b82f6" },
+              dash2026: { label: "2026 Projeção", color: "#3b82f6" },
+              meta2026: { label: "2026 Meta", color: "#fbbf24" },
+            }} className="h-[500px] max-sm:h-[350px]">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
@@ -171,9 +182,10 @@ export default function Projecoes2026() {
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 <Line type="monotone" dataKey="real2024" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
-                <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))" }} />
-                <Line type="monotone" dataKey="real2026" stroke="hsl(var(--warning))" strokeWidth={2} strokeDasharray="4 3" dot={{ fill: "hsl(var(--warning))" }} connectNulls={false} />
-                <Line type="monotone" dataKey="proj2026" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+                <Line type="monotone" dataKey="real2025" stroke="hsl(var(--success))" strokeWidth={2} dot={{ fill: "hsl(var(--success))", r: 3 }} />
+                <Line type="monotone" dataKey="solid2026" stroke="#3b82f6" strokeWidth={3} dot={{ fill: "#3b82f6", r: 4, strokeWidth: 2 }} connectNulls={false} />
+                <Line type="monotone" dataKey="dash2026" stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 4" dot={{ fill: "#3b82f6", r: 3 }} connectNulls={false} />
+                <Line type="monotone" dataKey="meta2026" stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               </LineChart>
             </ChartContainer>
           </motion.div>
