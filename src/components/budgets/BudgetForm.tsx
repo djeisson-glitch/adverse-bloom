@@ -312,15 +312,15 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
         };
       });
 
-    // Totals: only PRODUÇÃO diárias count
-    const totalProducao = validItems
-      .filter((i) => i.category === "PRODUÇÃO")
-      .reduce((s, i) => s + i.client_days * i.client_people, 0);
+    // Totals: PRODUÇÃO = max dias + sum pessoas
+    const prodItems = validItems.filter((i) => i.category === "PRODUÇÃO");
+    const totalProducaoDias = prodItems.length > 0 ? Math.max(...prodItems.map((i) => i.client_days)) : 0;
+    const totalProducaoPessoas = prodItems.reduce((s, i) => s + (i.client_people || 1), 0);
     const totalPos = validItems
       .filter((i) => i.category === "PÓS-PRODUÇÃO")
       .reduce((s, i) => s + i.client_days, 0);
 
-    return { producaoItems, posItems, logItems, totalProducao, totalPos };
+    return { producaoItems, posItems, logItems, totalProducaoDias, totalProducaoPessoas, totalPos };
   }, [items]);
 
   const proposalName = useMemo(() => {
@@ -592,7 +592,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                   {resumoEntregas.producaoItems.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                        Equipe ({resumoEntregas.totalProducao} {resumoEntregas.totalProducao > 1 ? "diárias" : "diária"})
+                        Equipe ({resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"})
                       </p>
                       <ul className="space-y-0.5">
                         {resumoEntregas.producaoItems.map((r, i) => (
@@ -634,8 +634,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
                     <ul className="space-y-0.5">
-                      {resumoEntregas.totalProducao > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalProducao} diárias de produção</li>
+                      {resumoEntregas.totalProducaoDias > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} de produção com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"}</li>
                       )}
                       {resumoEntregas.totalPos > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
