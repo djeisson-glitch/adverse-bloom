@@ -634,8 +634,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
                     <ul className="space-y-0.5">
-                      {resumoEntregas.totalProducao > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalProducao} diárias de produção</li>
+                      {resumoEntregas.totalProducaoDias > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} de produção com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"}</li>
                       )}
                       {resumoEntregas.totalPos > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
