@@ -615,15 +615,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.posItems.length > 0 && (
+                  {(resumoEntregas.posHorasItems.length > 0 || resumoEntregas.posEntregaItems.length > 0) && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                        Pós-Produção ({resumoEntregas.totalPos}h de trabalho)
+                        Pós-Produção
                       </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.posItems.map((r, i) => (
-                          <li key={i} className="text-foreground">
+                        {resumoEntregas.posHorasItems.map((r, i) => (
+                          <li key={`h${i}`} className="text-foreground">
                             • {r.horas}h de {r.nome.toLowerCase()}
+                          </li>
+                        ))}
+                        {resumoEntregas.posEntregaItems.map((r, i) => (
+                          <li key={`e${i}`} className="text-foreground">
+                            • {r.qtd > 1 ? `${r.qtd} entregas` : "1 entrega"} de {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
@@ -649,8 +654,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       {resumoEntregas.totalProducaoDias > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} de produção com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"}</li>
                       )}
-                      {resumoEntregas.totalPos > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
+                      {resumoEntregas.totalPosHoras > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalPosHoras}h de pós-produção{resumoEntregas.totalPosEntregas > 0 ? ` + ${resumoEntregas.totalPosEntregas} ${resumoEntregas.totalPosEntregas > 1 ? "entregas" : "entrega"}` : ""}</li>
+                      )}
+                      {resumoEntregas.totalPosHoras === 0 && resumoEntregas.totalPosEntregas > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalPosEntregas} {resumoEntregas.totalPosEntregas > 1 ? "entregas" : "entrega"} de pós-produção</li>
                       )}
                     </ul>
                   </div>
