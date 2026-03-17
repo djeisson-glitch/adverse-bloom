@@ -592,7 +592,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                   {resumoEntregas.producaoItems.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                        Equipe ({resumoEntregas.totalProducao} {resumoEntregas.totalProducao > 1 ? "diárias" : "diária"})
+                        Equipe ({resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"})
                       </p>
                       <ul className="space-y-0.5">
                         {resumoEntregas.producaoItems.map((r, i) => (
