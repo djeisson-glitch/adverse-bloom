@@ -819,6 +819,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
 function ItemTableRow({
   item,
   config,
+  headerConfig,
   onUpdate,
   onToggleSupplier,
   onRemove,
@@ -843,6 +844,8 @@ function ItemTableRow({
   onEnterLastField?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // headerConfig tells us if the table has a Pessoas column (for alignment)
+  const hdr = headerConfig ?? config;
 
   const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
     if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
@@ -884,21 +887,27 @@ function ItemTableRow({
             />
           )}
         </td>
-        {config.field2 && (
-          <td className="px-1 py-1.5">
-            {readOnly ? (
-              <span className="text-xs text-center block">{item.client_people}</span>
-            ) : (
-              <NumInput
-                value={item.client_people}
-                onChange={(v) => onUpdate("client_people", v)}
-                className="h-7 text-xs text-center w-[56px] px-1"
-                min={1}
-                step={1}
-                onKeyDown={(e) => handleKeyDown(e as any)}
-              />
-            )}
-          </td>
+        {hdr.field2 && (
+          config.field2 ? (
+            <td className="px-1 py-1.5">
+              {readOnly ? (
+                <span className="text-xs text-center block">{item.client_people}</span>
+              ) : (
+                <NumInput
+                  value={item.client_people}
+                  onChange={(v) => onUpdate("client_people", v)}
+                  className="h-7 text-xs text-center w-[56px] px-1"
+                  min={1}
+                  step={1}
+                  onKeyDown={(e) => handleKeyDown(e as any)}
+                />
+              )}
+            </td>
+          ) : (
+            <td className="px-1 py-1.5">
+              <span className="text-xs text-center block text-muted-foreground/40">—</span>
+            </td>
+          )
         )}
         <td className="px-1 py-1.5">
           {readOnly ? (
