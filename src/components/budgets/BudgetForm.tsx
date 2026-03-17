@@ -49,7 +49,7 @@ function logisticaNeedsPeople(itemName: string): boolean {
 /* Pós-produção: detect if item is billed by delivery vs hours */
 const POS_ENTREGA_KEYWORDS = [
   "locução", "trilha", "música", "narração", "legendagem", "tradução",
-  "cachê", "direitos", "licença",
+  "cachê", "direitos", "licença", "editor",
   "entrega", "vídeo", "video", "versão", "versao",
   "formato", "saída", "saida", "renderização", "render",
 ];
