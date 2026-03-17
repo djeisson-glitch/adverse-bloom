@@ -508,11 +508,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                         <tbody>
                           {catItems.map(({ item, idx }) => {
                             const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                            // For LOGÍSTICA, use per-item config based on name
+                            const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
                             return (
                               <ItemTableRow
                                 key={idx}
                                 item={item}
-                                config={config}
+                                config={itemConfig}
+                                headerConfig={config}
                                 onUpdate={(field, value) => updateItem(idx, field, value)}
                                 onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
                                 onRemove={() => {
