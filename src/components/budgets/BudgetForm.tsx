@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -44,12 +43,11 @@ function getCatConfig(cat: string): CategoryFieldConfig {
 }
 
 function emptyItem(category: string, orderIndex: number): BudgetItem {
-  const config = getCatConfig(category);
   return {
     category,
     item_name: "",
     client_days: 1,
-    client_people: config.field2 ? 1 : 1,
+    client_people: 1,
     client_unit_price: 0,
     client_price: 0,
     has_supplier_cost: false,
@@ -121,13 +119,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   const [robertEnabled, setRobertEnabled] = useState(true);
   const [robertPercent, setRobertPercent] = useState(3);
 
-  // Add item modal
-  const [addModalCat, setAddModalCat] = useState<string | null>(null);
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemField1, setNewItemField1] = useState(1);
-  const [newItemField2, setNewItemField2] = useState(1);
-  const [newItemField3, setNewItemField3] = useState(0);
-  const [newItemHasSupplier, setNewItemHasSupplier] = useState(false);
+  // Track which rows are "new" (inline add, not yet confirmed)
+  const [newRowCats, setNewRowCats] = useState<Set<string>>(new Set());
+  const newRowNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (existing) {
@@ -225,49 +219,101 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
     }
   };
 
-  // Add item modal helpers
-  const openAddModal = (cat: string) => {
-    setAddModalCat(cat);
-    setNewItemName("");
-    setNewItemField1(1);
-    setNewItemField2(1);
-    setNewItemField3(0);
-    setNewItemHasSupplier(false);
-  };
-
-  const confirmAddItem = () => {
-    if (!addModalCat || !newItemName.trim()) return;
-    const config = getCatConfig(addModalCat);
-    const cp = config.field2
-      ? newItemField1 * newItemField2 * newItemField3
-      : newItemField1 * newItemField3;
-    const newItem: BudgetItem = {
-      category: addModalCat,
-      item_name: newItemName.trim(),
-      client_days: newItemField1,
-      client_people: config.field2 ? newItemField2 : 1,
-      client_unit_price: newItemField3,
-      client_price: cp,
-      has_supplier_cost: newItemHasSupplier,
-      supplier_days: 0,
-      supplier_people: 0,
-      supplier_unit_price: 0,
-      supplier_cost: 0,
-      margin_value: cp,
-      margin_percent: 100,
-      order_index: items.length,
-    };
+  // Inline add: insert empty row at bottom of category
+  const addInlineRow = useCallback((cat: string) => {
+    // Don't add if there's already an empty new row for this cat
+    if (newRowCats.has(cat)) return;
+    const newItem = emptyItem(cat, items.length);
     setItems((prev) => [...prev, newItem]);
-    setAddModalCat(null);
-  };
+    setNewRowCats((prev) => new Set(prev).add(cat));
+    // Focus name field after render
+    setTimeout(() => {
+      newRowNameRefs.current[cat]?.focus();
+    }, 50);
+  }, [items.length, newRowCats]);
 
-  const newItemTotal = useMemo(() => {
-    if (!addModalCat) return 0;
-    const config = getCatConfig(addModalCat);
-    return config.field2
-      ? newItemField1 * newItemField2 * newItemField3
-      : newItemField1 * newItemField3;
-  }, [addModalCat, newItemField1, newItemField2, newItemField3]);
+  // Confirm inline row (item has a name)
+  const confirmInlineRow = useCallback((cat: string) => {
+    setNewRowCats((prev) => {
+      const next = new Set(prev);
+      next.delete(cat);
+      return next;
+    });
+  }, []);
+
+  // Cancel inline row if empty
+  const cancelInlineRow = useCallback((cat: string) => {
+    // Find the last item of this category that has no name
+    setItems((prev) => {
+      const lastIdx = [...prev].reverse().findIndex(
+        (item) => item.category === cat && !item.item_name.trim()
+      );
+      if (lastIdx === -1) return prev;
+      const realIdx = prev.length - 1 - lastIdx;
+      return prev.filter((_, i) => i !== realIdx);
+    });
+    setNewRowCats((prev) => {
+      const next = new Set(prev);
+      next.delete(cat);
+      return next;
+    });
+  }, []);
+
+  // Resumo de Entregas
+  const resumoEntregas = useMemo(() => {
+    const validItems = items.filter((i) => i.item_name.trim());
+    const resumo: Record<string, { nome: string; qtd: number; dias: number }[]> = {};
+
+    validItems.forEach((item) => {
+      const cat = item.category;
+      if (!resumo[cat]) resumo[cat] = [];
+
+      const key = item.item_name.toLowerCase().trim();
+      const existing = resumo[cat].find((r) => r.nome.toLowerCase() === key);
+
+      if (cat === "PRODUÇÃO") {
+        const diarias = item.client_days * item.client_people;
+        if (existing) {
+          existing.qtd += item.client_people;
+          existing.dias += diarias;
+        } else {
+          resumo[cat].push({ nome: item.item_name, qtd: item.client_people, dias: diarias });
+        }
+      } else if (cat === "PÓS-PRODUÇÃO") {
+        if (existing) {
+          existing.dias += item.client_days;
+        } else {
+          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
+        }
+      } else if (cat === "LOGÍSTICA") {
+        if (existing) {
+          existing.dias += item.client_days;
+        } else {
+          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
+        }
+      } else {
+        // Generic
+        if (existing) {
+          existing.dias += item.client_days;
+        } else {
+          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
+        }
+      }
+    });
+
+    // Totals
+    const totalProducao = validItems
+      .filter((i) => i.category === "PRODUÇÃO")
+      .reduce((s, i) => s + i.client_days * i.client_people, 0);
+    const totalPos = validItems
+      .filter((i) => i.category === "PÓS-PRODUÇÃO")
+      .reduce((s, i) => s + i.client_days, 0);
+    const totalLogistica = validItems
+      .filter((i) => i.category === "LOGÍSTICA")
+      .reduce((s, i) => s + i.client_days, 0);
+
+    return { resumo, totalProducao, totalPos, totalLogistica };
+  }, [items]);
 
   const proposalName = useMemo(() => {
     const num = existing?.budget_number;
@@ -278,6 +324,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = (status: string) => {
+    // Remove empty rows before saving
+    const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
       {
         budget: {
@@ -306,7 +354,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
           is_latest_version: existing?.is_latest_version ?? true,
           proposal_name: proposalName,
         } as any,
-        items,
+        items: validItems,
       },
       { onSuccess: () => onClose() }
     );
@@ -316,9 +364,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
     if (!budgetId) return;
     createNewVersion.mutate(budgetId, {
       onSuccess: (newId) => {
-        if (onOpenVersion) {
-          onOpenVersion(newId);
-        }
+        if (onOpenVersion) onOpenVersion(newId);
       },
     });
   };
@@ -398,6 +444,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
             const catItems = items
               .map((item, idx) => ({ item, idx }))
               .filter(({ item }) => item.category === cat);
+            const hasNewRow = newRowCats.has(cat);
 
             return (
               <Card key={cat}>
@@ -405,17 +452,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
                     {!isApproved && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => openAddModal(cat)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        onClick={() => addInlineRow(cat)}
+                        disabled={hasNewRow}
+                      >
                         <Plus className="h-3 w-3 mr-1" /> Adicionar
                       </Button>
                     )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {catItems.length === 0 ? (
+                  {catItems.length === 0 && !hasNewRow ? (
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
-                    /* Mobile: compact cards */
                     <div className="px-3 pb-3 space-y-2">
                       {catItems.map(({ item, idx }) => (
                         <MobileItemRow
@@ -430,7 +482,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       ))}
                     </div>
                   ) : (
-                    /* Desktop: horizontal table */
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -447,17 +498,45 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                           </tr>
                         </thead>
                         <tbody>
-                          {catItems.map(({ item, idx }) => (
-                            <ItemTableRow
-                              key={idx}
-                              item={item}
-                              config={config}
-                              onUpdate={(field, value) => updateItem(idx, field, value)}
-                              onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
-                              onRemove={() => removeItem(idx)}
-                              readOnly={isApproved}
-                            />
-                          ))}
+                          {catItems.map(({ item, idx }) => {
+                            const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                            return (
+                              <ItemTableRow
+                                key={idx}
+                                item={item}
+                                config={config}
+                                onUpdate={(field, value) => updateItem(idx, field, value)}
+                                onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                                onRemove={() => {
+                                  removeItem(idx);
+                                  if (isNewRow) {
+                                    setNewRowCats((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(cat);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                readOnly={isApproved}
+                                isNewRow={isNewRow}
+                                nameRef={isNewRow ? (el) => { newRowNameRefs.current[cat] = el; } : undefined}
+                                onConfirm={() => {
+                                  if (item.item_name.trim()) {
+                                    confirmInlineRow(cat);
+                                    // Optionally add another row
+                                  }
+                                }}
+                                onCancel={() => cancelInlineRow(cat)}
+                                onEnterLastField={() => {
+                                  if (item.item_name.trim()) {
+                                    confirmInlineRow(cat);
+                                    // Add a new row after confirming
+                                    setTimeout(() => addInlineRow(cat), 50);
+                                  }
+                                }}
+                              />
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -484,8 +563,87 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
           )}
         </div>
 
-        {/* Right: Settings + Profitability */}
+        {/* Right: Resumo + Settings + Profitability */}
         <div className="space-y-3">
+          {/* Resumo de Entregas */}
+          <Card>
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resumo de Entregas</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-2 text-xs">
+              {items.filter((i) => i.item_name.trim()).length === 0 ? (
+                <p className="text-muted-foreground text-center py-2">Adicione itens para ver o resumo</p>
+              ) : (
+                <>
+                  {resumoEntregas.resumo["PRODUÇÃO"]?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Equipe</p>
+                      <ul className="space-y-0.5">
+                        {resumoEntregas.resumo["PRODUÇÃO"].map((r, i) => (
+                          <li key={i} className="text-foreground">
+                            • {r.qtd}x {r.nome} ({r.dias} diár.)
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {resumoEntregas.resumo["PÓS-PRODUÇÃO"]?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pós-Produção</p>
+                      <ul className="space-y-0.5">
+                        {resumoEntregas.resumo["PÓS-PRODUÇÃO"].map((r, i) => (
+                          <li key={i} className="text-foreground">
+                            • {r.dias}h de {r.nome.toLowerCase()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {resumoEntregas.resumo["LOGÍSTICA"]?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Logística</p>
+                      <ul className="space-y-0.5">
+                        {resumoEntregas.resumo["LOGÍSTICA"].map((r, i) => (
+                          <li key={i} className="text-foreground">
+                            • {r.dias} {r.dias > 1 ? "diárias" : "diária"} de {r.nome.toLowerCase()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Other categories */}
+                  {Object.entries(resumoEntregas.resumo)
+                    .filter(([cat]) => !["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"].includes(cat))
+                    .map(([cat, items]) => items.length > 0 && (
+                      <div key={cat}>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{cat}</p>
+                        <ul className="space-y-0.5">
+                          {items.map((r, i) => (
+                            <li key={i} className="text-foreground">• {r.dias}x {r.nome}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  <Separator />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
+                    <ul className="space-y-0.5">
+                      {resumoEntregas.totalProducao > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalProducao} diárias de produção</li>
+                      )}
+                      {resumoEntregas.totalPos > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
+                      )}
+                      {resumoEntregas.totalLogistica > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalLogistica} diárias de logística</li>
+                      )}
+                    </ul>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Settings */}
           <Card>
             <CardHeader className="py-2 px-4">
@@ -652,63 +810,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
           </>
         )}
       </div>
-
-      {/* Add Item Modal */}
-      <Dialog open={addModalCat !== null} onOpenChange={(open) => !open && setAddModalCat(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">Novo item — {addModalCat}</DialogTitle>
-          </DialogHeader>
-          {addModalCat && (() => {
-            const config = getCatConfig(addModalCat);
-            return (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Nome</Label>
-                  <Input
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    placeholder="Ex: Operador de câmera"
-                    className="h-9"
-                    autoFocus
-                  />
-                </div>
-                <div className={`grid gap-3 ${config.field2 ? "grid-cols-3" : "grid-cols-2"}`}>
-                  <div className="space-y-1">
-                    <Label className="text-xs">{config.field1}</Label>
-                    <NumInput value={newItemField1} onChange={setNewItemField1} className="h-9" min={0} step={0.5} />
-                  </div>
-                  {config.field2 && (
-                    <div className="space-y-1">
-                      <Label className="text-xs">{config.field2}</Label>
-                      <NumInput value={newItemField2} onChange={setNewItemField2} className="h-9" min={1} step={1} />
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label className="text-xs">{config.field3}</Label>
-                    <NumInput value={newItemField3} onChange={setNewItemField3} className="h-9" min={0} />
-                  </div>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="text-lg font-bold text-foreground">{formatCurrency(newItemTotal)}</p>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <Checkbox
-                    checked={newItemHasSupplier}
-                    onCheckedChange={(c) => setNewItemHasSupplier(!!c)}
-                  />
-                  <span className="text-sm text-muted-foreground">Tem custo de fornecedor?</span>
-                </label>
-              </div>
-            );
-          })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddModalCat(null)}>Cancelar</Button>
-            <Button onClick={confirmAddItem} disabled={!newItemName.trim()}>Adicionar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -722,6 +823,11 @@ function ItemTableRow({
   onToggleSupplier,
   onRemove,
   readOnly,
+  isNewRow,
+  nameRef,
+  onConfirm,
+  onCancel,
+  onEnterLastField,
 }: {
   item: BudgetItem;
   config: CategoryFieldConfig;
@@ -729,21 +835,37 @@ function ItemTableRow({
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
   readOnly?: boolean;
+  isNewRow?: boolean;
+  nameRef?: (el: HTMLInputElement | null) => void;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  onEnterLastField?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
+    if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
+      onCancel?.();
+    }
+    if (e.key === "Enter" && isLastField) {
+      onEnterLastField?.();
+    }
+  };
+
   return (
     <>
-      <tr className="border-b border-border/30 hover:bg-muted/20">
+      <tr className={`border-b border-border/30 hover:bg-muted/20 ${isNewRow ? "ring-1 ring-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5" : ""}`}>
         <td className="px-3 py-1.5">
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
           ) : (
             <Input
+              ref={nameRef}
               value={item.item_name}
               onChange={(e) => onUpdate("item_name", e.target.value)}
-              placeholder="Nome..."
+              placeholder={isNewRow ? "Digite aqui..." : "Nome..."}
               className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1"
+              onKeyDown={(e) => handleKeyDown(e)}
             />
           )}
         </td>
@@ -751,7 +873,14 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-xs text-center block">{item.client_days}</span>
           ) : (
-            <NumInput value={item.client_days} onChange={(v) => onUpdate("client_days", v)} className="h-7 text-xs text-center w-[56px] px-1" min={0} step={0.5} />
+            <NumInput
+              value={item.client_days}
+              onChange={(v) => onUpdate("client_days", v)}
+              className="h-7 text-xs text-center w-[56px] px-1"
+              min={0}
+              step={0.5}
+              onKeyDown={(e) => handleKeyDown(e as any)}
+            />
           )}
         </td>
         {config.field2 && (
@@ -759,7 +888,14 @@ function ItemTableRow({
             {readOnly ? (
               <span className="text-xs text-center block">{item.client_people}</span>
             ) : (
-              <NumInput value={item.client_people} onChange={(v) => onUpdate("client_people", v)} className="h-7 text-xs text-center w-[56px] px-1" min={1} step={1} />
+              <NumInput
+                value={item.client_people}
+                onChange={(v) => onUpdate("client_people", v)}
+                className="h-7 text-xs text-center w-[56px] px-1"
+                min={1}
+                step={1}
+                onKeyDown={(e) => handleKeyDown(e as any)}
+              />
             )}
           </td>
         )}
@@ -767,7 +903,13 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-xs text-center block">{formatCurrency(item.client_unit_price)}</span>
           ) : (
-            <NumInput value={item.client_unit_price} onChange={(v) => onUpdate("client_unit_price", v)} className="h-7 text-xs text-center w-[76px] px-1" min={0} />
+            <NumInput
+              value={item.client_unit_price}
+              onChange={(v) => onUpdate("client_unit_price", v)}
+              className="h-7 text-xs text-center w-[76px] px-1"
+              min={0}
+              onKeyDown={(e) => handleKeyDown(e as any, true)}
+            />
           )}
         </td>
         <td className="px-2 py-1.5 text-right">
@@ -799,9 +941,21 @@ function ItemTableRow({
         </td>
         <td className="px-1 py-1.5 text-center">
           {!readOnly && (
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={onRemove}>
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            isNewRow && item.item_name.trim() ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-[hsl(var(--success))] hover:text-[hsl(var(--success))]"
+                onClick={onConfirm}
+                title="Confirmar"
+              >
+                <Check className="h-3 w-3" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={onRemove}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )
           )}
         </td>
       </tr>
