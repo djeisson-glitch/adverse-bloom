@@ -477,17 +477,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
                     <div className="px-3 pb-3 space-y-2">
-                      {catItems.map(({ item, idx }) => (
-                        <MobileItemRow
-                          key={idx}
-                          item={item}
-                          config={config}
-                          onUpdate={(field, value) => updateItem(idx, field, value)}
-                          onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
-                          onRemove={() => removeItem(idx)}
-                          readOnly={isApproved}
-                        />
-                      ))}
+                      {catItems.map(({ item, idx }) => {
+                        const mobileConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                        return (
+                          <MobileItemRow
+                            key={idx}
+                            item={item}
+                            config={mobileConfig}
+                            onUpdate={(field, value) => updateItem(idx, field, value)}
+                            onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                            onRemove={() => removeItem(idx)}
+                            readOnly={isApproved}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
