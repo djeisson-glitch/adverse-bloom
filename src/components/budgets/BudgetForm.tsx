@@ -300,13 +300,18 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
       }
     });
 
-    // PÓS-PRODUÇÃO: each item individually (hours)
-    const posItems = validItems
+    // PÓS-PRODUÇÃO: separate hours vs entregas
+    const posHorasItems: { nome: string; horas: number }[] = [];
+    const posEntregaItems: { nome: string; qtd: number }[] = [];
+    validItems
       .filter((i) => i.category === "PÓS-PRODUÇÃO")
-      .map((item) => ({
-        nome: item.item_name,
-        horas: item.client_days,
-      }));
+      .forEach((item) => {
+        if (posIsEntrega(item.item_name)) {
+          posEntregaItems.push({ nome: item.item_name, qtd: item.client_days });
+        } else {
+          posHorasItems.push({ nome: item.item_name, horas: item.client_days });
+        }
+      });
 
     // LOGÍSTICA: each item with context (dias, pessoas if applicable)
     const logItems = validItems
@@ -320,15 +325,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
         };
       });
 
-    // Totals: PRODUÇÃO = max dias + sum pessoas
+    // Totals
     const prodItems = validItems.filter((i) => i.category === "PRODUÇÃO");
     const totalProducaoDias = prodItems.length > 0 ? Math.max(...prodItems.map((i) => i.client_days)) : 0;
     const totalProducaoPessoas = prodItems.reduce((s, i) => s + (i.client_people || 1), 0);
-    const totalPos = validItems
-      .filter((i) => i.category === "PÓS-PRODUÇÃO")
-      .reduce((s, i) => s + i.client_days, 0);
+    const totalPosHoras = posHorasItems.reduce((s, i) => s + i.horas, 0);
+    const totalPosEntregas = posEntregaItems.reduce((s, i) => s + i.qtd, 0);
 
-    return { producaoItems, posItems, logItems, totalProducaoDias, totalProducaoPessoas, totalPos };
+    return { producaoItems, posHorasItems, posEntregaItems, logItems, totalProducaoDias, totalProducaoPessoas, totalPosHoras, totalPosEntregas };
   }, [items]);
 
   const proposalName = useMemo(() => {
