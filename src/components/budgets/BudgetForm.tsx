@@ -972,7 +972,7 @@ function ItemTableRow({
       {/* Supplier inline row */}
       {item.has_supplier_cost && expanded && (
         <tr className="bg-muted/10 border-b border-border/20">
-          <td colSpan={config.field2 ? 7 : 6} className="px-3 py-1.5">
+          <td colSpan={hdr.field2 ? 7 : 6} className="px-3 py-1.5">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-muted-foreground shrink-0">└─ Paga:</span>
               <NumInput
