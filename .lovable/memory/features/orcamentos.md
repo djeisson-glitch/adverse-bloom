@@ -16,14 +16,20 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs, su
 - Items have dual structure:
   - Client: client_days × client_people × client_unit_price = client_price
   - Supplier: supplier_days × supplier_people × supplier_unit_price = supplier_cost (only if has_supplier_cost=true)
+- LOGÍSTICA items: auto-detect subtype by name
+  - Alimentação/café/hotel/hospedagem → uses Pessoas field (dias × pessoas × valor)
+  - Transporte/uber/carro/estacionamento → no Pessoas (dias × valor)
+  - Detection via logisticaNeedsPeople() in BudgetForm.tsx
 1. subtotal1 = sum(client_price)
 2. markup = subtotal1 * markup%
-3. subtotal2 = subtotal1 + markup
-4. tax/bv/commission = subtotal2 * respective%
-5. total = ceil(subtotal2 + tax + bv + commission + addition - discount)
-6. marginValue = total - supplierTotal - bvValue - commissionValue (impostos NÃO descontados - custo fixo operacional)
-7. marginPercent = marginValue / total * 100
-8. supplierTotal = sum(supplier_cost)
+3. commission = (subtotal1 + markup) * commission% (Jobb formula)
+4. subtotal2 = subtotal1 + markup + commission
+5. Total = subtotal2 / (1 - bv% - tax%) [recursive calculation]
+6. BV = bv% × Total, Tax = tax% × Total
+7. totalValue = ceil(Total + addition - discount)
+8. marginValue = totalValue - supplierTotal - bvValue - commissionValue (impostos NÃO descontados - custo fixo operacional)
+9. marginPercent = marginValue / totalValue * 100
+10. supplierTotal = sum(supplier_cost)
 - Margin indicators (per item): >=35% green, 15-35% orange, <15% red
 
 ## Commission Split
@@ -31,12 +37,21 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs, su
 - Total commission = sum of enabled partner percentages
 - Stored in budget_settings: commission_djeisson_percent/enabled, commission_robert_percent/enabled
 
-## Cost Breakdown (Rentabilidade panel)
-- Shows: supplier costs, markup, taxes, BV, commission
+## Resumo de Entregas
+- EQUIPE (PRODUÇÃO): groups by name, shows Nx nome (Y diár.)
+- PÓS-PRODUÇÃO: each item with hours
+- LOGÍSTICA: each item with dias (+ pessoas if alimentação/hospedagem)
+- Totals: only PRODUÇÃO diárias + PÓS horas (no logística total)
 
-## Supplier Management (post-approval)
-- Cards per item with has_supplier_cost, register supplier details, track payment status
-- CSV export to Conta Azul with sent_to_conta_azul tracking
+## Inline Add (spreadsheet-style)
+- [+ Adicionar] inserts empty row at bottom of category table
+- Tab/Enter to navigate, Enter on last field saves + adds new row
+- Escape cancels empty row
+
+## Cost Entry (CostEntryTab)
+- Orçado = subtotal_1 (Sub-Total 1, what charges client)
+- Executado = sum of project_costs amounts
+- Progressive alerts: >70% yellow, >90% red, >100% critical with loss amount
 
 ## PDF (generateBudgetPDF.ts)
 Uses jsPDF + jspdf-autotable. Dark themed pages: cover, about, method, investment briefing, investment value, não inclui, contato.

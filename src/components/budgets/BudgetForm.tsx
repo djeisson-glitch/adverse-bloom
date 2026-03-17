@@ -35,11 +35,24 @@ interface CategoryFieldConfig {
 const categoryConfig: Record<string, CategoryFieldConfig> = {
   "PRODUÇÃO": { field1: "Dias", field2: "Pessoas", field3: "Valor/diária", formula: "dias × pessoas × valor" },
   "PÓS-PRODUÇÃO": { field1: "Horas", field2: null, field3: "Valor/hora", formula: "horas × valor" },
-  "LOGÍSTICA": { field1: "Dias", field2: null, field3: "Valor/dia", formula: "dias × valor" },
+  "LOGÍSTICA": { field1: "Dias", field2: "Pessoas", field3: "Valor/dia", formula: "dias × pessoas × valor" },
 };
 
-function getCatConfig(cat: string): CategoryFieldConfig {
-  return categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
+/* Logística subtypes: some items need Pessoas (alimentação, hospedagem), others don't (transporte) */
+const LOGISTICA_NEEDS_PEOPLE = ["alimentação", "café", "lanche", "jantar", "almoço", "refeição", "hotel", "hospedagem", "pousada", "airbnb"];
+
+function logisticaNeedsPeople(itemName: string): boolean {
+  const lower = itemName.toLowerCase().trim();
+  return LOGISTICA_NEEDS_PEOPLE.some((kw) => lower.includes(kw));
+}
+
+/** Get config for a category. For LOGÍSTICA, optionally hide Pessoas based on item name. */
+function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
+  const base = categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
+  if (cat === "LOGÍSTICA" && itemName && !logisticaNeedsPeople(itemName)) {
+    return { ...base, field2: null, formula: "dias × valor" };
+  }
+  return base;
 }
 
 function emptyItem(category: string, orderIndex: number): BudgetItem {
@@ -164,7 +177,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
 
   const recalcItem = (item: BudgetItem, cat?: string): BudgetItem => {
     const category = cat || item.category;
-    const config = getCatConfig(category);
+    const config = getCatConfig(category, item.item_name);
     const cp = config.field2
       ? item.client_days * item.client_people * item.client_unit_price
       : item.client_days * item.client_unit_price;
@@ -188,7 +201,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   const updateItem = (index: number, field: keyof BudgetItem, value: any) => {
     setItems((prev) => {
       const copy = [...prev];
-      copy[index] = recalcItem({ ...copy[index], [field]: value });
+      const updated = { ...copy[index], [field]: value };
+      // Re-detect config when name changes for LOGÍSTICA
+      copy[index] = recalcItem(updated);
       return copy;
     });
   };
@@ -262,57 +277,50 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   // Resumo de Entregas
   const resumoEntregas = useMemo(() => {
     const validItems = items.filter((i) => i.item_name.trim());
-    const resumo: Record<string, { nome: string; qtd: number; dias: number }[]> = {};
 
-    validItems.forEach((item) => {
-      const cat = item.category;
-      if (!resumo[cat]) resumo[cat] = [];
-
+    // PRODUÇÃO: group by name, count people & diárias
+    const producaoItems: { nome: string; qtd: number; dias: number }[] = [];
+    validItems.filter((i) => i.category === "PRODUÇÃO").forEach((item) => {
       const key = item.item_name.toLowerCase().trim();
-      const existing = resumo[cat].find((r) => r.nome.toLowerCase() === key);
-
-      if (cat === "PRODUÇÃO") {
-        const diarias = item.client_days * item.client_people;
-        if (existing) {
-          existing.qtd += item.client_people;
-          existing.dias += diarias;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: item.client_people, dias: diarias });
-        }
-      } else if (cat === "PÓS-PRODUÇÃO") {
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
-      } else if (cat === "LOGÍSTICA") {
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
+      const existing = producaoItems.find((r) => r.nome.toLowerCase() === key);
+      const diarias = item.client_days * item.client_people;
+      if (existing) {
+        existing.qtd += item.client_people;
+        existing.dias += diarias;
       } else {
-        // Generic
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
+        producaoItems.push({ nome: item.item_name, qtd: item.client_people, dias: diarias });
       }
     });
 
-    // Totals
+    // PÓS-PRODUÇÃO: each item individually (hours)
+    const posItems = validItems
+      .filter((i) => i.category === "PÓS-PRODUÇÃO")
+      .map((item) => ({
+        nome: item.item_name,
+        horas: item.client_days,
+      }));
+
+    // LOGÍSTICA: each item with context (dias, pessoas if applicable)
+    const logItems = validItems
+      .filter((i) => i.category === "LOGÍSTICA")
+      .map((item) => {
+        const needsPeople = logisticaNeedsPeople(item.item_name);
+        return {
+          nome: item.item_name,
+          dias: item.client_days,
+          pessoas: needsPeople ? item.client_people : null,
+        };
+      });
+
+    // Totals: only PRODUÇÃO diárias count
     const totalProducao = validItems
       .filter((i) => i.category === "PRODUÇÃO")
       .reduce((s, i) => s + i.client_days * i.client_people, 0);
     const totalPos = validItems
       .filter((i) => i.category === "PÓS-PRODUÇÃO")
       .reduce((s, i) => s + i.client_days, 0);
-    const totalLogistica = validItems
-      .filter((i) => i.category === "LOGÍSTICA")
-      .reduce((s, i) => s + i.client_days, 0);
 
-    return { resumo, totalProducao, totalPos, totalLogistica };
+    return { producaoItems, posItems, logItems, totalProducao, totalPos };
   }, [items]);
 
   const proposalName = useMemo(() => {
@@ -469,17 +477,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
                     <div className="px-3 pb-3 space-y-2">
-                      {catItems.map(({ item, idx }) => (
-                        <MobileItemRow
-                          key={idx}
-                          item={item}
-                          config={config}
-                          onUpdate={(field, value) => updateItem(idx, field, value)}
-                          onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
-                          onRemove={() => removeItem(idx)}
-                          readOnly={isApproved}
-                        />
-                      ))}
+                      {catItems.map(({ item, idx }) => {
+                        const mobileConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                        return (
+                          <MobileItemRow
+                            key={idx}
+                            item={item}
+                            config={mobileConfig}
+                            onUpdate={(field, value) => updateItem(idx, field, value)}
+                            onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                            onRemove={() => removeItem(idx)}
+                            readOnly={isApproved}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -500,11 +511,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                         <tbody>
                           {catItems.map(({ item, idx }) => {
                             const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                            // For LOGÍSTICA, use per-item config based on name
+                            const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
                             return (
                               <ItemTableRow
                                 key={idx}
                                 item={item}
-                                config={config}
+                                config={itemConfig}
+                                headerConfig={config}
                                 onUpdate={(field, value) => updateItem(idx, field, value)}
                                 onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
                                 onRemove={() => {
@@ -575,11 +589,13 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                 <p className="text-muted-foreground text-center py-2">Adicione itens para ver o resumo</p>
               ) : (
                 <>
-                  {resumoEntregas.resumo["PRODUÇÃO"]?.length > 0 && (
+                  {resumoEntregas.producaoItems.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Equipe</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Equipe ({resumoEntregas.totalProducao} {resumoEntregas.totalProducao > 1 ? "diárias" : "diária"})
+                      </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["PRODUÇÃO"].map((r, i) => (
+                        {resumoEntregas.producaoItems.map((r, i) => (
                           <li key={i} className="text-foreground">
                             • {r.qtd}x {r.nome} ({r.dias} diár.)
                           </li>
@@ -587,43 +603,33 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.resumo["PÓS-PRODUÇÃO"]?.length > 0 && (
+                  {resumoEntregas.posItems.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pós-Produção</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Pós-Produção ({resumoEntregas.totalPos}h de trabalho)
+                      </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["PÓS-PRODUÇÃO"].map((r, i) => (
+                        {resumoEntregas.posItems.map((r, i) => (
                           <li key={i} className="text-foreground">
-                            • {r.dias}h de {r.nome.toLowerCase()}
+                            • {r.horas}h de {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.resumo["LOGÍSTICA"]?.length > 0 && (
+                  {resumoEntregas.logItems.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Logística</p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["LOGÍSTICA"].map((r, i) => (
+                        {resumoEntregas.logItems.map((r, i) => (
                           <li key={i} className="text-foreground">
-                            • {r.dias} {r.dias > 1 ? "diárias" : "diária"} de {r.nome.toLowerCase()}
+                            • {r.nome}: {r.dias} {r.dias > 1 ? "dias" : "dia"}
+                            {r.pessoas != null && r.pessoas > 0 && ` × ${r.pessoas} ${r.pessoas > 1 ? "pessoas" : "pessoa"}`}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  {/* Other categories */}
-                  {Object.entries(resumoEntregas.resumo)
-                    .filter(([cat]) => !["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"].includes(cat))
-                    .map(([cat, items]) => items.length > 0 && (
-                      <div key={cat}>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{cat}</p>
-                        <ul className="space-y-0.5">
-                          {items.map((r, i) => (
-                            <li key={i} className="text-foreground">• {r.dias}x {r.nome}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
                   <Separator />
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
@@ -633,9 +639,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       )}
                       {resumoEntregas.totalPos > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
-                      )}
-                      {resumoEntregas.totalLogistica > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalLogistica} diárias de logística</li>
                       )}
                     </ul>
                   </div>
@@ -819,6 +822,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
 function ItemTableRow({
   item,
   config,
+  headerConfig,
   onUpdate,
   onToggleSupplier,
   onRemove,
@@ -831,6 +835,7 @@ function ItemTableRow({
 }: {
   item: BudgetItem;
   config: CategoryFieldConfig;
+  headerConfig?: CategoryFieldConfig;
   onUpdate: (field: keyof BudgetItem, value: any) => void;
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
@@ -842,6 +847,8 @@ function ItemTableRow({
   onEnterLastField?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // headerConfig tells us if the table has a Pessoas column (for alignment)
+  const hdr = headerConfig ?? config;
 
   const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
     if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
@@ -883,21 +890,27 @@ function ItemTableRow({
             />
           )}
         </td>
-        {config.field2 && (
-          <td className="px-1 py-1.5">
-            {readOnly ? (
-              <span className="text-xs text-center block">{item.client_people}</span>
-            ) : (
-              <NumInput
-                value={item.client_people}
-                onChange={(v) => onUpdate("client_people", v)}
-                className="h-7 text-xs text-center w-[56px] px-1"
-                min={1}
-                step={1}
-                onKeyDown={(e) => handleKeyDown(e as any)}
-              />
-            )}
-          </td>
+        {hdr.field2 && (
+          config.field2 ? (
+            <td className="px-1 py-1.5">
+              {readOnly ? (
+                <span className="text-xs text-center block">{item.client_people}</span>
+              ) : (
+                <NumInput
+                  value={item.client_people}
+                  onChange={(v) => onUpdate("client_people", v)}
+                  className="h-7 text-xs text-center w-[56px] px-1"
+                  min={1}
+                  step={1}
+                  onKeyDown={(e) => handleKeyDown(e as any)}
+                />
+              )}
+            </td>
+          ) : (
+            <td className="px-1 py-1.5">
+              <span className="text-xs text-center block text-muted-foreground/40">—</span>
+            </td>
+          )
         )}
         <td className="px-1 py-1.5">
           {readOnly ? (
@@ -962,7 +975,7 @@ function ItemTableRow({
       {/* Supplier inline row */}
       {item.has_supplier_cost && expanded && (
         <tr className="bg-muted/10 border-b border-border/20">
-          <td colSpan={config.field2 ? 7 : 6} className="px-3 py-1.5">
+          <td colSpan={hdr.field2 ? 7 : 6} className="px-3 py-1.5">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-muted-foreground shrink-0">└─ Paga:</span>
               <NumInput
