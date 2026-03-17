@@ -46,12 +46,27 @@ function logisticaNeedsPeople(itemName: string): boolean {
   return LOGISTICA_NEEDS_PEOPLE.some((kw) => lower.includes(kw));
 }
 
-/* Pós-produção: detect if item is billed by delivery (cachê) vs hours */
-const POS_ENTREGA_KEYWORDS = ["locução", "trilha", "música", "narração", "legendagem", "tradução", "cachê", "direitos", "licença"];
+/* Pós-produção: detect if item is billed by delivery vs hours */
+const POS_ENTREGA_KEYWORDS = [
+  "locução", "trilha", "música", "narração", "legendagem", "tradução",
+  "cachê", "direitos", "licença",
+  "entrega", "vídeo", "video", "versão", "versao",
+  "formato", "saída", "saida", "renderização", "render",
+];
+const POS_HORAS_KEYWORDS = [
+  "edição", "edicao", "color", "grading", "motion",
+  "animação", "animacao", "correção", "correcao",
+  "mixagem", "finalização", "finalizacao", "tratamento", "vfx",
+];
 
 function posIsEntrega(itemName: string): boolean {
   const lower = itemName.toLowerCase().trim();
-  return POS_ENTREGA_KEYWORDS.some((kw) => lower.includes(kw));
+  // If it matches hours keywords, it's hours (takes priority)
+  if (POS_HORAS_KEYWORDS.some((kw) => lower.includes(kw))) return false;
+  // If it matches delivery keywords, it's a delivery
+  if (POS_ENTREGA_KEYWORDS.some((kw) => lower.includes(kw))) return true;
+  // Default: hours
+  return false;
 }
 
 /** Get config for a category. For LOGÍSTICA, optionally hide Pessoas based on item name. */
@@ -628,7 +643,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                         ))}
                         {resumoEntregas.posEntregaItems.map((r, i) => (
                           <li key={`e${i}`} className="text-foreground">
-                            • {r.qtd > 1 ? `${r.qtd} entregas` : "1 entrega"} de {r.nome.toLowerCase()}
+                            • {r.qtd} {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
