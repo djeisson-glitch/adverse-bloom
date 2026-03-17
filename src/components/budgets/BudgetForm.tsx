@@ -643,7 +643,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                         ))}
                         {resumoEntregas.posEntregaItems.map((r, i) => (
                           <li key={`e${i}`} className="text-foreground">
-                            • {r.qtd > 1 ? `${r.qtd} entregas` : "1 entrega"} de {r.nome.toLowerCase()}
+                            • {r.qtd} {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
