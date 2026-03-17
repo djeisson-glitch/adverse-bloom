@@ -46,6 +46,14 @@ function logisticaNeedsPeople(itemName: string): boolean {
   return LOGISTICA_NEEDS_PEOPLE.some((kw) => lower.includes(kw));
 }
 
+/* Pós-produção: detect if item is billed by delivery (cachê) vs hours */
+const POS_ENTREGA_KEYWORDS = ["locução", "trilha", "música", "narração", "legendagem", "tradução", "cachê", "direitos", "licença"];
+
+function posIsEntrega(itemName: string): boolean {
+  const lower = itemName.toLowerCase().trim();
+  return POS_ENTREGA_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 /** Get config for a category. For LOGÍSTICA, optionally hide Pessoas based on item name. */
 function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
   const base = categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
