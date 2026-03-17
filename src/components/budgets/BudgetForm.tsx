@@ -831,6 +831,7 @@ function ItemTableRow({
 }: {
   item: BudgetItem;
   config: CategoryFieldConfig;
+  headerConfig?: CategoryFieldConfig;
   onUpdate: (field: keyof BudgetItem, value: any) => void;
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
