@@ -583,11 +583,13 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                 <p className="text-muted-foreground text-center py-2">Adicione itens para ver o resumo</p>
               ) : (
                 <>
-                  {resumoEntregas.resumo["PRODUÇÃO"]?.length > 0 && (
+                  {resumoEntregas.producaoItems.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Equipe</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Equipe ({resumoEntregas.totalProducao} {resumoEntregas.totalProducao > 1 ? "diárias" : "diária"})
+                      </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["PRODUÇÃO"].map((r, i) => (
+                        {resumoEntregas.producaoItems.map((r, i) => (
                           <li key={i} className="text-foreground">
                             • {r.qtd}x {r.nome} ({r.dias} diár.)
                           </li>
@@ -595,43 +597,33 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.resumo["PÓS-PRODUÇÃO"]?.length > 0 && (
+                  {resumoEntregas.posItems.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Pós-Produção</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        Pós-Produção ({resumoEntregas.totalPos}h de trabalho)
+                      </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["PÓS-PRODUÇÃO"].map((r, i) => (
+                        {resumoEntregas.posItems.map((r, i) => (
                           <li key={i} className="text-foreground">
-                            • {r.dias}h de {r.nome.toLowerCase()}
+                            • {r.horas}h de {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.resumo["LOGÍSTICA"]?.length > 0 && (
+                  {resumoEntregas.logItems.length > 0 && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Logística</p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.resumo["LOGÍSTICA"].map((r, i) => (
+                        {resumoEntregas.logItems.map((r, i) => (
                           <li key={i} className="text-foreground">
-                            • {r.dias} {r.dias > 1 ? "diárias" : "diária"} de {r.nome.toLowerCase()}
+                            • {r.nome}: {r.dias} {r.dias > 1 ? "dias" : "dia"}
+                            {r.pessoas != null && r.pessoas > 0 && ` × ${r.pessoas} ${r.pessoas > 1 ? "pessoas" : "pessoa"}`}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  {/* Other categories */}
-                  {Object.entries(resumoEntregas.resumo)
-                    .filter(([cat]) => !["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"].includes(cat))
-                    .map(([cat, items]) => items.length > 0 && (
-                      <div key={cat}>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{cat}</p>
-                        <ul className="space-y-0.5">
-                          {items.map((r, i) => (
-                            <li key={i} className="text-foreground">• {r.dias}x {r.nome}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
                   <Separator />
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Total</p>
@@ -641,9 +633,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       )}
                       {resumoEntregas.totalPos > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
-                      )}
-                      {resumoEntregas.totalLogistica > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalLogistica} diárias de logística</li>
                       )}
                     </ul>
                   </div>
