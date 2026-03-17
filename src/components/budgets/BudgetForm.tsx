@@ -35,11 +35,24 @@ interface CategoryFieldConfig {
 const categoryConfig: Record<string, CategoryFieldConfig> = {
   "PRODUÇÃO": { field1: "Dias", field2: "Pessoas", field3: "Valor/diária", formula: "dias × pessoas × valor" },
   "PÓS-PRODUÇÃO": { field1: "Horas", field2: null, field3: "Valor/hora", formula: "horas × valor" },
-  "LOGÍSTICA": { field1: "Dias", field2: null, field3: "Valor/dia", formula: "dias × valor" },
+  "LOGÍSTICA": { field1: "Dias", field2: "Pessoas", field3: "Valor/dia", formula: "dias × pessoas × valor" },
 };
 
-function getCatConfig(cat: string): CategoryFieldConfig {
-  return categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
+/* Logística subtypes: some items need Pessoas (alimentação, hospedagem), others don't (transporte) */
+const LOGISTICA_NEEDS_PEOPLE = ["alimentação", "café", "lanche", "jantar", "almoço", "refeição", "hotel", "hospedagem", "pousada", "airbnb"];
+
+function logisticaNeedsPeople(itemName: string): boolean {
+  const lower = itemName.toLowerCase().trim();
+  return LOGISTICA_NEEDS_PEOPLE.some((kw) => lower.includes(kw));
+}
+
+/** Get config for a category. For LOGÍSTICA, optionally hide Pessoas based on item name. */
+function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
+  const base = categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
+  if (cat === "LOGÍSTICA" && itemName && !logisticaNeedsPeople(itemName)) {
+    return { ...base, field2: null, formula: "dias × valor" };
+  }
+  return base;
 }
 
 function emptyItem(category: string, orderIndex: number): BudgetItem {
