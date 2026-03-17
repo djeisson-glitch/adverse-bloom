@@ -46,6 +46,14 @@ function logisticaNeedsPeople(itemName: string): boolean {
   return LOGISTICA_NEEDS_PEOPLE.some((kw) => lower.includes(kw));
 }
 
+/* Pós-produção: detect if item is billed by delivery (cachê) vs hours */
+const POS_ENTREGA_KEYWORDS = ["locução", "trilha", "música", "narração", "legendagem", "tradução", "cachê", "direitos", "licença"];
+
+function posIsEntrega(itemName: string): boolean {
+  const lower = itemName.toLowerCase().trim();
+  return POS_ENTREGA_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 /** Get config for a category. For LOGÍSTICA, optionally hide Pessoas based on item name. */
 function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
   const base = categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
@@ -292,13 +300,18 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
       }
     });
 
-    // PÓS-PRODUÇÃO: each item individually (hours)
-    const posItems = validItems
+    // PÓS-PRODUÇÃO: separate hours vs entregas
+    const posHorasItems: { nome: string; horas: number }[] = [];
+    const posEntregaItems: { nome: string; qtd: number }[] = [];
+    validItems
       .filter((i) => i.category === "PÓS-PRODUÇÃO")
-      .map((item) => ({
-        nome: item.item_name,
-        horas: item.client_days,
-      }));
+      .forEach((item) => {
+        if (posIsEntrega(item.item_name)) {
+          posEntregaItems.push({ nome: item.item_name, qtd: item.client_days });
+        } else {
+          posHorasItems.push({ nome: item.item_name, horas: item.client_days });
+        }
+      });
 
     // LOGÍSTICA: each item with context (dias, pessoas if applicable)
     const logItems = validItems
@@ -312,15 +325,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
         };
       });
 
-    // Totals: PRODUÇÃO = max dias + sum pessoas
+    // Totals
     const prodItems = validItems.filter((i) => i.category === "PRODUÇÃO");
     const totalProducaoDias = prodItems.length > 0 ? Math.max(...prodItems.map((i) => i.client_days)) : 0;
     const totalProducaoPessoas = prodItems.reduce((s, i) => s + (i.client_people || 1), 0);
-    const totalPos = validItems
-      .filter((i) => i.category === "PÓS-PRODUÇÃO")
-      .reduce((s, i) => s + i.client_days, 0);
+    const totalPosHoras = posHorasItems.reduce((s, i) => s + i.horas, 0);
+    const totalPosEntregas = posEntregaItems.reduce((s, i) => s + i.qtd, 0);
 
-    return { producaoItems, posItems, logItems, totalProducaoDias, totalProducaoPessoas, totalPos };
+    return { producaoItems, posHorasItems, posEntregaItems, logItems, totalProducaoDias, totalProducaoPessoas, totalPosHoras, totalPosEntregas };
   }, [items]);
 
   const proposalName = useMemo(() => {
@@ -603,15 +615,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       </ul>
                     </div>
                   )}
-                  {resumoEntregas.posItems.length > 0 && (
+                  {(resumoEntregas.posHorasItems.length > 0 || resumoEntregas.posEntregaItems.length > 0) && (
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                        Pós-Produção ({resumoEntregas.totalPos}h de trabalho)
+                        Pós-Produção
                       </p>
                       <ul className="space-y-0.5">
-                        {resumoEntregas.posItems.map((r, i) => (
-                          <li key={i} className="text-foreground">
+                        {resumoEntregas.posHorasItems.map((r, i) => (
+                          <li key={`h${i}`} className="text-foreground">
                             • {r.horas}h de {r.nome.toLowerCase()}
+                          </li>
+                        ))}
+                        {resumoEntregas.posEntregaItems.map((r, i) => (
+                          <li key={`e${i}`} className="text-foreground">
+                            • {r.qtd > 1 ? `${r.qtd} entregas` : "1 entrega"} de {r.nome.toLowerCase()}
                           </li>
                         ))}
                       </ul>
@@ -637,8 +654,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
                       {resumoEntregas.totalProducaoDias > 0 && (
                         <li className="text-foreground font-medium">• {resumoEntregas.totalProducaoDias} {resumoEntregas.totalProducaoDias > 1 ? "diárias" : "diária"} de produção com {resumoEntregas.totalProducaoPessoas} {resumoEntregas.totalProducaoPessoas > 1 ? "pessoas" : "pessoa"}</li>
                       )}
-                      {resumoEntregas.totalPos > 0 && (
-                        <li className="text-foreground font-medium">• {resumoEntregas.totalPos}h de pós-produção</li>
+                      {resumoEntregas.totalPosHoras > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalPosHoras}h de pós-produção{resumoEntregas.totalPosEntregas > 0 ? ` + ${resumoEntregas.totalPosEntregas} ${resumoEntregas.totalPosEntregas > 1 ? "entregas" : "entrega"}` : ""}</li>
+                      )}
+                      {resumoEntregas.totalPosHoras === 0 && resumoEntregas.totalPosEntregas > 0 && (
+                        <li className="text-foreground font-medium">• {resumoEntregas.totalPosEntregas} {resumoEntregas.totalPosEntregas > 1 ? "entregas" : "entrega"} de pós-produção</li>
                       )}
                     </ul>
                   </div>
