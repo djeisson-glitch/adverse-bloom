@@ -277,57 +277,50 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   // Resumo de Entregas
   const resumoEntregas = useMemo(() => {
     const validItems = items.filter((i) => i.item_name.trim());
-    const resumo: Record<string, { nome: string; qtd: number; dias: number }[]> = {};
 
-    validItems.forEach((item) => {
-      const cat = item.category;
-      if (!resumo[cat]) resumo[cat] = [];
-
+    // PRODUÇÃO: group by name, count people & diárias
+    const producaoItems: { nome: string; qtd: number; dias: number }[] = [];
+    validItems.filter((i) => i.category === "PRODUÇÃO").forEach((item) => {
       const key = item.item_name.toLowerCase().trim();
-      const existing = resumo[cat].find((r) => r.nome.toLowerCase() === key);
-
-      if (cat === "PRODUÇÃO") {
-        const diarias = item.client_days * item.client_people;
-        if (existing) {
-          existing.qtd += item.client_people;
-          existing.dias += diarias;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: item.client_people, dias: diarias });
-        }
-      } else if (cat === "PÓS-PRODUÇÃO") {
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
-      } else if (cat === "LOGÍSTICA") {
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
+      const existing = producaoItems.find((r) => r.nome.toLowerCase() === key);
+      const diarias = item.client_days * item.client_people;
+      if (existing) {
+        existing.qtd += item.client_people;
+        existing.dias += diarias;
       } else {
-        // Generic
-        if (existing) {
-          existing.dias += item.client_days;
-        } else {
-          resumo[cat].push({ nome: item.item_name, qtd: 1, dias: item.client_days });
-        }
+        producaoItems.push({ nome: item.item_name, qtd: item.client_people, dias: diarias });
       }
     });
 
-    // Totals
+    // PÓS-PRODUÇÃO: each item individually (hours)
+    const posItems = validItems
+      .filter((i) => i.category === "PÓS-PRODUÇÃO")
+      .map((item) => ({
+        nome: item.item_name,
+        horas: item.client_days,
+      }));
+
+    // LOGÍSTICA: each item with context (dias, pessoas if applicable)
+    const logItems = validItems
+      .filter((i) => i.category === "LOGÍSTICA")
+      .map((item) => {
+        const needsPeople = logisticaNeedsPeople(item.item_name);
+        return {
+          nome: item.item_name,
+          dias: item.client_days,
+          pessoas: needsPeople ? item.client_people : null,
+        };
+      });
+
+    // Totals: only PRODUÇÃO diárias count
     const totalProducao = validItems
       .filter((i) => i.category === "PRODUÇÃO")
       .reduce((s, i) => s + i.client_days * i.client_people, 0);
     const totalPos = validItems
       .filter((i) => i.category === "PÓS-PRODUÇÃO")
       .reduce((s, i) => s + i.client_days, 0);
-    const totalLogistica = validItems
-      .filter((i) => i.category === "LOGÍSTICA")
-      .reduce((s, i) => s + i.client_days, 0);
 
-    return { resumo, totalProducao, totalPos, totalLogistica };
+    return { producaoItems, posItems, logItems, totalProducao, totalPos };
   }, [items]);
 
   const proposalName = useMemo(() => {
