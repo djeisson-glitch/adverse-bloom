@@ -177,7 +177,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
 
   const recalcItem = (item: BudgetItem, cat?: string): BudgetItem => {
     const category = cat || item.category;
-    const config = getCatConfig(category);
+    const config = getCatConfig(category, item.item_name);
     const cp = config.field2
       ? item.client_days * item.client_people * item.client_unit_price
       : item.client_days * item.client_unit_price;
@@ -201,7 +201,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion }: Props) {
   const updateItem = (index: number, field: keyof BudgetItem, value: any) => {
     setItems((prev) => {
       const copy = [...prev];
-      copy[index] = recalcItem({ ...copy[index], [field]: value });
+      const updated = { ...copy[index], [field]: value };
+      // Re-detect config when name changes for LOGÍSTICA
+      copy[index] = recalcItem(updated);
       return copy;
     });
   };
