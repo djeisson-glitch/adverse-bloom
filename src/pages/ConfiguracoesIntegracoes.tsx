@@ -166,23 +166,12 @@ export default function ConfiguracoesIntegracoes() {
               Token inválido ou expirado — faça login novamente na Conta Azul para continuar sincronizando.
             </div>
           )}
-          <div className="flex gap-2">
-            {needsReauth ? (
-              <Button variant="default" size="sm" onClick={handleReauth}>
-                <LogIn className="h-4 w-4 mr-2" />
-                Autenticar Conta Azul
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-                {syncing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {syncing ? "Sincronizando..." : "Sincronizar agora"}
-              </Button>
-            )}
-          </div>
+          {needsReauth && (
+            <Button variant="default" size="sm" onClick={handleReauth}>
+              <LogIn className="h-4 w-4 mr-2" />
+              Autenticar Conta Azul
+            </Button>
+          )}
 
           {/* Sync results */}
           {syncResults && (

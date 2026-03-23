@@ -39,8 +39,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
-
-
+  const isFinanceiroActive = financeiroItems.some((i) => location.pathname === i.url);
+  const [financeiroOpen, setFinanceiroOpen] = useState(isFinanceiroActive);
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const avatarUrl = profile?.avatar_url || "";
