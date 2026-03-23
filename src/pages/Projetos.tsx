@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,7 +31,7 @@ export default function Projetos() {
   const [filterPeriod, setFilterPeriod] = useState<string>("all");
 
   const [form, setForm] = useState({
-    name: "", client_name: "", sold_value: "", direct_costs: "",
+    name: "", client_name: "", client_id: "" as string | null, sold_value: "", direct_costs: "",
     status: "Pré-produção", sold_date: "", delivery_date: "", notes: "",
   });
 
@@ -53,6 +54,7 @@ export default function Projetos() {
       await createProject.mutateAsync({
         name: form.name,
         client_name: form.client_name,
+        client_id: form.client_id || undefined,
         sold_value: parseFloat(form.sold_value) || 0,
         direct_costs: parseFloat(form.direct_costs) || 0,
         status: form.status,
@@ -62,7 +64,7 @@ export default function Projetos() {
       });
       toast.success("Projeto criado com sucesso!");
       setOpen(false);
-      setForm({ name: "", client_name: "", sold_value: "", direct_costs: "", status: "Pré-produção", sold_date: "", delivery_date: "", notes: "" });
+      setForm({ name: "", client_name: "", client_id: null, sold_value: "", direct_costs: "", status: "Pré-produção", sold_date: "", delivery_date: "", notes: "" });
     } catch {
       toast.error("Erro ao criar projeto.");
     }
@@ -93,7 +95,10 @@ export default function Projetos() {
                 </div>
                 <div className="space-y-2">
                   <Label>Cliente</Label>
-                  <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required />
+                  <ClientSelect
+                    value={form.client_id}
+                    onChange={(id, name) => setForm({ ...form, client_id: id, client_name: name })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

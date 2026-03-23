@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClients } from "@/hooks/useDeals";
 import { useDeals } from "@/hooks/useDeals";
+import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
+import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ClientAvatar } from "@/components/clientes/ClientAvatar";
 import { NewClientModal } from "@/components/clientes/NewClientModal";
-import { Plus, Search, Loader2, ExternalLink } from "lucide-react";
+import { Plus, Search, Loader2, ExternalLink, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 const SEGMENTS = ["Todos", "Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 
@@ -17,9 +21,14 @@ export default function Clientes() {
   const { clients, isLoading } = useClients();
   const { deals } = useDeals();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState("Todos");
   const [newOpen, setNewOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const { data: receivablesCache } = useContaAzulCache("receivables");
 
   const enriched = useMemo(() => {
     return clients.map((c) => {
@@ -50,6 +59,52 @@ export default function Clientes() {
     return result.sort((a, b) => b.totalFaturado - a.totalFaturado);
   }, [enriched, search, segment]);
 
+  const handleImportContaAzul = async () => {
+    setImporting(true);
+    try {
+      // Extract unique client names from receivables
+      const receivableItems = extractItems<any>(receivablesCache?.payload);
+      const caNames = new Set<string>();
+      receivableItems.forEach((item: any) => {
+        const nome = item?.cliente?.nome;
+        if (nome && typeof nome === "string" && nome.trim()) {
+          caNames.add(nome.trim());
+        }
+      });
+
+      // Check which already exist (case-insensitive)
+      const existingNames = new Set(clients.map((c) => c.name.toLowerCase()));
+      const existingCompanies = new Set(clients.filter((c) => c.company).map((c) => c.company!.toLowerCase()));
+
+      const toInsert: { name: string; company: string | null; origin: string }[] = [];
+      let alreadyExisted = 0;
+
+      caNames.forEach((name) => {
+        const lower = name.toLowerCase();
+        if (existingNames.has(lower) || existingCompanies.has(lower)) {
+          alreadyExisted++;
+        } else {
+          toInsert.push({ name, company: name, origin: "Conta Azul" });
+        }
+      });
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase.from("clients").insert(toInsert);
+        if (error) throw error;
+        qc.invalidateQueries({ queryKey: ["clients"] });
+      }
+
+      toast({
+        title: "Importação concluída",
+        description: `${toInsert.length} clientes importados, ${alreadyExisted} já existiam`,
+      });
+    } catch (err) {
+      toast({ title: "Erro ao importar clientes", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -61,9 +116,15 @@ export default function Clientes() {
           <h1 className="font-heading text-2xl font-bold">Clientes</h1>
           <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
         </div>
-        <Button onClick={() => setNewOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Cliente
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleImportContaAzul} disabled={importing}>
+            <Download className="mr-2 h-4 w-4" />
+            {importing ? "Importando..." : "Importar do Conta Azul"}
+          </Button>
+          <Button onClick={() => setNewOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Cliente
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

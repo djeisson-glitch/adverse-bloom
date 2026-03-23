@@ -229,6 +229,7 @@ export type Database = {
           budget_number: number | null
           bv_percent: number
           bv_value: number | null
+          client_id: string | null
           client_name: string
           commission_percent: number
           commission_value: number | null
@@ -260,6 +261,7 @@ export type Database = {
           budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
+          client_id?: string | null
           client_name: string
           commission_percent?: number
           commission_value?: number | null
@@ -291,6 +293,7 @@ export type Database = {
           budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
+          client_id?: string | null
           client_name?: string
           commission_percent?: number
           commission_value?: number | null
@@ -318,6 +321,13 @@ export type Database = {
           version_notes?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "budgets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "budgets_deal_id_fkey"
             columns: ["deal_id"]
@@ -582,6 +592,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          client_id: string | null
           client_name: string
           created_at: string
           delivery_date: string | null
@@ -596,6 +607,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          client_id?: string | null
           client_name: string
           created_at?: string
           delivery_date?: string | null
@@ -610,6 +622,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          client_id?: string | null
           client_name?: string
           created_at?: string
           delivery_date?: string | null
@@ -623,7 +636,15 @@ export type Database = {
           sold_value?: number | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposal_templates: {
         Row: {

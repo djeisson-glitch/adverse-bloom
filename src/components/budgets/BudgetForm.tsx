@@ -16,6 +16,7 @@ import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDeals, useClients } from "@/hooks/useDeals";
 import { useSupplierContacts } from "@/hooks/useSupplierContacts";
+import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
@@ -153,6 +154,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const { clients: allClients } = useClients();
   const [markupPercent, setMarkupPercent] = useState(35);
   const [taxPercent, setTaxPercent] = useState(9.5);
   const [bvPercent, setBvPercent] = useState(0);
@@ -185,6 +188,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
     if (existing) {
       setProjectName(existing.project_name);
       setClientName(existing.client_name);
+      setClientId((existing as any).client_id ?? null);
       setMarkupPercent(existing.markup_percent);
       setTaxPercent(existing.tax_percent);
       setBvPercent(existing.bv_percent);
@@ -218,6 +222,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
       if (deal) {
         if (!clientName || clientName === "") {
           setClientName(deal.client?.name || "");
+          setClientId(deal.client_id || null);
         }
         if (!projectName || projectName === "") {
           setProjectName(deal.title);
@@ -393,6 +398,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
           ...(budgetId ? { id: budgetId } : {}),
           project_name: projectName,
           client_name: clientName,
+          client_id: clientId,
           status,
           markup_percent: markupPercent,
           tax_percent: taxPercent,
@@ -437,6 +443,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
           ...(budgetId ? { id: budgetId } : {}),
           project_name: projectName,
           client_name: clientName,
+          client_id: clientId,
           status: "approved",
           markup_percent: markupPercent,
           tax_percent: taxPercent,
@@ -603,7 +610,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Cliente</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" disabled={isApproved} className="h-8 text-sm" />
+              <ClientSelect
+                value={clientId}
+                onChange={(id, name) => { setClientId(id); setClientName(name); }}
+                disabled={isApproved}
+                size="sm"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Projeto</Label>
