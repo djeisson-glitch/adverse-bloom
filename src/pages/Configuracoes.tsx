@@ -1,10 +1,14 @@
 import { motion } from "framer-motion";
-import { Settings, BarChart3, ChevronRight } from "lucide-react";
+import { Settings, BarChart3, ChevronRight, Building2, Users, Calculator, Plug } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const sections = [
+  { title: "Geral", description: "Nome da empresa, logo e fuso horário", icon: Building2, path: "/configuracoes/geral" },
+  { title: "Usuários", description: "Gerenciar usuários, roles e permissões", icon: Users, path: "/configuracoes/usuarios" },
   { title: "Comercial", description: "Pipeline, metas, motivos de perda e follow-ups", icon: BarChart3, path: "/configuracoes/comercial" },
+  { title: "Orçamentos", description: "Markup, impostos, comissões e templates", icon: Calculator, path: "/configuracoes/orcamentos" },
+  { title: "Integrações", description: "Conta Azul e sincronização automática", icon: Plug, path: "/configuracoes/integracoes" },
 ];
 
 export default function Configuracoes() {

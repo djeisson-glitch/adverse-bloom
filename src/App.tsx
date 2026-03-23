@@ -22,7 +22,11 @@ import ContasAPagar from "./pages/ContasAPagar";
 import Comercial from "./pages/Comercial";
 import MapaOperacional from "./pages/MapaOperacional";
 import Configuracoes from "./pages/Configuracoes";
+import ConfiguracoesGeral from "./pages/ConfiguracoesGeral";
+import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
 import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
+import ConfiguracoesOrcamentos from "./pages/ConfiguracoesOrcamentos";
+import ConfiguracoesIntegracoes from "./pages/ConfiguracoesIntegracoes";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -64,7 +68,11 @@ const App = () => (
               <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+              <Route path="/configuracoes/geral" element={<ProtectedRoute><ConfiguracoesGeral /></ProtectedRoute>} />
+              <Route path="/configuracoes/usuarios" element={<ProtectedRoute><ConfiguracoesUsuarios /></ProtectedRoute>} />
               <Route path="/configuracoes/comercial" element={<ProtectedRoute><ConfiguracoesComercial /></ProtectedRoute>} />
+              <Route path="/configuracoes/orcamentos" element={<ProtectedRoute><ConfiguracoesOrcamentos /></ProtectedRoute>} />
+              <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PeriodProvider>
