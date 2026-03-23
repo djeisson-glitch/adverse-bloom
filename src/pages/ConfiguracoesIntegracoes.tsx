@@ -81,7 +81,7 @@ export default function ConfiguracoesIntegracoes() {
     setSyncResults(null);
     setNeedsReauth(false);
     try {
-      const { data, error } = await supabase.functions.invoke("ca-sync-full");
+      const { data, error } = await supabase.functions.invoke("conta-azul-sync");
       if (error) throw error;
 
       if (data?.results) {
