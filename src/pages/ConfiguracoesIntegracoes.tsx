@@ -80,9 +80,22 @@ export default function ConfiguracoesIntegracoes() {
     setSyncing(true);
     setSyncResults(null);
     setNeedsReauth(false);
+    const syncUrl = "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-sync";
+    console.log("[sync] Chamando URL:", syncUrl);
     try {
-      const { data, error } = await supabase.functions.invoke("conta-azul-sync");
-      if (error) throw error;
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const res = await fetch(syncUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtncnpmd2d5Z3Z3c3Rxb3dpcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4NTIzMjMsImV4cCI6MjA1ODQyODMyM30.jZ3-UMSf43MiFyJVHRkMu_ULNjJOlMQAlBSuwbqKwNI",
+        },
+      });
+      console.log("[sync] HTTP status:", res.status);
+      const data = await res.json();
+      console.log("[sync] Resposta:", JSON.stringify(data));
 
       if (data?.results) {
         setSyncResults(data.results);
@@ -97,6 +110,7 @@ export default function ConfiguracoesIntegracoes() {
         toast({ title: "Erro", description: data.error, variant: "destructive" });
       }
     } catch (err: any) {
+      console.error("[sync] Erro:", err);
       toast({ title: "Erro ao sincronizar", description: err.message, variant: "destructive" });
     } finally {
       setSyncing(false);
