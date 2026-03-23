@@ -36,9 +36,8 @@ export default function Comercial() {
   const navigate = useNavigate();
   const { settings } = useCommercialSettings();
 
-  // Tasks for counts
-  const { allTasks, createTask } = useTasks("__all__");
-  const allTasksHook = useTasks(undefined);
+  // Tasks for counts and follow-ups
+  const { allTasks, createTask: createFollowupTask } = useTasks("__all__");
 
   const [period, setPeriod] = useState<PeriodRange>(currentMonthRange);
   const [formOpen, setFormOpen] = useState(false);
