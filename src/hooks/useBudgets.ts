@@ -47,6 +47,9 @@ export interface Budget {
   version: number;
   parent_budget_id: string | null;
   is_latest_version: boolean;
+  deal_id: string | null;
+  not_included: string[];
+  version_notes: string | null;
 }
 
 export interface BudgetWithItems extends Budget {
