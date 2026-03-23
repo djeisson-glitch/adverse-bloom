@@ -525,7 +525,7 @@ export default function Orcamentos() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold text-foreground">Orçamentos</h1>
-        <Button onClick={() => setCreating(true)}>
+        <Button onClick={() => setNewBudgetModalOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Orçamento
         </Button>
