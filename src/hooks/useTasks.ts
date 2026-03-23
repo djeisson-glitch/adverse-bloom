@@ -8,18 +8,20 @@ export function useTasks(dealId?: string) {
   const qc = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["tasks", dealId],
+    queryKey: ["tasks", dealId || "none"],
     queryFn: async () => {
-      let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
-      if (dealId) q = q.eq("deal_id", dealId);
-      const { data, error } = await q;
+      if (!dealId || dealId === "__all__") return [];
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("deal_id", dealId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Task[];
     },
-    enabled: !!dealId,
   });
 
-  const allTasks = useQuery({
+  const allTasksQuery = useQuery({
     queryKey: ["tasks-all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("tasks").select("*").order("due_date", { ascending: true });
@@ -52,5 +54,5 @@ export function useTasks(dealId?: string) {
     },
   });
 
-  return { ...query, tasks: query.data || [], allTasks: allTasks.data || [], createTask, updateTask };
+  return { ...query, tasks: query.data || [], allTasks: allTasksQuery.data || [], createTask, updateTask };
 }
