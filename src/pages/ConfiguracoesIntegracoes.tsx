@@ -73,7 +73,8 @@ export default function ConfiguracoesIntegracoes() {
   }, []);
 
   const handleReauth = () => {
-    navigate("/auth/conta-azul");
+    const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=${encodeURIComponent("https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback")}&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin`;
+    window.open(authUrl, "contaazul", "width=600,height=700");
   };
 
   const handleSync = async () => {
@@ -109,9 +110,7 @@ export default function ConfiguracoesIntegracoes() {
     }
   };
 
-  const successCount = syncResults
-    ? Object.values(syncResults).filter((r) => r.status === "ok").length
-    : 0;
+  const successCount = syncResults ? Object.values(syncResults).filter((r) => r.status === "ok").length : 0;
   const errorCount = syncResults
     ? Object.values(syncResults).filter((r) => r.status === "error" || r.status === "reauth").length
     : 0;
@@ -133,13 +132,28 @@ export default function ConfiguracoesIntegracoes() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Conta Azul</CardTitle>
             {!checking && (
-              <Badge variant="outline" className={needsReauth ? "text-warning border-warning/30" : contaAzulConnected ? "text-green-400 border-green-400/30" : "text-destructive border-destructive/30"}>
+              <Badge
+                variant="outline"
+                className={
+                  needsReauth
+                    ? "text-warning border-warning/30"
+                    : contaAzulConnected
+                      ? "text-green-400 border-green-400/30"
+                      : "text-destructive border-destructive/30"
+                }
+              >
                 {needsReauth ? (
-                  <><AlertTriangle className="h-3 w-3 mr-1" /> Reautenticação necessária</>
+                  <>
+                    <AlertTriangle className="h-3 w-3 mr-1" /> Reautenticação necessária
+                  </>
                 ) : contaAzulConnected ? (
-                  <><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</>
+                  <>
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Conectado
+                  </>
                 ) : (
-                  <><XCircle className="h-3 w-3 mr-1" /> Desconectado</>
+                  <>
+                    <XCircle className="h-3 w-3 mr-1" /> Desconectado
+                  </>
                 )}
               </Badge>
             )}
@@ -154,26 +168,12 @@ export default function ConfiguracoesIntegracoes() {
               Token inválido ou expirado — faça login novamente na Conta Azul para continuar sincronizando.
             </div>
           )}
-          <div className="flex gap-2">
-            {needsReauth && (
-              <Button variant="default" size="sm" onClick={handleReauth}>
-                <LogIn className="h-4 w-4 mr-2" />
-                Autenticar Conta Azul
-              </Button>
-            )}
-            {contaAzulConnected && !syncing && (
-              <Button variant="outline" size="sm" onClick={handleSync}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Sincronizar agora
-              </Button>
-            )}
-            {syncing && (
-              <Button variant="outline" size="sm" disabled>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sincronizando...
-              </Button>
-            )}
-          </div>
+          {needsReauth && (
+            <Button variant="default" size="sm" onClick={handleReauth}>
+              <LogIn className="h-4 w-4 mr-2" />
+              Autenticar Conta Azul
+            </Button>
+          )}
 
           {/* Sync results */}
           {syncResults && (
@@ -193,9 +193,7 @@ export default function ConfiguracoesIntegracoes() {
                       <XCircle className="h-3 w-3 text-destructive shrink-0" />
                     )}
                     <span className="text-muted-foreground">{r.label || key}</span>
-                    {r.total !== undefined && (
-                      <span className="text-muted-foreground/60">({r.total} registros)</span>
-                    )}
+                    {r.total !== undefined && <span className="text-muted-foreground/60">({r.total} registros)</span>}
                     {r.status === "error" && r.message && (
                       <span className="text-destructive/70 truncate max-w-[200px]">{r.message}</span>
                     )}
@@ -208,12 +206,16 @@ export default function ConfiguracoesIntegracoes() {
       </Card>
 
       <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-base">Frequência de sincronização</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Frequência de sincronização</CardTitle>
+        </CardHeader>
         <CardContent>
           <div>
             <Label>Sincronização automática</Label>
             <Select value={syncFrequency} onValueChange={setSyncFrequency}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="manual">Manual</SelectItem>
                 <SelectItem value="daily">Diária</SelectItem>
