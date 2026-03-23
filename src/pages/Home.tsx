@@ -67,42 +67,32 @@ export default function Home() {
   });
   const monthlyTarget = settingsQuery.data?.monthly_target || 200000;
 
-  // ===== FINANCEIRO =====
-  const accountItems = extractItems(accounts.data?.payload);
-  const receivableItems = extractItems(receivables.data?.payload);
+  // ===== FINANCEIRO (mesma lógica do CaixaRunway e Index) =====
+  const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
+  const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  const saldoConta = useMemo(() => {
-    return accountItems.reduce((s: number, a: any) => s + (a.balance || a.saldo || 0), 0);
-  }, [accountItems]);
+  const saldoConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
+  const runway = burnRate > 0 ? saldoConta / burnRate : Infinity;
+  const runwayColor = runway > 4 ? "text-green-400" : runway >= 2 ? "text-amber-400" : "text-destructive";
 
-  const aReceber = useMemo(() => {
-    return receivableItems
-      .filter((r: any) => r.status !== "paid" && r.status !== "pago")
-      .reduce((s: number, r: any) => s + (r.value || r.valor || 0), 0);
-  }, [receivableItems]);
-
-  // Faturamento mês (deals ganhos no mês)
+  // Faturamento do mês = receita total por competência no mês atual
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const monthPeriod = {
+    from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
+    to: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`,
+  };
+  const faturamentoMes = useMemo(() => calcReceitaTotal(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
 
-  const wonThisMonth = useMemo(() => {
-    return deals.filter((d) => {
-      if (d.stage !== "ganho") return false;
-      const upd = d.updated_at ? new Date(d.updated_at) : null;
-      return upd && upd >= monthStart;
-    });
-  }, [deals, monthStart]);
-
-  const faturamentoMes = wonThisMonth.reduce((s, d) => s + (d.value || 0), 0);
-  const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
-
-  // Runway rough estimate
-  const approvedBudgets = budgets.filter((b) => b.status === "approved");
-  const avgMonthlyExpense = approvedBudgets.length > 0
-    ? approvedBudgets.reduce((s, b) => s + (b.total_value || 0), 0) / Math.max(approvedBudgets.length, 1)
-    : 50000;
-  const runway = avgMonthlyExpense > 0 ? saldoConta / avgMonthlyExpense : 0;
-  const runwayColor = runway > 4 ? "text-green-400" : runway >= 2 ? "text-amber-400" : "text-destructive";
+  // A receber: vencimentos futuros não recebidos, excluindo empréstimos
+  const today = now.toISOString().slice(0, 10);
+  const aReceber = useMemo(() => {
+    return recItems
+      .filter((r) => r?.data_vencimento && r.data_vencimento >= today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
+      .reduce((s, r) => s + (r?.total ?? 0), 0);
+  }, [recItems, today]);
 
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["ganho", "perdido"].includes(d.stage));
