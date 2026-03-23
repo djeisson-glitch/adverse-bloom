@@ -28,10 +28,7 @@ export default function Clientes() {
   const [newOpen, setNewOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const { data: receivablesCache } = useContaAzulCache("receivables");
-  const { data: payablesCache } = useContaAzulCache("payables");
   const { data: salesCache } = useContaAzulCache("sales");
-  const { data: transactionsCache } = useContaAzulCache("transactions");
 
   const enriched = useMemo(() => {
     return clients.map((c) => {
