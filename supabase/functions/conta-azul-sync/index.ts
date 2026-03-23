@@ -23,6 +23,7 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   const fiveMinutes = 5 * 60 * 1000;
 
   if (payload.access_token && now < expiresAt - fiveMinutes) {
+    console.log("[token] Token válido, expira em", Math.round((expiresAt - now) / 60000), "min");
     return { token: payload.access_token };
   }
 
@@ -30,6 +31,7 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
+  console.log("[token] Token expirado, tentando refresh...");
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!;
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!;
 
@@ -47,10 +49,11 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
-    console.error("Token refresh failed:", JSON.stringify(tokenData));
+    console.error("[token] Refresh falhou:", JSON.stringify(tokenData));
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
+  console.log("[token] Refresh OK, novo token obtido");
   await supabase.from("conta_azul_cache").upsert(
     {
       data_type: "auth_tokens",
@@ -62,6 +65,73 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   );
 
   return { token: tokenData.access_token };
+}
+
+const BASE = "https://api.contaazul.com/v2";
+const dataInicio = "2024-01-01";
+const dataFim = "2026-12-31";
+
+async function syncEndpoint(
+  supabase: any,
+  label: string,
+  dataType: string,
+  url: string,
+  headers: Record<string, string>,
+  now: string,
+  period: string,
+  paginated: boolean,
+): Promise<{ status: string; label: string; total?: number; message?: string }> {
+  console.log(`[sync] Iniciando: ${label} → ${url}`);
+  try {
+    if (!paginated) {
+      const res = await fetch(url, { headers });
+      console.log(`[sync] ${label}: HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text();
+        console.error(`[sync] ${label} FALHOU: ${body}`);
+        return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+      }
+      const payload = await res.json();
+      const items = Array.isArray(payload) ? payload : (payload.itens || payload.items || payload.data || []);
+      await supabase.from("conta_azul_cache").upsert(
+        { data_type: dataType, payload, fetched_at: now, period },
+        { onConflict: "data_type" },
+      );
+      console.log(`[sync] ${label}: OK (${Array.isArray(items) ? items.length : '?'} registros)`);
+      return { status: "ok", label, total: Array.isArray(items) ? items.length : undefined };
+    }
+
+    // Paginated
+    let allItems: any[] = [];
+    for (let pagina = 1; pagina <= 25; pagina++) {
+      const sep = url.includes("?") ? "&" : "?";
+      const pageUrl = `${url}${sep}page=${pagina}&size=200`;
+      const res = await fetch(pageUrl, { headers });
+      console.log(`[sync] ${label} página ${pagina}: HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text();
+        if (pagina === 1) {
+          console.error(`[sync] ${label} FALHOU na primeira página: ${body}`);
+          return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+        }
+        break;
+      }
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.itens || data.items || data.data || []);
+      allItems = allItems.concat(items);
+      console.log(`[sync] ${label} página ${pagina}: ${items.length} itens (total acumulado: ${allItems.length})`);
+      if (items.length < 200) break;
+    }
+    await supabase.from("conta_azul_cache").upsert(
+      { data_type: dataType, payload: { itens: allItems }, fetched_at: now, period },
+      { onConflict: "data_type" },
+    );
+    console.log(`[sync] ${label}: OK (${allItems.length} registros total)`);
+    return { status: "ok", label, total: allItems.length };
+  } catch (e) {
+    console.error(`[sync] ${label} ERRO:`, String(e));
+    return { status: "error", label, message: String(e) };
+  }
 }
 
 serve(async (req) => {
@@ -81,91 +151,54 @@ serve(async (req) => {
     }
 
     const token = tokenResult.token;
-    const bearer = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+    const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
     const now = new Date().toISOString();
     const period = now.slice(0, 7);
     const results: Record<string, any> = {};
-    const BASE = "https://api-v2.contaazul.com";
-    const dataInicio = "2025-01-01";
-    const dataFim = "2026-12-31";
 
-    try {
-      const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer });
-      results["accounts"] = { status: res.status };
-      if (res.ok)
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "accounts", payload: await res.json(), fetched_at: now, period },
-            { onConflict: "data_type" },
+    const jobs = [
+      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/accounts`, paginated: false },
+      { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
+      { key: "receivables", label: "Contas a receber", url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
+      { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
+      { key: "sales", label: "Vendas", url: `${BASE}/sales?emission_start=${dataInicio}&emission_end=${dataFim}`, paginated: true },
+      { key: "transactions", label: "Transações", url: `${BASE}/transactions?date_start=${dataInicio}&date_end=${dataFim}`, paginated: true },
+    ];
+
+    for (const job of jobs) {
+      const result = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
+
+      // If we get a token error, try refreshing once
+      if (result.status === "error" && result.message?.includes("401")) {
+        console.log(`[sync] Token inválido em ${job.label}, tentando refresh...`);
+        const refreshResult = await getValidToken(supabase);
+        if ("error" in refreshResult) {
+          results[job.key] = { status: "reauth", label: job.label };
+          // Skip remaining jobs
+          for (const remaining of jobs.slice(jobs.indexOf(job) + 1)) {
+            results[remaining.key] = { status: "skipped", label: remaining.label };
+          }
+          return new Response(
+            JSON.stringify({ ok: false, reauth: true, error: "Sessão expirada — faça login novamente na Conta Azul.", results }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
-    } catch (e) {
-      results["accounts"] = { error: String(e) };
-    }
-
-    try {
-      const res = await fetch(`${BASE}/v1/categorias?tamanho_pagina=200`, { headers: bearer });
-      results["categories"] = { status: res.status };
-      if (res.ok)
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "categories", payload: await res.json(), fetched_at: now, period },
-            { onConflict: "data_type" },
-          );
-    } catch (e) {
-      results["categories"] = { error: String(e) };
-    }
-
-    try {
-      let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 20; pagina++) {
-        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
-        const res = await fetch(url, { headers: bearer });
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = data.itens || [];
-        allItems = allItems.concat(items);
-        if (items.length < 200) break;
+        }
+        // Retry with new token
+        const retryHeaders = { Authorization: `Bearer ${refreshResult.token}`, Accept: "application/json" };
+        results[job.key] = await syncEndpoint(supabase, job.label, job.key, job.url, retryHeaders, now, period, job.paginated);
+      } else {
+        results[job.key] = result;
       }
-      await supabase
-        .from("conta_azul_cache")
-        .upsert(
-          { data_type: "receivables", payload: { itens: allItems }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
-      results["receivables"] = { total: allItems.length };
-    } catch (e) {
-      results["receivables"] = { error: String(e) };
     }
 
-    try {
-      let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 20; pagina++) {
-        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
-        const res = await fetch(url, { headers: bearer });
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = data.itens || [];
-        allItems = allItems.concat(items);
-        if (items.length < 200) break;
-      }
-      await supabase
-        .from("conta_azul_cache")
-        .upsert(
-          { data_type: "payables", payload: { itens: allItems }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
-      results["payables"] = { total: allItems.length };
-    } catch (e) {
-      results["payables"] = { error: String(e) };
-    }
+    console.log("[sync] Resultado final:", JSON.stringify(results));
 
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("[sync] Erro geral:", String(e));
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
