@@ -1,12 +1,11 @@
 import {
   Home, DollarSign, Handshake, Calculator, FolderKanban, Map, Settings, LogOut, ChevronDown,
-  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, RefreshCw, Users,
+  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -39,27 +38,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
-  const [syncing, setSyncing] = useState(false);
-  const { toast } = useToast();
-
   const isFinanceiroActive = financeiroItems.some((i) => location.pathname === i.url);
   const [financeiroOpen, setFinanceiroOpen] = useState(isFinanceiroActive);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      const { error } = await supabase.functions.invoke("ca-sync-full");
-      if (error) {
-        toast({ title: "Erro ao sincronizar", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Sincronizado com sucesso!" });
-      }
-    } catch {
-      toast({ title: "Erro ao sincronizar", description: "Erro inesperado.", variant: "destructive" });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const avatarUrl = profile?.avatar_url || "";
@@ -194,10 +174,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3 space-y-1">
-        <SidebarMenuButton onClick={handleSync} disabled={syncing} className="hover:bg-sidebar-accent/50 text-muted-foreground hover:text-foreground">
-          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          {!collapsed && <span>{syncing ? "Sincronizando..." : "Sincronizar"}</span>}
-        </SidebarMenuButton>
 
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-2 py-1.5">
