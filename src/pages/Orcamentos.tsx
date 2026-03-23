@@ -590,6 +590,18 @@ export default function Orcamentos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* New Budget Modal */}
+      <NewBudgetModal
+        open={newBudgetModalOpen}
+        onClose={() => setNewBudgetModalOpen(false)}
+        onSelectBlank={() => { setNewBudgetModalOpen(false); setCreating(true); }}
+        onSelectTemplate={(template) => {
+          setNewBudgetModalOpen(false);
+          setTemplateItems(template);
+          setCreating(true);
+        }}
+      />
     </div>
   );
 }
