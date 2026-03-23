@@ -28,10 +28,7 @@ export default function Clientes() {
   const [newOpen, setNewOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const { data: receivablesCache } = useContaAzulCache("receivables");
-  const { data: payablesCache } = useContaAzulCache("payables");
   const { data: salesCache } = useContaAzulCache("sales");
-  const { data: transactionsCache } = useContaAzulCache("transactions");
 
   const enriched = useMemo(() => {
     return clients.map((c) => {
@@ -65,62 +62,55 @@ export default function Clientes() {
   const handleImportContaAzul = async () => {
     setImporting(true);
     try {
-      // Helper to extract name strings from an item checking all possible fields
-      const extractName = (item: any): string | null => {
+      const salesItems = extractItems<any>(salesCache?.payload);
+
+      // Log 3 sample sales records to inspect payload structure
+      console.log("=== SALES PAYLOAD SAMPLE (3 registros) ===");
+      salesItems.slice(0, 3).forEach((item, i) => {
+        console.log(`Sales[${i}]:`, JSON.stringify(item, null, 2));
+      });
+      console.log(`Total sales records: ${salesItems.length}`);
+
+      // Extract client name from sales record (destinatário/tomador do serviço)
+      const extractClientName = (item: any): string | null => {
         if (!item) return null;
-        // Check nested objects: cliente.nome, fornecedor.nome, customer.name, destinatario.nome
-        const nested = [
-          item?.cliente?.nome,
-          item?.cliente?.razao_social,
-          item?.cliente?.name,
-          item?.fornecedor?.nome,
-          item?.fornecedor?.razao_social,
-          item?.fornecedor?.name,
-          item?.customer?.nome,
-          item?.customer?.name,
-          item?.customer?.razao_social,
+        const candidates = [
+          // Nested objects - destinatário/cliente/customer
           item?.destinatario?.nome,
           item?.destinatario?.razao_social,
           item?.destinatario?.name,
+          item?.destinatario?.nome_fantasia,
+          item?.cliente?.nome,
+          item?.cliente?.razao_social,
+          item?.cliente?.name,
+          item?.cliente?.nome_fantasia,
+          item?.customer?.nome,
+          item?.customer?.name,
+          item?.customer?.razao_social,
+          item?.customer?.nome_fantasia,
+          item?.tomador?.nome,
+          item?.tomador?.razao_social,
+          item?.tomador?.name,
+          item?.tomador?.nome_fantasia,
+          // Top-level fields
+          item.razao_social,
+          item.nome,
+          item.name,
+          item.nome_fantasia,
+          item.cliente_nome,
+          item.customer_name,
         ];
-        for (const v of nested) {
-          if (v && typeof v === "string" && v.trim()) return v.trim();
-        }
-        // Check top-level fields
-        const topLevel = [item.razao_social, item.nome, item.name, item.cliente_nome, item.customer_name];
-        for (const v of topLevel) {
+        for (const v of candidates) {
           if (v && typeof v === "string" && v.trim()) return v.trim();
         }
         return null;
       };
 
-      // Collect names by source for reporting
-      const sourceNames: Record<string, Set<string>> = {
-        receivables: new Set(),
-        payables: new Set(),
-        sales: new Set(),
-        transactions: new Set(),
-      };
-
-      const allCaches = [
-        { key: "receivables", data: receivablesCache },
-        { key: "payables", data: payablesCache },
-        { key: "sales", data: salesCache },
-        { key: "transactions", data: transactionsCache },
-      ];
-
-      for (const { key, data } of allCaches) {
-        const items = extractItems<any>(data?.payload);
-        for (const item of items) {
-          const name = extractName(item);
-          if (name) sourceNames[key].add(name);
-        }
-      }
-
-      // Merge all unique names (case-insensitive dedup)
-      const uniqueMap = new Map<string, string>(); // lowercase -> original
-      for (const names of Object.values(sourceNames)) {
-        for (const name of names) {
+      // Collect unique client names from sales only
+      const uniqueMap = new Map<string, string>();
+      for (const item of salesItems) {
+        const name = extractClientName(item);
+        if (name) {
           const lower = name.toLowerCase();
           if (!uniqueMap.has(lower)) uniqueMap.set(lower, name);
         }
@@ -147,16 +137,12 @@ export default function Clientes() {
         qc.invalidateQueries({ queryKey: ["clients"] });
       }
 
-      const sourceSummary = Object.entries(sourceNames)
-        .filter(([, s]) => s.size > 0)
-        .map(([k, s]) => `${k}: ${s.size}`)
-        .join(", ");
-
       toast({
         title: "Importação concluída",
-        description: `${toInsert.length} importados, ${alreadyExisted} já existiam. Total únicos: ${uniqueMap.size} (${sourceSummary})`,
+        description: `Encontrados em sales: ${uniqueMap.size} únicos | Já existiam: ${alreadyExisted} | Importados: ${toInsert.length}`,
       });
     } catch (err) {
+      console.error("Erro na importação:", err);
       toast({ title: "Erro ao importar clientes", variant: "destructive" });
     } finally {
       setImporting(false);
