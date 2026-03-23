@@ -222,6 +222,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
       if (deal) {
         if (!clientName || clientName === "") {
           setClientName(deal.client?.name || "");
+          setClientId(deal.client_id || null);
         }
         if (!projectName || projectName === "") {
           setProjectName(deal.title);
