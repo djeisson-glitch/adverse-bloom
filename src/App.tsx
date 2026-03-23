@@ -74,6 +74,7 @@ const App = () => (
               <Route path="/configuracoes/comercial" element={<ProtectedRoute><ConfiguracoesComercial /></ProtectedRoute>} />
               <Route path="/configuracoes/orcamentos" element={<ProtectedRoute><ConfiguracoesOrcamentos /></ProtectedRoute>} />
               <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
+              <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PeriodProvider>
