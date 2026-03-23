@@ -1,13 +1,14 @@
 import { useDroppable } from "@dnd-kit/core";
-import { type Deal, type Stage } from "@/hooks/useDeals";
-import { DealCard } from "./DealCard";
 import { formatCurrency } from "@/lib/format";
+import { DealCard } from "./DealCard";
+import type { Deal } from "@/hooks/useDeals";
 
 interface Props {
   stage: { id: string; label: string };
   deals: Deal[];
   total: number;
   onEditDeal: (deal: Deal) => void;
+  taskCounts?: Record<string, number>;
 }
 
 const stageColors: Record<string, string> = {
@@ -18,7 +19,7 @@ const stageColors: Record<string, string> = {
   perdido: "border-red-500/40",
 };
 
-export function KanbanColumn({ stage, deals, total, onEditDeal }: Props) {
+export function KanbanColumn({ stage, deals, total, onEditDeal, taskCounts = {} }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -40,7 +41,7 @@ export function KanbanColumn({ stage, deals, total, onEditDeal }: Props) {
 
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
         {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} onEdit={() => onEditDeal(deal)} />
+          <DealCard key={deal.id} deal={deal} onEdit={() => onEditDeal(deal)} pendingTaskCount={taskCounts[deal.id] || 0} />
         ))}
         {deals.length === 0 && (
           <p className="text-xs text-muted-foreground/50 text-center py-8">Nenhum deal</p>

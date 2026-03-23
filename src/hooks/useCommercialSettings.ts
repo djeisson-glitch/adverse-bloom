@@ -56,9 +56,12 @@ export function useCommercialSettings() {
     mutationFn: async (updates: Partial<CommercialSettings>) => {
       const settings = query.data;
       if (!settings) throw new Error("Settings not loaded");
+      const payload: Record<string, any> = { ...updates, updated_at: new Date().toISOString() };
+      if (updates.pipeline_stages) payload.pipeline_stages = JSON.parse(JSON.stringify(updates.pipeline_stages));
+      if (updates.loss_reasons) payload.loss_reasons = JSON.parse(JSON.stringify(updates.loss_reasons));
       const { data, error } = await supabase
         .from("commercial_settings")
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(payload)
         .eq("id", settings.id)
         .select()
         .single();
