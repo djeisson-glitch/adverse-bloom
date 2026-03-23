@@ -7,53 +7,84 @@ const corsHeaders = {
 };
 
 async function getValidToken(supabase: any): Promise<{ token: string } | { error: string; reauth: boolean }> {
-  const { data: authRow } = await supabase
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  console.log("[token] SUPABASE_URL usado pelo sync:", supabaseUrl);
+
+  const { data: authRow, error: fetchError } = await supabase
     .from("conta_azul_cache")
     .select("payload, fetched_at")
     .eq("data_type", "auth_tokens")
     .single();
 
+  if (fetchError) {
+    console.error("[token] Erro ao buscar auth_tokens:", JSON.stringify(fetchError));
+  }
+
   if (!authRow) return { error: "Tokens não encontrados. Faça login na Conta Azul.", reauth: true };
 
   const payload = authRow.payload;
+  console.log("[token] auth_tokens fetched_at:", authRow.fetched_at);
+  console.log("[token] payload keys:", Object.keys(payload));
+  console.log("[token] access_token prefix:", payload.access_token?.slice(0, 20) + "...");
+  console.log("[token] refresh_token present:", !!payload.refresh_token);
+  console.log("[token] expires_in:", payload.expires_in);
+  console.log("[token] token_type:", payload.token_type);
+
   const fetchedAt = new Date(authRow.fetched_at).getTime();
   const expiresIn = payload.expires_in || 3600;
   const expiresAt = fetchedAt + expiresIn * 1000;
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
 
+  console.log("[token] fetchedAt:", new Date(fetchedAt).toISOString(), "expiresAt:", new Date(expiresAt).toISOString(), "now:", new Date(now).toISOString());
+
   if (payload.access_token && now < expiresAt - fiveMinutes) {
-    console.log("[token] Token válido, expira em", Math.round((expiresAt - now) / 60000), "min");
+    console.log("[token] Token parece válido por tempo, expira em", Math.round((expiresAt - now) / 60000), "min");
     return { token: payload.access_token };
   }
 
   if (!payload.refresh_token) {
+    console.error("[token] Sem refresh_token no payload, keys:", Object.keys(payload));
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
   console.log("[token] Token expirado, tentando refresh...");
+  console.log("[token] refresh_token prefix:", payload.refresh_token.slice(0, 20) + "...");
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!;
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!;
+  console.log("[token] client_id prefix:", clientId?.slice(0, 8) + "...");
+
+  const refreshBody = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: payload.refresh_token,
+    client_id: clientId,
+    client_secret: clientSecret,
+  }).toString();
 
   const tokenRes = await fetch("https://api.contaazul.com/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: payload.refresh_token,
-      client_id: clientId,
-      client_secret: clientSecret,
-    }).toString(),
+    body: refreshBody,
   });
 
-  const tokenData = await tokenRes.json();
+  const tokenText = await tokenRes.text();
+  console.log("[token] Refresh response status:", tokenRes.status);
+  console.log("[token] Refresh response body:", tokenText);
+
+  let tokenData: any;
+  try {
+    tokenData = JSON.parse(tokenText);
+  } catch {
+    console.error("[token] Refresh response não é JSON:", tokenText.slice(0, 300));
+    return { error: "Erro ao renovar token da Conta Azul.", reauth: true };
+  }
 
   if (!tokenData.access_token) {
     console.error("[token] Refresh falhou:", JSON.stringify(tokenData));
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
-  console.log("[token] Refresh OK, novo token obtido");
+  console.log("[token] Refresh OK, novo access_token prefix:", tokenData.access_token.slice(0, 20) + "...");
   await supabase.from("conta_azul_cache").upsert(
     {
       data_type: "auth_tokens",
