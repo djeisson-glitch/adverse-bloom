@@ -188,6 +188,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
     if (existing) {
       setProjectName(existing.project_name);
       setClientName(existing.client_name);
+      setClientId((existing as any).client_id ?? null);
       setMarkupPercent(existing.markup_percent);
       setTaxPercent(existing.tax_percent);
       setBvPercent(existing.bv_percent);
