@@ -95,7 +95,10 @@ export default function Projetos() {
                 </div>
                 <div className="space-y-2">
                   <Label>Cliente</Label>
-                  <Input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} required />
+                  <ClientSelect
+                    value={form.client_id}
+                    onChange={(id, name) => setForm({ ...form, client_id: id, client_name: name })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
