@@ -163,18 +163,21 @@ export default function ConfiguracoesIntegracoes() {
             </div>
           )}
           <div className="flex gap-2">
-            <Button variant={needsReauth ? "default" : "outline"} size="sm" onClick={handleReauth}>
-              <LogIn className="h-4 w-4 mr-2" />
-              {needsReauth ? "Autenticar Conta Azul" : "Reautenticar"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || needsReauth}>
-              {syncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              {syncing ? "Sincronizando..." : "Sincronizar agora"}
-            </Button>
+            {needsReauth ? (
+              <Button variant="default" size="sm" onClick={handleReauth}>
+                <LogIn className="h-4 w-4 mr-2" />
+                Autenticar Conta Azul
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                {syncing ? "Sincronizando..." : "Sincronizar agora"}
+              </Button>
+            )}
           </div>
 
           {/* Sync results */}
