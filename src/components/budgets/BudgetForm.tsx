@@ -443,6 +443,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
           ...(budgetId ? { id: budgetId } : {}),
           project_name: projectName,
           client_name: clientName,
+          client_id: clientId,
           status: "approved",
           markup_percent: markupPercent,
           tax_percent: taxPercent,
