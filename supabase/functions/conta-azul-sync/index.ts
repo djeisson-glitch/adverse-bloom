@@ -152,8 +152,8 @@ serve(async (req) => {
       );
     }
 
-    const token = tokenResult.token;
-    const headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+    let token = tokenResult.token;
+    let headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
     const now = new Date().toISOString();
     const period = now.slice(0, 7);
     const results: Record<string, any> = {};
@@ -165,6 +165,8 @@ serve(async (req) => {
       { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
     ];
 
+    let needsReauth = false;
+
     for (const job of jobs) {
       const result = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
 
@@ -172,18 +174,30 @@ serve(async (req) => {
         console.log(`[sync] Token inválido em ${job.label}, tentando refresh...`);
         const refreshResult = await getValidToken(supabase);
         if ("error" in refreshResult) {
+          needsReauth = true;
           results[job.key] = { status: "reauth", label: job.label };
-          return new Response(
-            JSON.stringify({ ok: false, reauth: true, error: "Sessão expirada — faça login novamente na Conta Azul.", results }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
+          break;
         }
-        const retryHeaders = { Authorization: `Bearer ${refreshResult.token}`, Accept: "application/json" };
-        headers.Authorization = retryHeaders.Authorization;
-        results[job.key] = await syncEndpoint(supabase, job.label, job.key, job.url, retryHeaders, now, period, job.paginated);
+        token = refreshResult.token;
+        headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+        const retryResult = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
+        if (retryResult.status === "error" && retryResult.message?.includes("401")) {
+          needsReauth = true;
+          results[job.key] = { status: "reauth", label: job.label };
+          break;
+        }
+        results[job.key] = retryResult;
       } else {
         results[job.key] = result;
       }
+    }
+
+    if (needsReauth) {
+      console.log("[sync] Reauth necessário, retornando ao frontend");
+      return new Response(
+        JSON.stringify({ ok: false, reauth: true, error: "Sessão expirada — faça login novamente na Conta Azul.", results }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // SALES (notas fiscais emitidas) - v1 endpoint
