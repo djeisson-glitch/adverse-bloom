@@ -140,16 +140,73 @@ export default function Home() {
 
   const recentBudgets = budgets.slice(0, 3);
 
+  const CONTA_AZUL_AUTH_URL =
+    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
+
+  const openReauthPopup = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const popup = window.open(CONTA_AZUL_AUTH_URL, "contaazul_auth", "width=600,height=700,popup=yes");
+      if (!popup) {
+        // Popup blocked — fallback to new tab
+        window.open(CONTA_AZUL_AUTH_URL, "_blank");
+        toast({ title: "Autenticação aberta em nova aba", description: "Após fazer login, clique em Sincronizar novamente." });
+        resolve(false);
+        return;
+      }
+      const interval = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(interval);
+            resolve(true);
+          }
+          // Check if popup navigated back to our domain (callback done)
+          if (popup.location?.href?.includes(window.location.origin)) {
+            popup.close();
+            clearInterval(interval);
+            resolve(true);
+          }
+        } catch {
+          // Cross-origin — popup still on external domain, keep waiting
+        }
+      }, 500);
+      // Timeout after 3 minutes
+      setTimeout(() => {
+        clearInterval(interval);
+        if (!popup.closed) popup.close();
+        resolve(false);
+      }, 180_000);
+    });
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke("conta-azul-sync");
       if (error) {
         toast({ title: "Erro ao sincronizar", description: error.message, variant: "destructive" });
-      } else if (data?.reauth) {
-        toast({ title: "Sessão expirada", description: data.error, variant: "destructive" });
-      } else {
+        return;
+      }
+
+      if (data?.reauth) {
+        toast({ title: "Sessão expirada — abrindo autenticação..." });
+        const reauthDone = await openReauthPopup();
+        if (reauthDone) {
+          // Wait a moment for the callback to save the new token
+          await new Promise((r) => setTimeout(r, 2000));
+          toast({ title: "Reautenticado! Sincronizando..." });
+          const { data: retryData, error: retryError } = await supabase.functions.invoke("conta-azul-sync");
+          if (retryError) {
+            toast({ title: "Erro ao sincronizar", description: retryError.message, variant: "destructive" });
+          } else if (retryData?.ok) {
+            toast({ title: "Sincronização concluída!" });
+          } else {
+            toast({ title: "Erro", description: retryData?.error || "Tente novamente.", variant: "destructive" });
+          }
+        }
+      } else if (data?.ok) {
         toast({ title: "Sincronizado!" });
+      } else if (data?.error) {
+        toast({ title: "Erro", description: data.error, variant: "destructive" });
       }
     } catch {
       toast({ title: "Erro ao sincronizar", variant: "destructive" });
