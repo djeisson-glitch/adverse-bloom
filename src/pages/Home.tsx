@@ -207,7 +207,7 @@ export default function Home() {
           />
           <MetricCard
             label="Runway"
-            value={`${runway.toFixed(1)} meses`}
+            value={runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
             valueColor={runwayColor}
             icon={Clock}
             onClick={() => navigate("/financeiro/runway")}
