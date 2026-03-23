@@ -1,31 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, Save, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, Save, AlertTriangle, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
-const CONTA_AZUL_CLIENT_ID = "2jqEMBOBRxJnGKMn8wbpbQ";
-const REDIRECT_URI = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback";
 
 export default function ConfiguracoesIntegracoes() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [syncFrequency, setSyncFrequency] = useState("manual");
   const [syncing, setSyncing] = useState(false);
-  const [contaAzulConnected] = useState(true);
+  const [contaAzulConnected, setContaAzulConnected] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Check connection status and handle OAuth callback params
+  useEffect(() => {
+    const caSuccess = searchParams.get("ca_success");
+    const caError = searchParams.get("ca_error");
+
+    if (caSuccess) {
+      toast({ title: "Conta Azul conectada com sucesso!" });
+      searchParams.delete("ca_success");
+      setSearchParams(searchParams, { replace: true });
+    }
+    if (caError) {
+      toast({ title: "Erro na autenticação", description: caError, variant: "destructive" });
+      searchParams.delete("ca_error");
+      setSearchParams(searchParams, { replace: true });
+    }
+
+    // Check if we have valid tokens
+    (async () => {
+      const { data } = await supabase
+        .from("conta_azul_cache")
+        .select("payload, fetched_at")
+        .eq("data_type", "auth_tokens")
+        .maybeSingle();
+
+      if (!data || !data.payload) {
+        setContaAzulConnected(false);
+        setNeedsReauth(true);
+      } else {
+        const p = data.payload as any;
+        if (p.error || !p.access_token) {
+          setContaAzulConnected(false);
+          setNeedsReauth(true);
+        } else {
+          setContaAzulConnected(true);
+          // Check expiry
+          const fetchedAt = new Date(data.fetched_at).getTime();
+          const expiresIn = p.expires_in || 3600;
+          const expiresAt = fetchedAt + expiresIn * 1000;
+          if (Date.now() > expiresAt && !p.refresh_token) {
+            setNeedsReauth(true);
+          }
+        }
+      }
+      setChecking(false);
+    })();
+  }, []);
 
   const handleReauth = () => {
-    const authUrl = `https://api.contaazul.com/auth/authorize?redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_id=${CONTA_AZUL_CLIENT_ID}&scope=sales+accounting&response_type=code`;
-    window.open(authUrl, "_blank");
-    toast({ title: "Redirecionando para autenticação..." });
-    setNeedsReauth(false);
+    navigate("/auth/conta-azul");
   };
 
   const handleSync = async () => {
@@ -65,15 +108,17 @@ export default function ConfiguracoesIntegracoes() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Conta Azul</CardTitle>
-            <Badge variant="outline" className={needsReauth ? "text-warning border-warning/30" : contaAzulConnected ? "text-green-400 border-green-400/30" : "text-destructive border-destructive/30"}>
-              {needsReauth ? (
-                <><AlertTriangle className="h-3 w-3 mr-1" /> Sessão expirada</>
-              ) : contaAzulConnected ? (
-                <><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</>
-              ) : (
-                <><XCircle className="h-3 w-3 mr-1" /> Desconectado</>
-              )}
-            </Badge>
+            {!checking && (
+              <Badge variant="outline" className={needsReauth ? "text-warning border-warning/30" : contaAzulConnected ? "text-green-400 border-green-400/30" : "text-destructive border-destructive/30"}>
+                {needsReauth ? (
+                  <><AlertTriangle className="h-3 w-3 mr-1" /> Reautenticação necessária</>
+                ) : contaAzulConnected ? (
+                  <><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</>
+                ) : (
+                  <><XCircle className="h-3 w-3 mr-1" /> Desconectado</>
+                )}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -82,14 +127,15 @@ export default function ConfiguracoesIntegracoes() {
           </p>
           {needsReauth && (
             <div className="bg-warning/10 border border-warning/30 rounded-md p-3 text-sm text-warning">
-              Sessão expirada — faça login novamente na Conta Azul para continuar sincronizando.
+              Token inválido ou expirado — faça login novamente na Conta Azul para continuar sincronizando.
             </div>
           )}
           <div className="flex gap-2">
             <Button variant={needsReauth ? "default" : "outline"} size="sm" onClick={handleReauth}>
-              {needsReauth ? "Fazer login na Conta Azul" : "Reautenticar"}
+              <LogIn className="h-4 w-4 mr-2" />
+              {needsReauth ? "Autenticar Conta Azul" : "Reautenticar"}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || needsReauth}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Sincronizando..." : "Sincronizar agora"}
             </Button>

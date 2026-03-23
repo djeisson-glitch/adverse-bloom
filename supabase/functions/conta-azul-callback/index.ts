@@ -4,9 +4,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 serve(async (req) => {
   const url = new URL(req.url)
   const code = url.searchParams.get("code")
+  const error = url.searchParams.get("error")
+
+  // App URL for redirects
+  const appUrl = Deno.env.get("APP_URL") || "https://adverse-bloom.lovable.app"
+
+  if (error) {
+    return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_error=${encodeURIComponent(error)}`, 302)
+  }
 
   if (!code) {
-    return new Response("Missing code", { status: 400 })
+    return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_error=missing_code`, 302)
   }
 
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!
@@ -28,9 +36,8 @@ serve(async (req) => {
   const tokenData = await tokenRes.json()
 
   if (!tokenData.access_token) {
-    return new Response(JSON.stringify({ error: "Token exchange failed", detail: tokenData }), {
-      status: 400, headers: { "Content-Type": "application/json" }
-    })
+    console.error("Token exchange failed:", JSON.stringify(tokenData))
+    return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_error=token_exchange_failed`, 302)
   }
 
   const supabase = createClient(
@@ -45,7 +52,5 @@ serve(async (req) => {
     period: "auth"
   }, { onConflict: "data_type" })
 
-  return new Response("Autenticação concluída com sucesso! Pode fechar esta aba.", {
-    status: 200, headers: { "Content-Type": "text/plain" }
-  })
+  return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_success=true`, 302)
 })
