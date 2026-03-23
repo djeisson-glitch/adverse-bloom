@@ -31,7 +31,7 @@ export default function Projetos() {
   const [filterPeriod, setFilterPeriod] = useState<string>("all");
 
   const [form, setForm] = useState({
-    name: "", client_name: "", sold_value: "", direct_costs: "",
+    name: "", client_name: "", client_id: "" as string | null, sold_value: "", direct_costs: "",
     status: "Pré-produção", sold_date: "", delivery_date: "", notes: "",
   });
 
