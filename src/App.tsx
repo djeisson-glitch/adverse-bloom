@@ -22,7 +22,11 @@ import ContasAPagar from "./pages/ContasAPagar";
 import Comercial from "./pages/Comercial";
 import MapaOperacional from "./pages/MapaOperacional";
 import Configuracoes from "./pages/Configuracoes";
+import ConfiguracoesGeral from "./pages/ConfiguracoesGeral";
+import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
 import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
+import ConfiguracoesOrcamentos from "./pages/ConfiguracoesOrcamentos";
+import ConfiguracoesIntegracoes from "./pages/ConfiguracoesIntegracoes";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
