@@ -22,16 +22,18 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
 
-  // Token still valid (more than 5 min remaining)
   if (payload.access_token && now < expiresAt - fiveMinutes) {
     return { token: payload.access_token };
   }
 
-  // Token expired or about to expire — refresh
   if (!payload.refresh_token) {
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
+  return await refreshToken(supabase, payload);
+}
+
+async function refreshToken(supabase: any, payload: any): Promise<{ token: string } | { error: string; reauth: boolean }> {
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!;
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!;
 
@@ -53,7 +55,6 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
-  // Save new tokens
   await supabase.from("conta_azul_cache").upsert(
     {
       data_type: "auth_tokens",
@@ -65,6 +66,96 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   );
 
   return { token: tokenData.access_token };
+}
+
+const BASE = "https://api-v2.contaazul.com";
+const dataInicio = "2024-01-01";
+const dataFim = "2026-12-31";
+
+type SyncResult = { status: "ok"; total?: number } | { status: "error"; message: string } | { status: "reauth" };
+
+async function fetchWithRetry(
+  supabase: any,
+  bearerRef: { token: string },
+  fn: (headers: Record<string, string>) => Promise<SyncResult>,
+): Promise<SyncResult> {
+  const headers = { Authorization: `Bearer ${bearerRef.token}`, Accept: "application/json" };
+  const result = await fn(headers);
+
+  if (result.status === "error" && result.message.includes("invalid_token")) {
+    // Try refreshing token
+    const { data: authRow } = await supabase
+      .from("conta_azul_cache")
+      .select("payload")
+      .eq("data_type", "auth_tokens")
+      .single();
+
+    if (!authRow?.payload?.refresh_token) return { status: "reauth" };
+
+    const refreshResult = await refreshToken(supabase, authRow.payload);
+    if ("error" in refreshResult) return { status: "reauth" };
+
+    bearerRef.token = refreshResult.token;
+    const retryHeaders = { Authorization: `Bearer ${bearerRef.token}`, Accept: "application/json" };
+    return await fn(retryHeaders);
+  }
+
+  return result;
+}
+
+async function syncSimple(
+  supabase: any,
+  url: string,
+  dataType: string,
+  headers: Record<string, string>,
+  now: string,
+  period: string,
+): Promise<SyncResult> {
+  const res = await fetch(url, { headers });
+  if (res.status === 401) {
+    const body = await res.text();
+    return { status: "error", message: "invalid_token: " + body };
+  }
+  if (!res.ok) {
+    return { status: "error", message: `HTTP ${res.status}` };
+  }
+  const payload = await res.json();
+  await supabase.from("conta_azul_cache").upsert(
+    { data_type: dataType, payload, fetched_at: now, period },
+    { onConflict: "data_type" },
+  );
+  return { status: "ok" };
+}
+
+async function syncPaginated(
+  supabase: any,
+  urlBase: string,
+  dataType: string,
+  headers: Record<string, string>,
+  now: string,
+  period: string,
+  maxPages = 25,
+): Promise<SyncResult> {
+  let allItems: any[] = [];
+  for (let pagina = 1; pagina <= maxPages; pagina++) {
+    const sep = urlBase.includes("?") ? "&" : "?";
+    const url = `${urlBase}${sep}pagina=${pagina}&tamanho_pagina=200`;
+    const res = await fetch(url, { headers });
+    if (res.status === 401) {
+      const body = await res.text();
+      return { status: "error", message: "invalid_token: " + body };
+    }
+    if (!res.ok) break;
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : (data.itens || data.items || []);
+    allItems = allItems.concat(items);
+    if (items.length < 200) break;
+  }
+  await supabase.from("conta_azul_cache").upsert(
+    { data_type: dataType, payload: { itens: allItems }, fetched_at: now, period },
+    { onConflict: "data_type" },
+  );
+  return { status: "ok", total: allItems.length };
 }
 
 serve(async (req) => {
@@ -83,112 +174,99 @@ serve(async (req) => {
       );
     }
 
-    const token = tokenResult.token;
-    const bearer = { Authorization: `Bearer ${token}`, Accept: "application/json" };
+    const bearerRef = { token: tokenResult.token };
     const now = new Date().toISOString();
     const period = now.slice(0, 7);
     const results: Record<string, any> = {};
-    const BASE = "https://api-v2.contaazul.com";
-    const dataInicio = "2024-01-01";
-    const dataFim = "2026-12-31";
 
-    // Accounts
-    try {
-      const res = await fetch(`${BASE}/v1/conta-financeira`, { headers: bearer });
-      results["accounts"] = { status: res.status };
-      if (res.ok)
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "accounts", payload: await res.json(), fetched_at: now, period },
-            { onConflict: "data_type" },
-          );
-    } catch (e) {
-      results["accounts"] = { error: String(e) };
-    }
+    // Define all sync jobs
+    const jobs: { key: string; label: string; fn: (headers: Record<string, string>) => Promise<SyncResult> }[] = [
+      {
+        key: "accounts_v2",
+        label: "Contas financeiras",
+        fn: (h) => syncSimple(supabase, `${BASE}/v1/conta-financeira`, "accounts_v2", h, now, period),
+      },
+      {
+        key: "categories",
+        label: "Categorias",
+        fn: (h) => syncSimple(supabase, `${BASE}/v1/categorias?tamanho_pagina=200`, "categories", h, now, period),
+      },
+      {
+        key: "receivables",
+        label: "Contas a receber",
+        fn: (h) =>
+          syncPaginated(
+            supabase,
+            `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`,
+            "receivables",
+            h,
+            now,
+            period,
+          ),
+      },
+      {
+        key: "payables",
+        label: "Contas a pagar",
+        fn: (h) =>
+          syncPaginated(
+            supabase,
+            `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`,
+            "payables",
+            h,
+            now,
+            period,
+          ),
+      },
+      {
+        key: "sales",
+        label: "Vendas",
+        fn: (h) => syncPaginated(supabase, `${BASE}/v1/vendas`, "sales", h, now, period),
+      },
+      {
+        key: "transactions",
+        label: "Transações",
+        fn: (h) =>
+          syncPaginated(
+            supabase,
+            `${BASE}/v1/financeiro/eventos-financeiros/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`,
+            "transactions",
+            h,
+            now,
+            period,
+          ),
+      },
+    ];
 
-    // Categories
-    try {
-      const res = await fetch(`${BASE}/v1/categorias?tamanho_pagina=200`, { headers: bearer });
-      results["categories"] = { status: res.status };
-      if (res.ok)
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "categories", payload: await res.json(), fetched_at: now, period },
-            { onConflict: "data_type" },
-          );
-    } catch (e) {
-      results["categories"] = { error: String(e) };
-    }
+    let needsReauth = false;
 
-    // Receivables - up to 25 pages (5000 items)
-    try {
-      let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 25; pagina++) {
-        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-receber/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
-        const res = await fetch(url, { headers: bearer });
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = data.itens || [];
-        allItems = allItems.concat(items);
-        if (items.length < 200) break;
+    for (const job of jobs) {
+      if (needsReauth) {
+        results[job.key] = { status: "skipped", label: job.label };
+        continue;
       }
-      await supabase
-        .from("conta_azul_cache")
-        .upsert(
-          { data_type: "receivables", payload: { itens: allItems }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
-      results["receivables"] = { total: allItems.length };
-    } catch (e) {
-      results["receivables"] = { error: String(e) };
+      try {
+        const result = await fetchWithRetry(supabase, bearerRef, job.fn);
+        if (result.status === "reauth") {
+          needsReauth = true;
+          results[job.key] = { status: "reauth", label: job.label };
+        } else {
+          results[job.key] = { ...result, label: job.label };
+        }
+      } catch (e) {
+        results[job.key] = { status: "error", message: String(e), label: job.label };
+      }
     }
 
-    // Payables - up to 25 pages (5000 items)
-    try {
-      let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 25; pagina++) {
-        const url = `${BASE}/v1/financeiro/eventos-financeiros/contas-a-pagar/buscar?pagina=${pagina}&tamanho_pagina=200&data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`;
-        const res = await fetch(url, { headers: bearer });
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = data.itens || [];
-        allItems = allItems.concat(items);
-        if (items.length < 200) break;
-      }
-      await supabase
-        .from("conta_azul_cache")
-        .upsert(
-          { data_type: "payables", payload: { itens: allItems }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
-      results["payables"] = { total: allItems.length };
-    } catch (e) {
-      results["payables"] = { error: String(e) };
-    }
-
-    // Sales - up to 25 pages
-    try {
-      let allItems: any[] = [];
-      for (let pagina = 1; pagina <= 25; pagina++) {
-        const url = `${BASE}/v1/vendas?pagina=${pagina}&tamanho_pagina=200`;
-        const res = await fetch(url, { headers: bearer });
-        if (!res.ok) break;
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.itens || data.items || []);
-        allItems = allItems.concat(items);
-        if (items.length < 200) break;
-      }
-      await supabase
-        .from("conta_azul_cache")
-        .upsert(
-          { data_type: "sales", payload: { itens: allItems }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
-      results["sales"] = { total: allItems.length };
-    } catch (e) {
-      results["sales"] = { error: String(e) };
+    if (needsReauth) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          reauth: true,
+          error: "Sessão expirada — faça login novamente na Conta Azul.",
+          results,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {

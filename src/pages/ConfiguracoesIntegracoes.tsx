@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, Save, AlertTriangle, LogIn } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, AlertTriangle, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+type SyncResultEntry = {
+  status: string;
+  label: string;
+  total?: number;
+  message?: string;
+};
 
 export default function ConfiguracoesIntegracoes() {
   const navigate = useNavigate();
@@ -19,8 +26,8 @@ export default function ConfiguracoesIntegracoes() {
   const [contaAzulConnected, setContaAzulConnected] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [syncResults, setSyncResults] = useState<Record<string, SyncResultEntry> | null>(null);
 
-  // Check connection status and handle OAuth callback params
   useEffect(() => {
     const caSuccess = searchParams.get("ca_success");
     const caError = searchParams.get("ca_error");
@@ -36,7 +43,6 @@ export default function ConfiguracoesIntegracoes() {
       setSearchParams(searchParams, { replace: true });
     }
 
-    // Check if we have valid tokens
     (async () => {
       const { data } = await supabase
         .from("conta_azul_cache")
@@ -54,7 +60,6 @@ export default function ConfiguracoesIntegracoes() {
           setNeedsReauth(true);
         } else {
           setContaAzulConnected(true);
-          // Check expiry
           const fetchedAt = new Date(data.fetched_at).getTime();
           const expiresIn = p.expires_in || 3600;
           const expiresAt = fetchedAt + expiresIn * 1000;
@@ -73,10 +78,16 @@ export default function ConfiguracoesIntegracoes() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncResults(null);
     setNeedsReauth(false);
     try {
       const { data, error } = await supabase.functions.invoke("ca-sync-full");
       if (error) throw error;
+
+      if (data?.results) {
+        setSyncResults(data.results);
+      }
+
       if (data?.reauth) {
         setNeedsReauth(true);
         toast({ title: "Sessão expirada", description: data.error, variant: "destructive" });
@@ -91,6 +102,13 @@ export default function ConfiguracoesIntegracoes() {
       setSyncing(false);
     }
   };
+
+  const successCount = syncResults
+    ? Object.values(syncResults).filter((r) => r.status === "ok").length
+    : 0;
+  const errorCount = syncResults
+    ? Object.values(syncResults).filter((r) => r.status === "error" || r.status === "reauth").length
+    : 0;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -136,10 +154,44 @@ export default function ConfiguracoesIntegracoes() {
               {needsReauth ? "Autenticar Conta Azul" : "Reautenticar"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || needsReauth}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
               {syncing ? "Sincronizando..." : "Sincronizar agora"}
             </Button>
           </div>
+
+          {/* Sync results */}
+          {syncResults && (
+            <div className="mt-4 space-y-2">
+              <div className="flex gap-3 text-sm font-medium">
+                <span className="text-green-400">✓ {successCount} atualizados</span>
+                {errorCount > 0 && <span className="text-destructive">✗ {errorCount} falharam</span>}
+              </div>
+              <div className="space-y-1">
+                {Object.entries(syncResults).map(([key, r]) => (
+                  <div key={key} className="flex items-center gap-2 text-xs">
+                    {r.status === "ok" ? (
+                      <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                    ) : r.status === "skipped" ? (
+                      <span className="h-3 w-3 text-muted-foreground shrink-0">—</span>
+                    ) : (
+                      <XCircle className="h-3 w-3 text-destructive shrink-0" />
+                    )}
+                    <span className="text-muted-foreground">{r.label || key}</span>
+                    {r.total !== undefined && (
+                      <span className="text-muted-foreground/60">({r.total} registros)</span>
+                    )}
+                    {r.status === "error" && r.message && (
+                      <span className="text-destructive/70 truncate max-w-[200px]">{r.message}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
