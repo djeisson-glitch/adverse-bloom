@@ -54,6 +54,7 @@ export default function Projetos() {
       await createProject.mutateAsync({
         name: form.name,
         client_name: form.client_name,
+        client_id: form.client_id || undefined,
         sold_value: parseFloat(form.sold_value) || 0,
         direct_costs: parseFloat(form.direct_costs) || 0,
         status: form.status,
