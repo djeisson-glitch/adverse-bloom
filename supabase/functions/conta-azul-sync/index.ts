@@ -36,7 +36,14 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
 
-  console.log("[token] fetchedAt:", new Date(fetchedAt).toISOString(), "expiresAt:", new Date(expiresAt).toISOString(), "now:", new Date(now).toISOString());
+  console.log(
+    "[token] fetchedAt:",
+    new Date(fetchedAt).toISOString(),
+    "expiresAt:",
+    new Date(expiresAt).toISOString(),
+    "now:",
+    new Date(now).toISOString(),
+  );
 
   if (payload.access_token && now < expiresAt - fiveMinutes) {
     console.log("[token] Token parece válido por tempo, expira em", Math.round((expiresAt - now) / 60000), "min");
@@ -61,7 +68,7 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
     client_secret: clientSecret,
   }).toString();
 
-  const tokenRes = await fetch("https://api.contaazul.com/oauth2/token", {
+  const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: refreshBody,
@@ -125,12 +132,11 @@ async function syncEndpoint(
         return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
       }
       const payload = await res.json();
-      const items = Array.isArray(payload) ? payload : (payload.itens || payload.items || payload.data || []);
-      await supabase.from("conta_azul_cache").upsert(
-        { data_type: dataType, payload, fetched_at: now, period },
-        { onConflict: "data_type" },
-      );
-      console.log(`[sync] ${label}: OK (${Array.isArray(items) ? items.length : '?'} registros)`);
+      const items = Array.isArray(payload) ? payload : payload.itens || payload.items || payload.data || [];
+      await supabase
+        .from("conta_azul_cache")
+        .upsert({ data_type: dataType, payload, fetched_at: now, period }, { onConflict: "data_type" });
+      console.log(`[sync] ${label}: OK (${Array.isArray(items) ? items.length : "?"} registros)`);
       return { status: "ok", label, total: Array.isArray(items) ? items.length : undefined };
     }
 
@@ -150,15 +156,17 @@ async function syncEndpoint(
         break;
       }
       const data = await res.json();
-      const items = Array.isArray(data) ? data : (data.itens || data.items || data.data || []);
+      const items = Array.isArray(data) ? data : data.itens || data.items || data.data || [];
       allItems = allItems.concat(items);
       console.log(`[sync] ${label} página ${pagina}: ${items.length} itens (total acumulado: ${allItems.length})`);
       if (items.length < 200) break;
     }
-    await supabase.from("conta_azul_cache").upsert(
-      { data_type: dataType, payload: { itens: allItems }, fetched_at: now, period },
-      { onConflict: "data_type" },
-    );
+    await supabase
+      .from("conta_azul_cache")
+      .upsert(
+        { data_type: dataType, payload: { itens: allItems }, fetched_at: now, period },
+        { onConflict: "data_type" },
+      );
     console.log(`[sync] ${label}: OK (${allItems.length} registros total)`);
     return { status: "ok", label, total: allItems.length };
   } catch (e) {
@@ -177,10 +185,10 @@ serve(async (req) => {
 
     const tokenResult = await getValidToken(supabase);
     if ("error" in tokenResult) {
-      return new Response(
-        JSON.stringify({ error: tokenResult.error, reauth: tokenResult.reauth }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ error: tokenResult.error, reauth: tokenResult.reauth }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     let token = tokenResult.token;
@@ -192,8 +200,18 @@ serve(async (req) => {
     const jobs = [
       { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/accounts`, paginated: false },
       { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
-      { key: "receivables", label: "Contas a receber", url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
-      { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
+      {
+        key: "receivables",
+        label: "Contas a receber",
+        url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`,
+        paginated: true,
+      },
+      {
+        key: "payables",
+        label: "Contas a pagar",
+        url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`,
+        paginated: true,
+      },
     ];
 
     let needsReauth = false;
@@ -211,7 +229,16 @@ serve(async (req) => {
         }
         token = refreshResult.token;
         headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-        const retryResult = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
+        const retryResult = await syncEndpoint(
+          supabase,
+          job.label,
+          job.key,
+          job.url,
+          headers,
+          now,
+          period,
+          job.paginated,
+        );
         if (retryResult.status === "error" && retryResult.message?.includes("401")) {
           needsReauth = true;
           results[job.key] = { status: "reauth", label: job.label };
@@ -226,7 +253,12 @@ serve(async (req) => {
     if (needsReauth) {
       console.log("[sync] Reauth necessário, retornando ao frontend");
       return new Response(
-        JSON.stringify({ ok: false, reauth: true, error: "Sessão expirada — faça login novamente na Conta Azul.", results }),
+        JSON.stringify({
+          ok: false,
+          reauth: true,
+          error: "Sessão expirada — faça login novamente na Conta Azul.",
+          results,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -234,7 +266,10 @@ serve(async (req) => {
     // SALES - testar múltiplos endpoints
     const salesEndpoints = [
       { key: "v2_sales", url: `${BASE}/sales?emission_date_start=${dataInicio}&emission_date_end=${dataFim}&size=5` },
-      { key: "v1_nfs", url: `${BASE_V1}/notas-fiscais-servico?pagina=1&tamanho_pagina=5&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}` },
+      {
+        key: "v1_nfs",
+        url: `${BASE_V1}/notas-fiscais-servico?pagina=1&tamanho_pagina=5&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`,
+      },
       { key: "v1_vendas", url: `${BASE_V1}/vendas?pagina=1&tamanho_pagina=5` },
     ];
     const salesProbe: Record<string, any> = {};
@@ -253,8 +288,14 @@ serve(async (req) => {
 
     // TRANSACTIONS - testar múltiplos endpoints
     const txEndpoints = [
-      { key: "v2_financial_tx", url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}&size=5` },
-      { key: "v1_lancamentos", url: `${BASE_V1}/financeiro/lancamentos?pagina=1&tamanho_pagina=5&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}` },
+      {
+        key: "v2_financial_tx",
+        url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}&size=5`,
+      },
+      {
+        key: "v1_lancamentos",
+        url: `${BASE_V1}/financeiro/lancamentos?pagina=1&tamanho_pagina=5&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`,
+      },
       { key: "v1_movimentacoes", url: `${BASE_V1}/movimentacoes?pagina=1&tamanho_pagina=5` },
     ];
     const txProbe: Record<string, any> = {};
@@ -278,7 +319,10 @@ serve(async (req) => {
       while (true) {
         const url = `${BASE_V1}/notas-fiscais-servico?pagina=${page}&tamanho_pagina=100&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`;
         const res = await fetch(url, { headers });
-        if (!res.ok) { await res.text(); break; }
+        if (!res.ok) {
+          await res.text();
+          break;
+        }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
@@ -287,10 +331,12 @@ serve(async (req) => {
         page++;
       }
       if (allSales.length > 0) {
-        await supabase.from("conta_azul_cache").upsert(
-          { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
+        await supabase
+          .from("conta_azul_cache")
+          .upsert(
+            { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
+            { onConflict: "data_type" },
+          );
       }
       results["sales"] = { status: "ok", label: "Vendas (NFS)", total: allSales.length };
     } catch (e) {
@@ -304,7 +350,10 @@ serve(async (req) => {
       while (true) {
         const url = `${BASE_V1}/financeiro/lancamentos?pagina=${page}&tamanho_pagina=100&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`;
         const res = await fetch(url, { headers });
-        if (!res.ok) { await res.text(); break; }
+        if (!res.ok) {
+          await res.text();
+          break;
+        }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
@@ -313,10 +362,12 @@ serve(async (req) => {
         page++;
       }
       if (allTx.length > 0) {
-        await supabase.from("conta_azul_cache").upsert(
-          { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
-          { onConflict: "data_type" },
-        );
+        await supabase
+          .from("conta_azul_cache")
+          .upsert(
+            { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
+            { onConflict: "data_type" },
+          );
       }
       results["transactions"] = { status: "ok", label: "Transações", total: allTx.length };
     } catch (e) {
