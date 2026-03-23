@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,9 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
+import {
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, getCat,
+} from "@/lib/financial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +18,6 @@ import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
 } from "lucide-react";
-import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 function getGreeting() {
