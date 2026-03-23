@@ -6,7 +6,6 @@ serve(async (req) => {
   const code = url.searchParams.get("code")
   const error = url.searchParams.get("error")
 
-  // App URL for redirects
   const appUrl = Deno.env.get("APP_URL") || "https://adverse-bloom.lovable.app"
 
   if (error) {
@@ -21,7 +20,7 @@ serve(async (req) => {
 
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
-  const redirectUri = "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-callback"
+  const redirectUri = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback"
 
   console.log("[callback] Code recebido, trocando token...")
   console.log("[callback] client_id:", clientId ? `${clientId.slice(0, 6)}...` : "MISSING")
@@ -35,7 +34,6 @@ serve(async (req) => {
     client_secret: clientSecret,
   }).toString()
 
-  // Endpoint correto: auth.contaazul.com (não api.contaazul.com)
   const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -98,7 +96,6 @@ serve(async (req) => {
 
   console.log("[callback] Upsert OK, rows:", JSON.stringify(upsertData))
 
-  // Verify the save by reading back
   const { data: verifyRow, error: verifyErr } = await supabase
     .from("conta_azul_cache")
     .select("data_type, fetched_at, period")
@@ -109,3 +106,8 @@ serve(async (req) => {
   console.log("[callback] Token salvo, redirecionando para app")
   return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_success=true`, 302)
 })
+```
+
+Depois de colar no Lovable, troca a redirect_uri na Conta Azul de volta para:
+```
+https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback
