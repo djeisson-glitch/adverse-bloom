@@ -34,7 +34,7 @@ export default function Home() {
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
   const { deals } = useDeals();
   const { allTasks } = useTasks("__all__");
-  const { accounts, receivables } = useAllContaAzulCache();
+  const { accounts, receivables, payables } = useAllContaAzulCache();
   const [syncing, setSyncing] = useState(false);
 
   // Budgets query
