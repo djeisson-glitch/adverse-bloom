@@ -1,11 +1,38 @@
-Budget module: tables (budget_settings, budgets, budget_items, project_costs, suppliers), PDF generation with jsPDF, cost management for approved budgets
+Budget module: tables (budget_settings, budgets, budget_items, project_costs, suppliers, proposal_templates, budget_item_suppliers), PDF generation with jsPDF, cost management for approved budgets
 
 ## Tables
 - budget_settings: default markup/tax/commission/bv + commission split (djeisson/robert percent/enabled)
-- budgets: full budget with calculated totals
+- budgets: full budget with calculated totals, deal_id (FK deals), not_included (jsonb), version_notes (text)
 - budget_items: line items by category with client_price/supplier_cost, has_supplier_cost toggle
 - project_costs: real costs tracked against approved budgets
 - suppliers: registered suppliers per budget item (name, doc, amount, payment_date, status, sent_to_conta_azul)
+- proposal_templates: saved templates with categories, markup/tax/commission/bv defaults, not_included
+- budget_item_suppliers: multiple suppliers per budget item (name, unit_price, days, people, total)
+
+## CRM Integration
+- budgets.deal_id links to deals table
+- Selecting a deal auto-fills client_name and project_name
+- URL param ?deal_id= pre-selects deal (from CRM won modal)
+
+## Não Inclui
+- budgets.not_included jsonb array of strings
+- Collapsible section below categories in BudgetForm
+- Shown in Resumo de Entregas panel with "NÃO INCLUI" label
+- Default items on new budget: locações externas, alimentação equipe cliente, ajustes pós-aprovação
+
+## Templates (proposal_templates)
+- NewBudgetModal: "Em branco" or "Usar template"
+- SaveTemplateModal: saves current items/config as reusable template
+- Templates store: categories (items), markup/tax/commission/bv defaults, not_included
+
+## Version History
+- NewVersionModal: requires "O que mudou?" notes before creating new version
+- version_notes shown as tooltip + italic text in version history list
+
+## Approval Flow
+- ApprovalModal: option to create linked project on approval
+- Project fields: name, start date, delivery date, responsible
+- Creates project with status 'em_producao' and sold_value = budget total
 
 ## Pages
 - /orcamentos: listing with tabs (draft/approved/rejected), create/edit form, cost + supplier management
@@ -36,22 +63,3 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs, su
 - Djêisson + Robert, each with enabled toggle + individual %
 - Total commission = sum of enabled partner percentages
 - Stored in budget_settings: commission_djeisson_percent/enabled, commission_robert_percent/enabled
-
-## Resumo de Entregas
-- EQUIPE (PRODUÇÃO): groups by name, shows Nx nome (Y diár.)
-- PÓS-PRODUÇÃO: each item with hours
-- LOGÍSTICA: each item with dias (+ pessoas if alimentação/hospedagem)
-- Totals: only PRODUÇÃO diárias + PÓS horas (no logística total)
-
-## Inline Add (spreadsheet-style)
-- [+ Adicionar] inserts empty row at bottom of category table
-- Tab/Enter to navigate, Enter on last field saves + adds new row
-- Escape cancels empty row
-
-## Cost Entry (CostEntryTab)
-- Orçado = subtotal_1 (Sub-Total 1, what charges client)
-- Executado = sum of project_costs amounts
-- Progressive alerts: >70% yellow, >90% red, >100% critical with loss amount
-
-## PDF (generateBudgetPDF.ts)
-Uses jsPDF + jspdf-autotable. Dark themed pages: cover, about, method, investment briefing, investment value, não inclui, contato.
