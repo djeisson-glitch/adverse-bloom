@@ -130,8 +130,23 @@ export default function Orcamentos() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [newBudgetModalOpen, setNewBudgetModalOpen] = useState(false);
+  const [initialDealId, setInitialDealId] = useState<string | null>(null);
+  const [templateItems, setTemplateItems] = useState<ProposalTemplate | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle deal_id from URL (coming from CRM won modal)
+  useEffect(() => {
+    const dealParam = searchParams.get("deal_id");
+    if (dealParam) {
+      setInitialDealId(dealParam);
+      setCreating(true);
+      searchParams.delete("deal_id");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
 
   const { data: costBudget } = useBudgetWithItems(costBudgetId);
 
