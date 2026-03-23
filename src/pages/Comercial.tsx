@@ -61,13 +61,13 @@ export default function Comercial() {
   // Task counts per deal
   const taskCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    (allTasksHook.allTasks || []).forEach((t) => {
+    (allTasks || []).forEach((t) => {
       if (t.deal_id && !t.completed) {
         counts[t.deal_id] = (counts[t.deal_id] || 0) + 1;
       }
     });
     return counts;
-  }, [allTasksHook.allTasks]);
+  }, [allTasks]);
 
   const handleMoveDeal = (dealId: string, newStage: Stage) => {
     if (newStage === "perdido") {
@@ -96,7 +96,7 @@ export default function Comercial() {
         lost_reason: data.reason,
       });
       if (data.followup) {
-        await allTasksHook.createTask.mutateAsync({
+        await createFollowupTask.mutateAsync({
           deal_id: pendingMove.dealId,
           client_id: deal?.client_id || null,
           title: data.followup.title,
@@ -114,7 +114,7 @@ export default function Comercial() {
       const deal = deals.find((d) => d.id === pendingMove.dealId);
       await updateDeal.mutateAsync({ id: pendingMove.dealId, stage: "ganho" });
       if (opts.followup) {
-        await allTasksHook.createTask.mutateAsync({
+        await createFollowupTask.mutateAsync({
           deal_id: pendingMove.dealId,
           client_id: deal?.client_id || null,
           title: opts.followup.title,
@@ -184,7 +184,7 @@ export default function Comercial() {
         </TabsContent>
 
         <TabsContent value="indicadores" className="mt-4">
-          <Indicadores deals={filteredDeals} meta={settings.monthly_target} allTasks={allTasksHook.allTasks} periodFrom={period.from} periodTo={period.to} />
+          <Indicadores deals={filteredDeals} meta={settings.monthly_target} allTasks={allTasks} periodFrom={period.from} periodTo={period.to} />
         </TabsContent>
       </Tabs>
 
