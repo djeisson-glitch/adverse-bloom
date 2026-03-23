@@ -94,9 +94,19 @@ export default function Home() {
       .reduce((s, r) => s + (r?.total ?? 0), 0);
   }, [recItems, today]);
 
+  const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
+
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["ganho", "perdido"].includes(d.stage));
   const pipelineValue = openDeals.reduce((s, d) => s + (d.value || 0), 0);
+
+  const wonThisMonth = useMemo(() => {
+    return deals.filter((d) => {
+      if (d.stage !== "ganho") return false;
+      const upd = d.updated_at ? new Date(d.updated_at) : null;
+      return upd && upd >= monthStart;
+    });
+  }, [deals, monthStart]);
 
   const dealsThisMonth = useMemo(() => {
     return deals.filter((d) => {
@@ -117,7 +127,6 @@ export default function Home() {
   }, [openDeals]);
 
   // ===== OPERACIONAL =====
-  const today = new Date().toISOString().slice(0, 10);
   const overdueTasks = useMemo(() => {
     return allTasks
       .filter((t) => !t.completed && t.due_date && t.due_date <= today)
