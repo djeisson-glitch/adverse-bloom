@@ -1,32 +1,33 @@
-# Memory: index.md
-Updated: today
-
-# Adverse - Financial Dashboard
+Adverse OS — sistema operacional interno de produtora audiovisual premium brasileira.
 
 ## Design System
-- Dark theme only (no light mode toggle)
-- Font: Montserrat for everything (heading + body)
-- Primary: Adverse red #FF0000 (0 100% 50%)
-- Background: #1a1a1a (0 0% 10%)
-- Card: #262626 (0 0% 15%)
-- Border: #404040 (0 0% 25%)
-- Text secondary: #a3a3a3 (0 0% 64%)
-- Success: #10b981, Warning: #f59e0b, Danger: #ef4444
-- Glass card effect with backdrop blur
+- Dark theme only, minimalista, premium, sem gradientes
+- Font: Inter (heading + body)
+- Background: #0d0d0d (0 0% 5.1%)
+- Sidebar: #111111 (0 0% 6.7%)
+- Card: #161616 (0 0% 8.6%)
+- Primary/Accent: #E53500 (14 100% 45%) — vermelho Adverse
+- Foreground: #ffffff, Muted: #a0a0a0
+- Border: #222222
 
 ## Language
 - All UI in Portuguese (Brazil)
 
 ## Architecture
-- Auth: email/password only, 2 users
-- Sidebar sections: Visão Geral, Projetos, Clientes, Fluxo de Caixa, Custos
-- Protected routes with AuthContext
-- Uses Lovable Cloud (Supabase) for auth
+- Auth: Google OAuth only (via lovable.auth.signInWithOAuth)
+- Profiles auto-created on first login from Google metadata
+- Roles stored in user_roles table (app_role enum: admin, manager, operator)
+- has_role() security definer function for RLS
 
-## Pages
-- /login - Login page
-- / - Overview dashboard
-- /projetos - Projects table
-- /clientes - Client cards
-- /fluxo-de-caixa - Cash flow transactions
-- /custos - Cost breakdown
+## Navigation (sidebar)
+- Home (/)
+- Financeiro (collapsible submenu): Visão Geral, Fluxo de Caixa, Custos, Resultados & Metas, Caixa & Runway, Insights, Projeções 2026, Contas a Pagar
+- Comercial (/comercial)
+- Orçamentos (/orcamentos)
+- Projetos (disabled, "em breve")
+- Mapa Operacional (/mapa-operacional)
+- Configurações (/configuracoes) — admin only
+
+## DB Tables
+- profiles, user_roles, clients, deals, proposals
+- Plus existing: budgets, budget_items, budget_settings, budget_targets, projects, suppliers, etc.

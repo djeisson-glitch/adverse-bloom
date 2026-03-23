@@ -7,8 +7,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import Login from "./pages/Login";
+import Home from "./pages/Home";
 import Index from "./pages/Index";
-import Projetos from "./pages/Projetos";
 import Clientes from "./pages/Clientes";
 import FluxoDeCaixa from "./pages/FluxoDeCaixa";
 import Custos from "./pages/Custos";
@@ -18,6 +18,9 @@ import Insights from "./pages/Insights";
 import Projecoes2026 from "./pages/Projecoes2026";
 import Orcamentos from "./pages/Orcamentos";
 import ContasAPagar from "./pages/ContasAPagar";
+import Comercial from "./pages/Comercial";
+import MapaOperacional from "./pages/MapaOperacional";
+import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -44,8 +47,8 @@ const App = () => (
           <PeriodProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/projetos" element={<ProtectedRoute><Projetos /></ProtectedRoute>} />
+              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/financeiro" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
               <Route path="/fluxo-de-caixa" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
               <Route path="/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
@@ -55,6 +58,9 @@ const App = () => (
               <Route path="/projecoes-2026" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
               <Route path="/contas-a-pagar" element={<ProtectedRoute><ContasAPagar /></ProtectedRoute>} />
+              <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
+              <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
+              <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PeriodProvider>
