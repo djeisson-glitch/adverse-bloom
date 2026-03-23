@@ -7,7 +7,10 @@ const REDIRECT_URI = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/cont
 export default function AuthContaAzul() {
   useEffect(() => {
     const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${CONTA_AZUL_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin`;
-    window.location.href = authUrl;
+    const popup = window.open(authUrl, "contaazul", "width=600,height=700");
+    if (!popup) {
+      window.location.href = authUrl;
+    }
   }, []);
 
   return (
