@@ -12,13 +12,15 @@ import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } f
 import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { BudgetCostTabs } from "@/components/budgets/BudgetCostTabs";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
+import { NewBudgetModal } from "@/components/budgets/NewBudgetModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-// import { generateBudgetPDF } from "@/lib/generateBudgetPDF"; // PDF desativado temporariamente
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
+import type { ProposalTemplate } from "@/hooks/useTemplates";
+import { useSearchParams } from "react-router-dom";
 
 // ── Filter types ──────────────────────────────────────────
 type SortField = "number" | "date" | "client" | "total" | "margin";
@@ -128,8 +130,23 @@ export default function Orcamentos() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(loadFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [newBudgetModalOpen, setNewBudgetModalOpen] = useState(false);
+  const [initialDealId, setInitialDealId] = useState<string | null>(null);
+  const [templateItems, setTemplateItems] = useState<ProposalTemplate | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle deal_id from URL (coming from CRM won modal)
+  useEffect(() => {
+    const dealParam = searchParams.get("deal_id");
+    if (dealParam) {
+      setInitialDealId(dealParam);
+      setCreating(true);
+      searchParams.delete("deal_id");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams]);
 
   const { data: costBudget } = useBudgetWithItems(costBudgetId);
 
@@ -275,8 +292,9 @@ export default function Orcamentos() {
     return (
       <BudgetForm
         budgetId={editingId}
-        onClose={() => { setEditingId(null); setCreating(false); }}
+        onClose={() => { setEditingId(null); setCreating(false); setInitialDealId(null); }}
         onOpenVersion={(id) => setEditingId(id)}
+        initialDealId={initialDealId}
       />
     );
   }
@@ -507,7 +525,7 @@ export default function Orcamentos() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-2xl font-bold text-foreground">Orçamentos</h1>
-        <Button onClick={() => setCreating(true)}>
+        <Button onClick={() => setNewBudgetModalOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Orçamento
         </Button>
@@ -572,6 +590,18 @@ export default function Orcamentos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* New Budget Modal */}
+      <NewBudgetModal
+        open={newBudgetModalOpen}
+        onClose={() => setNewBudgetModalOpen(false)}
+        onSelectBlank={() => { setNewBudgetModalOpen(false); setCreating(true); }}
+        onSelectTemplate={(template) => {
+          setNewBudgetModalOpen(false);
+          setTemplateItems(template);
+          setCreating(true);
+        }}
+      />
     </div>
   );
 }

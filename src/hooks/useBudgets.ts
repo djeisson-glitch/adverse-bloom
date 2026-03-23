@@ -47,6 +47,9 @@ export interface Budget {
   version: number;
   parent_budget_id: string | null;
   is_latest_version: boolean;
+  deal_id: string | null;
+  not_included: string[];
+  version_notes: string | null;
 }
 
 export interface BudgetWithItems extends Budget {
@@ -63,7 +66,10 @@ export function useBudgets() {
         .eq("is_latest_version", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Budget[];
+      return (data as any[]).map((b) => ({
+        ...b,
+        not_included: (b.not_included ?? []) as string[],
+      })) as Budget[];
     },
   });
 }
@@ -87,7 +93,11 @@ export function useBudgetWithItems(id: string | null) {
         .order("order_index", { ascending: true });
       if (itemsError) throw itemsError;
 
-      return { ...budget, budget_items: items } as BudgetWithItems;
+      return {
+        ...budget,
+        not_included: (budget.not_included ?? []) as string[],
+        budget_items: items,
+      } as BudgetWithItems;
     },
   });
 }

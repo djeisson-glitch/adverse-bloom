@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_item_suppliers: {
+        Row: {
+          budget_id: string
+          budget_item_id: string
+          created_at: string | null
+          days: number | null
+          id: string
+          notes: string | null
+          people: number | null
+          supplier_name: string
+          total: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          budget_id: string
+          budget_item_id: string
+          created_at?: string | null
+          days?: number | null
+          id?: string
+          notes?: string | null
+          people?: number | null
+          supplier_name: string
+          total?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          budget_id?: string
+          budget_item_id?: string
+          created_at?: string | null
+          days?: number | null
+          id?: string
+          notes?: string | null
+          people?: number | null
+          supplier_name?: string
+          total?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_item_suppliers_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_item_suppliers_budget_item_id_fkey"
+            columns: ["budget_item_id"]
+            isOneToOne: false
+            referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_items: {
         Row: {
           budget_id: string
@@ -180,12 +234,14 @@ export type Database = {
           commission_value: number | null
           created_at: string
           created_by: string | null
+          deal_id: string | null
           discount: number
           id: string
           is_latest_version: boolean
           margin_percent: number | null
           margin_value: number | null
           markup_percent: number
+          not_included: Json | null
           parent_budget_id: string | null
           project_name: string
           proposal_name: string | null
@@ -197,6 +253,7 @@ export type Database = {
           total_value: number | null
           updated_at: string
           version: number
+          version_notes: string | null
         }
         Insert: {
           addition?: number
@@ -208,12 +265,14 @@ export type Database = {
           commission_value?: number | null
           created_at?: string
           created_by?: string | null
+          deal_id?: string | null
           discount?: number
           id?: string
           is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
           markup_percent?: number
+          not_included?: Json | null
           parent_budget_id?: string | null
           project_name: string
           proposal_name?: string | null
@@ -225,6 +284,7 @@ export type Database = {
           total_value?: number | null
           updated_at?: string
           version?: number
+          version_notes?: string | null
         }
         Update: {
           addition?: number
@@ -236,12 +296,14 @@ export type Database = {
           commission_value?: number | null
           created_at?: string
           created_by?: string | null
+          deal_id?: string | null
           discount?: number
           id?: string
           is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
           markup_percent?: number
+          not_included?: Json | null
           parent_budget_id?: string | null
           project_name?: string
           proposal_name?: string | null
@@ -253,8 +315,16 @@ export type Database = {
           total_value?: number | null
           updated_at?: string
           version?: number
+          version_notes?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "budgets_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "budgets_parent_budget_id_fkey"
             columns: ["parent_budget_id"]
@@ -551,6 +621,56 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      proposal_templates: {
+        Row: {
+          bv_default: number | null
+          categories: Json
+          commission_default: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          markup_default: number | null
+          name: string
+          not_included: Json | null
+          tax_default: number | null
+        }
+        Insert: {
+          bv_default?: number | null
+          categories?: Json
+          commission_default?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          markup_default?: number | null
+          name: string
+          not_included?: Json | null
+          tax_default?: number | null
+        }
+        Update: {
+          bv_default?: number | null
+          categories?: Json
+          commission_default?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          markup_default?: number | null
+          name?: string
+          not_included?: Json | null
+          tax_default?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposals: {
         Row: {
