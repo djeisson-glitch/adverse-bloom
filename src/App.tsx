@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
+import ClienteDetalhe from "./pages/ClienteDetalhe";
 import FluxoDeCaixa from "./pages/FluxoDeCaixa";
 import Custos from "./pages/Custos";
 import ResultadosMetas from "./pages/ResultadosMetas";
