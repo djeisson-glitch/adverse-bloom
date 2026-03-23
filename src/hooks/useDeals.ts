@@ -87,7 +87,16 @@ export function useClients() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["clients"] }),
   });
 
-  return { ...query, clients: query.data || [], createClient };
+  const updateClient = useMutation({
+    mutationFn: async ({ id, ...updates }: TablesUpdate<"clients"> & { id: string }) => {
+      const { data, error } = await supabase.from("clients").update(updates).eq("id", id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["clients"] }),
+  });
+
+  return { ...query, clients: query.data || [], createClient, updateClient };
 }
 
 export function useProfiles() {

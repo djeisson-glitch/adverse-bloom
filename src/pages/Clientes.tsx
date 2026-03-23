@@ -1,39 +1,54 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
-import { useProjects } from "@/hooks/useProjects";
-import { formatCurrency, formatPercent } from "@/lib/format";
-import { Building2, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useClients } from "@/hooks/useDeals";
+import { useDeals } from "@/hooks/useDeals";
+import { formatCurrency } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ClientAvatar } from "@/components/clientes/ClientAvatar";
+import { NewClientModal } from "@/components/clientes/NewClientModal";
+import { Plus, Search, Loader2, ExternalLink } from "lucide-react";
 
-interface ClientSummary {
-  name: string;
-  totalFaturado: number;
-  numProjetos: number;
-  ticketMedio: number;
-  margemMedia: number;
-}
+const SEGMENTS = ["Todos", "Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 
 export default function Clientes() {
-  const { data: projects, isLoading } = useProjects();
+  const { clients, isLoading } = useClients();
+  const { deals } = useDeals();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [segment, setSegment] = useState("Todos");
+  const [newOpen, setNewOpen] = useState(false);
 
-  const clients = useMemo<ClientSummary[]>(() => {
-    if (!projects) return [];
-    const map: Record<string, { total: number; count: number; margins: number[] }> = {};
-    projects.forEach((p) => {
-      if (!map[p.client_name]) map[p.client_name] = { total: 0, count: 0, margins: [] };
-      map[p.client_name].total += p.sold_value ?? 0;
-      map[p.client_name].count += 1;
-      map[p.client_name].margins.push(p.gross_margin_percent ?? 0);
+  const enriched = useMemo(() => {
+    return clients.map((c) => {
+      const clientDeals = deals.filter((d) => d.client_id === c.id);
+      const wonDeals = clientDeals.filter((d) => d.stage === "ganho");
+      const totalFaturado = wonDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+      const lastDeal = clientDeals[0];
+      return {
+        ...c,
+        totalFaturado,
+        numProjetos: wonDeals.length,
+        lastContact: lastDeal?.updated_at || c.created_at,
+      };
     });
-    return Object.entries(map)
-      .map(([name, d]) => ({
-        name,
-        totalFaturado: d.total,
-        numProjetos: d.count,
-        ticketMedio: d.count > 0 ? d.total / d.count : 0,
-        margemMedia: d.margins.length > 0 ? d.margins.reduce((a, b) => a + b, 0) / d.margins.length : 0,
-      }))
-      .sort((a, b) => b.totalFaturado - a.totalFaturado);
-  }, [projects]);
+  }, [clients, deals]);
+
+  const filtered = useMemo(() => {
+    let result = enriched;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((c) =>
+        c.name.toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q)
+      );
+    }
+    if (segment !== "Todos") {
+      result = result.filter((c) => c.segment === segment);
+    }
+    return result.sort((a, b) => b.totalFaturado - a.totalFaturado);
+  }, [enriched, search, segment]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -41,54 +56,93 @@ export default function Clientes() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Clientes</h1>
-        <p className="text-sm text-muted-foreground">Visão consolidada por cliente</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Clientes</h1>
+          <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
+        </div>
+        <Button onClick={() => setNewOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Novo Cliente
+        </Button>
       </div>
 
-      {clients.length === 0 ? (
-        <p className="text-muted-foreground text-sm py-10 text-center">Nenhum cliente encontrado. Crie projetos primeiro.</p>
-      ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="p-4 font-medium">Cliente</th>
-                <th className="p-4 font-medium text-right">Total Faturado</th>
-                <th className="p-4 font-medium text-right">Projetos</th>
-                <th className="p-4 font-medium text-right">Ticket Médio</th>
-                <th className="p-4 font-medium text-right">Margem Bruta Média</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c, i) => (
-                <motion.tr
-                  key={c.name}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome ou empresa..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={segment} onValueChange={setSegment}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Empresa</TableHead>
+              <TableHead>Segmento</TableHead>
+              <TableHead className="text-right">Total Faturado</TableHead>
+              <TableHead className="text-right">Projetos</TableHead>
+              <TableHead>Último Contato</TableHead>
+              <TableHead className="w-10"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                  Nenhum cliente encontrado
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((c) => (
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer hover:bg-secondary/30"
+                  onClick={() => navigate(`/clientes/${c.id}`)}
                 >
-                  <td className="p-4">
+                  <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                        <Building2 className="h-4 w-4 text-primary" />
-                      </div>
+                      <ClientAvatar name={c.name} />
                       <span className="font-medium">{c.name}</span>
                     </div>
-                  </td>
-                  <td className="p-4 text-right font-heading font-semibold text-primary">{formatCurrency(c.totalFaturado)}</td>
-                  <td className="p-4 text-right">{c.numProjetos}</td>
-                  <td className="p-4 text-right text-muted-foreground">{formatCurrency(c.ticketMedio)}</td>
-                  <td className={`p-4 text-right font-medium ${c.margemMedia >= 30 ? "text-success" : c.margemMedia >= 15 ? "text-warning" : "text-destructive"}`}>
-                    {formatPercent(c.margemMedia)}
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </motion.div>
-      )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{c.company || "—"}</TableCell>
+                  <TableCell>
+                    {c.segment ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{c.segment}</span>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-heading font-semibold text-primary">
+                    {formatCurrency(c.totalFaturado)}
+                  </TableCell>
+                  <TableCell className="text-right">{c.numProjetos}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {c.lastContact ? new Date(c.lastContact).toLocaleDateString("pt-BR") : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <NewClientModal open={newOpen} onOpenChange={setNewOpen} onCreated={(id) => navigate(`/clientes/${id}`)} />
     </div>
   );
 }
