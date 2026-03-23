@@ -15,7 +15,7 @@ import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDeals, useClients } from "@/hooks/useDeals";
-import { useSupplierContacts, useSaveSupplierContact } from "@/hooks/useSupplierContacts";
+import { useSupplierContacts } from "@/hooks/useSupplierContacts";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
