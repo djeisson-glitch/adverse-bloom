@@ -21,7 +21,7 @@ serve(async (req) => {
 
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
-  const redirectUri = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback"
+  const redirectUri = "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-callback"
 
   console.log("[callback] Code recebido, trocando token...")
   console.log("[callback] client_id:", clientId ? `${clientId.slice(0, 6)}...` : "MISSING")
