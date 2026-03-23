@@ -92,7 +92,8 @@ export default function ConfiguracoesIntegracoes() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: remoteAnonKey,
+          "apikey": remoteAnonKey,
+          "Authorization": `Bearer ${remoteAnonKey}`,
         },
       });
 
