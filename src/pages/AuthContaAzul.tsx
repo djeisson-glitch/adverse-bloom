@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-const CONTA_AZUL_CLIENT_ID = "2jqEMBOBRxJnGKMn8wbpbQ";
+const CONTA_AZUL_CLIENT_ID = "4ajs7b65jihimmv0cluuaoqp5s";
 const REDIRECT_URI = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback";
 
 export default function AuthContaAzul() {
   useEffect(() => {
-    const authUrl = `https://api.contaazul.com/oauth2/authorize?redirect_uri=${encodeURIComponent(REDIRECT_URI)}&client_id=${CONTA_AZUL_CLIENT_ID}&scope=sales+accounting&response_type=code`;
+    const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${CONTA_AZUL_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin`;
     window.location.href = authUrl;
   }, []);
 
