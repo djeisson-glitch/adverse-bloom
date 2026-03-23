@@ -140,6 +140,29 @@ serve(async (req) => {
       results["payables"] = { error: String(e) };
     }
 
+    // Sales - up to 25 pages
+    try {
+      let allItems: any[] = [];
+      for (let pagina = 1; pagina <= 25; pagina++) {
+        const url = `${BASE}/v1/vendas?pagina=${pagina}&tamanho_pagina=200`;
+        const res = await fetch(url, { headers: bearer });
+        if (!res.ok) break;
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : (data.itens || data.items || []);
+        allItems = allItems.concat(items);
+        if (items.length < 200) break;
+      }
+      await supabase
+        .from("conta_azul_cache")
+        .upsert(
+          { data_type: "sales", payload: { itens: allItems }, fetched_at: now, period },
+          { onConflict: "data_type" },
+        );
+      results["sales"] = { total: allItems.length };
+    } catch (e) {
+      results["sales"] = { error: String(e) };
+    }
+
     return new Response(JSON.stringify({ ok: true, synced_at: now, results }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
