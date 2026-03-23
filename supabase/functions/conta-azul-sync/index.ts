@@ -68,7 +68,7 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
 }
 
 const BASE = "https://api.contaazul.com/v2";
-const dataInicio = "2024-01-01";
+const dataInicio = "2025-01-01";
 const dataFim = "2026-12-31";
 
 async function syncEndpoint(
