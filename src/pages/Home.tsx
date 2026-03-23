@@ -196,20 +196,20 @@ export default function Home() {
             value={formatCurrency(aReceber)}
             sub="vencimentos futuros"
             icon={Wallet}
-            onClick={() => navigate("/fluxo-de-caixa")}
+            onClick={() => navigate("/financeiro/fluxo")}
           />
           <MetricCard
             label="Saldo em conta"
             value={formatCurrency(saldoConta)}
             icon={DollarSign}
-            onClick={() => navigate("/caixa-runway")}
+            onClick={() => navigate("/financeiro/runway")}
           />
           <MetricCard
             label="Runway"
             value={`${runway.toFixed(1)} meses`}
             valueColor={runwayColor}
             icon={Clock}
-            onClick={() => navigate("/caixa-runway")}
+            onClick={() => navigate("/financeiro/runway")}
           />
         </div>
       </section>
