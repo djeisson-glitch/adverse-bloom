@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
+import ClienteDetalhe from "./pages/ClienteDetalhe";
 import FluxoDeCaixa from "./pages/FluxoDeCaixa";
 import Custos from "./pages/Custos";
 import ResultadosMetas from "./pages/ResultadosMetas";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/financeiro" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+              <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
               <Route path="/fluxo-de-caixa" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
               <Route path="/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
               <Route path="/resultados-metas" element={<ProtectedRoute><ResultadosMetas /></ProtectedRoute>} />

@@ -342,6 +342,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          origin: string | null
           phone: string | null
           segment: string | null
         }
@@ -352,6 +353,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          origin?: string | null
           phone?: string | null
           segment?: string | null
         }
@@ -362,6 +364,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          origin?: string | null
           phone?: string | null
           segment?: string | null
         }
