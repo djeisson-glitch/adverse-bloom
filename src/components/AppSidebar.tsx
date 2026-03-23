@@ -134,6 +134,16 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Clientes */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/clientes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                    <Users className="mr-2 h-4 w-4" />
+                    {!collapsed && <span>Clientes</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Orçamentos */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
