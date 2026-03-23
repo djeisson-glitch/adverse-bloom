@@ -72,7 +72,7 @@ async function refreshToken(supabase: any, payload: any): Promise<{ token: strin
 }
 
 const BASE = "https://api.contaazul.com/v2";
-const dataInicio = "2024-01-01";
+const dataInicio = "2025-01-01";
 const dataFim = "2026-12-31";
 
 type SyncResult = { status: string; label: string; total?: number; message?: string };
