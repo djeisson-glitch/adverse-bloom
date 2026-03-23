@@ -40,11 +40,8 @@ export function extractItems<T = any>(payload: unknown): T[] {
 
 export function useSyncContaAzul() {
   return async () => {
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/conta-azul-sync`,
-      { method: "POST", headers: { "Content-Type": "application/json" } }
-    );
-    if (!res.ok) throw new Error("Erro ao sincronizar");
-    return res.json();
+    const { data, error } = await supabase.functions.invoke("conta-azul-sync");
+    if (error) throw error;
+    return data;
   };
 }

@@ -142,16 +142,15 @@ export default function Home() {
 
   const handleSync = async () => {
     setSyncing(true);
-    const syncUrl = "https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-sync";
-    const remoteAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtncnpmd2d5Z3Z3c3Rxb3dpcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI4NTIzMjMsImV4cCI6MjA1ODQyODMyM30.jZ3-UMSf43MiFyJVHRkMu_ULNjJOlMQAlBSuwbqKwNI";
     try {
-      const res = await fetch(syncUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: remoteAnonKey, Authorization: `Bearer ${remoteAnonKey}` },
-      });
-      const data = await res.json();
-      if (data?.ok) toast({ title: "Sincronizado!" });
-      else toast({ title: "Erro ao sincronizar", description: data?.error, variant: "destructive" });
+      const { data, error } = await supabase.functions.invoke("conta-azul-sync");
+      if (error) {
+        toast({ title: "Erro ao sincronizar", description: error.message, variant: "destructive" });
+      } else if (data?.reauth) {
+        toast({ title: "Sessão expirada", description: data.error, variant: "destructive" });
+      } else {
+        toast({ title: "Sincronizado!" });
+      }
     } catch {
       toast({ title: "Erro ao sincronizar", variant: "destructive" });
     } finally {
