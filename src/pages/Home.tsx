@@ -8,15 +8,24 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import {
-  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, getCat,
-} from "@/lib/financial";
+import { type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, getCat } from "@/lib/financial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
-  CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
+  DollarSign,
+  TrendingUp,
+  Wallet,
+  Clock,
+  Handshake,
+  Trophy,
+  Target,
+  CalendarDays,
+  AlertTriangle,
+  FileText,
+  RefreshCw,
+  ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -56,11 +65,7 @@ export default function Home() {
   const settingsQuery = useQuery({
     queryKey: ["commercial-settings-home"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("commercial_settings")
-        .select("*")
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.from("commercial_settings").select("*").limit(1).maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -84,13 +89,22 @@ export default function Home() {
     from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
     to: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`,
   };
-  const faturamentoMes = useMemo(() => calcReceitaTotal(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const faturamentoMes = useMemo(
+    () => calcReceitaTotal(recItems, monthPeriod),
+    [recItems, monthPeriod.from, monthPeriod.to],
+  );
 
   // A receber: vencimentos futuros não recebidos, excluindo empréstimos
   const today = now.toISOString().slice(0, 10);
   const aReceber = useMemo(() => {
     return recItems
-      .filter((r) => r?.data_vencimento && r.data_vencimento >= today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
+      .filter(
+        (r) =>
+          r?.data_vencimento &&
+          r.data_vencimento >= today &&
+          r?.status !== "RECEIVED" &&
+          getCat(r) !== "Empréstimos de Bancos",
+      )
       .reduce((s, r) => s + (r?.total ?? 0), 0);
   }, [recItems, today]);
 
@@ -115,9 +129,7 @@ export default function Home() {
     });
   }, [deals, monthStart]);
 
-  const conversionRate = dealsThisMonth.length > 0
-    ? (wonThisMonth.length / dealsThisMonth.length) * 100
-    : 0;
+  const conversionRate = dealsThisMonth.length > 0 ? (wonThisMonth.length / dealsThisMonth.length) * 100 : 0;
 
   const nextClosing = useMemo(() => {
     return openDeals
@@ -128,9 +140,7 @@ export default function Home() {
 
   // ===== OPERACIONAL =====
   const overdueTasks = useMemo(() => {
-    return allTasks
-      .filter((t) => !t.completed && t.due_date && t.due_date <= today)
-      .slice(0, 5);
+    return allTasks.filter((t) => !t.completed && t.due_date && t.due_date <= today).slice(0, 5);
   }, [allTasks, today]);
 
   const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString();
@@ -141,7 +151,7 @@ export default function Home() {
   const recentBudgets = budgets.slice(0, 3);
 
   const CONTA_AZUL_AUTH_URL =
-    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
+    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
 
   const openReauthPopup = (): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -149,7 +159,10 @@ export default function Home() {
       if (!popup) {
         // Popup blocked — fallback to new tab
         window.open(CONTA_AZUL_AUTH_URL, "_blank");
-        toast({ title: "Autenticação aberta em nova aba", description: "Após fazer login, clique em Sincronizar novamente." });
+        toast({
+          title: "Autenticação aberta em nova aba",
+          description: "Após fazer login, clique em Sincronizar novamente.",
+        });
         resolve(false);
         return;
       }
@@ -241,7 +254,12 @@ export default function Home() {
           <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" /> Financeiro
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/financeiro")} className="text-xs text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/financeiro")}
+            className="text-xs text-muted-foreground"
+          >
             Ver detalhes <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
@@ -250,7 +268,13 @@ export default function Home() {
             label="Faturamento do mês"
             value={formatCurrency(faturamentoMes)}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
-            subColor={faturamentoVsMeta >= 100 ? "text-green-400" : faturamentoVsMeta >= 60 ? "text-amber-400" : "text-destructive"}
+            subColor={
+              faturamentoVsMeta >= 100
+                ? "text-green-400"
+                : faturamentoVsMeta >= 60
+                  ? "text-amber-400"
+                  : "text-destructive"
+            }
             icon={TrendingUp}
             onClick={() => navigate("/financeiro")}
           />
@@ -283,7 +307,12 @@ export default function Home() {
           <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
             <Handshake className="h-5 w-5 text-primary" /> Comercial
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/comercial")} className="text-xs text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/comercial")}
+            className="text-xs text-muted-foreground"
+          >
             Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
@@ -307,11 +336,20 @@ export default function Home() {
           <MetricCard
             label="Taxa de conversão"
             value={formatPercent(conversionRate)}
-            valueColor={conversionRate >= 30 ? "text-green-400" : conversionRate >= 15 ? "text-amber-400" : "text-muted-foreground"}
+            valueColor={
+              conversionRate >= 30
+                ? "text-green-400"
+                : conversionRate >= 15
+                  ? "text-amber-400"
+                  : "text-muted-foreground"
+            }
             icon={Target}
             onClick={() => navigate("/comercial")}
           />
-          <Card className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors" onClick={() => navigate("/comercial")}>
+          <Card
+            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+            onClick={() => navigate("/comercial")}
+          >
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5" /> Próximos fechamentos
@@ -368,7 +406,10 @@ export default function Home() {
           </Card>
 
           {/* Orçamentos aguardando */}
-          <Card className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors" onClick={() => navigate("/orcamentos")}>
+          <Card
+            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+            onClick={() => navigate("/orcamentos")}
+          >
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-amber-400" /> Aguardando aprovação ({staleDrafts.length})
@@ -380,7 +421,9 @@ export default function Home() {
               ) : (
                 staleDrafts.slice(0, 3).map((b) => (
                   <div key={b.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[140px] font-medium">#{b.budget_number} — {b.client_name}</span>
+                    <span className="truncate max-w-[140px] font-medium">
+                      #{b.budget_number} — {b.client_name}
+                    </span>
                     <span className="text-primary font-semibold shrink-0">{formatCurrency(b.total_value || 0)}</span>
                   </div>
                 ))
@@ -389,7 +432,10 @@ export default function Home() {
           </Card>
 
           {/* Últimos orçamentos */}
-          <Card className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors" onClick={() => navigate("/orcamentos")}>
+          <Card
+            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+            onClick={() => navigate("/orcamentos")}
+          >
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" /> Últimos orçamentos
@@ -401,10 +447,15 @@ export default function Home() {
               ) : (
                 recentBudgets.map((b) => (
                   <div key={b.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[140px] font-medium">#{b.budget_number} — {b.client_name}</span>
+                    <span className="truncate max-w-[140px] font-medium">
+                      #{b.budget_number} — {b.client_name}
+                    </span>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-primary font-semibold">{formatCurrency(b.total_value || 0)}</span>
-                      <Badge variant={b.status === "approved" ? "default" : "outline"} className="text-[10px] px-1.5 h-4">
+                      <Badge
+                        variant={b.status === "approved" ? "default" : "outline"}
+                        className="text-[10px] px-1.5 h-4"
+                      >
                         {b.status === "approved" ? "Aprovado" : "Rascunho"}
                       </Badge>
                     </div>
