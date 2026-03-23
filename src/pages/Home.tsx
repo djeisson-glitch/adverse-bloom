@@ -141,7 +141,7 @@ export default function Home() {
   const recentBudgets = budgets.slice(0, 3);
 
   const CONTA_AZUL_AUTH_URL =
-    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
+    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
 
   const openReauthPopup = (): Promise<boolean> => {
     return new Promise((resolve) => {
