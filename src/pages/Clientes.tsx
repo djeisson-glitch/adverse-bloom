@@ -65,25 +65,75 @@ export default function Clientes() {
   const handleImportContaAzul = async () => {
     setImporting(true);
     try {
-      // Extract unique client names from receivables
-      const receivableItems = extractItems<any>(receivablesCache?.payload);
-      const caNames = new Set<string>();
-      receivableItems.forEach((item: any) => {
-        const nome = item?.cliente?.nome;
-        if (nome && typeof nome === "string" && nome.trim()) {
-          caNames.add(nome.trim());
+      // Helper to extract name strings from an item checking all possible fields
+      const extractName = (item: any): string | null => {
+        if (!item) return null;
+        // Check nested objects: cliente.nome, fornecedor.nome, customer.name, destinatario.nome
+        const nested = [
+          item?.cliente?.nome,
+          item?.cliente?.razao_social,
+          item?.cliente?.name,
+          item?.fornecedor?.nome,
+          item?.fornecedor?.razao_social,
+          item?.fornecedor?.name,
+          item?.customer?.nome,
+          item?.customer?.name,
+          item?.customer?.razao_social,
+          item?.destinatario?.nome,
+          item?.destinatario?.razao_social,
+          item?.destinatario?.name,
+        ];
+        for (const v of nested) {
+          if (v && typeof v === "string" && v.trim()) return v.trim();
         }
-      });
+        // Check top-level fields
+        const topLevel = [item.razao_social, item.nome, item.name, item.cliente_nome, item.customer_name];
+        for (const v of topLevel) {
+          if (v && typeof v === "string" && v.trim()) return v.trim();
+        }
+        return null;
+      };
 
-      // Check which already exist (case-insensitive)
+      // Collect names by source for reporting
+      const sourceNames: Record<string, Set<string>> = {
+        receivables: new Set(),
+        payables: new Set(),
+        sales: new Set(),
+        transactions: new Set(),
+      };
+
+      const allCaches = [
+        { key: "receivables", data: receivablesCache },
+        { key: "payables", data: payablesCache },
+        { key: "sales", data: salesCache },
+        { key: "transactions", data: transactionsCache },
+      ];
+
+      for (const { key, data } of allCaches) {
+        const items = extractItems<any>(data?.payload);
+        for (const item of items) {
+          const name = extractName(item);
+          if (name) sourceNames[key].add(name);
+        }
+      }
+
+      // Merge all unique names (case-insensitive dedup)
+      const uniqueMap = new Map<string, string>(); // lowercase -> original
+      for (const names of Object.values(sourceNames)) {
+        for (const name of names) {
+          const lower = name.toLowerCase();
+          if (!uniqueMap.has(lower)) uniqueMap.set(lower, name);
+        }
+      }
+
+      // Check which already exist
       const existingNames = new Set(clients.map((c) => c.name.toLowerCase()));
       const existingCompanies = new Set(clients.filter((c) => c.company).map((c) => c.company!.toLowerCase()));
 
       const toInsert: { name: string; company: string | null; origin: string }[] = [];
       let alreadyExisted = 0;
 
-      caNames.forEach((name) => {
-        const lower = name.toLowerCase();
+      uniqueMap.forEach((name, lower) => {
         if (existingNames.has(lower) || existingCompanies.has(lower)) {
           alreadyExisted++;
         } else {
@@ -97,9 +147,14 @@ export default function Clientes() {
         qc.invalidateQueries({ queryKey: ["clients"] });
       }
 
+      const sourceSummary = Object.entries(sourceNames)
+        .filter(([, s]) => s.size > 0)
+        .map(([k, s]) => `${k}: ${s.size}`)
+        .join(", ");
+
       toast({
         title: "Importação concluída",
-        description: `${toInsert.length} clientes importados, ${alreadyExisted} já existiam`,
+        description: `${toInsert.length} importados, ${alreadyExisted} já existiam. Total únicos: ${uniqueMap.size} (${sourceSummary})`,
       });
     } catch (err) {
       toast({ title: "Erro ao importar clientes", variant: "destructive" });
