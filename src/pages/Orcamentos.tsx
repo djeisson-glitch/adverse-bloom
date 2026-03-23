@@ -292,8 +292,9 @@ export default function Orcamentos() {
     return (
       <BudgetForm
         budgetId={editingId}
-        onClose={() => { setEditingId(null); setCreating(false); }}
+        onClose={() => { setEditingId(null); setCreating(false); setInitialDealId(null); }}
         onOpenVersion={(id) => setEditingId(id)}
+        initialDealId={initialDealId}
       />
     );
   }
