@@ -64,7 +64,7 @@ export default function Projetos() {
       });
       toast.success("Projeto criado com sucesso!");
       setOpen(false);
-      setForm({ name: "", client_name: "", sold_value: "", direct_costs: "", status: "Pré-produção", sold_date: "", delivery_date: "", notes: "" });
+      setForm({ name: "", client_name: "", client_id: null, sold_value: "", direct_costs: "", status: "Pré-produção", sold_date: "", delivery_date: "", notes: "" });
     } catch {
       toast.error("Erro ao criar projeto.");
     }
