@@ -12,14 +12,16 @@ import {
 import { STAGES, type Deal, type Stage } from "@/hooks/useDeals";
 import { KanbanColumn } from "./KanbanColumn";
 import { DealCard } from "./DealCard";
+import type { Task } from "@/hooks/useTasks";
 
 interface Props {
   deals: Deal[];
   onMoveDeal: (dealId: string, newStage: Stage) => void;
   onEditDeal: (deal: Deal) => void;
+  taskCounts?: Record<string, number>;
 }
 
-export function KanbanBoard({ deals, onMoveDeal, onEditDeal }: Props) {
+export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: Props) {
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
 
   const sensors = useSensors(
@@ -39,7 +41,6 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal }: Props) {
     const dealId = active.id as string;
     const overId = over.id as string;
 
-    // over.id is the column stage id
     const targetStage = STAGES.find((s) => s.id === overId);
     if (targetStage) {
       const deal = deals.find((d) => d.id === dealId);
@@ -62,12 +63,13 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal }: Props) {
               deals={stageDeals}
               total={total}
               onEditDeal={onEditDeal}
+              taskCounts={taskCounts}
             />
           );
         })}
       </div>
       <DragOverlay>
-        {activeDeal ? <DealCard deal={activeDeal} onEdit={() => {}} isDragging /> : null}
+        {activeDeal ? <DealCard deal={activeDeal} onEdit={() => {}} isDragging pendingTaskCount={taskCounts[activeDeal.id] || 0} /> : null}
       </DragOverlay>
     </DndContext>
   );

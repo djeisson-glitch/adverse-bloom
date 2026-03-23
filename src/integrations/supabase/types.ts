@@ -297,6 +297,39 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_settings: {
+        Row: {
+          created_at: string
+          followup_lost_days: number
+          followup_won_days: number
+          id: string
+          loss_reasons: Json
+          monthly_target: number
+          pipeline_stages: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          followup_lost_days?: number
+          followup_won_days?: number
+          id?: string
+          loss_reasons?: Json
+          monthly_target?: number
+          pipeline_stages?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          followup_lost_days?: number
+          followup_won_days?: number
+          id?: string
+          loss_reasons?: Json
+          monthly_target?: number
+          pipeline_stages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conta_azul_cache: {
         Row: {
           data_type: string
@@ -328,6 +361,7 @@ export type Database = {
           created_by: string | null
           expected_close_date: string | null
           id: string
+          lost_reason: string | null
           notes: string | null
           probability: number | null
           stage: string
@@ -341,6 +375,7 @@ export type Database = {
           created_by?: string | null
           expected_close_date?: string | null
           id?: string
+          lost_reason?: string | null
           notes?: string | null
           probability?: number | null
           stage?: string
@@ -354,6 +389,7 @@ export type Database = {
           created_by?: string | null
           expected_close_date?: string | null
           id?: string
+          lost_reason?: string | null
           notes?: string | null
           probability?: number | null
           stage?: string
@@ -653,6 +689,64 @@ export type Database = {
             columns: ["budget_item_id"]
             isOneToOne: false
             referencedRelation: "budget_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          client_id: string | null
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          due_date: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          client_id?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          due_date?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          client_id?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          due_date?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]

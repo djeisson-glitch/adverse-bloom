@@ -21,6 +21,7 @@ import ContasAPagar from "./pages/ContasAPagar";
 import Comercial from "./pages/Comercial";
 import MapaOperacional from "./pages/MapaOperacional";
 import Configuracoes from "./pages/Configuracoes";
+import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+              <Route path="/configuracoes/comercial" element={<ProtectedRoute><ConfiguracoesComercial /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PeriodProvider>
