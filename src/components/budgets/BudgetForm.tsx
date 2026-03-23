@@ -607,7 +607,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Cliente</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex: Empresa Y" disabled={isApproved} className="h-8 text-sm" />
+              <ClientSelect
+                value={clientId}
+                onChange={(id, name) => { setClientId(id); setClientName(name); }}
+                disabled={isApproved}
+                size="sm"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Projeto</Label>

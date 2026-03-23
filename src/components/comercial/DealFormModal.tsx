@@ -8,12 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Plus } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { STAGES, type Deal } from "@/hooks/useDeals";
 import { TaskList } from "./TaskList";
+import { ClientSelect } from "@/components/clientes/ClientSelect";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface Props {
@@ -30,8 +31,6 @@ interface Props {
 export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onSave, onCreateClient, saving }: Props) {
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState<string>("");
-  const [newClientName, setNewClientName] = useState("");
-  const [showNewClient, setShowNewClient] = useState(false);
   const [value, setValue] = useState("");
   const [stage, setStage] = useState("contato");
   const [probability, setProbability] = useState("50");
@@ -58,22 +57,13 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       setCloseDate(undefined);
       setNotes("");
       setCreatedBy("");
-      setShowNewClient(false);
-      setNewClientName("");
     }
   }, [deal, open]);
 
   const handleSubmit = async () => {
-    let finalClientId = clientId;
-
-    if (showNewClient && newClientName.trim()) {
-      const created = await onCreateClient(newClientName.trim());
-      finalClientId = created.id;
-    }
-
     onSave({
       title,
-      client_id: finalClientId || null,
+      client_id: clientId || null,
       value: parseFloat(value) || 0,
       stage,
       probability: parseInt(probability) || 50,
@@ -92,28 +82,10 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
 
       <div>
         <Label>Cliente</Label>
-        {!showNewClient ? (
-          <div className="flex gap-2">
-            <Select value={clientId} onValueChange={setClientId}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Selecionar cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="button" variant="outline" size="icon" onClick={() => setShowNewClient(true)}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Input value={newClientName} onChange={(e) => setNewClientName(e.target.value)} placeholder="Nome do novo cliente" className="flex-1" />
-            <Button type="button" variant="ghost" size="sm" onClick={() => { setShowNewClient(false); setNewClientName(""); }}>Cancelar</Button>
-          </div>
-        )}
+        <ClientSelect
+          value={clientId || null}
+          onChange={(id) => setClientId(id || "")}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
