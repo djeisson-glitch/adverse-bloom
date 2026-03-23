@@ -161,8 +161,8 @@ serve(async (req) => {
       { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
       { key: "receivables", label: "Contas a receber", url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
       { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
-      { key: "sales", label: "Vendas", url: `${BASE}/sales?emission_start=${dataInicio}&emission_end=${dataFim}`, paginated: true },
-      { key: "transactions", label: "Transações", url: `${BASE}/transactions?date_start=${dataInicio}&date_end=${dataFim}`, paginated: true },
+      { key: "sales", label: "Vendas", url: `${BASE}/sales?sort=EMISSION_DATE&order=DESC&emit_date_from=${dataInicio}&emit_date_to=${dataFim}`, paginated: true },
+      { key: "transactions", label: "Transações", url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}`, paginated: true },
     ];
 
     for (const job of jobs) {
