@@ -231,26 +231,58 @@ serve(async (req) => {
       );
     }
 
-    // SALES (notas fiscais emitidas) - v1 endpoint
+    // SALES - testar múltiplos endpoints
+    const salesEndpoints = [
+      { key: "v2_sales", url: `${BASE}/sales?emission_date_start=${dataInicio}&emission_date_end=${dataFim}&size=5` },
+      { key: "v1_nfs", url: `${BASE_V1}/notas-fiscais-servico?pagina=1&tamanho_pagina=5&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}` },
+      { key: "v1_vendas", url: `${BASE_V1}/vendas?pagina=1&tamanho_pagina=5` },
+    ];
+    const salesProbe: Record<string, any> = {};
+    for (const ep of salesEndpoints) {
+      try {
+        const res = await fetch(ep.url, { headers });
+        const body = await res.text();
+        salesProbe[ep.key] = { status: res.status, bodyPreview: body.slice(0, 500), length: body.length };
+        console.log(`[probe-sales] ${ep.key}: HTTP ${res.status} len=${body.length} body=${body.slice(0, 300)}`);
+      } catch (e) {
+        salesProbe[ep.key] = { status: "error", message: String(e) };
+        console.error(`[probe-sales] ${ep.key} ERRO:`, String(e));
+      }
+    }
+    results["sales_probe"] = salesProbe;
+
+    // TRANSACTIONS - testar múltiplos endpoints
+    const txEndpoints = [
+      { key: "v2_financial_tx", url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}&size=5` },
+      { key: "v1_lancamentos", url: `${BASE_V1}/financeiro/lancamentos?pagina=1&tamanho_pagina=5&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}` },
+      { key: "v1_movimentacoes", url: `${BASE_V1}/movimentacoes?pagina=1&tamanho_pagina=5` },
+    ];
+    const txProbe: Record<string, any> = {};
+    for (const ep of txEndpoints) {
+      try {
+        const res = await fetch(ep.url, { headers });
+        const body = await res.text();
+        txProbe[ep.key] = { status: res.status, bodyPreview: body.slice(0, 500), length: body.length };
+        console.log(`[probe-tx] ${ep.key}: HTTP ${res.status} len=${body.length} body=${body.slice(0, 300)}`);
+      } catch (e) {
+        txProbe[ep.key] = { status: "error", message: String(e) };
+        console.error(`[probe-tx] ${ep.key} ERRO:`, String(e));
+      }
+    }
+    results["tx_probe"] = txProbe;
+
+    // Sync sales com endpoint v1 NFS (atual)
     try {
       let allSales: any[] = [];
       let page = 1;
       while (true) {
         const url = `${BASE_V1}/notas-fiscais-servico?pagina=${page}&tamanho_pagina=100&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`;
-        console.log(`[sync] Sales página ${page}: ${url}`);
         const res = await fetch(url, { headers });
-        console.log(`[sync] Sales página ${page}: HTTP ${res.status}`);
-        if (!res.ok) {
-          const body = await res.text();
-          console.error(`[sync] Sales FALHOU: ${body}`);
-          results["sales"] = { status: "error", label: "Vendas (NFS)", message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
-          break;
-        }
+        if (!res.ok) { await res.text(); break; }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
         allSales = allSales.concat(items);
-        console.log(`[sync] Sales página ${page}: ${items.length} itens (total: ${allSales.length})`);
         if (items.length < 100) break;
         page++;
       }
@@ -259,36 +291,24 @@ serve(async (req) => {
           { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
           { onConflict: "data_type" },
         );
-        results["sales"] = { status: "ok", label: "Vendas (NFS)", total: allSales.length };
-        console.log(`[sync] Sales: OK (${allSales.length} registros)`);
-      } else if (!results["sales"]) {
-        results["sales"] = { status: "ok", label: "Vendas (NFS)", total: 0 };
       }
+      results["sales"] = { status: "ok", label: "Vendas (NFS)", total: allSales.length };
     } catch (e) {
-      console.error(`[sync] Sales ERRO:`, String(e));
-      results["sales"] = { status: "error", label: "Vendas (NFS)", message: String(e) };
+      results["sales"] = { status: "error", label: "Vendas", message: String(e) };
     }
 
-    // TRANSACTIONS (lançamentos financeiros) - v1 endpoint
+    // Sync transactions com endpoint v1 lancamentos (atual)
     try {
       let allTx: any[] = [];
       let page = 1;
       while (true) {
         const url = `${BASE_V1}/financeiro/lancamentos?pagina=${page}&tamanho_pagina=100&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`;
-        console.log(`[sync] Transactions página ${page}: ${url}`);
         const res = await fetch(url, { headers });
-        console.log(`[sync] Transactions página ${page}: HTTP ${res.status}`);
-        if (!res.ok) {
-          const body = await res.text();
-          console.error(`[sync] Transactions FALHOU: ${body}`);
-          results["transactions"] = { status: "error", label: "Transações", message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
-          break;
-        }
+        if (!res.ok) { await res.text(); break; }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
         allTx = allTx.concat(items);
-        console.log(`[sync] Transactions página ${page}: ${items.length} itens (total: ${allTx.length})`);
         if (items.length < 100) break;
         page++;
       }
@@ -297,13 +317,9 @@ serve(async (req) => {
           { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
           { onConflict: "data_type" },
         );
-        results["transactions"] = { status: "ok", label: "Transações", total: allTx.length };
-        console.log(`[sync] Transactions: OK (${allTx.length} registros)`);
-      } else if (!results["transactions"]) {
-        results["transactions"] = { status: "ok", label: "Transações", total: 0 };
       }
+      results["transactions"] = { status: "ok", label: "Transações", total: allTx.length };
     } catch (e) {
-      console.error(`[sync] Transactions ERRO:`, String(e));
       results["transactions"] = { status: "error", label: "Transações", message: String(e) };
     }
 
