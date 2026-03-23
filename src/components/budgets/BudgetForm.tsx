@@ -149,7 +149,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   const { data: versions = [] } = useBudgetVersions(existing?.budget_number ?? null);
   const { deals } = useDeals();
   const { data: supplierContacts = [] } = useSupplierContacts();
-  const saveSupplierContact = useSaveSupplierContact();
+  
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
