@@ -12,13 +12,15 @@ import { useBudgets, useBudgetWithItems, useDeleteBudget, useDuplicateBudget } f
 import { BudgetForm } from "@/components/budgets/BudgetForm";
 import { BudgetCostTabs } from "@/components/budgets/BudgetCostTabs";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
+import { NewBudgetModal } from "@/components/budgets/NewBudgetModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-// import { generateBudgetPDF } from "@/lib/generateBudgetPDF"; // PDF desativado temporariamente
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
+import type { ProposalTemplate } from "@/hooks/useTemplates";
+import { useSearchParams } from "react-router-dom";
 
 // ── Filter types ──────────────────────────────────────────
 type SortField = "number" | "date" | "client" | "total" | "margin";
