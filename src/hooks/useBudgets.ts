@@ -66,7 +66,10 @@ export function useBudgets() {
         .eq("is_latest_version", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Budget[];
+      return (data as any[]).map((b) => ({
+        ...b,
+        not_included: (b.not_included ?? []) as string[],
+      })) as Budget[];
     },
   });
 }
