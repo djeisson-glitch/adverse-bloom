@@ -93,7 +93,11 @@ export function useBudgetWithItems(id: string | null) {
         .order("order_index", { ascending: true });
       if (itemsError) throw itemsError;
 
-      return { ...budget, budget_items: items } as BudgetWithItems;
+      return {
+        ...budget,
+        not_included: (budget.not_included ?? []) as string[],
+        budget_items: items,
+      } as BudgetWithItems;
     },
   });
 }
