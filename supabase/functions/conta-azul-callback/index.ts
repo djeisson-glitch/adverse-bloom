@@ -13,7 +13,7 @@ serve(async (req) => {
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
   const redirectUri = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback"
 
-  const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
+  const tokenRes = await fetch("https://api.contaazul.com/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
