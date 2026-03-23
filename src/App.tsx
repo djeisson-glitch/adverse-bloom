@@ -51,16 +51,16 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/financeiro" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/financeiro/fluxo" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
+              <Route path="/financeiro/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
+              <Route path="/financeiro/resultados" element={<ProtectedRoute><ResultadosMetas /></ProtectedRoute>} />
+              <Route path="/financeiro/runway" element={<ProtectedRoute><CaixaRunway /></ProtectedRoute>} />
+              <Route path="/financeiro/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+              <Route path="/financeiro/projecoes" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
+              <Route path="/financeiro/contas" element={<ProtectedRoute><ContasAPagar /></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
-              <Route path="/fluxo-de-caixa" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
-              <Route path="/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
-              <Route path="/resultados-metas" element={<ProtectedRoute><ResultadosMetas /></ProtectedRoute>} />
-              <Route path="/caixa-runway" element={<ProtectedRoute><CaixaRunway /></ProtectedRoute>} />
-              <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-              <Route path="/projecoes-2026" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
-              <Route path="/contas-a-pagar" element={<ProtectedRoute><ContasAPagar /></ProtectedRoute>} />
               <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
