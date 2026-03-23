@@ -27,6 +27,7 @@ import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
 import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
 import ConfiguracoesOrcamentos from "./pages/ConfiguracoesOrcamentos";
 import ConfiguracoesIntegracoes from "./pages/ConfiguracoesIntegracoes";
+import AuthContaAzul from "./pages/AuthContaAzul";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
