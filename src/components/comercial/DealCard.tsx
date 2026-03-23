@@ -2,16 +2,17 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ListChecks } from "lucide-react";
 import type { Deal } from "@/hooks/useDeals";
 
 interface Props {
   deal: Deal;
   onEdit: () => void;
   isDragging?: boolean;
+  pendingTaskCount?: number;
 }
 
-export function DealCard({ deal, onEdit, isDragging }: Props) {
+export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id });
 
   const style = transform
@@ -46,14 +47,22 @@ export function DealCard({ deal, onEdit, isDragging }: Props) {
       <p className="text-sm font-semibold text-primary mt-2">{formatCurrency(deal.value || 0)}</p>
 
       <div className="flex items-center justify-between mt-2">
-        {deal.expected_close_date ? (
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <CalendarDays className="h-3 w-3" />
-            {formatDate(deal.expected_close_date)}
-          </span>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2">
+          {deal.expected_close_date ? (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <CalendarDays className="h-3 w-3" />
+              {formatDate(deal.expected_close_date)}
+            </span>
+          ) : (
+            <span />
+          )}
+          {pendingTaskCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[11px] text-amber-400">
+              <ListChecks className="h-3 w-3" />
+              {pendingTaskCount}
+            </span>
+          )}
+        </div>
         {deal.creator && (
           <Avatar className="h-5 w-5">
             <AvatarImage src={deal.creator.avatar_url || ""} />
