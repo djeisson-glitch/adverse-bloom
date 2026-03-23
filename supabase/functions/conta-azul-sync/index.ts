@@ -163,34 +163,103 @@ serve(async (req) => {
       { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
       { key: "receivables", label: "Contas a receber", url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
       { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
-      { key: "sales", label: "Vendas", url: `${BASE}/sales?sort=EMISSION_DATE&order=DESC&emit_date_from=${dataInicio}&emit_date_to=${dataFim}`, paginated: true },
-      { key: "transactions", label: "Transações", url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}`, paginated: true },
     ];
 
     for (const job of jobs) {
       const result = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
 
-      // If we get a token error, try refreshing once
       if (result.status === "error" && result.message?.includes("401")) {
         console.log(`[sync] Token inválido em ${job.label}, tentando refresh...`);
         const refreshResult = await getValidToken(supabase);
         if ("error" in refreshResult) {
           results[job.key] = { status: "reauth", label: job.label };
-          // Skip remaining jobs
-          for (const remaining of jobs.slice(jobs.indexOf(job) + 1)) {
-            results[remaining.key] = { status: "skipped", label: remaining.label };
-          }
           return new Response(
             JSON.stringify({ ok: false, reauth: true, error: "Sessão expirada — faça login novamente na Conta Azul.", results }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
-        // Retry with new token
         const retryHeaders = { Authorization: `Bearer ${refreshResult.token}`, Accept: "application/json" };
+        headers.Authorization = retryHeaders.Authorization;
         results[job.key] = await syncEndpoint(supabase, job.label, job.key, job.url, retryHeaders, now, period, job.paginated);
       } else {
         results[job.key] = result;
       }
+    }
+
+    // SALES (notas fiscais emitidas) - v1 endpoint
+    try {
+      let allSales: any[] = [];
+      let page = 1;
+      while (true) {
+        const url = `${BASE_V1}/notas-fiscais-servico?pagina=${page}&tamanho_pagina=100&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`;
+        console.log(`[sync] Sales página ${page}: ${url}`);
+        const res = await fetch(url, { headers });
+        console.log(`[sync] Sales página ${page}: HTTP ${res.status}`);
+        if (!res.ok) {
+          const body = await res.text();
+          console.error(`[sync] Sales FALHOU: ${body}`);
+          results["sales"] = { status: "error", label: "Vendas (NFS)", message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+          break;
+        }
+        const data = await res.json();
+        const items = data.itens || data.content || (Array.isArray(data) ? data : []);
+        if (!Array.isArray(items) || items.length === 0) break;
+        allSales = allSales.concat(items);
+        console.log(`[sync] Sales página ${page}: ${items.length} itens (total: ${allSales.length})`);
+        if (items.length < 100) break;
+        page++;
+      }
+      if (allSales.length > 0) {
+        await supabase.from("conta_azul_cache").upsert(
+          { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
+          { onConflict: "data_type" },
+        );
+        results["sales"] = { status: "ok", label: "Vendas (NFS)", total: allSales.length };
+        console.log(`[sync] Sales: OK (${allSales.length} registros)`);
+      } else if (!results["sales"]) {
+        results["sales"] = { status: "ok", label: "Vendas (NFS)", total: 0 };
+      }
+    } catch (e) {
+      console.error(`[sync] Sales ERRO:`, String(e));
+      results["sales"] = { status: "error", label: "Vendas (NFS)", message: String(e) };
+    }
+
+    // TRANSACTIONS (lançamentos financeiros) - v1 endpoint
+    try {
+      let allTx: any[] = [];
+      let page = 1;
+      while (true) {
+        const url = `${BASE_V1}/financeiro/lancamentos?pagina=${page}&tamanho_pagina=100&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`;
+        console.log(`[sync] Transactions página ${page}: ${url}`);
+        const res = await fetch(url, { headers });
+        console.log(`[sync] Transactions página ${page}: HTTP ${res.status}`);
+        if (!res.ok) {
+          const body = await res.text();
+          console.error(`[sync] Transactions FALHOU: ${body}`);
+          results["transactions"] = { status: "error", label: "Transações", message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+          break;
+        }
+        const data = await res.json();
+        const items = data.itens || data.content || (Array.isArray(data) ? data : []);
+        if (!Array.isArray(items) || items.length === 0) break;
+        allTx = allTx.concat(items);
+        console.log(`[sync] Transactions página ${page}: ${items.length} itens (total: ${allTx.length})`);
+        if (items.length < 100) break;
+        page++;
+      }
+      if (allTx.length > 0) {
+        await supabase.from("conta_azul_cache").upsert(
+          { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
+          { onConflict: "data_type" },
+        );
+        results["transactions"] = { status: "ok", label: "Transações", total: allTx.length };
+        console.log(`[sync] Transactions: OK (${allTx.length} registros)`);
+      } else if (!results["transactions"]) {
+        results["transactions"] = { status: "ok", label: "Transações", total: 0 };
+      }
+    } catch (e) {
+      console.error(`[sync] Transactions ERRO:`, String(e));
+      results["transactions"] = { status: "error", label: "Transações", message: String(e) };
     }
 
     console.log("[sync] Resultado final:", JSON.stringify(results));
