@@ -68,21 +68,44 @@ serve(async (req) => {
 
   console.log("[callback] Token obtido com sucesso, salvando...")
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  )
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  console.log("[callback] SUPABASE_URL:", supabaseUrl)
+  console.log("[callback] SERVICE_KEY present:", !!serviceKey, "length:", serviceKey?.length)
 
-  await supabase.from("conta_azul_cache").upsert(
+  const supabase = createClient(supabaseUrl, serviceKey)
+
+  const now = new Date().toISOString()
+  console.log("[callback] Upserting auth_tokens with fetched_at:", now)
+
+  const { data: upsertData, error: upsertError } = await supabase.from("conta_azul_cache").upsert(
     {
       data_type: "auth_tokens",
       payload: tokenData,
-      fetched_at: new Date().toISOString(),
+      fetched_at: now,
       period: "auth",
     },
     { onConflict: "data_type" },
-  )
+  ).select()
 
+  if (upsertError) {
+    console.error("[callback] UPSERT ERROR:", JSON.stringify(upsertError))
+    return Response.redirect(
+      `${appUrl}/configuracoes/integracoes?ca_error=${encodeURIComponent(`upsert_failed: ${upsertError.message}`)}`,
+      302,
+    )
+  }
+
+  console.log("[callback] Upsert OK, rows:", JSON.stringify(upsertData))
+
+  // Verify the save by reading back
+  const { data: verifyRow, error: verifyErr } = await supabase
+    .from("conta_azul_cache")
+    .select("data_type, fetched_at, period")
+    .eq("data_type", "auth_tokens")
+    .single()
+
+  console.log("[callback] Verify read:", JSON.stringify(verifyRow), "error:", JSON.stringify(verifyErr))
   console.log("[callback] Token salvo, redirecionando para app")
   return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_success=true`, 302)
 })
