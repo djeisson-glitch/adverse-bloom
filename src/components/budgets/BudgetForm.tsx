@@ -16,6 +16,7 @@ import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDeals, useClients } from "@/hooks/useDeals";
 import { useSupplierContacts } from "@/hooks/useSupplierContacts";
+import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
