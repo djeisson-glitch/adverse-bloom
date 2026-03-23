@@ -68,8 +68,10 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
 }
 
 const BASE = "https://api.contaazul.com/v2";
+const BASE_V1 = "https://api.contaazul.com/v1";
 const dataInicio = "2025-01-01";
-const dataFim = "2026-12-31";
+const dataFim = new Date().toISOString().slice(0, 10);
+const dataInicioEmpresa = "2023-06-05";
 
 async function syncEndpoint(
   supabase: any,
