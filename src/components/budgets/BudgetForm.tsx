@@ -154,6 +154,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
+  const { clients: allClients } = useClients();
   const [markupPercent, setMarkupPercent] = useState(35);
   const [taxPercent, setTaxPercent] = useState(9.5);
   const [bvPercent, setBvPercent] = useState(0);
