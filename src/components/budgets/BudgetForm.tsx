@@ -469,7 +469,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    
     const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
       {
