@@ -74,7 +74,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   };
 
   const handleUseExisting = (id: string) => {
-    setForm({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+    setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
     setForceCreate(false);
     onOpenChange(false);
     onCreated?.(id);
