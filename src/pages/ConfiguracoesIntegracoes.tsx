@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, AlertTriangle, LogIn, Loader2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,12 +210,26 @@ export default function ConfiguracoesIntegracoes() {
               Token inválido ou expirado — faça login novamente na Conta Azul para continuar sincronizando.
             </div>
           )}
-          {needsReauth && (
-            <Button variant="default" size="sm" onClick={handleReauth}>
-              <LogIn className="h-4 w-4 mr-2" />
-              Autenticar Conta Azul
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {needsReauth && (
+              <Button variant="default" size="sm" onClick={handleReauth}>
+                <LogIn className="h-4 w-4 mr-2" />
+                Autenticar Conta Azul
+              </Button>
+            )}
+            {contaAzulConnected && !needsReauth && !syncing && (
+              <Button variant="outline" size="sm" onClick={handleSync}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sincronizar agora
+              </Button>
+            )}
+            {syncing && (
+              <Button variant="outline" size="sm" disabled>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sincronizando...
+              </Button>
+            )}
+          </div>
 
           {/* Sync results */}
           {syncResults && (

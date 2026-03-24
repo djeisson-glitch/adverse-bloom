@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Download, CheckCircle, FileText } from "lucide-react";
+import { Download, CheckCircle, FileText, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -102,16 +102,16 @@ export default function ContasAPagar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold text-foreground">Contas a Pagar</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {selectedIds.length > 0 && (
             <Button variant="secondary" size="sm" onClick={handleMarkPaid}>
-              <CheckCircle className="h-4 w-4 mr-1" /> Marcar como Pago ({selectedIds.length})
+              <CheckCircle className="h-4 w-4 mr-1" /> Pago ({selectedIds.length})
             </Button>
           )}
           <Button size="sm" onClick={openExportModal}>
-            <Download className="h-4 w-4 mr-1" /> Exportar para Conta Azul
+            <Download className="h-4 w-4 mr-1" /> Exportar CSV
           </Button>
         </div>
       </div>
@@ -136,9 +136,14 @@ export default function ContasAPagar() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-muted-foreground text-center py-8">Carregando...</p>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
           ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nenhuma conta encontrada.</p>
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <FileText className="h-8 w-8 opacity-40" />
+              <p className="text-sm">Nenhuma conta encontrada.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>

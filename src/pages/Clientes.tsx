@@ -155,17 +155,17 @@ export default function Clientes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Clientes</h1>
           <p className="text-sm text-muted-foreground">{clients.length} clientes cadastrados</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleImportContaAzul} disabled={importing}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleImportContaAzul} disabled={importing}>
             <Download className="mr-2 h-4 w-4" />
-            {importing ? "Importando..." : "Importar do Conta Azul"}
+            {importing ? "Importando..." : "Importar"}
           </Button>
-          <Button onClick={() => setNewOpen(true)}>
+          <Button size="sm" onClick={() => setNewOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Novo Cliente
           </Button>
         </div>

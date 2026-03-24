@@ -12,20 +12,11 @@ import { type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, getCat }
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DollarSign,
-  TrendingUp,
-  Wallet,
-  Clock,
-  Handshake,
-  Trophy,
-  Target,
-  CalendarDays,
-  AlertTriangle,
-  FileText,
-  RefreshCw,
-  ArrowRight,
-  CheckCircle2,
+  DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
+  CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
+  Inbox,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,6 +25,54 @@ function getGreeting() {
   if (h < 12) return "Bom dia";
   if (h < 18) return "Boa tarde";
   return "Boa noite";
+}
+
+/* ─── Metric Card ─── */
+interface MetricCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  subColor?: string;
+  valueColor?: string;
+  icon: React.ElementType;
+  onClick?: () => void;
+  loading?: boolean;
+}
+
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading }: MetricCardProps) {
+  return (
+    <Card
+      className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
+          <span className="text-xs text-muted-foreground truncate">{label}</span>
+        </div>
+        {loading ? (
+          <Skeleton className="h-7 w-24 mt-1" />
+        ) : (
+          <>
+            <p className={`text-lg sm:text-xl font-heading font-bold truncate ${valueColor || "text-foreground"}`}>{value}</p>
+            {sub && <p className={`text-xs mt-0.5 truncate ${subColor || "text-muted-foreground"}`}>{sub}</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─── Empty State ─── */
+function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-6 gap-2 text-muted-foreground">
+      <Icon className="h-5 w-5 opacity-50" />
+      <p className="text-xs text-center">{message}</p>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -45,6 +84,8 @@ export default function Home() {
   const { allTasks } = useTasks("__all__");
   const { accounts, receivables, payables } = useAllContaAzulCache();
   const [syncing, setSyncing] = useState(false);
+
+  const financialLoading = receivables.isLoading || payables.isLoading;
 
   // Budgets query
   const budgetsQuery = useQuery({
@@ -72,7 +113,7 @@ export default function Home() {
   });
   const monthlyTarget = settingsQuery.data?.monthly_target || 200000;
 
-  // ===== FINANCEIRO (mesma lógica do CaixaRunway e Index) =====
+  // ===== FINANCEIRO =====
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
@@ -81,7 +122,6 @@ export default function Home() {
   const runway = burnRate > 0 ? saldoConta / burnRate : Infinity;
   const runwayColor = runway > 4 ? "text-green-400" : runway >= 2 ? "text-amber-400" : "text-destructive";
 
-  // Faturamento do mês = receita total por competência no mês atual
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -94,7 +134,6 @@ export default function Home() {
     [recItems, monthPeriod.from, monthPeriod.to],
   );
 
-  // A receber: vencimentos futuros não recebidos, excluindo empréstimos
   const today = now.toISOString().slice(0, 10);
   const aReceber = useMemo(() => {
     return recItems
@@ -151,13 +190,12 @@ export default function Home() {
   const recentBudgets = budgets.slice(0, 3);
 
   const CONTA_AZUL_AUTH_URL =
-    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
+    "https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=https://kgrzfwgygvwstqowiroh.supabase.co/functions/v1/conta-azul-callback&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin";
 
   const openReauthPopup = (): Promise<boolean> => {
     return new Promise((resolve) => {
       const popup = window.open(CONTA_AZUL_AUTH_URL, "contaazul_auth", "width=600,height=700,popup=yes");
       if (!popup) {
-        // Popup blocked — fallback to new tab
         window.open(CONTA_AZUL_AUTH_URL, "_blank");
         toast({
           title: "Autenticação aberta em nova aba",
@@ -172,17 +210,15 @@ export default function Home() {
             clearInterval(interval);
             resolve(true);
           }
-          // Check if popup navigated back to our domain (callback done)
           if (popup.location?.href?.includes(window.location.origin)) {
             popup.close();
             clearInterval(interval);
             resolve(true);
           }
         } catch {
-          // Cross-origin — popup still on external domain, keep waiting
+          // Cross-origin
         }
       }, 500);
-      // Timeout after 3 minutes
       setTimeout(() => {
         clearInterval(interval);
         if (!popup.closed) popup.close();
@@ -204,7 +240,6 @@ export default function Home() {
         toast({ title: "Sessão expirada — abrindo autenticação..." });
         const reauthDone = await openReauthPopup();
         if (reauthDone) {
-          // Wait a moment for the callback to save the new token
           await new Promise((r) => setTimeout(r, 2000));
           toast({ title: "Reautenticado! Sincronizando..." });
           const { data: retryData, error: retryError } = await supabase.functions.invoke("conta-azul-sync");
@@ -233,7 +268,7 @@ export default function Home() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <motion.div {...anim} className="flex items-center justify-between">
+      <motion.div {...anim} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">
             {getGreeting()}, <span className="text-primary">{firstName}</span>
@@ -242,7 +277,7 @@ export default function Home() {
             {now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="self-start sm:self-auto">
           <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Sincronizando..." : "Sincronizar"}
         </Button>
@@ -263,7 +298,7 @@ export default function Home() {
             Ver detalhes <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Faturamento do mês"
             value={formatCurrency(faturamentoMes)}
@@ -277,6 +312,7 @@ export default function Home() {
             }
             icon={TrendingUp}
             onClick={() => navigate("/financeiro")}
+            loading={financialLoading}
           />
           <MetricCard
             label="A receber"
@@ -284,12 +320,14 @@ export default function Home() {
             sub="vencimentos futuros"
             icon={Wallet}
             onClick={() => navigate("/financeiro/fluxo")}
+            loading={financialLoading}
           />
           <MetricCard
             label="Saldo em conta"
             value={formatCurrency(saldoConta)}
             icon={DollarSign}
             onClick={() => navigate("/financeiro/runway")}
+            loading={financialLoading}
           />
           <MetricCard
             label="Runway"
@@ -297,6 +335,7 @@ export default function Home() {
             valueColor={runwayColor}
             icon={Clock}
             onClick={() => navigate("/financeiro/runway")}
+            loading={financialLoading}
           />
         </div>
       </section>
@@ -316,7 +355,7 @@ export default function Home() {
             Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Deals abertos"
             value={String(openDeals.length)}
@@ -357,11 +396,11 @@ export default function Home() {
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-2">
               {nextClosing.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum deal com data prevista</p>
+                <EmptyState icon={CalendarDays} message="Nenhum deal com data prevista" />
               ) : (
                 nextClosing.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[120px] font-medium">{d.title}</span>
+                  <div key={d.id} className="flex items-center justify-between text-xs gap-2">
+                    <span className="truncate min-w-0 font-medium">{d.title}</span>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-primary font-semibold">{formatCurrency(d.value || 0)}</span>
                       <span className="text-muted-foreground">{formatDate(d.expected_close_date)}</span>
@@ -391,13 +430,13 @@ export default function Home() {
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-2">
               {overdueTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <p className="text-xs text-muted-foreground flex items-center gap-1 py-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Tudo em dia!
                 </p>
               ) : (
                 overdueTasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[180px]">{t.title}</span>
+                  <div key={t.id} className="flex items-center justify-between text-xs gap-2">
+                    <span className="truncate min-w-0">{t.title}</span>
                     <span className="text-destructive shrink-0">{formatDate(t.due_date)}</span>
                   </div>
                 ))
@@ -417,11 +456,11 @@ export default function Home() {
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-2">
               {staleDrafts.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum rascunho pendente</p>
+                <EmptyState icon={Inbox} message="Nenhum rascunho pendente" />
               ) : (
                 staleDrafts.slice(0, 3).map((b) => (
-                  <div key={b.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[140px] font-medium">
+                  <div key={b.id} className="flex items-center justify-between text-xs gap-2">
+                    <span className="truncate min-w-0 font-medium">
                       #{b.budget_number} — {b.client_name}
                     </span>
                     <span className="text-primary font-semibold shrink-0">{formatCurrency(b.total_value || 0)}</span>
@@ -442,12 +481,17 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-2">
-              {recentBudgets.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum orçamento ainda</p>
+              {budgetsQuery.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ) : recentBudgets.length === 0 ? (
+                <EmptyState icon={FileText} message="Nenhum orçamento ainda" />
               ) : (
                 recentBudgets.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between text-xs">
-                    <span className="truncate max-w-[140px] font-medium">
+                  <div key={b.id} className="flex items-center justify-between text-xs gap-2">
+                    <span className="truncate min-w-0 font-medium">
                       #{b.budget_number} — {b.client_name}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
@@ -467,35 +511,5 @@ export default function Home() {
         </div>
       </section>
     </div>
-  );
-}
-
-interface MetricCardProps {
-  label: string;
-  value: string;
-  sub?: string;
-  subColor?: string;
-  valueColor?: string;
-  icon: React.ElementType;
-  onClick?: () => void;
-}
-
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick }: MetricCardProps) {
-  return (
-    <Card
-      className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
-          <span className="text-xs text-muted-foreground">{label}</span>
-        </div>
-        <p className={`text-xl font-heading font-bold ${valueColor || "text-foreground"}`}>{value}</p>
-        {sub && <p className={`text-xs mt-0.5 ${subColor || "text-muted-foreground"}`}>{sub}</p>}
-      </CardContent>
-    </Card>
   );
 }
