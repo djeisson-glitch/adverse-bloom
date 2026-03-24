@@ -22,7 +22,7 @@ interface Props {
 export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   const { clients, createClient } = useClients();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
   const [forceCreate, setForceCreate] = useState(false);
 
   const similar = useMemo(() => {
@@ -55,15 +55,16 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
     try {
       const result = await createClient.mutateAsync({
         name: form.name.trim(),
+        trade_name: form.trade_name.trim() || null,
         company: form.company.trim() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         segment: form.segment || null,
         origin: form.origin || null,
         notes: form.notes.trim() || null,
-      });
+      } as any);
       toast({ title: "Cliente criado!" });
-      setForm({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+      setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
       setForceCreate(false);
       onOpenChange(false);
       onCreated?.(result.id);
@@ -73,7 +74,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   };
 
   const handleUseExisting = (id: string) => {
-    setForm({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+    setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
     setForceCreate(false);
     onOpenChange(false);
     onCreated?.(id);
@@ -88,13 +89,20 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Nome *</Label>
-              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Nome do contato" />
+              <Label>Razão Social *</Label>
+              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Razão Social" />
             </div>
+            <div className="space-y-1.5">
+              <Label>Nome Fantasia</Label>
+              <Input value={form.trade_name} onChange={(e) => setForm({ ...form, trade_name: e.target.value })} placeholder="Nome fantasia / apelido" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Empresa</Label>
               <Input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); setForceCreate(false); }} placeholder="Nome da empresa" />
             </div>
+            <div className="space-y-1.5" />
           </div>
 
           {similar.length > 0 && !forceCreate && (

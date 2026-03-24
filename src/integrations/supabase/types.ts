@@ -142,6 +142,48 @@ export type Database = {
           },
         ]
       }
+      budget_preset_items: {
+        Row: {
+          category: string
+          client_days: number
+          client_people: number
+          client_unit_price: number
+          created_at: string | null
+          has_supplier_cost: boolean
+          id: string
+          item_name: string
+          supplier_days: number
+          supplier_people: number
+          supplier_unit_price: number
+        }
+        Insert: {
+          category: string
+          client_days?: number
+          client_people?: number
+          client_unit_price?: number
+          created_at?: string | null
+          has_supplier_cost?: boolean
+          id?: string
+          item_name: string
+          supplier_days?: number
+          supplier_people?: number
+          supplier_unit_price?: number
+        }
+        Update: {
+          category?: string
+          client_days?: number
+          client_people?: number
+          client_unit_price?: number
+          created_at?: string | null
+          has_supplier_cost?: boolean
+          id?: string
+          item_name?: string
+          supplier_days?: number
+          supplier_people?: number
+          supplier_unit_price?: number
+        }
+        Relationships: []
+      }
       budget_settings: {
         Row: {
           bv_options: string[]
@@ -355,6 +397,7 @@ export type Database = {
           origin: string | null
           phone: string | null
           segment: string | null
+          trade_name: string | null
           type: string
         }
         Insert: {
@@ -367,6 +410,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           segment?: string | null
+          trade_name?: string | null
           type?: string
         }
         Update: {
@@ -379,6 +423,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           segment?: string | null
+          trade_name?: string | null
           type?: string
         }
         Relationships: []

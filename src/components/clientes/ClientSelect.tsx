@@ -60,7 +60,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
             )}
           >
             <span className="truncate">
-              {selected ? `${selected.name}${selected.company ? ` — ${selected.company}` : ""}` : placeholder}
+              {selected ? ((selected as any).trade_name || selected.name) : placeholder}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -88,7 +88,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
                   value === c.id && "bg-accent text-accent-foreground"
                 )}
                 onClick={() => {
-                  onChange(c.id, c.name);
+                  onChange(c.id, (c as any).trade_name || c.name);
                   setOpen(false);
                 }}
               >
@@ -98,7 +98,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
                   </span>
                 )}
                 <span className="truncate">
-                  {c.name}{c.company ? ` — ${c.company}` : ""}
+                  {(c as any).trade_name || c.name}{c.company ? ` — ${c.company}` : ""}
                 </span>
               </button>
             ))}

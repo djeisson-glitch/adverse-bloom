@@ -11,17 +11,20 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDeals, useClients } from "@/hooks/useDeals";
 import { useSupplierContacts } from "@/hooks/useSupplierContacts";
+import { usePresetItems } from "@/hooks/usePresetItems";
 import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import type { ProposalTemplate } from "@/hooks/useTemplates";
 import {
   useBudgetWithItems,
   useSaveBudget,
@@ -112,6 +115,7 @@ interface Props {
   onClose: () => void;
   onOpenVersion?: (id: string) => void;
   initialDealId?: string | null;
+  initialTemplate?: ProposalTemplate | null;
 }
 
 /** Numeric input that strips leading zeros */
@@ -139,7 +143,7 @@ function NumInput({
   );
 }
 
-export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: Props) {
+export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, initialTemplate }: Props) {
   const { data: existing } = useBudgetWithItems(budgetId);
   const { data: settings } = useBudgetSettings();
   const saveBudget = useSaveBudget();
@@ -150,6 +154,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   const { data: versions = [] } = useBudgetVersions(existing?.budget_number ?? null);
   const { deals } = useDeals();
   const { data: supplierContacts = [] } = useSupplierContacts();
+  const { data: presetItems = [] } = usePresetItems();
   
 
   const [projectName, setProjectName] = useState("");
@@ -178,11 +183,52 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   const [newRowCats, setNewRowCats] = useState<Set<string>>(new Set());
   const newRowNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Autosave
+  const [savedBudgetId, setSavedBudgetId] = useState<string | null>(budgetId);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
+
   // Modals
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [notIncludedOpen, setNotIncludedOpen] = useState(true);
+
+  // Load template on mount
+  useEffect(() => {
+    if (initialTemplate && !budgetId) {
+      const templateItems: BudgetItem[] = initialTemplate.categories.map((t, idx) => {
+        const cp = t.client_days * t.client_people * t.client_unit_price;
+        const sc = t.has_supplier_cost ? t.supplier_days * t.supplier_people * t.supplier_unit_price : 0;
+        return {
+          category: t.category,
+          item_name: t.item_name,
+          client_days: t.client_days,
+          client_people: t.client_people,
+          client_unit_price: t.client_unit_price,
+          client_price: cp,
+          has_supplier_cost: t.has_supplier_cost,
+          supplier_days: t.supplier_days,
+          supplier_people: t.supplier_people,
+          supplier_unit_price: t.supplier_unit_price,
+          supplier_cost: sc,
+          margin_value: cp - sc,
+          margin_percent: cp > 0 ? ((cp - sc) / cp) * 100 : 0,
+          order_index: idx,
+        };
+      });
+      setItems(templateItems);
+      setMarkupPercent(initialTemplate.markup_default);
+      setTaxPercent(initialTemplate.tax_default);
+      setCommissionPercent(initialTemplate.commission_default ?? 4);
+      setBvPercent(initialTemplate.bv_default ?? 0);
+      if (initialTemplate.not_included?.length) {
+        setNotIncluded(initialTemplate.not_included);
+      }
+      const templateCats = [...new Set(templateItems.map((i) => i.category))];
+      setCategories([...new Set([...DEFAULT_CATEGORIES, ...templateCats])]);
+    }
+  }, [initialTemplate, budgetId]);
 
   useEffect(() => {
     if (existing) {
@@ -198,11 +244,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
+      setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
         setCategories([...new Set([...DEFAULT_CATEGORIES, ...cats])]);
       }
-    } else if (settings) {
+    } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
       setCommissionPercent(settings.commission_default);
@@ -242,6 +289,54 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
+  // Autosave: debounce 2s after any change (only if budget already has an ID)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!savedBudgetId) return; // not saved yet, skip autosave
+    if (existing?.status === "approved") return; // don't autosave approved budgets
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      const validItems = items.filter((i) => i.item_name.trim());
+      saveBudget.mutate({
+        budget: {
+          id: savedBudgetId,
+          project_name: projectName,
+          client_name: clientName,
+          client_id: clientId,
+          status: "draft",
+          markup_percent: markupPercent,
+          tax_percent: taxPercent,
+          bv_percent: bvPercent,
+          commission_percent: commissionPercent,
+          discount,
+          addition,
+          subtotal_1: totals.subtotal1,
+          subtotal_2: totals.subtotal2,
+          tax_value: totals.taxValue,
+          bv_value: totals.bvValue,
+          commission_value: totals.commissionValue,
+          total_value: totals.totalValue,
+          margin_value: totals.marginValue,
+          margin_percent: totals.marginPercent,
+          created_by: null,
+          budget_number: existing?.budget_number ?? null,
+          version: existing?.version ?? 1,
+          parent_budget_id: existing?.parent_budget_id ?? null,
+          is_latest_version: existing?.is_latest_version ?? true,
+          deal_id: dealId,
+          not_included: notIncluded,
+        } as any,
+        items: validItems,
+      });
+    }, 2000);
+
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+  }, [items, projectName, clientName, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition, notIncluded]);
+
   const recalcItem = (item: BudgetItem, cat?: string): BudgetItem => {
     const category = cat || item.category;
     const config = getCatConfig(category, item.item_name);
@@ -270,9 +365,41 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
       const copy = [...prev];
       const updated = { ...copy[index], [field]: value };
       copy[index] = recalcItem(updated);
+
+      // Auto-add new empty row: when filling a unit price on the last item of a category
+      if (field === "client_unit_price" && value > 0 && updated.item_name.trim()) {
+        const cat = updated.category;
+        const catItems = copy.filter((it) => it.category === cat);
+        const isLastCatItem = catItems[catItems.length - 1] === copy[index];
+        const noEmptyRow = !catItems.some((it, i) => i !== catItems.indexOf(copy[index]) && !it.item_name.trim());
+        if (isLastCatItem && noEmptyRow) {
+          copy.push(emptyItem(cat, copy.length));
+        }
+      }
+
       return copy;
     });
   };
+
+  // Apply preset item to a row
+  const applyPresetToItem = useCallback((index: number, preset: typeof presetItems[0]) => {
+    setItems((prev) => {
+      const copy = [...prev];
+      const item = {
+        ...copy[index],
+        item_name: preset.item_name,
+        client_days: preset.client_days,
+        client_people: preset.client_people,
+        client_unit_price: preset.client_unit_price,
+        has_supplier_cost: preset.has_supplier_cost,
+        supplier_days: preset.supplier_days,
+        supplier_people: preset.supplier_people,
+        supplier_unit_price: preset.supplier_unit_price,
+      };
+      copy[index] = recalcItem(item);
+      return copy;
+    });
+  }, []);
 
   const toggleSupplier = (index: number, checked: boolean) => {
     setItems((prev) => {
@@ -391,11 +518,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
       {
         budget: {
-          ...(budgetId ? { id: budgetId } : {}),
+          ...(savedBudgetId ? { id: savedBudgetId } : {}),
           project_name: projectName,
           client_name: clientName,
           client_id: clientId,
@@ -425,7 +553,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
         } as any,
         items: validItems,
       },
-      { onSuccess: () => onClose() }
+      {
+        onSuccess: (newId) => {
+          if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
+          onClose();
+        },
+      }
     );
   };
 
@@ -704,7 +837,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
                                 config={itemConfig}
                                 headerConfig={config}
                                 supplierContacts={supplierContacts}
+                                presetItems={presetItems.filter(p => p.category === cat)}
                                 onUpdate={(field, value) => updateItem(idx, field, value)}
+                                onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
                                 onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
                                 onRemove={() => {
                                   removeItem(idx);
@@ -1099,7 +1234,9 @@ function ItemTableRow({
   config,
   headerConfig,
   supplierContacts,
+  presetItems,
   onUpdate,
+  onApplyPreset,
   onToggleSupplier,
   onRemove,
   readOnly,
@@ -1113,7 +1250,9 @@ function ItemTableRow({
   config: CategoryFieldConfig;
   headerConfig?: CategoryFieldConfig;
   supplierContacts?: any[];
+  presetItems?: any[];
   onUpdate: (field: keyof BudgetItem, value: any) => void;
+  onApplyPreset?: (preset: any) => void;
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
   readOnly?: boolean;
@@ -1124,6 +1263,7 @@ function ItemTableRow({
   onEnterLastField?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
   const hdr = headerConfig ?? config;
 
   const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
@@ -1135,6 +1275,8 @@ function ItemTableRow({
     }
   };
 
+  const hasPresets = presetItems && presetItems.length > 0;
+
   return (
     <>
       <tr className={`border-b border-border/30 hover:bg-muted/20 ${isNewRow ? "ring-1 ring-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5" : ""}`}>
@@ -1142,14 +1284,42 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
           ) : (
-            <Input
-              ref={nameRef}
-              value={item.item_name}
-              onChange={(e) => onUpdate("item_name", e.target.value)}
-              placeholder={isNewRow ? "Digite aqui..." : "Nome..."}
-              className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1"
-              onKeyDown={(e) => handleKeyDown(e)}
-            />
+            <div className="flex items-center gap-1">
+              {hasPresets && !item.item_name.trim() && (
+                <Popover open={presetOpen} onOpenChange={setPresetOpen}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-1" align="start">
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {presetItems!.map((p) => (
+                        <button
+                          key={p.id}
+                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                          onClick={() => {
+                            onApplyPreset?.(p);
+                            setPresetOpen(false);
+                          }}
+                        >
+                          <span className="font-medium">{p.item_name}</span>
+                          <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              <Input
+                ref={nameRef}
+                value={item.item_name}
+                onChange={(e) => onUpdate("item_name", e.target.value)}
+                placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
+                className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
+                onKeyDown={(e) => handleKeyDown(e)}
+              />
+            </div>
           )}
         </td>
         <td className="px-1 py-1.5">

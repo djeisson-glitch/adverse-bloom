@@ -6,18 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useBudgetSettings } from "@/hooks/useBudgets";
 import { useTemplates, useDeleteTemplate } from "@/hooks/useTemplates";
+import { usePresetItems, useSavePresetItem, useDeletePresetItem } from "@/hooks/usePresetItems";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCurrency } from "@/lib/format";
 
 interface CommissionEntry {
   name: string;
   percent: number;
   enabled: boolean;
 }
+
+const CATEGORIES = ["PRODUÇÃO", "PÓS-PRODUÇÃO", "LOGÍSTICA"];
 
 export default function ConfiguracoesOrcamentos() {
   const navigate = useNavigate();
@@ -26,6 +32,9 @@ export default function ConfiguracoesOrcamentos() {
   const { data: settings, isLoading } = useBudgetSettings();
   const { data: templates = [] } = useTemplates();
   const deleteTemplate = useDeleteTemplate();
+  const { data: presetItems = [] } = usePresetItems();
+  const savePresetItem = useSavePresetItem();
+  const deletePresetItem = useDeletePresetItem();
 
   const [markup, setMarkup] = useState("35");
   const [tax, setTax] = useState("9.5");
@@ -35,6 +44,15 @@ export default function ConfiguracoesOrcamentos() {
     { name: "Robert", percent: 3, enabled: true },
   ]);
   const [saving, setSaving] = useState(false);
+
+  // New preset item form
+  const [newPreset, setNewPreset] = useState({
+    category: "PRODUÇÃO",
+    item_name: "",
+    client_unit_price: 0,
+    has_supplier_cost: false,
+    supplier_unit_price: 0,
+  });
 
   useEffect(() => {
     if (settings) {
@@ -75,6 +93,28 @@ export default function ConfiguracoesOrcamentos() {
     }
   };
 
+  const handleAddPreset = () => {
+    if (!newPreset.item_name.trim()) {
+      toast({ title: "Nome do item é obrigatório", variant: "destructive" });
+      return;
+    }
+    savePresetItem.mutate({
+      category: newPreset.category,
+      item_name: newPreset.item_name.trim(),
+      client_days: 1,
+      client_people: 1,
+      client_unit_price: newPreset.client_unit_price,
+      has_supplier_cost: newPreset.has_supplier_cost,
+      supplier_days: 1,
+      supplier_people: 1,
+      supplier_unit_price: newPreset.supplier_unit_price,
+    }, {
+      onSuccess: () => {
+        setNewPreset({ category: "PRODUÇÃO", item_name: "", client_unit_price: 0, has_supplier_cost: false, supplier_unit_price: 0 });
+      },
+    });
+  };
+
   if (isLoading) return null;
 
   return (
@@ -85,7 +125,7 @@ export default function ConfiguracoesOrcamentos() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Orçamentos</h1>
-          <p className="text-sm text-muted-foreground">Markup, impostos, comissões e templates</p>
+          <p className="text-sm text-muted-foreground">Markup, impostos, comissões, templates e itens pré-cadastrados</p>
         </div>
       </motion.div>
 
@@ -129,6 +169,81 @@ export default function ConfiguracoesOrcamentos() {
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Preset Items */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base">Itens pré-cadastrados</CardTitle>
+          <p className="text-xs text-muted-foreground">Itens reutilizáveis com valores padrão para agilizar a criação de orçamentos</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Add new preset */}
+          <div className="flex flex-wrap items-end gap-2 p-3 rounded-lg border border-border bg-muted/20">
+            <div className="space-y-1">
+              <Label className="text-xs">Categoria</Label>
+              <Select value={newPreset.category} onValueChange={(v) => setNewPreset({ ...newPreset, category: v })}>
+                <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 flex-1 min-w-[160px]">
+              <Label className="text-xs">Nome do item</Label>
+              <Input value={newPreset.item_name} onChange={(e) => setNewPreset({ ...newPreset, item_name: e.target.value })} placeholder="Ex: Operador de Câmera" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Valor cliente</Label>
+              <Input type="number" value={newPreset.client_unit_price || ""} onChange={(e) => setNewPreset({ ...newPreset, client_unit_price: Number(e.target.value) || 0 })} className="h-8 text-sm w-24" placeholder="R$" />
+            </div>
+            <div className="flex items-center gap-2 pb-0.5">
+              <Checkbox checked={newPreset.has_supplier_cost} onCheckedChange={(c) => setNewPreset({ ...newPreset, has_supplier_cost: !!c })} className="h-3.5 w-3.5" />
+              <span className="text-xs text-muted-foreground">Fornecedor</span>
+            </div>
+            {newPreset.has_supplier_cost && (
+              <div className="space-y-1">
+                <Label className="text-xs">Custo forn.</Label>
+                <Input type="number" value={newPreset.supplier_unit_price || ""} onChange={(e) => setNewPreset({ ...newPreset, supplier_unit_price: Number(e.target.value) || 0 })} className="h-8 text-sm w-24" placeholder="R$" />
+              </div>
+            )}
+            <Button size="sm" onClick={handleAddPreset} disabled={savePresetItem.isPending} className="h-8">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+            </Button>
+          </div>
+
+          {/* Existing presets */}
+          {presetItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-2">Nenhum item pré-cadastrado</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="text-right">Valor Cliente</TableHead>
+                  <TableHead className="text-right">Custo Forn.</TableHead>
+                  <TableHead className="w-[60px]">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {presetItems.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="text-xs"><span className="px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground">{p.category}</span></TableCell>
+                    <TableCell className="font-medium text-sm">{p.item_name}</TableCell>
+                    <TableCell className="text-right text-sm">{formatCurrency(p.client_unit_price)}</TableCell>
+                    <TableCell className="text-right text-sm text-muted-foreground">{p.has_supplier_cost ? formatCurrency(p.supplier_unit_price) : "—"}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => deletePresetItem.mutate(p.id)} className="text-muted-foreground hover:text-destructive h-7 w-7">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

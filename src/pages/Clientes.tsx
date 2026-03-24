@@ -43,7 +43,7 @@ export default function Clientes() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((c) =>
-        c.name.toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q)
+        c.name.toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q) || ((c as any).trade_name || "").toLowerCase().includes(q)
       );
     }
     if (segment !== "Todos") {
@@ -99,7 +99,7 @@ export default function Clientes() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Empresa</TableHead>
+              <TableHead>Razão Social</TableHead>
               <TableHead>Segmento</TableHead>
               <TableHead className="text-right">Total Faturado</TableHead>
               <TableHead className="text-right">Projetos</TableHead>
@@ -123,11 +123,11 @@ export default function Clientes() {
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <ClientAvatar name={c.name} />
-                      <span className="font-medium">{c.name}</span>
+                      <ClientAvatar name={(c as any).trade_name || c.name} />
+                      <span className="font-medium">{(c as any).trade_name || c.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{c.company || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.name}</TableCell>
                   <TableCell>
                     {c.segment ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{c.segment}</span>
