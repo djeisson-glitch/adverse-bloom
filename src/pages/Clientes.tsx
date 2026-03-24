@@ -43,7 +43,7 @@ export default function Clientes() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((c) =>
-        c.name.toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q)
+        c.name.toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q) || ((c as any).trade_name || "").toLowerCase().includes(q)
       );
     }
     if (segment !== "Todos") {
