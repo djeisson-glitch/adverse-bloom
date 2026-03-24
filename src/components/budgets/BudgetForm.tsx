@@ -486,11 +486,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
       {
         budget: {
-          ...(budgetId ? { id: budgetId } : {}),
+          ...(savedBudgetId ? { id: savedBudgetId } : {}),
           project_name: projectName,
           client_name: clientName,
           client_id: clientId,
@@ -520,7 +521,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         } as any,
         items: validItems,
       },
-      { onSuccess: () => onClose() }
+      {
+        onSuccess: (newId) => {
+          if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
+          onClose();
+        },
+      }
     );
   };
 
