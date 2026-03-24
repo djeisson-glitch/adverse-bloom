@@ -60,7 +60,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
             )}
           >
             <span className="truncate">
-              {selected ? `${selected.name}${selected.company ? ` — ${selected.company}` : ""}` : placeholder}
+              {selected ? ((selected as any).trade_name || selected.name) : placeholder}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
