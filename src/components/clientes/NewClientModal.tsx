@@ -55,13 +55,14 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
     try {
       const result = await createClient.mutateAsync({
         name: form.name.trim(),
+        trade_name: form.trade_name.trim() || null,
         company: form.company.trim() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         segment: form.segment || null,
         origin: form.origin || null,
         notes: form.notes.trim() || null,
-      });
+      } as any);
       toast({ title: "Cliente criado!" });
       setForm({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
       setForceCreate(false);
