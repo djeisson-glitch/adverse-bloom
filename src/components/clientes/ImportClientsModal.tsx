@@ -128,7 +128,7 @@ export function ImportClientsModal({ open, onOpenChange }: Props) {
       const records: ParsedClient[] = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = parseCSVLine(lines[i], delimiter);
-        const rec: ParsedClient = { name: "", company: null, email: null, phone: null, document: null, selected: true };
+        const rec: ParsedClient = { name: "", company: null, trade_name: null, email: null, phone: null, document: null, selected: true };
         for (const [idx, field] of Object.entries(mapping)) {
           const val = cols[Number(idx)]?.replace(/"/g, "").trim() || null;
           if (val) (rec as any)[field] = val;
