@@ -173,7 +173,7 @@ export default function Assistente() {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+        <div className="max-w-2xl mx-auto px-6 py-8">
           {loadingHistory ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-5 w-5 animate-spin text-white/20" />
@@ -184,27 +184,31 @@ export default function Assistente() {
               <p className="text-sm">Como posso ajudar?</p>
             </div>
           ) : (
-            messages.map((msg, i) => (
-              <div key={i} className={msg.role === "user" ? "flex justify-end" : "flex justify-start gap-3"}>
-                {msg.role === "assistant" && (
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 mt-0.5">
-                    <Bot className="h-3.5 w-3.5 text-white/40" />
-                  </div>
-                )}
-                <div className={msg.role === "user" ? "max-w-[75%]" : "max-w-[85%] flex-1"}>
-                  {msg.role === "assistant" ? (
-                    <div className="text-[14px] leading-relaxed text-white/85 prose prose-sm prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-[13px] [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-white/5 [&_pre]:rounded-lg [&_pre]:p-3">
-                      <ReactMarkdown>{msg.content || "..."}</ReactMarkdown>
+            <div className="flex flex-col gap-6">
+              {messages.map((msg, i) => (
+                <div key={i} className={msg.role === "user" ? "flex justify-end" : "flex justify-start gap-3"}>
+                  {msg.role === "assistant" && (
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 mt-0.5">
+                      <Bot className="h-3.5 w-3.5 text-white/40" />
                     </div>
-                  ) : (
-                    <p className="text-[14px] leading-relaxed text-white/60 text-right">{msg.content}</p>
                   )}
+                  <div className={msg.role === "user" ? "max-w-[75%]" : "max-w-[85%] flex-1"}>
+                    {msg.role === "assistant" ? (
+                      <div className="text-[14px] leading-relaxed text-white/85 prose prose-sm prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-[13px] [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-white/5 [&_pre]:rounded-lg [&_pre]:p-3">
+                        <ReactMarkdown>{msg.content || "..."}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="bg-[#2A2A2A] rounded-2xl px-4 py-3 inline-block">
+                        <p className="text-[14px] leading-relaxed text-white/80 whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
           {isLoading && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5">
                 <Bot className="h-3.5 w-3.5 text-white/40" />
               </div>
@@ -219,9 +223,9 @@ export default function Assistente() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-white/5 bg-[#0D0D0D]">
+      <div className="bg-[#0D0D0D]">
         <div className="max-w-2xl mx-auto px-6 py-4">
-          <div className="flex items-end gap-2 bg-white/5 rounded-2xl px-4 py-3 border border-white/5 focus-within:border-white/10 transition-colors">
+          <div className="flex items-end gap-2 bg-[#1A1A1A] rounded-3xl px-5 py-3.5">
             <textarea
               ref={textareaRef}
               value={input}
@@ -229,13 +233,13 @@ export default function Assistente() {
               onKeyDown={handleKeyDown}
               placeholder="Mensagem..."
               rows={1}
-              className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/20 outline-none resize-none leading-6 max-h-[160px]"
+              className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/25 outline-none resize-none leading-6 max-h-[160px]"
               style={{ height: "24px" }}
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-20 disabled:hover:bg-white/10 transition-colors"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/15 disabled:opacity-20 disabled:hover:bg-white/10 transition-colors"
             >
               <Send className="h-3.5 w-3.5 text-white/70" />
             </button>
