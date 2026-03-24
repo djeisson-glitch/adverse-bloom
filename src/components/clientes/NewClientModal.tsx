@@ -64,7 +64,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         notes: form.notes.trim() || null,
       } as any);
       toast({ title: "Cliente criado!" });
-      setForm({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+      setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
       setForceCreate(false);
       onOpenChange(false);
       onCreated?.(result.id);
