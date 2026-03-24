@@ -159,6 +159,16 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Assistente */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/assistente" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                    <Bot className="mr-2 h-4 w-4" />
+                    {!collapsed && <span>Assistente</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Configurações */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
