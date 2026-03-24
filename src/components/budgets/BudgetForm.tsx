@@ -365,9 +365,41 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       const copy = [...prev];
       const updated = { ...copy[index], [field]: value };
       copy[index] = recalcItem(updated);
+
+      // Auto-add new empty row: when filling a unit price on the last item of a category
+      if (field === "client_unit_price" && value > 0 && updated.item_name.trim()) {
+        const cat = updated.category;
+        const catItems = copy.filter((it) => it.category === cat);
+        const isLastCatItem = catItems[catItems.length - 1] === copy[index];
+        const noEmptyRow = !catItems.some((it, i) => i !== catItems.indexOf(copy[index]) && !it.item_name.trim());
+        if (isLastCatItem && noEmptyRow) {
+          copy.push(emptyItem(cat, copy.length));
+        }
+      }
+
       return copy;
     });
   };
+
+  // Apply preset item to a row
+  const applyPresetToItem = useCallback((index: number, preset: typeof presetItems[0]) => {
+    setItems((prev) => {
+      const copy = [...prev];
+      const item = {
+        ...copy[index],
+        item_name: preset.item_name,
+        client_days: preset.client_days,
+        client_people: preset.client_people,
+        client_unit_price: preset.client_unit_price,
+        has_supplier_cost: preset.has_supplier_cost,
+        supplier_days: preset.supplier_days,
+        supplier_people: preset.supplier_people,
+        supplier_unit_price: preset.supplier_unit_price,
+      };
+      copy[index] = recalcItem(item);
+      return copy;
+    });
+  }, []);
 
   const toggleSupplier = (index: number, checked: boolean) => {
     setItems((prev) => {
