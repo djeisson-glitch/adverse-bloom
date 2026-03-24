@@ -136,9 +136,14 @@ export default function ContasAPagar() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <p className="text-muted-foreground text-center py-8">Carregando...</p>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
           ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Nenhuma conta encontrada.</p>
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <FileText className="h-8 w-8 opacity-40" />
+              <p className="text-sm">Nenhuma conta encontrada.</p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
