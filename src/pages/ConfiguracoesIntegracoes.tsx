@@ -44,37 +44,52 @@ export default function ConfiguracoesIntegracoes() {
     }
 
     (async () => {
-      const { data } = await supabase
-        .from("conta_azul_cache")
-        .select("payload, fetched_at")
-        .eq("data_type", "auth_tokens")
-        .maybeSingle();
-
-      if (!data || !data.payload) {
-        setContaAzulConnected(false);
-        setNeedsReauth(true);
-      } else {
-        const p = data.payload as any;
-        if (p.error || !p.access_token) {
-          setContaAzulConnected(false);
-          setNeedsReauth(true);
-        } else {
-          setContaAzulConnected(true);
-          const fetchedAt = new Date(data.fetched_at).getTime();
-          const expiresIn = p.expires_in || 3600;
-          const expiresAt = fetchedAt + expiresIn * 1000;
-          if (Date.now() > expiresAt && !p.refresh_token) {
-            setNeedsReauth(true);
-          }
-        }
-      }
+      await checkConnectionStatus();
       setChecking(false);
     })();
   }, []);
 
+  const checkConnectionStatus = async () => {
+    const { data } = await supabase
+      .from("conta_azul_cache")
+      .select("payload, fetched_at")
+      .eq("data_type", "auth_tokens")
+      .maybeSingle();
+
+    if (!data || !data.payload) {
+      setContaAzulConnected(false);
+      setNeedsReauth(true);
+    } else {
+      const p = data.payload as any;
+      if (p.error || !p.access_token) {
+        setContaAzulConnected(false);
+        setNeedsReauth(true);
+      } else {
+        setContaAzulConnected(true);
+        setNeedsReauth(false);
+        const fetchedAt = new Date(data.fetched_at).getTime();
+        const expiresIn = p.expires_in || 3600;
+        const expiresAt = fetchedAt + expiresIn * 1000;
+        if (Date.now() > expiresAt && !p.refresh_token) {
+          setNeedsReauth(true);
+        }
+      }
+    }
+  };
+
   const handleReauth = () => {
     const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=${encodeURIComponent("https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback")}&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin`;
-    window.open(authUrl, "contaazul", "width=600,height=700");
+    const popup = window.open(authUrl, "contaazul", "width=600,height=700");
+
+    if (popup) {
+      const pollTimer = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(pollTimer);
+          console.log("[reauth] Popup fechou, verificando status da conexão...");
+          await checkConnectionStatus();
+        }
+      }, 1000);
+    }
   };
 
   const handleSync = async () => {
