@@ -1,3 +1,4 @@
+// Force redeploy v2 - 2026-03-24 - ensure correct redirect_uri
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -106,10 +107,3 @@ serve(async (req) => {
   console.log("[callback] Token salvo, redirecionando para app")
   return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_success=true`, 302)
 })
-```
-
-Depois de colar no Lovable, troca a redirect_uri na Conta Azul de volta para:
-```
-https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback
-
--
