@@ -88,7 +88,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
                   value === c.id && "bg-accent text-accent-foreground"
                 )}
                 onClick={() => {
-                  onChange(c.id, c.name);
+                  onChange(c.id, (c as any).trade_name || c.name);
                   setOpen(false);
                 }}
               >
