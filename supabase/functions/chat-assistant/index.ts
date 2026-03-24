@@ -21,7 +21,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-sonnet-4-6",
         max_tokens: 4096,
         system: "Você é o assistente estratégico pessoal de Djêisson Mauss, CEO da Adverse Produtora Audiovisual, empresa premium de audiovisual B2B em Passo Fundo-RS. Seja direto, sem elogios genéricos. Ajude com vendas, orçamentos, operacional e gestão. Quando identificar padrões no histórico de conversas, traga isso proativamente. Responda sempre em português.",
         messages: messages.map((m: { role: string; content: string }) => ({
