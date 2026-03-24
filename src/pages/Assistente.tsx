@@ -50,7 +50,7 @@ export default function Assistente() {
 
   const saveMessage = async (role: "user" | "assistant", content: string) => {
     if (!user) return;
-    await supabase.from("memories").insert({ user_id: user.id, role, content });
+    await (supabase as any).from("memories").insert({ user_id: user.id, role, content });
   };
 
   const handleSend = async () => {
