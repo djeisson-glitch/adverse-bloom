@@ -168,6 +168,7 @@ export function ImportClientsModal({ open, onOpenChange }: Props) {
         .map((r) => ({
           name: r.name,
           company: r.company,
+          trade_name: r.trade_name,
           email: r.email,
           phone: r.phone,
           origin: "Importação CSV",
