@@ -436,7 +436,7 @@ export default function Orcamentos() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                 {/* PDF desativado temporariamente */}
@@ -504,7 +504,7 @@ export default function Orcamentos() {
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                       <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                       {/* PDF desativado temporariamente */}
