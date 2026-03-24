@@ -355,6 +355,7 @@ export type Database = {
           origin: string | null
           phone: string | null
           segment: string | null
+          type: string
         }
         Insert: {
           company?: string | null
@@ -366,6 +367,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           segment?: string | null
+          type?: string
         }
         Update: {
           company?: string | null
@@ -377,6 +379,7 @@ export type Database = {
           origin?: string | null
           phone?: string | null
           segment?: string | null
+          type?: string
         }
         Relationships: []
       }

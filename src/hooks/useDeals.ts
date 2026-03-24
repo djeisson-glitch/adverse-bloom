@@ -72,7 +72,7 @@ export function useClients() {
   const query = useQuery({
     queryKey: ["clients"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clients").select("*").order("name");
+      const { data, error } = await supabase.from("clients").select("*").eq("type", "cliente").order("name");
       if (error) throw error;
       return data;
     },
