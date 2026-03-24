@@ -36,6 +36,7 @@ export default function Assistente() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
+      console.log("Memories loaded:", data?.length, "error:", error);
       if (!error && data) setMessages(data as Message[]);
       setLoadingHistory(false);
     })();
@@ -50,7 +51,8 @@ export default function Assistente() {
 
   const saveMessage = async (role: "user" | "assistant", content: string) => {
     if (!user) return;
-    await (supabase as any).from("memories").insert({ user_id: user.id, role, content });
+    const { error } = await (supabase as any).from("memories").insert({ user_id: user.id, role, content });
+    if (error) console.error("Erro ao salvar memória:", error);
   };
 
   const handleSend = async () => {
