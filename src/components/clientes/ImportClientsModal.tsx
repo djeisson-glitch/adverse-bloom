@@ -11,6 +11,7 @@ import { Upload, Loader2, FileSpreadsheet, AlertCircle } from "lucide-react";
 interface ParsedClient {
   name: string;
   company: string | null;
+  trade_name: string | null;
   email: string | null;
   phone: string | null;
   document: string | null;
