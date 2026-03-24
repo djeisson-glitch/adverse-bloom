@@ -183,10 +183,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [newRowCats, setNewRowCats] = useState<Set<string>>(new Set());
   const newRowNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Autosave
   const [savedBudgetId, setSavedBudgetId] = useState<string | null>(budgetId);
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstRender = useRef(true);
 
   // Modals
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
@@ -289,53 +286,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
-  // Autosave: debounce 2s after any change (only if budget already has an ID)
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    if (!savedBudgetId) return; // not saved yet, skip autosave
-    if (existing?.status === "approved") return; // don't autosave approved budgets
-
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => {
-      const validItems = items.filter((i) => i.item_name.trim());
-      saveBudget.mutate({
-        budget: {
-          id: savedBudgetId,
-          project_name: projectName,
-          client_name: clientName,
-          client_id: clientId,
-          status: "draft",
-          markup_percent: markupPercent,
-          tax_percent: taxPercent,
-          bv_percent: bvPercent,
-          commission_percent: commissionPercent,
-          discount,
-          addition,
-          subtotal_1: totals.subtotal1,
-          subtotal_2: totals.subtotal2,
-          tax_value: totals.taxValue,
-          bv_value: totals.bvValue,
-          commission_value: totals.commissionValue,
-          total_value: totals.totalValue,
-          margin_value: totals.marginValue,
-          margin_percent: totals.marginPercent,
-          created_by: null,
-          budget_number: existing?.budget_number ?? null,
-          version: existing?.version ?? 1,
-          parent_budget_id: existing?.parent_budget_id ?? null,
-          is_latest_version: existing?.is_latest_version ?? true,
-          deal_id: dealId,
-          not_included: notIncluded,
-        } as any,
-        items: validItems,
-      });
-    }, 2000);
-
-    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
-  }, [items, projectName, clientName, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition, notIncluded]);
+  // Autosave removed — save only on explicit user action
 
   const recalcItem = (item: BudgetItem, cat?: string): BudgetItem => {
     const category = cat || item.category;
@@ -518,7 +469,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    
     const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
       {
@@ -556,6 +507,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {
         onSuccess: (newId) => {
           if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
+          toast({ title: "Orçamento salvo com sucesso!" });
           onClose();
         },
       }
