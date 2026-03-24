@@ -1234,7 +1234,9 @@ function ItemTableRow({
   config,
   headerConfig,
   supplierContacts,
+  presetItems,
   onUpdate,
+  onApplyPreset,
   onToggleSupplier,
   onRemove,
   readOnly,
@@ -1248,7 +1250,9 @@ function ItemTableRow({
   config: CategoryFieldConfig;
   headerConfig?: CategoryFieldConfig;
   supplierContacts?: any[];
+  presetItems?: any[];
   onUpdate: (field: keyof BudgetItem, value: any) => void;
+  onApplyPreset?: (preset: any) => void;
   onToggleSupplier: (checked: boolean) => void;
   onRemove: () => void;
   readOnly?: boolean;
@@ -1259,6 +1263,7 @@ function ItemTableRow({
   onEnterLastField?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
   const hdr = headerConfig ?? config;
 
   const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
@@ -1270,6 +1275,8 @@ function ItemTableRow({
     }
   };
 
+  const hasPresets = presetItems && presetItems.length > 0;
+
   return (
     <>
       <tr className={`border-b border-border/30 hover:bg-muted/20 ${isNewRow ? "ring-1 ring-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5" : ""}`}>
@@ -1277,14 +1284,42 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
           ) : (
-            <Input
-              ref={nameRef}
-              value={item.item_name}
-              onChange={(e) => onUpdate("item_name", e.target.value)}
-              placeholder={isNewRow ? "Digite aqui..." : "Nome..."}
-              className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1"
-              onKeyDown={(e) => handleKeyDown(e)}
-            />
+            <div className="flex items-center gap-1">
+              {hasPresets && !item.item_name.trim() && (
+                <Popover open={presetOpen} onOpenChange={setPresetOpen}>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-1" align="start">
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {presetItems!.map((p) => (
+                        <button
+                          key={p.id}
+                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                          onClick={() => {
+                            onApplyPreset?.(p);
+                            setPresetOpen(false);
+                          }}
+                        >
+                          <span className="font-medium">{p.item_name}</span>
+                          <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              <Input
+                ref={nameRef}
+                value={item.item_name}
+                onChange={(e) => onUpdate("item_name", e.target.value)}
+                placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
+                className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
+                onKeyDown={(e) => handleKeyDown(e)}
+              />
+            </div>
           )}
         </td>
         <td className="px-1 py-1.5">
