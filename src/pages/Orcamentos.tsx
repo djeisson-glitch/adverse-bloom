@@ -553,7 +553,9 @@ export default function Orcamentos() {
         {(["draft", "approved", "rejected"] as const).map(status => (
           <TabsContent key={status} value={status}>
             {isLoading ? (
-              <p className="text-muted-foreground py-8 text-center">Carregando...</p>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
             ) : isMobile ? mobileCards : desktopTable}
 
           </TabsContent>
