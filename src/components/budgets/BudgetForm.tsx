@@ -507,6 +507,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {
         onSuccess: (newId) => {
           if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
+          toast({ title: "Orçamento salvo com sucesso!" });
           onClose();
         },
       }
