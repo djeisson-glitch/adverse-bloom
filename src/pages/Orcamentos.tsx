@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter } from "lucide-react";
+import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

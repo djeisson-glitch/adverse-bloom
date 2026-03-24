@@ -106,7 +106,7 @@ export default function Index() {
         <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatCard title="Receita do Período" value={formatCurrency(receitaPeriodo)} icon={DollarSign} delay={0} />
         <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05} />
         <StatCard title="Faturamento" value={formatCurrency(faturamentoPeriodo)} icon={Receipt} delay={0.1} />

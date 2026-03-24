@@ -76,7 +76,7 @@ export default function Projetos() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Projetos</h1>
           <p className="text-sm text-muted-foreground">Gerencie seus projetos de produção</p>
