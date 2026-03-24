@@ -84,7 +84,7 @@ export default function ConfiguracoesIntegracoes() {
           .select("payload, fetched_at")
           .eq("data_type", "auth_tokens")
           .maybeSingle();
-        if (data?.payload?.access_token) {
+        if ((data?.payload as any)?.access_token) {
           setContaAzulConnected(true);
           setNeedsReauth(false);
           toast({ title: "Conta Azul conectada com sucesso!" });
