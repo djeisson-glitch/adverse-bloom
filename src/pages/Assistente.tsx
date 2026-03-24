@@ -31,7 +31,7 @@ export default function Assistente() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("memories")
         .select("*")
         .eq("user_id", user.id)
@@ -50,7 +50,7 @@ export default function Assistente() {
 
   const saveMessage = async (role: "user" | "assistant", content: string) => {
     if (!user) return;
-    await supabase.from("memories").insert({ user_id: user.id, role, content });
+    await (supabase as any).from("memories").insert({ user_id: user.id, role, content });
   };
 
   const handleSend = async () => {
@@ -140,7 +140,7 @@ export default function Assistente() {
 
   const handleClear = async () => {
     if (!user) return;
-    await supabase.from("memories").delete().eq("user_id", user.id);
+    await (supabase as any).from("memories").delete().eq("user_id", user.id);
     setMessages([]);
     toast({ title: "Histórico limpo" });
   };
