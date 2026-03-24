@@ -20,6 +20,7 @@ import Projecoes2026 from "./pages/Projecoes2026";
 import Orcamentos from "./pages/Orcamentos";
 import ContasAPagar from "./pages/ContasAPagar";
 import Comercial from "./pages/Comercial";
+import Assistente from "./pages/Assistente";
 import MapaOperacional from "./pages/MapaOperacional";
 import Configuracoes from "./pages/Configuracoes";
 import ConfiguracoesGeral from "./pages/ConfiguracoesGeral";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
               <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
+              <Route path="/assistente" element={<ProtectedRoute><Assistente /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               <Route path="/configuracoes/geral" element={<ProtectedRoute><ConfiguracoesGeral /></ProtectedRoute>} />
               <Route path="/configuracoes/usuarios" element={<ProtectedRoute><ConfiguracoesUsuarios /></ProtectedRoute>} />

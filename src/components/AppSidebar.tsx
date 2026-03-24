@@ -1,6 +1,6 @@
 import {
   Home, DollarSign, Handshake, Calculator, FolderKanban, Map, Settings, LogOut, ChevronDown,
-  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users,
+  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -155,6 +155,16 @@ export function AppSidebar() {
                   <NavLink to="/mapa-operacional" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
                     <Map className="mr-2 h-4 w-4" />
                     {!collapsed && <span>Mapa Operacional</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Assistente */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/assistente" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                    <Bot className="mr-2 h-4 w-4" />
+                    {!collapsed && <span>Assistente</span>}
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
