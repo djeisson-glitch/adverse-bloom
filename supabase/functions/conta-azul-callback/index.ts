@@ -111,3 +111,5 @@ serve(async (req) => {
 Depois de colar no Lovable, troca a redirect_uri na Conta Azul de volta para:
 ```
 https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback
+
+-
