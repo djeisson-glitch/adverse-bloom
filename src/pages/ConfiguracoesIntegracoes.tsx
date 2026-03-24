@@ -76,19 +76,44 @@ export default function ConfiguracoesIntegracoes() {
     const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=4ajs7b65jihimmv0cluuaoqp5s&redirect_uri=${encodeURIComponent("https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback")}&state=ESTADO&scope=openid+profile+aws.cognito.signin.user.admin`;
     const popup = window.open(authUrl, "contaazul", "width=600,height=700");
 
-    const interval = setInterval(async () => {
-      if (!popup || popup.closed) {
-        clearInterval(interval);
-        const { data } = await supabase
-          .from("conta_azul_cache")
-          .select("payload, fetched_at")
-          .eq("data_type", "auth_tokens")
-          .maybeSingle();
-        if ((data?.payload as any)?.access_token) {
-          setContaAzulConnected(true);
-          setNeedsReauth(false);
-          toast({ title: "Conta Azul conectada com sucesso!" });
-        }
+    if (!popup) {
+      toast({ title: "Popup bloqueado", description: "Permita popups para autenticar.", variant: "destructive" });
+      return;
+    }
+
+    const pollTimer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollTimer);
+        // Aguarda 2s para o callback salvar o token no banco
+        setTimeout(async () => {
+          try {
+            const { data, error } = await supabase
+              .from("conta_azul_cache")
+              .select("payload, fetched_at")
+              .eq("data_type", "auth_tokens")
+              .maybeSingle();
+
+            console.log("[reauth] Token check após popup:", JSON.stringify(data?.payload));
+
+            if (error) {
+              console.error("[reauth] Erro ao ler token:", error);
+              toast({ title: "Erro ao verificar conexão", description: error.message, variant: "destructive" });
+              return;
+            }
+
+            const payload = data?.payload as any;
+            if (payload?.access_token) {
+              setContaAzulConnected(true);
+              setNeedsReauth(false);
+              toast({ title: "Conta Azul conectada com sucesso!" });
+            } else {
+              toast({ title: "Autenticação não detectada", description: "Tente novamente.", variant: "destructive" });
+            }
+          } catch (err: any) {
+            console.error("[reauth] Erro:", err);
+            toast({ title: "Erro ao verificar conexão", description: err.message, variant: "destructive" });
+          }
+        }, 2000);
       }
     }, 1000);
   };
