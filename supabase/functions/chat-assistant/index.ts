@@ -23,7 +23,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 4096,
-        system: "Você é o assistente da Adverse, uma produtora audiovisual brasileira. Responda sempre em português do Brasil. Seja direto, útil e profissional. Você tem acesso ao histórico completo de conversas anteriores do usuário para manter contexto.",
+        system: "Você é o assistente estratégico pessoal de Djêisson Mauss, CEO da Adverse Produtora Audiovisual, empresa premium de audiovisual B2B em Passo Fundo-RS. Seja direto, sem elogios genéricos. Ajude com vendas, orçamentos, operacional e gestão. Quando identificar padrões no histórico de conversas, traga isso proativamente. Responda sempre em português.",
         messages: messages.map((m: { role: string; content: string }) => ({
           role: m.role,
           content: m.content,
