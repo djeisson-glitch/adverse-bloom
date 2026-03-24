@@ -22,7 +22,7 @@ interface Props {
 export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   const { clients, createClient } = useClients();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
   const [forceCreate, setForceCreate] = useState(false);
 
   const similar = useMemo(() => {
