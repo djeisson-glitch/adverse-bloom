@@ -11,17 +11,20 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDeals, useClients } from "@/hooks/useDeals";
 import { useSupplierContacts } from "@/hooks/useSupplierContacts";
+import { usePresetItems } from "@/hooks/usePresetItems";
 import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import type { ProposalTemplate } from "@/hooks/useTemplates";
 import {
   useBudgetWithItems,
   useSaveBudget,
