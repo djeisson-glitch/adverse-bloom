@@ -31,7 +31,7 @@ export default function Assistente() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("memories")
         .select("*")
         .eq("user_id", user.id)
