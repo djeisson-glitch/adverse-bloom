@@ -115,6 +115,7 @@ interface Props {
   onClose: () => void;
   onOpenVersion?: (id: string) => void;
   initialDealId?: string | null;
+  initialTemplate?: ProposalTemplate | null;
 }
 
 /** Numeric input that strips leading zeros */
