@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { Send, Bot, User, Trash2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Send, Bot, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -27,7 +23,6 @@ export default function Assistente() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load history
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -36,16 +31,14 @@ export default function Assistente() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
-      console.log("Memories loaded:", data?.length, "error:", error);
       if (!error && data) setMessages(data as Message[]);
       setLoadingHistory(false);
     })();
   }, [user]);
 
-  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
 
@@ -64,6 +57,10 @@ export default function Assistente() {
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "24px";
+    }
 
     await saveMessage("user", text);
 
@@ -90,7 +87,6 @@ export default function Assistente() {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      // Add empty assistant message
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (true) {
@@ -110,7 +106,6 @@ export default function Assistente() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            // Anthropic SSE format
             if (parsed.type === "content_block_delta" && parsed.delta?.text) {
               assistantContent += parsed.delta.text;
               setMessages((prev) => {
@@ -120,7 +115,7 @@ export default function Assistente() {
               });
             }
           } catch {
-            // partial JSON, ignore
+            // partial JSON
           }
         }
       }
@@ -131,7 +126,6 @@ export default function Assistente() {
     } catch (e: any) {
       console.error("Chat error:", e);
       toast({ title: "Erro", description: e.message, variant: "destructive" });
-      // Remove empty assistant message if error
       if (!assistantContent) {
         setMessages((prev) => prev.filter((_, i) => i !== prev.length - 1));
       }
@@ -154,87 +148,99 @@ export default function Assistente() {
     }
   };
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] max-w-3xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold">Assistente</h1>
-          <p className="text-sm text-muted-foreground">Chat com memória permanente</p>
-        </div>
-        {messages.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleClear}>
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Limpar
-          </Button>
-        )}
-      </motion.div>
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = "24px";
+    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  };
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4">
-        {loadingHistory ? (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-            <Bot className="h-12 w-12 opacity-30" />
-            <p className="text-sm">Envie uma mensagem para começar</p>
-          </div>
-        ) : (
-          messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              {msg.role === "assistant" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              )}
-              <div
-                className={`max-w-[80%] rounded-xl px-4 py-3 text-sm ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border"
-                }`}
-              >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm prose-invert max-w-none">
-                    <ReactMarkdown>{msg.content || "..."}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                )}
-              </div>
-              {msg.role === "user" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary">
-                  <User className="h-4 w-4 text-foreground" />
-                </div>
-              )}
-            </div>
-          ))
-        )}
-        {isLoading && !messages[messages.length - 1]?.content && (
-          <div className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Bot className="h-4 w-4 text-primary" />
-            </div>
-            <div className="bg-card border border-border rounded-xl px-4 py-3">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          </div>
+  return (
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] bg-[#0D0D0D] -m-6 relative">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-white/5">
+        <h1 className="text-sm font-medium text-white/70">Assistente</h1>
+        {messages.length > 0 && (
+          <button
+            onClick={handleClear}
+            className="text-white/30 hover:text-white/60 transition-colors text-xs flex items-center gap-1"
+          >
+            <Trash2 className="h-3 w-3" />
+            Limpar
+          </button>
         )}
       </div>
 
-      <div className="border-t border-border pt-4 flex gap-2">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite sua mensagem..."
-          className="min-h-[44px] max-h-[120px] resize-none"
-          rows={1}
-        />
-        <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="icon" className="shrink-0 h-11 w-11">
-          <Send className="h-4 w-4" />
-        </Button>
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+          {loadingHistory ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[50vh] text-white/20 gap-3">
+              <Bot className="h-10 w-10" />
+              <p className="text-sm">Como posso ajudar?</p>
+            </div>
+          ) : (
+            messages.map((msg, i) => (
+              <div key={i} className={msg.role === "user" ? "flex justify-end" : "flex justify-start gap-3"}>
+                {msg.role === "assistant" && (
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-white/40" />
+                  </div>
+                )}
+                <div className={msg.role === "user" ? "max-w-[75%]" : "max-w-[85%] flex-1"}>
+                  {msg.role === "assistant" ? (
+                    <div className="text-[14px] leading-relaxed text-white/85 prose prose-sm prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_code]:text-[13px] [&_code]:bg-white/5 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-white/5 [&_pre]:rounded-lg [&_pre]:p-3">
+                      <ReactMarkdown>{msg.content || "..."}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-[14px] leading-relaxed text-white/60 text-right">{msg.content}</p>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          {isLoading && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
+            <div className="flex gap-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5">
+                <Bot className="h-3.5 w-3.5 text-white/40" />
+              </div>
+              <div className="flex items-center gap-1.5 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-pulse [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-pulse [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-white/5 bg-[#0D0D0D]">
+        <div className="max-w-2xl mx-auto px-6 py-4">
+          <div className="flex items-end gap-2 bg-white/5 rounded-2xl px-4 py-3 border border-white/5 focus-within:border-white/10 transition-colors">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleTextareaInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Mensagem..."
+              rows={1}
+              className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/20 outline-none resize-none leading-6 max-h-[160px]"
+              style={{ height: "24px" }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-20 disabled:hover:bg-white/10 transition-colors"
+            >
+              <Send className="h-3.5 w-3.5 text-white/70" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
