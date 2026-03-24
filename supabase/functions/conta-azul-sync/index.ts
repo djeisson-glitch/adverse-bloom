@@ -6,6 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function toBase64(str: string): string {
+  return btoa(str);
+}
+
 async function getValidToken(supabase: any): Promise<{ token: string } | { error: string; reauth: boolean }> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   console.log("[token] SUPABASE_URL usado pelo sync:", supabaseUrl);
@@ -27,8 +31,6 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   console.log("[token] payload keys:", Object.keys(payload));
   console.log("[token] access_token prefix:", payload.access_token?.slice(0, 20) + "...");
   console.log("[token] refresh_token present:", !!payload.refresh_token);
-  console.log("[token] expires_in:", payload.expires_in);
-  console.log("[token] token_type:", payload.token_type);
 
   const fetchedAt = new Date(authRow.fetched_at).getTime();
   const expiresIn = payload.expires_in || 3600;
@@ -36,14 +38,7 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
 
-  console.log(
-    "[token] fetchedAt:",
-    new Date(fetchedAt).toISOString(),
-    "expiresAt:",
-    new Date(expiresAt).toISOString(),
-    "now:",
-    new Date(now).toISOString(),
-  );
+  console.log("[token] fetchedAt:", new Date(fetchedAt).toISOString(), "expiresAt:", new Date(expiresAt).toISOString(), "now:", new Date(now).toISOString());
 
   if (payload.access_token && now < expiresAt - fiveMinutes) {
     console.log("[token] Token parece válido por tempo, expira em", Math.round((expiresAt - now) / 60000), "min");
@@ -51,43 +46,41 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   }
 
   if (!payload.refresh_token) {
-    console.error("[token] Sem refresh_token no payload, keys:", Object.keys(payload));
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
   console.log("[token] Token expirado, tentando refresh...");
-  console.log("[token] refresh_token prefix:", payload.refresh_token.slice(0, 20) + "...");
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!;
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!;
-  console.log("[token] client_id prefix:", clientId?.slice(0, 8) + "...");
+  const basicAuth = toBase64(`${clientId}:${clientSecret}`);
 
+  // Per Conta Azul docs: use Basic auth header for token refresh
   const refreshBody = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: payload.refresh_token,
-    client_id: clientId,
-    client_secret: clientSecret,
   }).toString();
 
   const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${basicAuth}`,
+    },
     body: refreshBody,
   });
 
   const tokenText = await tokenRes.text();
   console.log("[token] Refresh response status:", tokenRes.status);
-  console.log("[token] Refresh response body:", tokenText);
+  console.log("[token] Refresh response body:", tokenText.slice(0, 500));
 
   let tokenData: any;
   try {
     tokenData = JSON.parse(tokenText);
   } catch {
-    console.error("[token] Refresh response não é JSON:", tokenText.slice(0, 300));
     return { error: "Erro ao renovar token da Conta Azul.", reauth: true };
   }
 
   if (!tokenData.access_token) {
-    console.error("[token] Refresh falhou:", JSON.stringify(tokenData));
     return { error: "Sessão expirada — faça login novamente na Conta Azul.", reauth: true };
   }
 
@@ -105,8 +98,9 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   return { token: tokenData.access_token };
 }
 
-const BASE = "https://api.contaazul.com/v2";
-const BASE_V1 = "https://api.contaazul.com/v1";
+// IMPORTANT: Correct API base URL per official Conta Azul docs
+const BASE = "https://api-v2.contaazul.com/v2";
+const BASE_V1 = "https://api-v2.contaazul.com/v1";
 const dataInicio = "2025-01-01";
 const dataFim = new Date().toISOString().slice(0, 10);
 const dataInicioEmpresa = "2023-06-05";
@@ -158,7 +152,7 @@ async function syncEndpoint(
       const data = await res.json();
       const items = Array.isArray(data) ? data : data.itens || data.items || data.data || [];
       allItems = allItems.concat(items);
-      console.log(`[sync] ${label} página ${pagina}: ${items.length} itens (total acumulado: ${allItems.length})`);
+      console.log(`[sync] ${label} página ${pagina}: ${items.length} itens (total: ${allItems.length})`);
       if (items.length < 200) break;
     }
     await supabase
@@ -229,16 +223,7 @@ serve(async (req) => {
         }
         token = refreshResult.token;
         headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-        const retryResult = await syncEndpoint(
-          supabase,
-          job.label,
-          job.key,
-          job.url,
-          headers,
-          now,
-          period,
-          job.paginated,
-        );
+        const retryResult = await syncEndpoint(supabase, job.label, job.key, job.url, headers, now, period, job.paginated);
         if (retryResult.status === "error" && retryResult.message?.includes("401")) {
           needsReauth = true;
           results[job.key] = { status: "reauth", label: job.label };
@@ -263,66 +248,14 @@ serve(async (req) => {
       );
     }
 
-    // SALES - testar múltiplos endpoints
-    const salesEndpoints = [
-      { key: "v2_sales", url: `${BASE}/sales?emission_date_start=${dataInicio}&emission_date_end=${dataFim}&size=5` },
-      {
-        key: "v1_nfs",
-        url: `${BASE_V1}/notas-fiscais-servico?pagina=1&tamanho_pagina=5&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`,
-      },
-      { key: "v1_vendas", url: `${BASE_V1}/vendas?pagina=1&tamanho_pagina=5` },
-    ];
-    const salesProbe: Record<string, any> = {};
-    for (const ep of salesEndpoints) {
-      try {
-        const res = await fetch(ep.url, { headers });
-        const body = await res.text();
-        salesProbe[ep.key] = { status: res.status, bodyPreview: body.slice(0, 500), length: body.length };
-        console.log(`[probe-sales] ${ep.key}: HTTP ${res.status} len=${body.length} body=${body.slice(0, 300)}`);
-      } catch (e) {
-        salesProbe[ep.key] = { status: "error", message: String(e) };
-        console.error(`[probe-sales] ${ep.key} ERRO:`, String(e));
-      }
-    }
-    results["sales_probe"] = salesProbe;
-
-    // TRANSACTIONS - testar múltiplos endpoints
-    const txEndpoints = [
-      {
-        key: "v2_financial_tx",
-        url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}&size=5`,
-      },
-      {
-        key: "v1_lancamentos",
-        url: `${BASE_V1}/financeiro/lancamentos?pagina=1&tamanho_pagina=5&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`,
-      },
-      { key: "v1_movimentacoes", url: `${BASE_V1}/movimentacoes?pagina=1&tamanho_pagina=5` },
-    ];
-    const txProbe: Record<string, any> = {};
-    for (const ep of txEndpoints) {
-      try {
-        const res = await fetch(ep.url, { headers });
-        const body = await res.text();
-        txProbe[ep.key] = { status: res.status, bodyPreview: body.slice(0, 500), length: body.length };
-        console.log(`[probe-tx] ${ep.key}: HTTP ${res.status} len=${body.length} body=${body.slice(0, 300)}`);
-      } catch (e) {
-        txProbe[ep.key] = { status: "error", message: String(e) };
-        console.error(`[probe-tx] ${ep.key} ERRO:`, String(e));
-      }
-    }
-    results["tx_probe"] = txProbe;
-
-    // Sync sales com endpoint v1 NFS (atual)
+    // SALES
     try {
       let allSales: any[] = [];
       let page = 1;
       while (true) {
         const url = `${BASE_V1}/notas-fiscais-servico?pagina=${page}&tamanho_pagina=100&data_emissao_de=${dataInicioEmpresa}&data_emissao_ate=${dataFim}`;
         const res = await fetch(url, { headers });
-        if (!res.ok) {
-          await res.text();
-          break;
-        }
+        if (!res.ok) { await res.text(); break; }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
@@ -331,29 +264,24 @@ serve(async (req) => {
         page++;
       }
       if (allSales.length > 0) {
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
-            { onConflict: "data_type" },
-          );
+        await supabase.from("conta_azul_cache").upsert(
+          { data_type: "sales", payload: { itens: allSales }, fetched_at: now, period },
+          { onConflict: "data_type" },
+        );
       }
       results["sales"] = { status: "ok", label: "Vendas (NFS)", total: allSales.length };
     } catch (e) {
       results["sales"] = { status: "error", label: "Vendas", message: String(e) };
     }
 
-    // Sync transactions com endpoint v1 lancamentos (atual)
+    // TRANSACTIONS
     try {
       let allTx: any[] = [];
       let page = 1;
       while (true) {
         const url = `${BASE_V1}/financeiro/lancamentos?pagina=${page}&tamanho_pagina=100&data_lancamento_de=${dataInicioEmpresa}&data_lancamento_ate=${dataFim}`;
         const res = await fetch(url, { headers });
-        if (!res.ok) {
-          await res.text();
-          break;
-        }
+        if (!res.ok) { await res.text(); break; }
         const data = await res.json();
         const items = data.itens || data.content || (Array.isArray(data) ? data : []);
         if (!Array.isArray(items) || items.length === 0) break;
@@ -362,12 +290,10 @@ serve(async (req) => {
         page++;
       }
       if (allTx.length > 0) {
-        await supabase
-          .from("conta_azul_cache")
-          .upsert(
-            { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
-            { onConflict: "data_type" },
-          );
+        await supabase.from("conta_azul_cache").upsert(
+          { data_type: "transactions", payload: { itens: allTx }, fetched_at: now, period },
+          { onConflict: "data_type" },
+        );
       }
       results["transactions"] = { status: "ok", label: "Transações", total: allTx.length };
     } catch (e) {
