@@ -36,6 +36,7 @@ export default function Assistente() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
+      console.log("Memories loaded:", data?.length, "error:", error);
       if (!error && data) setMessages(data as Message[]);
       setLoadingHistory(false);
     })();
