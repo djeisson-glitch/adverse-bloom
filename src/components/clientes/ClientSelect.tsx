@@ -98,7 +98,7 @@ export function ClientSelect({ value, onChange, disabled, className, placeholder
                   </span>
                 )}
                 <span className="truncate">
-                  {c.name}{c.company ? ` — ${c.company}` : ""}
+                  {(c as any).trade_name || c.name}{c.company ? ` — ${c.company}` : ""}
                 </span>
               </button>
             ))}

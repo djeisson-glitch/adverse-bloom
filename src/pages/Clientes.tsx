@@ -123,11 +123,11 @@ export default function Clientes() {
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <ClientAvatar name={c.name} />
-                      <span className="font-medium">{c.name}</span>
+                      <ClientAvatar name={(c as any).trade_name || c.name} />
+                      <span className="font-medium">{(c as any).trade_name || c.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{c.company || "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.name}</TableCell>
                   <TableCell>
                     {c.segment ? (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">{c.segment}</span>

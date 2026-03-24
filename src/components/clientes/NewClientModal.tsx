@@ -89,13 +89,20 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Nome *</Label>
-              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Nome do contato" />
+              <Label>Razão Social *</Label>
+              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Razão Social" />
             </div>
+            <div className="space-y-1.5">
+              <Label>Nome Fantasia</Label>
+              <Input value={form.trade_name} onChange={(e) => setForm({ ...form, trade_name: e.target.value })} placeholder="Nome fantasia / apelido" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Empresa</Label>
               <Input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); setForceCreate(false); }} placeholder="Nome da empresa" />
             </div>
+            <div className="space-y-1.5" />
           </div>
 
           {similar.length > 0 && !forceCreate && (
