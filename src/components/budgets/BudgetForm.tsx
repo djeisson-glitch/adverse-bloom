@@ -143,7 +143,7 @@ function NumInput({
   );
 }
 
-export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: Props) {
+export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, initialTemplate }: Props) {
   const { data: existing } = useBudgetWithItems(budgetId);
   const { data: settings } = useBudgetSettings();
   const saveBudget = useSaveBudget();
@@ -154,6 +154,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   const { data: versions = [] } = useBudgetVersions(existing?.budget_number ?? null);
   const { deals } = useDeals();
   const { data: supplierContacts = [] } = useSupplierContacts();
+  const { data: presetItems = [] } = usePresetItems();
   
 
   const [projectName, setProjectName] = useState("");
@@ -182,11 +183,52 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
   const [newRowCats, setNewRowCats] = useState<Set<string>>(new Set());
   const newRowNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Autosave
+  const [savedBudgetId, setSavedBudgetId] = useState<string | null>(budgetId);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
+
   // Modals
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [notIncludedOpen, setNotIncludedOpen] = useState(true);
+
+  // Load template on mount
+  useEffect(() => {
+    if (initialTemplate && !budgetId) {
+      const templateItems: BudgetItem[] = initialTemplate.categories.map((t, idx) => {
+        const cp = t.client_days * t.client_people * t.client_unit_price;
+        const sc = t.has_supplier_cost ? t.supplier_days * t.supplier_people * t.supplier_unit_price : 0;
+        return {
+          category: t.category,
+          item_name: t.item_name,
+          client_days: t.client_days,
+          client_people: t.client_people,
+          client_unit_price: t.client_unit_price,
+          client_price: cp,
+          has_supplier_cost: t.has_supplier_cost,
+          supplier_days: t.supplier_days,
+          supplier_people: t.supplier_people,
+          supplier_unit_price: t.supplier_unit_price,
+          supplier_cost: sc,
+          margin_value: cp - sc,
+          margin_percent: cp > 0 ? ((cp - sc) / cp) * 100 : 0,
+          order_index: idx,
+        };
+      });
+      setItems(templateItems);
+      setMarkupPercent(initialTemplate.markup_default);
+      setTaxPercent(initialTemplate.tax_default);
+      setCommissionPercent(initialTemplate.commission_default ?? 4);
+      setBvPercent(initialTemplate.bv_default ?? 0);
+      if (initialTemplate.not_included?.length) {
+        setNotIncluded(initialTemplate.not_included);
+      }
+      const templateCats = [...new Set(templateItems.map((i) => i.category))];
+      setCategories([...new Set([...DEFAULT_CATEGORIES, ...templateCats])]);
+    }
+  }, [initialTemplate, budgetId]);
 
   useEffect(() => {
     if (existing) {
@@ -202,11 +244,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId }: 
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
+      setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
         setCategories([...new Set([...DEFAULT_CATEGORIES, ...cats])]);
       }
-    } else if (settings) {
+    } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
       setCommissionPercent(settings.commission_default);
