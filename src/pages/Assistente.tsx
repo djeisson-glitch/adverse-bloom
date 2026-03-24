@@ -140,7 +140,7 @@ export default function Assistente() {
 
   const handleClear = async () => {
     if (!user) return;
-    await supabase.from("memories").delete().eq("user_id", user.id);
+    await (supabase as any).from("memories").delete().eq("user_id", user.id);
     setMessages([]);
     toast({ title: "Histórico limpo" });
   };
