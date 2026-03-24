@@ -11,6 +11,7 @@ import { Upload, Loader2, FileSpreadsheet, AlertCircle } from "lucide-react";
 interface ParsedClient {
   name: string;
   company: string | null;
+  trade_name: string | null;
   email: string | null;
   phone: string | null;
   document: string | null;
@@ -27,7 +28,8 @@ const COL_MAP: Record<string, keyof Omit<ParsedClient, "selected">> = {
   nome: "name",
   "razão social": "name",
   "razao social": "name",
-  "nome fantasia": "company",
+  "nome fantasia": "trade_name",
+  "nome_fantasia": "trade_name",
   empresa: "company",
   email: "email",
   "e-mail": "email",
@@ -126,7 +128,7 @@ export function ImportClientsModal({ open, onOpenChange }: Props) {
       const records: ParsedClient[] = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = parseCSVLine(lines[i], delimiter);
-        const rec: ParsedClient = { name: "", company: null, email: null, phone: null, document: null, selected: true };
+        const rec: ParsedClient = { name: "", company: null, trade_name: null, email: null, phone: null, document: null, selected: true };
         for (const [idx, field] of Object.entries(mapping)) {
           const val = cols[Number(idx)]?.replace(/"/g, "").trim() || null;
           if (val) (rec as any)[field] = val;
@@ -166,6 +168,7 @@ export function ImportClientsModal({ open, onOpenChange }: Props) {
         .map((r) => ({
           name: r.name,
           company: r.company,
+          trade_name: r.trade_name,
           email: r.email,
           phone: r.phone,
           origin: "Importação CSV",
