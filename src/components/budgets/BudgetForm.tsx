@@ -837,7 +837,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                 config={itemConfig}
                                 headerConfig={config}
                                 supplierContacts={supplierContacts}
+                                presetItems={presetItems.filter(p => p.category === cat)}
                                 onUpdate={(field, value) => updateItem(idx, field, value)}
+                                onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
                                 onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
                                 onRemove={() => {
                                   removeItem(idx);
