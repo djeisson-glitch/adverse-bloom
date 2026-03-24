@@ -183,10 +183,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [newRowCats, setNewRowCats] = useState<Set<string>>(new Set());
   const newRowNameRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Autosave
   const [savedBudgetId, setSavedBudgetId] = useState<string | null>(budgetId);
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstRender = useRef(true);
 
   // Modals
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
