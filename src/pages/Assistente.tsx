@@ -219,9 +219,9 @@ export default function Assistente() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-white/5 bg-[#0D0D0D]">
+      <div className="bg-[#0D0D0D]">
         <div className="max-w-2xl mx-auto px-6 py-4">
-          <div className="flex items-end gap-2 bg-white/5 rounded-2xl px-4 py-3 border border-white/5 focus-within:border-white/10 transition-colors">
+          <div className="flex items-end gap-2 bg-[#1A1A1A] rounded-3xl px-5 py-3.5">
             <textarea
               ref={textareaRef}
               value={input}
@@ -229,13 +229,13 @@ export default function Assistente() {
               onKeyDown={handleKeyDown}
               placeholder="Mensagem..."
               rows={1}
-              className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/20 outline-none resize-none leading-6 max-h-[160px]"
+              className="flex-1 bg-transparent text-[14px] text-white/90 placeholder:text-white/25 outline-none resize-none leading-6 max-h-[160px]"
               style={{ height: "24px" }}
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !input.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-20 disabled:hover:bg-white/10 transition-colors"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-white/15 disabled:opacity-20 disabled:hover:bg-white/10 transition-colors"
             >
               <Send className="h-3.5 w-3.5 text-white/70" />
             </button>
