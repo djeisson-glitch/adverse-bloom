@@ -102,16 +102,16 @@ export default function ContasAPagar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold text-foreground">Contas a Pagar</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {selectedIds.length > 0 && (
             <Button variant="secondary" size="sm" onClick={handleMarkPaid}>
-              <CheckCircle className="h-4 w-4 mr-1" /> Marcar como Pago ({selectedIds.length})
+              <CheckCircle className="h-4 w-4 mr-1" /> Pago ({selectedIds.length})
             </Button>
           )}
           <Button size="sm" onClick={openExportModal}>
-            <Download className="h-4 w-4 mr-1" /> Exportar para Conta Azul
+            <Download className="h-4 w-4 mr-1" /> Exportar CSV
           </Button>
         </div>
       </div>
