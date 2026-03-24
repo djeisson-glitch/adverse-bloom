@@ -1,6 +1,10 @@
-// Force redeploy v2 - 2026-03-24 - ensure correct redirect_uri
+// Force redeploy v3 - 2026-03-24 - use Basic auth per official docs
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+function toBase64(str: string): string {
+  return btoa(str);
+}
 
 serve(async (req) => {
   const url = new URL(req.url)
@@ -22,22 +26,26 @@ serve(async (req) => {
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
   const redirectUri = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback"
+  const basicAuth = toBase64(`${clientId}:${clientSecret}`)
 
   console.log("[callback] Code recebido, trocando token...")
   console.log("[callback] client_id:", clientId ? `${clientId.slice(0, 6)}...` : "MISSING")
   console.log("[callback] redirect_uri:", redirectUri)
+  console.log("[callback] Using Basic auth header")
 
+  // Per Conta Azul docs: use Authorization: Basic BASE64(client_id:client_secret)
   const tokenBody = new URLSearchParams({
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
-    client_id: clientId,
-    client_secret: clientSecret,
   }).toString()
 
   const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${basicAuth}`,
+    },
     body: tokenBody,
   })
 
@@ -70,7 +78,6 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   console.log("[callback] SUPABASE_URL:", supabaseUrl)
-  console.log("[callback] SERVICE_KEY present:", !!serviceKey, "length:", serviceKey?.length)
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
@@ -96,14 +103,6 @@ serve(async (req) => {
   }
 
   console.log("[callback] Upsert OK, rows:", JSON.stringify(upsertData))
-
-  const { data: verifyRow, error: verifyErr } = await supabase
-    .from("conta_azul_cache")
-    .select("data_type, fetched_at, period")
-    .eq("data_type", "auth_tokens")
-    .single()
-
-  console.log("[callback] Verify read:", JSON.stringify(verifyRow), "error:", JSON.stringify(verifyErr))
   console.log("[callback] Token salvo, redirecionando para app")
   return Response.redirect(`${appUrl}/configuracoes/integracoes?ca_success=true`, 302)
 })
