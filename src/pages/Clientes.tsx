@@ -99,7 +99,7 @@ export default function Clientes() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Empresa</TableHead>
+              <TableHead>Razão Social</TableHead>
               <TableHead>Segmento</TableHead>
               <TableHead className="text-right">Total Faturado</TableHead>
               <TableHead className="text-right">Projetos</TableHead>
