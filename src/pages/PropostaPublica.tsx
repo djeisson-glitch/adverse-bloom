@@ -278,7 +278,7 @@ export default function PropostaPublica() {
           )}
 
           {/* INVESTIMENTO */}
-          <div style={{
+          <div className="proposta-invest-row" style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
