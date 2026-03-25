@@ -28,8 +28,8 @@ export function useProposalLetters(budgetId?: string) {
     queryKey: ["proposal_letters", budgetId],
     enabled: !!budgetId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proposal_letters" as any)
+      const { data, error } = await (supabase as any)
+        .from("proposal_letters")
         .select("*")
         .eq("budget_id", budgetId!)
         .order("created_at", { ascending: false });
@@ -60,8 +60,8 @@ export function useCreateProposalLetter() {
       validity_days?: number;
       created_by?: string;
     }) => {
-      const { data, error } = await supabase
-        .from("proposal_letters" as any)
+      const { data, error } = await (supabase as any)
+        .from("proposal_letters")
         .insert({
           budget_id: letter.budget_id,
           template_type: letter.template_type,
@@ -73,7 +73,7 @@ export function useCreateProposalLetter() {
           payment_conditions: letter.payment_conditions || "À vista — 30 dias após aprovação",
           validity_days: letter.validity_days ?? 15,
           created_by: letter.created_by || null,
-        } as any)
+        })
         .select("id, token")
         .single();
       if (error) throw error;
