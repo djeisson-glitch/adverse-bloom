@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2 } from "lucide-react";
+import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { BudgetCostTabs } from "@/components/budgets/BudgetCostTabs";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
 import { NewBudgetModal } from "@/components/budgets/NewBudgetModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { GenerateProposalModal } from "@/components/budgets/GenerateProposalModal";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -136,6 +137,7 @@ export default function Orcamentos() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [proposalBudget, setProposalBudget] = useState<Budget | null>(null);
 
   // Handle deal_id from URL (coming from CRM won modal)
   useEffect(() => {
