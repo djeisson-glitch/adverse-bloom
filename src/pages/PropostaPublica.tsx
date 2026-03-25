@@ -28,6 +28,32 @@ function formatDateBR(dateStr: string): string {
   return d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function isLogisticsCategory(cat: string): boolean {
+  return (cat || "").trim().toUpperCase() === "LOGÍSTICA";
+}
+
+function isPostProductionCategory(cat: string): boolean {
+  return (cat || "").trim().toUpperCase() === "PÓS-PRODUÇÃO";
+}
+
+/** Parse not_included which could be string[], object[], or JSON string */
+function parseNotIncluded(raw: any): string[] {
+  if (!raw) return [];
+  let arr = raw;
+  if (typeof raw === "string") {
+    try { arr = JSON.parse(raw); } catch { return []; }
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map((item: any) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && item.text) return item.text;
+      if (item && typeof item === "object" && item.name) return item.name;
+      return String(item);
+    })
+    .filter((s: string) => s.trim().length > 0);
+}
+
 export default function PropostaPublica() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<ProposalData | null>(null);
@@ -109,13 +135,21 @@ export default function PropostaPublica() {
   const { proposal, budget, items } = data;
   const deliverables: Deliverable[] = proposal.deliverables || [];
   const tags: string[] = proposal.tags || [];
-  const notIncluded: string[] = budget?.not_included || [];
-  const isCompleta = proposal.template_type === "completa";
+  const notIncluded = parseNotIncluded(budget?.not_included);
 
+  // Build scope items: exclude LOGÍSTICA, and for PÓS-PRODUÇÃO only show is_deliverable items
   const scopeItems: { label: string; value: string }[] = [];
   const categories = [...new Set(items.map((i: any) => i.category))];
   categories.forEach((cat: string) => {
-    const catItems = items.filter((i: any) => i.category === cat && i.client_price > 0);
+    if (isLogisticsCategory(cat)) return; // skip logistics entirely
+
+    let catItems = items.filter((i: any) => i.category === cat && i.client_price > 0);
+
+    // For PÓS-PRODUÇÃO, only show deliverable items
+    if (isPostProductionCategory(cat)) {
+      catItems = catItems.filter((i: any) => i.is_deliverable);
+    }
+
     if (catItems.length > 0) {
       scopeItems.push({
         label: cat,
@@ -390,7 +424,7 @@ export default function PropostaPublica() {
               adverse<span style={{ color: "#e8281e", opacity: 0.5 }}>/</span>rec
             </div>
             <div style={{ textAlign: "right", fontSize: 13, color: "rgba(240,235,227,0.4)", lineHeight: 1.8 }}>
-              comercial@adverse.rec.br<br />
+              djeisson@adverse.rec.br<br />
               +55 (54) 99637-8692<br />
               Passo Fundo, RS
             </div>
