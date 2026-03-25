@@ -34,6 +34,15 @@ serve(async (req) => {
       });
     }
 
+    // Record first view timestamp
+    if (!proposal.viewed_at && proposal.status === "pending") {
+      await supabase
+        .from("proposal_letters")
+        .update({ viewed_at: new Date().toISOString() })
+        .eq("id", proposal.id);
+      proposal.viewed_at = new Date().toISOString();
+    }
+
     // Fetch budget
     const { data: budget } = await supabase
       .from("budgets")

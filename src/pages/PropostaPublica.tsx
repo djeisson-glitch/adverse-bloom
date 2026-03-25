@@ -88,8 +88,20 @@ export default function PropostaPublica() {
     })();
   }, [token]);
 
+  const [emailError, setEmailError] = useState("");
+
+  const validateEmail = (e: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(e);
+  };
+
   const handleApprove = async () => {
     if (!name.trim() || !email.trim()) return;
+    if (!validateEmail(email.trim())) {
+      setEmailError("Por favor, insira um e-mail válido.");
+      return;
+    }
+    setEmailError("");
     setApproving(true);
     try {
       const { data: result, error: fnErr } = await supabase.functions.invoke("approve-proposal", {
