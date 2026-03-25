@@ -21,19 +21,16 @@ serve(async (req) => {
 
     const deliverablesSummary = (deliverables || [])
       .filter((d: any) => d.name)
-      .map((d: any) => `- ${d.name}${d.description ? `: ${d.description}` : ""}`)
+      .map((d: any) => `- ${d.name}`)
       .join("\n");
 
-    const prompt = `Você é redator de propostas comerciais de uma produtora audiovisual chamada Adverse. 
-Gere uma descrição curta e profissional (2-4 frases) para a carta de proposta do projeto abaixo. 
-A descrição deve ser objetiva, apresentar o escopo geral e transmitir valor ao cliente.
-Escreva em português brasileiro, tom profissional mas acessível.
-NÃO inclua valores financeiros. NÃO use bullet points. Apenas texto corrido.
+    const prompt = `Escreva 2 frases curtas descrevendo este projeto para uma proposta comercial.
+Direto ao ponto, sem enrolação, sem adjetivos forçados. Apenas diga o que será feito e para quem.
 
 Projeto: ${projectName}
 Cliente: ${clientName}
-${tags?.length ? `Tags: ${tags.join(", ")}` : ""}
-${itemsSummary ? `Itens do orçamento:\n${itemsSummary}` : ""}
+${tags?.length ? `Contexto: ${tags.join(", ")}` : ""}
+${itemsSummary ? `Itens:\n${itemsSummary}` : ""}
 ${deliverablesSummary ? `Entregas:\n${deliverablesSummary}` : ""}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

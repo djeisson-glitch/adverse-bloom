@@ -20,6 +20,29 @@ interface Props {
   items: BudgetItem[];
 }
 
+/** Build deliverables from budget items grouped by category */
+function buildDeliverablesFromItems(items: BudgetItem[]): { name: string; description: string }[] {
+  const activeItems = items.filter(i => i.client_price > 0);
+  const categories = [...new Set(activeItems.map(i => i.category))];
+
+  return categories.flatMap(cat => {
+    const catItems = activeItems.filter(i => i.category === cat);
+    return catItems.map(item => {
+      const parts: string[] = [];
+      if (item.client_days > 1) parts.push(`${item.client_days} dias`);
+      if (item.client_people > 1) parts.push(`${item.client_people} pessoas`);
+      const desc = parts.length > 0 ? `${cat} — ${parts.join(", ")}` : cat;
+      return { name: item.item_name, description: desc };
+    });
+  });
+}
+
+/** Build tags from budget categories */
+function buildTagsFromItems(items: BudgetItem[]): string[] {
+  const activeItems = items.filter(i => i.client_price > 0);
+  return [...new Set(activeItems.map(i => i.category))];
+}
+
 export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -29,10 +52,10 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [contactName, setContactName] = useState("");
   const [contactCompany, setContactCompany] = useState(budget.client_name || "");
   const [projectDescription, setProjectDescription] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(buildTagsFromItems(items));
   const [tagInput, setTagInput] = useState("");
   const [deliverables, setDeliverables] = useState<{ name: string; description: string }[]>(
-    items.filter(i => i.client_price > 0).map(i => ({ name: i.item_name, description: i.category }))
+    buildDeliverablesFromItems(items)
   );
   const [paymentConditions, setPaymentConditions] = useState("À vista — 30 dias após aprovação");
   const [validityDays, setValidityDays] = useState(15);
@@ -83,7 +106,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
       if (data?.error) throw new Error(data.error);
       if (data?.description) {
         setProjectDescription(data.description);
-        toast({ title: "Descrição gerada por IA" });
+        toast({ title: "Descrição gerada" });
       }
     } catch (err: any) {
       toast({ title: "Erro ao gerar descrição", description: err.message, variant: "destructive" });
@@ -131,8 +154,8 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Carta de proposta gerada!</DialogTitle>
-            <DialogDescription>Copie o link abaixo e envie ao cliente.</DialogDescription>
+            <DialogTitle>Proposta gerada!</DialogTitle>
+            <DialogDescription>Copie o link e envie ao cliente.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="flex items-center gap-2 p-3 bg-secondary rounded-lg">
@@ -167,7 +190,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gerar Carta de Proposta</DialogTitle>
+          <DialogTitle>Gerar Proposta</DialogTitle>
           <DialogDescription>
             #{budget.budget_number} — {budget.project_name} — {budget.client_name}
           </DialogDescription>
@@ -180,11 +203,11 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             <RadioGroup value={templateType} onValueChange={(v) => setTemplateType(v as any)} className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <RadioGroupItem value="completa" />
-                <span className="text-sm">Completa <span className="text-muted-foreground">(apresentação + cases + NPS)</span></span>
+                <span className="text-sm">Completa <span className="text-muted-foreground">(apresentação + escopo)</span></span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <RadioGroupItem value="reduzida" />
-                <span className="text-sm">Reduzida <span className="text-muted-foreground">(escopo + valor + aprovação)</span></span>
+                <span className="text-sm">Reduzida <span className="text-muted-foreground">(escopo + valor)</span></span>
               </label>
             </RadioGroup>
           </div>
@@ -193,11 +216,11 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome do contato</Label>
-              <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Ex: Mateus Roncaglio" />
+              <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Nome de quem vai receber" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Empresa</Label>
-              <Input value={contactCompany} onChange={e => setContactCompany(e.target.value)} placeholder="Ex: Sicredi Sul Minas" />
+              <Input value={contactCompany} onChange={e => setContactCompany(e.target.value)} />
             </div>
           </div>
 
@@ -219,7 +242,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             <Textarea
               value={projectDescription}
               onChange={e => setProjectDescription(e.target.value)}
-              placeholder="Breve descrição do projeto para a carta..."
+              placeholder="Breve descrição do projeto (ou use IA para gerar)"
               rows={3}
             />
           </div>
@@ -231,7 +254,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
               <Input
                 value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
-                placeholder="Ex: Evento Corporativo"
+                placeholder="Adicionar tag..."
                 onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addTag())}
                 className="flex-1"
               />
@@ -252,7 +275,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Deliverables */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Entregas</Label>
+              <Label className="text-xs">Entregas <span className="text-muted-foreground font-normal">(puxadas do orçamento)</span></Label>
               <Button variant="ghost" size="sm" onClick={addDeliverable} type="button"><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>
             </div>
             <div className="space-y-2">
