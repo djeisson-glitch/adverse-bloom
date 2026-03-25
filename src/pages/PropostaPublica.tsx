@@ -211,9 +211,9 @@ export default function PropostaPublica() {
               </div>
               <div style={{
                 display: "grid",
-                gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(2, 1fr)",
                 gap: 1,
-                background: "rgba(240,235,227,0.18)",
+                background: "rgba(240,235,227,0.12)",
                 marginBottom: 48,
               }}>
                 {scopeItems.map((item, i) => (
