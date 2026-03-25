@@ -38,7 +38,7 @@ export function BudgetCostTabs({ budget, onClose, onEdit }: Props) {
         </TabsList>
 
         <TabsContent value="view">
-          <BudgetViewTab budget={budget} onEdit={onEdit} />
+          <BudgetViewTab budget={budget} onEdit={onEdit} onRevertToDraft={onClose} />
         </TabsContent>
 
         <TabsContent value="costs">
