@@ -1492,14 +1492,28 @@ function MobileItemRow({
 
   return (
     <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5 space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium truncate">{item.item_name || "Sem nome"}</span>
-        {!readOnly && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70" onClick={onRemove}>
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium truncate flex-1">{item.item_name || "Sem nome"}</span>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onUpdate("is_deliverable", !item.is_deliverable)}
+              className={`shrink-0 text-xs px-1.5 py-0.5 rounded ${
+                item.is_deliverable
+                  ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+                  : "bg-muted text-muted-foreground/40"
+              }`}
+              title={item.is_deliverable ? "Entrega para o cliente" : "Marcar como entrega"}
+            >
+              {item.is_deliverable ? "🎯 Entrega" : "Interno"}
+            </button>
+          )}
+          {!readOnly && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70" onClick={onRemove}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       <div className="text-xs text-muted-foreground">
         {formula} = <span className="font-semibold text-foreground">{formatCurrency(item.client_price)}</span>
       </div>
