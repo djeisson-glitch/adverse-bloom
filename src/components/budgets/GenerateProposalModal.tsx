@@ -67,7 +67,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
 
   // Load previous proposal data or deal contact
   useEffect(() => {
-    if (!open || initialized) return;
+    if (!open || initialized || lettersLoading) return;
 
     const latest = existingLetters?.[0];
     if (latest) {
@@ -100,7 +100,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     } else {
       setInitialized(true);
     }
-  }, [open, existingLetters, initialized]);
+  }, [open, existingLetters, initialized, lettersLoading]);
 
   // Reset initialized when modal closes
   useEffect(() => {
