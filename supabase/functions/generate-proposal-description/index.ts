@@ -24,17 +24,9 @@ serve(async (req) => {
       .map((d: any) => `- ${d.name}`)
       .join("\n");
 
-    // Pull capture days specifically from PRODUÇÃO category
-    const producaoDays = (items || [])
-      .filter((i: any) => (i.category || "").toUpperCase() === "PRODUÇÃO" && i.client_price > 0)
+    const totalDays = (items || [])
+      .filter((i: any) => (i.category || "").trim().toUpperCase() === "PRODUÇÃO" && i.client_price > 0)
       .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
-
-    // Fallback: sum all days if no PRODUÇÃO category found
-    const totalDays = producaoDays > 0
-      ? producaoDays
-      : (items || [])
-          .filter((i: any) => i.client_price > 0)
-          .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
 
     const diasTexto = totalDays > 0
       ? `Dias de captação: ${totalDays} (usar por extenso, ex: "com captação em dois dias")`
