@@ -108,6 +108,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
     margin_value: 0,
     margin_percent: 0,
     order_index: orderIndex,
+    is_deliverable: false,
   };
 }
 
@@ -214,6 +215,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           margin_value: cp - sc,
           margin_percent: cp > 0 ? ((cp - sc) / cp) * 100 : 0,
           order_index: idx,
+          is_deliverable: false,
         };
       });
       setItems(templateItems);
