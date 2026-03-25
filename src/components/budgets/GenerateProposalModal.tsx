@@ -159,10 +159,21 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerateConfirmed = async () => {
     if (!contactName.trim()) {
       toast({ title: "Preencha o nome do contato", variant: "destructive" });
       return;
+    }
+    // Invalidate previous letters by marking them expired
+    if (hasExistingLink) {
+      for (const letter of existingLetters!) {
+        if (letter.status === "pending") {
+          await (supabase as any)
+            .from("proposal_letters")
+            .update({ status: "expired", updated_at: new Date().toISOString() })
+            .eq("id", letter.id);
+        }
+      }
     }
     const result = await createLetter.mutateAsync({
       budget_id: budget.id,
@@ -177,6 +188,30 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
       created_by: user?.id,
     });
     setGeneratedToken(result.token);
+  };
+
+  const handleGenerate = () => {
+    if (hasExistingLink && existingLetters!.some(l => l.status === "pending")) {
+      setShowRegenerateWarning(true);
+    } else {
+      handleGenerateConfirmed();
+    }
+  };
+
+  const handlePreview = () => {
+    const previewData = {
+      budget,
+      items,
+      contactName,
+      contactCompany,
+      projectDescription,
+      tags,
+      deliverables: deliverables.filter(d => d.name.trim()),
+      paymentConditions,
+      validityDays,
+    };
+    sessionStorage.setItem("proposal_preview", JSON.stringify(previewData));
+    window.open("/proposta/preview", "_blank");
   };
 
   const copyLink = async () => {
