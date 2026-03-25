@@ -382,12 +382,37 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Action */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button variant="outline" onClick={handlePreview}>
+              <Eye className="h-4 w-4 mr-2" />
+              Pré-visualizar
+            </Button>
             <Button onClick={handleGenerate} disabled={createLetter.isPending}>
               {createLetter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Gerar proposta
             </Button>
           </div>
         </div>
+
+        {/* Regeneration warning */}
+        <AlertDialog open={showRegenerateWarning} onOpenChange={setShowRegenerateWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))]" />
+                Link anterior será invalidado
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Este orçamento já possui um link de proposta ativo. Ao gerar um novo link, o link anterior será expirado e não funcionará mais para o cliente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setShowRegenerateWarning(false); handleGenerateConfirmed(); }}>
+                Gerar novo link
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
