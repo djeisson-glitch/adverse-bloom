@@ -3,12 +3,18 @@ Budget module: tables (budget_settings, budgets, budget_items, project_costs, su
 ## Tables
 - budget_settings: default markup/tax/commission/bv + commission split (djeisson/robert percent/enabled)
 - budgets: full budget with calculated totals, deal_id (FK deals), not_included (jsonb), version_notes (text)
-- budget_items: line items by category with client_price/supplier_cost, has_supplier_cost toggle
+- budget_items: line items by category with client_price/supplier_cost, has_supplier_cost toggle, is_deliverable (marks items visible to client in proposals)
 - project_costs: real costs tracked against approved budgets
 - suppliers: registered suppliers per budget item (name, doc, amount, payment_date, status, sent_to_conta_azul)
 - proposal_templates: saved templates with categories, markup/tax/commission/bv defaults, not_included
 - budget_item_suppliers: multiple suppliers per budget item (name, unit_price, days, people, total)
 - budget_preset_items: reusable items with category, name, default client/supplier values
+
+## is_deliverable
+- Boolean on budget_items, default false
+- Toggle in item row (🎯 icon column) marks items as client deliverables
+- Only items with is_deliverable=true appear as entregas in proposal letters
+- Internal costs (equipe, logística) should NOT be marked as deliverables
 
 ## Clients
 - clients table has: name (razão social), trade_name (nome fantasia), company, email, phone, segment, origin, type

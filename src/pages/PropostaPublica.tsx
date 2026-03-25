@@ -143,6 +143,12 @@ export default function PropostaPublica() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a !important; }
+        @media (max-width: 600px) {
+          .proposta-scope-grid { grid-template-columns: 1fr !important; }
+          .proposta-invest-row { flex-direction: column !important; align-items: flex-start !important; }
+          .proposta-invest-row > div:last-child { text-align: left !important; }
+          .proposta-approval-fields { grid-template-columns: 1fr !important; }
+        }
       `}</style>
       <div style={{
         background: "#0a0a0a",
@@ -209,11 +215,11 @@ export default function PropostaPublica() {
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
                 Escopo de Produção
               </div>
-              <div style={{
+              <div className="proposta-scope-grid" style={{
                 display: "grid",
-                gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(2, 1fr)",
                 gap: 1,
-                background: "rgba(240,235,227,0.18)",
+                background: "rgba(240,235,227,0.12)",
                 marginBottom: 48,
               }}>
                 {scopeItems.map((item, i) => (
@@ -272,7 +278,7 @@ export default function PropostaPublica() {
           )}
 
           {/* INVESTIMENTO */}
-          <div style={{
+          <div className="proposta-invest-row" style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
@@ -312,7 +318,7 @@ export default function PropostaPublica() {
                 <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", marginBottom: 28, maxWidth: 480, lineHeight: 1.7 }}>
                   O aceite confirma o início do planejamento operacional conforme o escopo descrito acima. Retorno em até 24h após aprovação.
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 14, marginBottom: 18 }}>
+                <div className="proposta-approval-fields" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 14, marginBottom: 18 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>Nome completo</label>
                     <input

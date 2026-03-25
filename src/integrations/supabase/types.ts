@@ -79,6 +79,7 @@ export type Database = {
           created_at: string
           has_supplier_cost: boolean
           id: string
+          is_deliverable: boolean
           item_name: string
           margin_percent: number | null
           margin_value: number | null
@@ -100,6 +101,7 @@ export type Database = {
           created_at?: string
           has_supplier_cost?: boolean
           id?: string
+          is_deliverable?: boolean
           item_name: string
           margin_percent?: number | null
           margin_value?: number | null
@@ -121,6 +123,7 @@ export type Database = {
           created_at?: string
           has_supplier_cost?: boolean
           id?: string
+          is_deliverable?: boolean
           item_name?: string
           margin_percent?: number | null
           margin_value?: number | null

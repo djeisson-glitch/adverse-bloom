@@ -19,6 +19,7 @@ export interface BudgetItem {
   margin_value: number;
   margin_percent: number;
   order_index: number;
+  is_deliverable: boolean;
 }
 
 export interface Budget {

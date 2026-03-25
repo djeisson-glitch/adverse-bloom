@@ -20,20 +20,16 @@ interface Props {
   items: BudgetItem[];
 }
 
-/** Build deliverables from budget items grouped by category */
+/** Build deliverables from budget items marked as is_deliverable */
 function buildDeliverablesFromItems(items: BudgetItem[]): { name: string; description: string }[] {
-  const activeItems = items.filter(i => i.client_price > 0);
-  const categories = [...new Set(activeItems.map(i => i.category))];
+  const deliverableItems = items.filter(i => i.is_deliverable && i.client_price > 0);
 
-  return categories.flatMap(cat => {
-    const catItems = activeItems.filter(i => i.category === cat);
-    return catItems.map(item => {
-      const parts: string[] = [];
-      if (item.client_days > 1) parts.push(`${item.client_days} dias`);
-      if (item.client_people > 1) parts.push(`${item.client_people} pessoas`);
-      const desc = parts.length > 0 ? `${cat} — ${parts.join(", ")}` : cat;
-      return { name: item.item_name, description: desc };
-    });
+  return deliverableItems.map(item => {
+    const parts: string[] = [];
+    if (item.client_days > 1) parts.push(`${item.client_days} dias`);
+    if (item.client_people > 1) parts.push(`${item.client_people} pessoas`);
+    const desc = parts.length > 0 ? `${item.category} — ${parts.join(", ")}` : item.category;
+    return { name: item.item_name, description: desc };
   });
 }
 

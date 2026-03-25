@@ -108,6 +108,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
     margin_value: 0,
     margin_percent: 0,
     order_index: orderIndex,
+    is_deliverable: false,
   };
 }
 
@@ -214,6 +215,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           margin_value: cp - sc,
           margin_percent: cp > 0 ? ((cp - sc) / cp) * 100 : 0,
           order_index: idx,
+          is_deliverable: false,
         };
       });
       setItems(templateItems);
@@ -782,6 +784,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[80px]">{config.field3}</th>
                             <th className="text-right text-[11px] font-medium text-muted-foreground px-2 py-1.5 w-[80px]">Total</th>
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[44px]">Forn?</th>
+                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]" title="Marcar como entrega para o cliente">🎯</th>
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]"></th>
                           </tr>
                         </thead>
@@ -1367,6 +1370,21 @@ function ItemTableRow({
           </button>
         </td>
         <td className="px-1 py-1.5 text-center">
+          <button
+            type="button"
+            onClick={() => onUpdate("is_deliverable", !item.is_deliverable)}
+            className={`inline-flex items-center justify-center h-6 w-6 rounded text-xs transition-colors ${
+              item.is_deliverable
+                ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+                : "bg-muted text-muted-foreground/40 hover:text-muted-foreground"
+            }`}
+            disabled={readOnly}
+            title={item.is_deliverable ? "Entrega para o cliente" : "Marcar como entrega"}
+          >
+            {item.is_deliverable ? "🎯" : "·"}
+          </button>
+        </td>
+        <td className="px-1 py-1.5 text-center">
           {!readOnly && (
             isNewRow && item.item_name.trim() ? (
               <Button
@@ -1389,7 +1407,7 @@ function ItemTableRow({
       {/* Supplier inline row */}
       {item.has_supplier_cost && expanded && (
         <tr className="bg-muted/10 border-b border-border/20">
-          <td colSpan={hdr.field2 ? 7 : 6} className="px-3 py-1.5">
+          <td colSpan={hdr.field2 ? 8 : 7} className="px-3 py-1.5">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-muted-foreground shrink-0">└─ Paga:</span>
               <NumInput
@@ -1474,14 +1492,28 @@ function MobileItemRow({
 
   return (
     <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5 space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium truncate">{item.item_name || "Sem nome"}</span>
-        {!readOnly && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70" onClick={onRemove}>
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium truncate flex-1">{item.item_name || "Sem nome"}</span>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onUpdate("is_deliverable", !item.is_deliverable)}
+              className={`shrink-0 text-xs px-1.5 py-0.5 rounded ${
+                item.is_deliverable
+                  ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+                  : "bg-muted text-muted-foreground/40"
+              }`}
+              title={item.is_deliverable ? "Entrega para o cliente" : "Marcar como entrega"}
+            >
+              {item.is_deliverable ? "🎯 Entrega" : "Interno"}
+            </button>
+          )}
+          {!readOnly && (
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70" onClick={onRemove}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       <div className="text-xs text-muted-foreground">
         {formula} = <span className="font-semibold text-foreground">{formatCurrency(item.client_price)}</span>
       </div>
