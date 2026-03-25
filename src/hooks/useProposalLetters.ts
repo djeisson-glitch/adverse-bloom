@@ -19,6 +19,7 @@ export interface ProposalLetter {
   approved_email: string | null;
   approved_ip: string | null;
   approved_at: string | null;
+  viewed_at: string | null;
   created_by: string | null;
   created_at: string;
 }

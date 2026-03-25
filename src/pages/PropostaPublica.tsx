@@ -56,6 +56,7 @@ function parseNotIncluded(raw: any): string[] {
 
 export default function PropostaPublica() {
   const { token } = useParams<{ token: string }>();
+  const isPreview = token === "preview";
   const [data, setData] = useState<ProposalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +69,36 @@ export default function PropostaPublica() {
 
   useEffect(() => {
     if (!token) return;
+
+    if (isPreview) {
+      // Load from sessionStorage for preview mode
+      try {
+        const raw = sessionStorage.getItem("proposal_preview");
+        if (!raw) throw new Error("Dados de pré-visualização não encontrados");
+        const preview = JSON.parse(raw);
+        setData({
+          proposal: {
+            contact_name: preview.contactName,
+            contact_company: preview.contactCompany,
+            project_description: preview.projectDescription,
+            tags: preview.tags || [],
+            deliverables: preview.deliverables || [],
+            payment_conditions: preview.paymentConditions,
+            validity_days: preview.validityDays,
+            created_at: new Date().toISOString(),
+            status: "preview",
+          },
+          budget: preview.budget,
+          items: preview.items || [],
+        });
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     (async () => {
       try {
         const { data: result, error: fnErr } = await supabase.functions.invoke("get-proposal", {
@@ -88,8 +119,20 @@ export default function PropostaPublica() {
     })();
   }, [token]);
 
+  const [emailError, setEmailError] = useState("");
+
+  const validateEmail = (e: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(e);
+  };
+
   const handleApprove = async () => {
     if (!name.trim() || !email.trim()) return;
+    if (!validateEmail(email.trim())) {
+      setEmailError("Por favor, insira um e-mail válido.");
+      return;
+    }
+    setEmailError("");
     setApproving(true);
     try {
       const { data: result, error: fnErr } = await supabase.functions.invoke("approve-proposal", {
@@ -189,6 +232,12 @@ export default function PropostaPublica() {
         minHeight: "100vh",
       }}>
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "clamp(32px, 6vw, 60px) clamp(20px, 5vw, 48px) clamp(48px, 8vw, 80px)" }}>
+          {/* PREVIEW BANNER */}
+          {isPreview && (
+            <div style={{ background: "#e8281e", color: "#fff", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 600, textAlign: "center", padding: "10px 16px", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 24 }}>
+              ⚠ Pré-visualização — esta proposta não foi salva
+            </div>
+          )}
           {/* HEADER */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 40, borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48, flexWrap: "wrap", gap: 16 }}>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(20px, 3vw, 22px)", letterSpacing: "0.02em", color: "#f0ebe3", display: "flex", alignItems: "center", gap: 4 }}>
@@ -338,6 +387,13 @@ export default function PropostaPublica() {
           </div>
 
           {/* APROVAÇÃO */}
+          {isPreview ? (
+            <div style={{ background: "#1c1c1c", padding: "clamp(24px, 4vw, 40px)", textAlign: "center" }}>
+              <p style={{ fontSize: 14, color: "rgba(240,235,227,0.65)", fontStyle: "italic" }}>
+                Seção de aprovação (visível apenas na proposta final)
+              </p>
+            </div>
+          ) : (
           <div style={{ background: "#1c1c1c", padding: "clamp(24px, 4vw, 40px)" }}>
             {!approved ? (
               <>
@@ -361,11 +417,14 @@ export default function PropostaPublica() {
                     <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>E-mail</label>
                     <input
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={e => { setEmail(e.target.value); setEmailError(""); }}
                       placeholder="seu@email.com"
                       type="email"
                       style={inputStyle}
                     />
+                    {emailError && (
+                      <span style={{ fontSize: 12, color: "#e8281e", marginTop: 4, display: "block" }}>{emailError}</span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -412,6 +471,7 @@ export default function PropostaPublica() {
               </div>
             )}
           </div>
+          )}
 
           {/* FOOTER */}
           <div style={{ marginTop: 60, paddingTop: 32, borderTop: "1px solid rgba(240,235,227,0.18)", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>

@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles } from "lucide-react";
+import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles, Eye, AlertTriangle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCreateProposalLetter, useProposalLetters } from "@/hooks/useProposalLetters";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -57,9 +58,12 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [validityDays, setValidityDays] = useState(15);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [showRegenerateWarning, setShowRegenerateWarning] = useState(false);
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const hasExistingLink = !!(existingLetters && existingLetters.length > 0);
 
   const proposalUrl = generatedToken
     ? `${window.location.origin}/proposta/${generatedToken}`
@@ -155,10 +159,21 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerateConfirmed = async () => {
     if (!contactName.trim()) {
       toast({ title: "Preencha o nome do contato", variant: "destructive" });
       return;
+    }
+    // Invalidate previous letters by marking them expired
+    if (hasExistingLink) {
+      for (const letter of existingLetters!) {
+        if (letter.status === "pending") {
+          await (supabase as any)
+            .from("proposal_letters")
+            .update({ status: "expired", updated_at: new Date().toISOString() })
+            .eq("id", letter.id);
+        }
+      }
     }
     const result = await createLetter.mutateAsync({
       budget_id: budget.id,
@@ -173,6 +188,30 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
       created_by: user?.id,
     });
     setGeneratedToken(result.token);
+  };
+
+  const handleGenerate = () => {
+    if (hasExistingLink && existingLetters!.some(l => l.status === "pending")) {
+      setShowRegenerateWarning(true);
+    } else {
+      handleGenerateConfirmed();
+    }
+  };
+
+  const handlePreview = () => {
+    const previewData = {
+      budget,
+      items,
+      contactName,
+      contactCompany,
+      projectDescription,
+      tags,
+      deliverables: deliverables.filter(d => d.name.trim()),
+      paymentConditions,
+      validityDays,
+    };
+    sessionStorage.setItem("proposal_preview", JSON.stringify(previewData));
+    window.open("/proposta/preview", "_blank");
   };
 
   const copyLink = async () => {
@@ -343,12 +382,37 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Action */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button variant="outline" onClick={handlePreview}>
+              <Eye className="h-4 w-4 mr-2" />
+              Pré-visualizar
+            </Button>
             <Button onClick={handleGenerate} disabled={createLetter.isPending}>
               {createLetter.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Gerar proposta
             </Button>
           </div>
         </div>
+
+        {/* Regeneration warning */}
+        <AlertDialog open={showRegenerateWarning} onOpenChange={setShowRegenerateWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))]" />
+                Link anterior será invalidado
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Este orçamento já possui um link de proposta ativo. Ao gerar um novo link, o link anterior será expirado e não funcionará mais para o cliente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setShowRegenerateWarning(false); handleGenerateConfirmed(); }}>
+                Gerar novo link
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

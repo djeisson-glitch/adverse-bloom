@@ -1,0 +1,1 @@
+ALTER TABLE public.proposal_letters ADD COLUMN IF NOT EXISTS viewed_at timestamp with time zone DEFAULT NULL;
