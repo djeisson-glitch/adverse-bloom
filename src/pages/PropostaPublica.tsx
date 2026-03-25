@@ -318,7 +318,7 @@ export default function PropostaPublica() {
                 <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", marginBottom: 28, maxWidth: 480, lineHeight: 1.7 }}>
                   O aceite confirma o início do planejamento operacional conforme o escopo descrito acima. Retorno em até 24h após aprovação.
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 14, marginBottom: 18 }}>
+                <div className="proposta-approval-fields" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 14, marginBottom: 18 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>Nome completo</label>
                     <input
