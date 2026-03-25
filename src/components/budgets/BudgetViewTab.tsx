@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { Edit } from "lucide-react";
+import { Edit, FileText } from "lucide-react";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import type { BudgetWithItems } from "@/hooks/useBudgets";
+import { GenerateProposalModal } from "./GenerateProposalModal";
 
 interface Props {
   budget: BudgetWithItems;
@@ -24,6 +25,7 @@ function sobraIcon(pct: number) {
 }
 
 export function BudgetViewTab({ budget, onEdit }: Props) {
+  const [proposalOpen, setProposalOpen] = useState(false);
   const categories = useMemo(() => {
     const cats = [...new Set(budget.budget_items.map(i => i.category))];
     return cats.map(cat => ({
@@ -186,7 +188,19 @@ export function BudgetViewTab({ budget, onEdit }: Props) {
         <Button variant="outline" onClick={onEdit}>
           <Edit className="mr-2 h-4 w-4" /> Editar Orçamento
         </Button>
+        <Button onClick={() => setProposalOpen(true)}>
+          <FileText className="mr-2 h-4 w-4" /> Gerar Proposta
+        </Button>
       </div>
+
+      {proposalOpen && (
+        <GenerateProposalModal
+          open={proposalOpen}
+          onClose={() => setProposalOpen(false)}
+          budget={budget}
+          items={budget.budget_items}
+        />
+      )}
     </div>
   );
 }

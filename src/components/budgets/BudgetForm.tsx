@@ -1182,6 +1182,15 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         onConfirm={handleNewVersion}
         onCancel={() => setNewVersionOpen(false)}
       />
+
+      {proposalModalOpen && existing && (
+        <GenerateProposalModal
+          open={proposalModalOpen}
+          onClose={() => setProposalModalOpen(false)}
+          budget={existing}
+          items={items}
+        />
+      )}
     </div>
   );
 }
