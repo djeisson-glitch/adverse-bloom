@@ -14,9 +14,19 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    const normalizeCategory = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase();
+
+    const isProductionCategory = (value: unknown) => normalizeCategory(value) === "PRODUCAO";
+    const isInternalLogisticsCategory = (value: unknown) => normalizeCategory(value).includes("LOGIST");
+
     const itemsSummary = (items || [])
-      .filter((i: any) => i.client_price > 0)
-      .map((i: any) => `- ${i.item_name} (${i.category}) — ${i.client_days || 0} diária(s)`)
+      .filter((i: any) => i.client_price > 0 && !isInternalLogisticsCategory(i.category))
+      .map((i: any) => `- ${i.item_name} (${i.category})`)
       .join("\n");
 
     const deliverablesSummary = (deliverables || [])
@@ -25,12 +35,12 @@ serve(async (req) => {
       .join("\n");
 
     const totalDays = (items || [])
-      .filter((i: any) => (i.category || "").trim().toUpperCase() === "PRODUÇÃO" && i.client_price > 0)
-      .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
+      .filter((i: any) => isProductionCategory(i.category) && i.client_price > 0)
+      .reduce((maxDays: number, i: any) => Math.max(maxDays, Number(i.client_days) || 0), 0);
 
     const diasTexto = totalDays > 0
-      ? `Dias de captação: ${totalDays} (usar por extenso, ex: "com captação em dois dias")`
-      : "Sem diárias de captação neste escopo";
+      ? `Dias de captação: ${totalDays} (este valor é o máximo de diárias entre os itens da categoria PRODUÇÃO, nunca a soma dos profissionais; usar por extenso, ex: "com captação em dois dias")`
+      : "Sem diárias de captação na categoria PRODUÇÃO";
 
     const prompt = `Gere a descrição de projeto para esta proposta comercial.
 
@@ -44,9 +54,12 @@ ${deliverablesSummary ? `Entregas para o cliente:\n${deliverablesSummary}` : ""}
 REGRAS OBRIGATÓRIAS:
 - Comece SEMPRE com "Este projeto contempla..."
 - Cite o nome do projeto e o cliente
+- Considere os dias de captação APENAS a partir dos itens da categoria PRODUÇÃO
+- Se houver múltiplos profissionais em PRODUÇÃO, use o MAIOR número de diárias entre eles, nunca a soma
 - Se houver dias de captação, OBRIGATORIAMENTE mencione "com captação em X dias" (número por extenso: 1=um, 2=dois, 3=três)
-- Se não houver dias de captação, NÃO mencione captação
+- Se não houver dias de captação em PRODUÇÃO, NÃO mencione captação
 - Finalize com as entregas principais e onde serão distribuídas (se possível inferir)
+- Nunca mencione logística, deslocamento, hospedagem, alimentação ou custos internos
 - Máximo 2 frases
 - Tom técnico e direto
 - PROIBIDO usar: "alta qualidade", "garantir", "excelência", "impactante", "inovador", "estratégico", adjetivos vazios
