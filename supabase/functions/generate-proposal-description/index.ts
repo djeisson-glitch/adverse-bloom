@@ -42,7 +42,7 @@ ${deliverablesSummary ? `Entregas:\n${deliverablesSummary}` : ""}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "Você é um redator de propostas comerciais de uma produtora audiovisual. Responda apenas com o texto da descrição, sem aspas ou formatação extra." },
+          { role: "system", content: "Você escreve descrições de projeto para propostas comerciais de uma produtora audiovisual. Seja direto e conciso. Máximo 2 frases. Sem floreios. Português brasileiro." },
           { role: "user", content: prompt },
         ],
       }),
