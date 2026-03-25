@@ -6,10 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Link as LinkIcon, Copy, Check, Loader2 } from "lucide-react";
+import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles } from "lucide-react";
 import { useCreateProposalLetter } from "@/hooks/useProposalLetters";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
 interface Props {
@@ -35,6 +36,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   );
   const [paymentConditions, setPaymentConditions] = useState("À vista — 30 dias após aprovação");
   const [validityDays, setValidityDays] = useState(15);
+  const [generatingAI, setGeneratingAI] = useState(false);
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -59,6 +61,35 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     const updated = [...deliverables];
     updated[idx] = { ...updated[idx], [field]: value };
     setDeliverables(updated);
+  };
+
+  const generateDescriptionAI = async () => {
+    setGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-proposal-description", {
+        body: {
+          projectName: budget.project_name,
+          clientName: budget.client_name,
+          items: items.filter(i => i.client_price > 0).map(i => ({
+            item_name: i.item_name,
+            category: i.category,
+            client_price: i.client_price,
+          })),
+          tags,
+          deliverables: deliverables.filter(d => d.name.trim()),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.description) {
+        setProjectDescription(data.description);
+        toast({ title: "Descrição gerada por IA" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar descrição", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingAI(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -159,7 +190,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           </div>
 
           {/* Contact */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nome do contato</Label>
               <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Ex: Mateus Roncaglio" />
@@ -170,9 +201,21 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             </div>
           </div>
 
-          {/* Description */}
+          {/* Description with AI */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Descrição do projeto</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Descrição do projeto</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateDescriptionAI}
+                disabled={generatingAI}
+                className="text-xs gap-1.5 h-7"
+              >
+                {generatingAI ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Gerar com IA
+              </Button>
+            </div>
             <Textarea
               value={projectDescription}
               onChange={e => setProjectDescription(e.target.value)}
@@ -215,7 +258,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             <div className="space-y-2">
               {deliverables.map((d, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <div className="flex-1 grid grid-cols-2 gap-2">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Input
                       value={d.name}
                       onChange={e => updateDeliverable(i, "name", e.target.value)}
@@ -238,7 +281,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           </div>
 
           {/* Payment + Validity */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Condições de pagamento</Label>
               <Input value={paymentConditions} onChange={e => setPaymentConditions(e.target.value)} />

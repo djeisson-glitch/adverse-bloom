@@ -34,7 +34,6 @@ export default function PropostaPublica() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Approval form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [approving, setApproving] = useState(false);
@@ -99,7 +98,7 @@ export default function PropostaPublica() {
   if (error || !data) {
     return (
       <div style={{ background: "#0a0a0a", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#f0ebe3", fontFamily: "'Barlow', sans-serif" }}>
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: "center", padding: "0 24px" }}>
           <h1 style={{ fontSize: 24, marginBottom: 8, fontFamily: "'Barlow Condensed', sans-serif" }}>Proposta não encontrada</h1>
           <p style={{ color: "rgba(240,235,227,0.65)" }}>{error}</p>
         </div>
@@ -113,7 +112,6 @@ export default function PropostaPublica() {
   const notIncluded: string[] = budget?.not_included || [];
   const isCompleta = proposal.template_type === "completa";
 
-  // Group items by category for scope
   const scopeItems: { label: string; value: string }[] = [];
   const categories = [...new Set(items.map((i: any) => i.category))];
   categories.forEach((cat: string) => {
@@ -126,9 +124,22 @@ export default function PropostaPublica() {
     }
   });
 
+  const inputStyle: React.CSSProperties = {
+    background: "rgba(232,224,212,0.05)",
+    border: "1px solid rgba(240,235,227,0.18)",
+    color: "#f0ebe3",
+    fontFamily: "'Barlow', sans-serif",
+    fontSize: 15,
+    padding: "14px 16px",
+    outline: "none",
+    width: "100%",
+    borderRadius: 0,
+  };
+
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a !important; }
@@ -138,21 +149,21 @@ export default function PropostaPublica() {
         color: "#f0ebe3",
         fontFamily: "'Barlow', sans-serif",
         fontWeight: 400,
-        lineHeight: 1.6,
+        lineHeight: 1.7,
         WebkitFontSmoothing: "antialiased",
         minHeight: "100vh",
       }}>
-        <div style={{ maxWidth: 780, margin: "0 auto", padding: "60px 48px 80px" }}>
+        <div style={{ maxWidth: 780, margin: "0 auto", padding: "clamp(32px, 6vw, 60px) clamp(20px, 5vw, 48px) clamp(48px, 8vw, 80px)" }}>
           {/* HEADER */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 40, borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 22, letterSpacing: "0.02em", color: "#f0ebe3", display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 40, borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48, flexWrap: "wrap", gap: 16 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(20px, 3vw, 22px)", letterSpacing: "0.02em", color: "#f0ebe3", display: "flex", alignItems: "center", gap: 4 }}>
               adverse<span style={{ color: "#e8281e", fontWeight: 700 }}>/</span>rec
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 4 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 4 }}>
                 Proposta Nº {budget?.budget_number || "—"}
               </div>
-              <div style={{ fontSize: 13, color: "rgba(240,235,227,0.65)" }}>
+              <div style={{ fontSize: 14, color: "rgba(240,235,227,0.65)" }}>
                 {formatDateBR(proposal.created_at)}
               </div>
             </div>
@@ -160,24 +171,24 @@ export default function PropostaPublica() {
 
           {/* DESTINATÁRIO */}
           <div style={{ marginBottom: 48 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 8 }}>Para</div>
-            <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 500, fontSize: 26, letterSpacing: "0.01em", color: "#f0ebe3", marginBottom: 2 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 8 }}>Para</div>
+            <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 500, fontSize: "clamp(22px, 4vw, 28px)", letterSpacing: "0.01em", color: "#f0ebe3", marginBottom: 2 }}>
               {proposal.contact_name}
             </h2>
-            <p style={{ fontSize: 13, fontWeight: 400, color: "rgba(240,235,227,0.65)" }}>
+            <p style={{ fontSize: 15, fontWeight: 400, color: "rgba(240,235,227,0.65)" }}>
               {proposal.contact_company}
             </p>
           </div>
 
           {/* PROJETO */}
           <div style={{ marginBottom: 40 }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 36, letterSpacing: "0.01em", lineHeight: 1.15, color: "#f0ebe3", marginBottom: 12 }}>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(28px, 5vw, 40px)", letterSpacing: "0.01em", lineHeight: 1.15, color: "#f0ebe3", marginBottom: 12 }}>
               {budget?.project_name}
             </h1>
             {tags.length > 0 && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {tags.map((t, i) => (
-                  <span key={i} style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", padding: "4px 10px", border: "1px solid rgba(240,235,227,0.18)", color: "rgba(240,235,227,0.65)" }}>
+                  <span key={i} style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase", padding: "5px 12px", border: "1px solid rgba(240,235,227,0.18)", color: "rgba(240,235,227,0.65)" }}>
                     {t}
                   </span>
                 ))}
@@ -187,26 +198,30 @@ export default function PropostaPublica() {
 
           {/* DESCRICAO */}
           {proposal.project_description && (
-            <div style={{ fontSize: 14, lineHeight: 1.75, color: "rgba(240,235,227,0.82)", marginBottom: 48, maxWidth: 580 }}>
+            <div style={{ fontSize: 16, lineHeight: 1.8, color: "rgba(240,235,227,0.82)", marginBottom: 48, maxWidth: 620 }}>
               {proposal.project_description}
             </div>
           )}
 
-          {/* COMPLETA-ONLY: Apresentação section could go here in future */}
-
           {/* ESCOPO */}
           {scopeItems.length > 0 && (
             <>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
                 Escopo de Produção
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "rgba(240,235,227,0.18)", marginBottom: 48 }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                gap: 1,
+                background: "rgba(240,235,227,0.18)",
+                marginBottom: 48,
+              }}>
                 {scopeItems.map((item, i) => (
-                  <div key={i} style={{ background: "#0a0a0a", padding: "20px 24px" }}>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 6 }}>
+                  <div key={i} style={{ background: "#0a0a0a", padding: "22px 24px" }}>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 8 }}>
                       {item.label}
                     </div>
-                    <div style={{ fontSize: 14, color: "#f0ebe3", fontWeight: 500, lineHeight: 1.5, whiteSpace: "pre-line" }}>
+                    <div style={{ fontSize: 15, color: "#f0ebe3", fontWeight: 500, lineHeight: 1.6, whiteSpace: "pre-line" }}>
                       {item.value}
                     </div>
                   </div>
@@ -218,18 +233,18 @@ export default function PropostaPublica() {
           {/* ENTREGAS */}
           {deliverables.length > 0 && (
             <div style={{ marginBottom: 48 }}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
                 Entregas
               </div>
               {deliverables.map((d, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "16px 0", borderBottom: "1px solid rgba(240,235,227,0.18)", ...(i === 0 ? { borderTop: "1px solid rgba(240,235,227,0.18)" } : {}) }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#e8281e", marginTop: 8, flexShrink: 0 }} />
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "18px 0", borderBottom: "1px solid rgba(240,235,227,0.18)", ...(i === 0 ? { borderTop: "1px solid rgba(240,235,227,0.18)" } : {}) }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e8281e", marginTop: 9, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", color: "#f0ebe3", marginBottom: 2 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", color: "#f0ebe3", marginBottom: 3 }}>
                       {d.name}
                     </div>
                     {d.description && (
-                      <div style={{ fontSize: 13, fontWeight: 400, color: "rgba(240,235,227,0.65)" }}>
+                      <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)" }}>
                         {d.description}
                       </div>
                     )}
@@ -241,13 +256,13 @@ export default function PropostaPublica() {
 
           {/* NAO INCLUI */}
           {notIncluded.length > 0 && (
-            <div style={{ marginBottom: 48, padding: 24, background: "#1c1c1c" }}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 12 }}>
+            <div style={{ marginBottom: 48, padding: "clamp(16px, 3vw, 28px)", background: "#1c1c1c" }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 14 }}>
                 Não inclui
               </div>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
                 {notIncluded.map((item, i) => (
-                  <li key={i} style={{ fontSize: 13, fontWeight: 400, color: "rgba(240,235,227,0.65)", paddingLeft: 16, position: "relative" }}>
+                  <li key={i} style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", paddingLeft: 18, position: "relative" }}>
                     <span style={{ position: "absolute", left: 0, color: "rgba(240,235,227,0.18)" }}>—</span>
                     {item}
                   </li>
@@ -257,72 +272,64 @@ export default function PropostaPublica() {
           )}
 
           {/* INVESTIMENTO */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "40px 0", borderTop: "1px solid rgba(240,235,227,0.18)", borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48 }}>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            padding: "40px 0",
+            borderTop: "1px solid rgba(240,235,227,0.18)",
+            borderBottom: "1px solid rgba(240,235,227,0.18)",
+            marginBottom: 48,
+            flexWrap: "wrap",
+            gap: 20,
+          }}>
             <div>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 8 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 8 }}>
                 Investimento total
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 52, letterSpacing: "-0.01em", color: "#f0ebe3", lineHeight: 1, marginBottom: 6 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(36px, 7vw, 56px)", letterSpacing: "-0.01em", color: "#f0ebe3", lineHeight: 1, marginBottom: 8 }}>
                 {formatCurrencyBR(budget?.total_value || 0)}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 400, color: "rgba(240,235,227,0.65)", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+              <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", lineHeight: 1.7, whiteSpace: "pre-line" }}>
                 {proposal.payment_conditions}
                 {"\n"}Tributos inclusos
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 12, color: "rgba(240,235,227,0.65)" }}>
+              <div style={{ fontSize: 13, color: "rgba(240,235,227,0.65)" }}>
                 Validade: {proposal.validity_days} dias
               </div>
             </div>
           </div>
 
           {/* APROVAÇÃO */}
-          <div style={{ background: "#1c1c1c", padding: 36 }}>
+          <div style={{ background: "#1c1c1c", padding: "clamp(24px, 4vw, 40px)" }}>
             {!approved ? (
               <>
-                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 20, letterSpacing: "0.03em", color: "#f0ebe3", marginBottom: 6 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(18px, 3vw, 22px)", letterSpacing: "0.03em", color: "#f0ebe3", marginBottom: 8 }}>
                   Aprovar esta proposta
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 400, color: "rgba(240,235,227,0.65)", marginBottom: 28, maxWidth: 460, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", marginBottom: 28, maxWidth: 480, lineHeight: 1.7 }}>
                   O aceite confirma o início do planejamento operacional conforme o escopo descrito acima. Retorno em até 24h após aprovação.
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 14, marginBottom: 18 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>Nome completo</label>
+                    <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>Nome completo</label>
                     <input
                       value={name}
                       onChange={e => setName(e.target.value)}
                       placeholder="Seu nome"
-                      style={{
-                        background: "rgba(232,224,212,0.05)",
-                        border: "1px solid rgba(240,235,227,0.18)",
-                        color: "#f0ebe3",
-                        fontFamily: "'Barlow', sans-serif",
-                        fontSize: 14,
-                        padding: "12px 14px",
-                        outline: "none",
-                        width: "100%",
-                      }}
+                      style={inputStyle}
                     />
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>E-mail</label>
+                    <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>E-mail</label>
                     <input
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       placeholder="seu@email.com"
                       type="email"
-                      style={{
-                        background: "rgba(232,224,212,0.05)",
-                        border: "1px solid rgba(240,235,227,0.18)",
-                        color: "#f0ebe3",
-                        fontFamily: "'Barlow', sans-serif",
-                        fontSize: 14,
-                        padding: "12px 14px",
-                        outline: "none",
-                        width: "100%",
-                      }}
+                      style={inputStyle}
                     />
                   </div>
                 </div>
@@ -338,13 +345,14 @@ export default function PropostaPublica() {
                     border: "none",
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontWeight: 600,
-                    fontSize: 13,
+                    fontSize: 14,
                     letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    padding: "14px 28px",
+                    textTransform: "uppercase" as const,
+                    padding: "16px 32px",
                     cursor: approving ? "wait" : "pointer",
                     marginTop: 8,
                     opacity: (!name.trim() || !email.trim()) ? 0.5 : 1,
+                    width: "auto",
                   }}
                 >
                   <span style={{ width: 16, height: 16, border: "2px solid #0a0a0a", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -354,16 +362,16 @@ export default function PropostaPublica() {
                 </button>
               </>
             ) : (
-              <div style={{ textAlign: "center", padding: "32px 0" }}>
-                <div style={{ width: 48, height: 48, border: "2px solid #e8281e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8281e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <div style={{ textAlign: "center", padding: "36px 0" }}>
+                <div style={{ width: 52, height: 52, border: "2px solid #e8281e", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e8281e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h3 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 600, letterSpacing: "0.02em", color: "#f0ebe3", marginBottom: 8 }}>
+                <h3 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "clamp(20px, 3vw, 24px)", fontWeight: 600, letterSpacing: "0.02em", color: "#f0ebe3", marginBottom: 8 }}>
                   Proposta aprovada
                 </h3>
-                <p style={{ fontSize: 13, color: "rgba(240,235,227,0.65)", lineHeight: 1.6 }}>
+                <p style={{ fontSize: 14, color: "rgba(240,235,227,0.65)", lineHeight: 1.7 }}>
                   Obrigado, {approvedName || proposal.approved_name}. Entraremos em contato em breve para iniciar o planejamento da produção.
                 </p>
               </div>
@@ -371,11 +379,11 @@ export default function PropostaPublica() {
           </div>
 
           {/* FOOTER */}
-          <div style={{ marginTop: 60, paddingTop: 32, borderTop: "1px solid rgba(240,235,227,0.18)", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 16, color: "rgba(240,235,227,0.4)", display: "flex", alignItems: "center", gap: 3 }}>
+          <div style={{ marginTop: 60, paddingTop: 32, borderTop: "1px solid rgba(240,235,227,0.18)", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 18, color: "rgba(240,235,227,0.4)", display: "flex", alignItems: "center", gap: 3 }}>
               adverse<span style={{ color: "#e8281e", opacity: 0.5 }}>/</span>rec
             </div>
-            <div style={{ textAlign: "right", fontSize: 12, color: "rgba(240,235,227,0.4)", lineHeight: 1.7 }}>
+            <div style={{ textAlign: "right", fontSize: 13, color: "rgba(240,235,227,0.4)", lineHeight: 1.8 }}>
               comercial@adverse.rec.br<br />
               +55 (54) 99637-8692<br />
               Passo Fundo, RS
