@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles } from "lucide-react";
-import { useCreateProposalLetter } from "@/hooks/useProposalLetters";
+import { useCreateProposalLetter, useProposalLetters } from "@/hooks/useProposalLetters";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,8 +43,8 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const createLetter = useCreateProposalLetter();
+  const { data: existingLetters } = useProposalLetters(budget.id);
 
-  const [templateType, setTemplateType] = useState<"completa" | "reduzida">("completa");
   const [contactName, setContactName] = useState("");
   const [contactCompany, setContactCompany] = useState(budget.client_name || "");
   const [projectDescription, setProjectDescription] = useState("");
@@ -57,6 +56,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [paymentConditions, setPaymentConditions] = useState("À vista — 30 dias após aprovação");
   const [validityDays, setValidityDays] = useState(15);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -64,6 +64,48 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const proposalUrl = generatedToken
     ? `${window.location.origin}/proposta/${generatedToken}`
     : null;
+
+  // Load previous proposal data or deal contact
+  useEffect(() => {
+    if (!open || initialized) return;
+
+    const latest = existingLetters?.[0];
+    if (latest) {
+      setContactName(latest.contact_name || "");
+      setContactCompany(latest.contact_company || "");
+      setProjectDescription(latest.project_description || "");
+      setTags(latest.tags?.length ? latest.tags : buildTagsFromItems(items));
+      setDeliverables(latest.deliverables?.length ? latest.deliverables : buildDeliverablesFromItems(items));
+      setPaymentConditions(latest.payment_conditions || "À vista — 30 dias após aprovação");
+      setValidityDays(latest.validity_days ?? 15);
+      setInitialized(true);
+      return;
+    }
+
+    // Auto-fill contact from deal's client
+    if (budget.deal_id) {
+      (async () => {
+        const { data: deal } = await supabase
+          .from("deals")
+          .select("*, client:clients(*)")
+          .eq("id", budget.deal_id!)
+          .single();
+        if (deal?.client) {
+          const client = deal.client as any;
+          setContactName(client.trade_name || client.name || "");
+          setContactCompany(client.company || client.name || budget.client_name || "");
+        }
+        setInitialized(true);
+      })();
+    } else {
+      setInitialized(true);
+    }
+  }, [open, existingLetters, initialized]);
+
+  // Reset initialized when modal closes
+  useEffect(() => {
+    if (!open) setInitialized(false);
+  }, [open]);
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -120,7 +162,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
     const result = await createLetter.mutateAsync({
       budget_id: budget.id,
-      template_type: templateType,
+      template_type: "reduzida",
       contact_name: contactName,
       contact_company: contactCompany,
       project_description: projectDescription || undefined,
@@ -195,21 +237,6 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          {/* Template type */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Modelo</Label>
-            <RadioGroup value={templateType} onValueChange={(v) => setTemplateType(v as any)} className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <RadioGroupItem value="completa" />
-                <span className="text-sm">Completa <span className="text-muted-foreground">(apresentação + escopo)</span></span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <RadioGroupItem value="reduzida" />
-                <span className="text-sm">Reduzida <span className="text-muted-foreground">(escopo + valor)</span></span>
-              </label>
-            </RadioGroup>
-          </div>
-
           {/* Contact */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -273,7 +300,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Deliverables */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Entregas <span className="text-muted-foreground font-normal">(puxadas do orçamento)</span></Label>
+              <Label className="text-xs">Entregas <span className="text-muted-foreground font-normal">(itens PÓS-PRODUÇÃO marcados como entrega)</span></Label>
               <Button variant="ghost" size="sm" onClick={addDeliverable} type="button"><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>
             </div>
             <div className="space-y-2">
@@ -289,7 +316,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
                     <Input
                       value={d.description}
                       onChange={e => updateDeliverable(i, "description", e.target.value)}
-                      placeholder="Descrição"
+                      placeholder="Ex: 1 vídeo — 16x9 para LinkedIn"
                       className="text-sm"
                     />
                   </div>
