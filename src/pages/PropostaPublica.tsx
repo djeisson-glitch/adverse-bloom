@@ -143,6 +143,12 @@ export default function PropostaPublica() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a !important; }
+        @media (max-width: 600px) {
+          .proposta-scope-grid { grid-template-columns: 1fr !important; }
+          .proposta-invest-row { flex-direction: column !important; align-items: flex-start !important; }
+          .proposta-invest-row > div:last-child { text-align: left !important; }
+          .proposta-approval-fields { grid-template-columns: 1fr !important; }
+        }
       `}</style>
       <div style={{
         background: "#0a0a0a",
@@ -209,7 +215,7 @@ export default function PropostaPublica() {
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#e8281e", marginBottom: 20 }}>
                 Escopo de Produção
               </div>
-              <div style={{
+              <div className="proposta-scope-grid" style={{
                 display: "grid",
                 gridTemplateColumns: scopeItems.length === 1 ? "1fr" : "repeat(2, 1fr)",
                 gap: 1,
