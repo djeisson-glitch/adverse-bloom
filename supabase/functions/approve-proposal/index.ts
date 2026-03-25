@@ -134,15 +134,15 @@ serve(async (req) => {
       .eq("id", proposal.budget_id);
     if (budgetErr) console.error("Failed to update budget status:", budgetErr);
 
-    // Send WhatsApp notification (fire-and-forget)
-    await sendWhatsAppNotification({
-      contactName: proposal.contact_name,
+    // Send email notification via Resend
+    await sendEmailNotification({
       contactCompany: proposal.contact_company,
       projectName: budget?.project_name || "—",
       approvedName: name,
       approvedEmail: email,
       budgetNumber: budget?.budget_number ?? null,
       totalValue: budget?.total_value ?? null,
+      approvedAt: now,
     });
 
     return new Response(JSON.stringify({ success: true }), {
