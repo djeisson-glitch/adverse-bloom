@@ -232,6 +232,12 @@ export default function PropostaPublica() {
         minHeight: "100vh",
       }}>
         <div style={{ maxWidth: 780, margin: "0 auto", padding: "clamp(32px, 6vw, 60px) clamp(20px, 5vw, 48px) clamp(48px, 8vw, 80px)" }}>
+          {/* PREVIEW BANNER */}
+          {isPreview && (
+            <div style={{ background: "#e8281e", color: "#fff", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 600, textAlign: "center", padding: "10px 16px", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 24 }}>
+              ⚠ Pré-visualização — esta proposta não foi salva
+            </div>
+          )}
           {/* HEADER */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 40, borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48, flexWrap: "wrap", gap: 16 }}>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(20px, 3vw, 22px)", letterSpacing: "0.02em", color: "#f0ebe3", display: "flex", alignItems: "center", gap: 4 }}>
