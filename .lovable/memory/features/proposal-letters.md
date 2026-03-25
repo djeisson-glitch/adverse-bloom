@@ -6,10 +6,16 @@ Proposal letter module: generates public client-facing proposals from budgets wi
 ## Edge Functions
 - get-proposal: fetches proposal + budget + items by token (public, no auth)
 - approve-proposal: records name/email/IP/timestamp, updates budget status to approved
+- generate-proposal-description: AI generates project description; capture days = Math.max of PRODUÇÃO client_days (parallel pros), never sum; logistics excluded from description
 
 ## Routes
 - /proposta/:token — public page (no auth), renders HTML proposal with Barlow font, #0a0a0a bg, #e8281e red accent, #f0ebe3 beige text
 - Uses inline styles (not tailwind) to match reference HTML design
+
+## Deliverables Rules
+- Only items from PÓS-PRODUÇÃO category marked as is_deliverable appear as entregas
+- Items from PRODUÇÃO, LOGÍSTICA and other categories are NOT shown as deliverables
+- Description is manually entered per deliverable in the modal (not auto-generated)
 
 ## Flow
 1. Budget dropdown → "Gerar proposta" → GenerateProposalModal
