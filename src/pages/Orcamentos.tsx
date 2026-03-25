@@ -609,6 +609,27 @@ export default function Orcamentos() {
           setCreating(true);
         }}
       />
+
+      {/* Proposal Letter Modal */}
+      {proposalBudget && (
+        <ProposalModalWrapper
+          budget={proposalBudget}
+          onClose={() => setProposalBudget(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Wrapper to fetch items before rendering GenerateProposalModal */
+function ProposalModalWrapper({ budget, onClose }: { budget: Budget; onClose: () => void }) {
+  const { data } = useBudgetWithItems(budget.id);
+  return (
+    <GenerateProposalModal
+      open
+      onClose={onClose}
+      budget={budget}
+      items={data?.budget_items || []}
+    />
   );
 }
