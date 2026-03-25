@@ -58,9 +58,12 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [validityDays, setValidityDays] = useState(15);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [showRegenerateWarning, setShowRegenerateWarning] = useState(false);
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const hasExistingLink = !!(existingLetters && existingLetters.length > 0);
 
   const proposalUrl = generatedToken
     ? `${window.location.origin}/proposta/${generatedToken}`
