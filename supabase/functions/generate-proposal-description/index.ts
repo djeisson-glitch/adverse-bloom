@@ -16,7 +16,7 @@ serve(async (req) => {
 
     const itemsSummary = (items || [])
       .filter((i: any) => i.client_price > 0)
-      .map((i: any) => `- ${i.item_name} (${i.category})`)
+      .map((i: any) => `- ${i.item_name} (${i.category}) — ${i.client_days || 0} diária(s)`)
       .join("\n");
 
     const deliverablesSummary = (deliverables || [])
@@ -24,9 +24,17 @@ serve(async (req) => {
       .map((d: any) => `- ${d.name}`)
       .join("\n");
 
-    const totalDays = (items || [])
-      .filter((i: any) => i.client_price > 0)
+    // Pull capture days specifically from PRODUÇÃO category
+    const producaoDays = (items || [])
+      .filter((i: any) => (i.category || "").toUpperCase() === "PRODUÇÃO" && i.client_price > 0)
       .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
+
+    // Fallback: sum all days if no PRODUÇÃO category found
+    const totalDays = producaoDays > 0
+      ? producaoDays
+      : (items || [])
+          .filter((i: any) => i.client_price > 0)
+          .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
 
     const prompt = `Gere a descrição de projeto para esta proposta comercial.
 
