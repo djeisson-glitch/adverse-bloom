@@ -36,11 +36,15 @@ serve(async (req) => {
           .filter((i: any) => i.client_price > 0)
           .reduce((sum: number, i: any) => sum + (i.client_days || 0), 0);
 
+    const diasTexto = totalDays > 0
+      ? `Dias de captação: ${totalDays} (usar por extenso, ex: "com captação em dois dias")`
+      : "Sem diárias de captação neste escopo";
+
     const prompt = `Gere a descrição de projeto para esta proposta comercial.
 
 Projeto: ${projectName}
 Cliente: ${clientName}
-Dias de captação: ${totalDays}
+${diasTexto}
 ${tags?.length ? `Contexto: ${tags.join(", ")}` : ""}
 ${itemsSummary ? `Itens do escopo:\n${itemsSummary}` : ""}
 ${deliverablesSummary ? `Entregas para o cliente:\n${deliverablesSummary}` : ""}
@@ -48,7 +52,8 @@ ${deliverablesSummary ? `Entregas para o cliente:\n${deliverablesSummary}` : ""}
 REGRAS OBRIGATÓRIAS:
 - Comece SEMPRE com "Este projeto contempla..."
 - Cite o nome do projeto e o cliente
-- Mencione os dias de captação quando houver
+- Se houver dias de captação, OBRIGATORIAMENTE mencione "com captação em X dias" (número por extenso: 1=um, 2=dois, 3=três)
+- Se não houver dias de captação, NÃO mencione captação
 - Finalize com as entregas principais e onde serão distribuídas (se possível inferir)
 - Máximo 2 frases
 - Tom técnico e direto
@@ -56,8 +61,7 @@ REGRAS OBRIGATÓRIAS:
 - Sem aspas no texto final
 
 Exemplo de referência:
-"Este projeto contempla a cobertura audiovisual e fotográfica da Convenção Sicredi Sul Minas 2026, com captação em dois dias de evento. O material será produzido para distribuição no LinkedIn, com entrega de vídeo de depoimentos e galeria fotográfica tratada."`;
-
+Este projeto contempla a cobertura audiovisual e fotográfica da Convenção Sicredi Sul Minas 2026, com captação em dois dias de evento. O material será produzido para distribuição no LinkedIn, com entrega de vídeo de depoimentos e galeria fotográfica tratada.`;
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {

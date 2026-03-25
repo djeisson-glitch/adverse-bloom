@@ -93,6 +93,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             item_name: i.item_name,
             category: i.category,
             client_price: i.client_price,
+            client_days: i.client_days,
           })),
           tags,
           deliverables: deliverables.filter(d => d.name.trim()),
