@@ -718,6 +718,80 @@ export type Database = {
           },
         ]
       }
+      proposal_letters: {
+        Row: {
+          approved_at: string | null
+          approved_email: string | null
+          approved_ip: string | null
+          approved_name: string | null
+          budget_id: string
+          contact_company: string
+          contact_name: string
+          created_at: string
+          created_by: string | null
+          deliverables: Json | null
+          id: string
+          payment_conditions: string | null
+          project_description: string | null
+          status: string
+          tags: string[] | null
+          template_type: string
+          token: string
+          updated_at: string
+          validity_days: number | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_email?: string | null
+          approved_ip?: string | null
+          approved_name?: string | null
+          budget_id: string
+          contact_company?: string
+          contact_name?: string
+          created_at?: string
+          created_by?: string | null
+          deliverables?: Json | null
+          id?: string
+          payment_conditions?: string | null
+          project_description?: string | null
+          status?: string
+          tags?: string[] | null
+          template_type?: string
+          token?: string
+          updated_at?: string
+          validity_days?: number | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_email?: string | null
+          approved_ip?: string | null
+          approved_name?: string | null
+          budget_id?: string
+          contact_company?: string
+          contact_name?: string
+          created_at?: string
+          created_by?: string | null
+          deliverables?: Json | null
+          id?: string
+          payment_conditions?: string | null
+          project_description?: string | null
+          status?: string
+          tags?: string[] | null
+          template_type?: string
+          token?: string
+          updated_at?: string
+          validity_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_letters_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_templates: {
         Row: {
           bv_default: number | null
