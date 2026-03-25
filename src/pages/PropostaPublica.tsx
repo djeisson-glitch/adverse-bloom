@@ -143,12 +143,7 @@ export default function PropostaPublica() {
   categories.forEach((cat: string) => {
     if (isLogisticsCategory(cat)) return; // skip logistics entirely
 
-    let catItems = items.filter((i: any) => i.category === cat && i.client_price > 0);
-
-    // For PÓS-PRODUÇÃO, only show deliverable items
-    if (isPostProductionCategory(cat)) {
-      catItems = catItems.filter((i: any) => i.is_deliverable);
-    }
+    const catItems = items.filter((i: any) => i.category === cat && i.client_price > 0);
 
     if (catItems.length > 0) {
       scopeItems.push({
