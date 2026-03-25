@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { ClientSelect } from "@/components/clientes/ClientSelect";
 import { ApprovalModal } from "./ApprovalModal";
 import { SaveTemplateModal } from "./SaveTemplateModal";
 import { NewVersionModal } from "./NewVersionModal";
+import { GenerateProposalModal } from "./GenerateProposalModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { ProposalTemplate } from "@/hooks/useTemplates";
@@ -190,6 +191,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [notIncludedOpen, setNotIncludedOpen] = useState(true);
+  const [proposalModalOpen, setProposalModalOpen] = useState(false);
 
   // Load template on mount
   useEffect(() => {
@@ -641,6 +643,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {budgetId && existing && (
+              <Button variant="outline" size="sm" onClick={() => setProposalModalOpen(true)}>
+                <FileText className="h-3.5 w-3.5 mr-1" /> Proposta
+              </Button>
+            )}
             {!isApproved && (
               <Button variant="outline" size="sm" onClick={() => setSaveTemplateOpen(true)}>
                 <Save className="h-3.5 w-3.5 mr-1" /> Template
@@ -1175,6 +1182,15 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         onConfirm={handleNewVersion}
         onCancel={() => setNewVersionOpen(false)}
       />
+
+      {proposalModalOpen && existing && (
+        <GenerateProposalModal
+          open={proposalModalOpen}
+          onClose={() => setProposalModalOpen(false)}
+          budget={existing}
+          items={items}
+        />
+      )}
     </div>
   );
 }
