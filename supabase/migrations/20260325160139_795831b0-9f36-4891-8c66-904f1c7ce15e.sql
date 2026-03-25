@@ -1,0 +1,1 @@
+ALTER TABLE public.budget_items ADD COLUMN is_deliverable boolean NOT NULL DEFAULT false;
