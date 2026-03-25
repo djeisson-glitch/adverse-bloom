@@ -742,6 +742,7 @@ export type Database = {
           token: string
           updated_at: string
           validity_days: number | null
+          viewed_at: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -763,6 +764,7 @@ export type Database = {
           token?: string
           updated_at?: string
           validity_days?: number | null
+          viewed_at?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -784,6 +786,7 @@ export type Database = {
           token?: string
           updated_at?: string
           validity_days?: number | null
+          viewed_at?: string | null
         }
         Relationships: [
           {
