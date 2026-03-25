@@ -373,11 +373,14 @@ export default function PropostaPublica() {
                     <label style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)" }}>E-mail</label>
                     <input
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={e => { setEmail(e.target.value); setEmailError(""); }}
                       placeholder="seu@email.com"
                       type="email"
                       style={inputStyle}
                     />
+                    {emailError && (
+                      <span style={{ fontSize: 12, color: "#e8281e", marginTop: 4, display: "block" }}>{emailError}</span>
+                    )}
                   </div>
                 </div>
                 <button
