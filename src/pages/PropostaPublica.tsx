@@ -471,6 +471,7 @@ export default function PropostaPublica() {
               </div>
             )}
           </div>
+          )}
 
           {/* FOOTER */}
           <div style={{ marginTop: 60, paddingTop: 32, borderTop: "1px solid rgba(240,235,227,0.18)", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
