@@ -56,6 +56,7 @@ function parseNotIncluded(raw: any): string[] {
 
 export default function PropostaPublica() {
   const { token } = useParams<{ token: string }>();
+  const isPreview = token === "preview";
   const [data, setData] = useState<ProposalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +69,36 @@ export default function PropostaPublica() {
 
   useEffect(() => {
     if (!token) return;
+
+    if (isPreview) {
+      // Load from sessionStorage for preview mode
+      try {
+        const raw = sessionStorage.getItem("proposal_preview");
+        if (!raw) throw new Error("Dados de pré-visualização não encontrados");
+        const preview = JSON.parse(raw);
+        setData({
+          proposal: {
+            contact_name: preview.contactName,
+            contact_company: preview.contactCompany,
+            project_description: preview.projectDescription,
+            tags: preview.tags || [],
+            deliverables: preview.deliverables || [],
+            payment_conditions: preview.paymentConditions,
+            validity_days: preview.validityDays,
+            created_at: new Date().toISOString(),
+            status: "preview",
+          },
+          budget: preview.budget,
+          items: preview.items || [],
+        });
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     (async () => {
       try {
         const { data: result, error: fnErr } = await supabase.functions.invoke("get-proposal", {
