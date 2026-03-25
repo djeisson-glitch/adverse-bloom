@@ -43,7 +43,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const createLetter = useCreateProposalLetter();
-  const { data: existingLetters } = useProposalLetters(budget.id);
+  const { data: existingLetters, isLoading: lettersLoading } = useProposalLetters(budget.id);
 
   const [contactName, setContactName] = useState("");
   const [contactCompany, setContactCompany] = useState(budget.client_name || "");
