@@ -387,6 +387,13 @@ export default function PropostaPublica() {
           </div>
 
           {/* APROVAÇÃO */}
+          {isPreview ? (
+            <div style={{ background: "#1c1c1c", padding: "clamp(24px, 4vw, 40px)", textAlign: "center" }}>
+              <p style={{ fontSize: 14, color: "rgba(240,235,227,0.65)", fontStyle: "italic" }}>
+                Seção de aprovação (visível apenas na proposta final)
+              </p>
+            </div>
+          ) : (
           <div style={{ background: "#1c1c1c", padding: "clamp(24px, 4vw, 40px)" }}>
             {!approved ? (
               <>
