@@ -6,64 +6,74 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function sendWhatsAppNotification(proposalData: {
-  contactName: string;
+async function sendEmailNotification(data: {
   contactCompany: string;
   projectName: string;
   approvedName: string;
   approvedEmail: string;
   budgetNumber: number | null;
   totalValue: number | null;
+  approvedAt: string;
 }) {
-  const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
-  const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY");
-  const EVOLUTION_INSTANCE_NAME = Deno.env.get("EVOLUTION_INSTANCE_NAME");
-
-  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE_NAME) {
-    console.warn("[WhatsApp] Evolution API not configured, skipping notification");
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) {
+    console.warn("[Email] RESEND_API_KEY not configured, skipping notification");
     return;
   }
 
-  const notifyNumber = "5554996378692";
-
-  const totalFormatted = proposalData.totalValue
-    ? `R$ ${proposalData.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`
+  const totalFormatted = data.totalValue
+    ? `R$ ${data.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
     : "—";
 
-  const message = [
-    `✅ *Proposta aprovada!*`,
-    ``,
-    `📋 *Projeto:* ${proposalData.projectName}`,
-    proposalData.budgetNumber ? `🔢 *Orçamento:* #${proposalData.budgetNumber}` : null,
-    `🏢 *Cliente:* ${proposalData.contactCompany}`,
-    `💰 *Valor:* ${totalFormatted}`,
-    ``,
-    `👤 *Aprovado por:* ${proposalData.approvedName}`,
-    `📧 *E-mail:* ${proposalData.approvedEmail}`,
-  ].filter(Boolean).join("\n");
+  const dateFormatted = new Date(data.approvedAt).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+
+  const budgetRef = data.budgetNumber ? `#${data.budgetNumber}` : "—";
+
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #10b981; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 20px;">✅ Proposta Aprovada!</h1>
+      </div>
+      <div style="background: #f9fafb; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 8px 0; color: #6b7280; width: 140px;">Orçamento</td><td style="padding: 8px 0; font-weight: bold;">${budgetRef}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">Projeto</td><td style="padding: 8px 0; font-weight: bold;">${data.projectName}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">Cliente</td><td style="padding: 8px 0; font-weight: bold;">${data.contactCompany}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">Valor</td><td style="padding: 8px 0; font-weight: bold;">${totalFormatted}</td></tr>
+          <tr><td colspan="2" style="padding: 12px 0 4px; border-top: 1px solid #e5e7eb;"></td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">Aprovado por</td><td style="padding: 8px 0;">${data.approvedName}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">E-mail</td><td style="padding: 8px 0;">${data.approvedEmail}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">Data/Hora</td><td style="padding: 8px 0;">${dateFormatted}</td></tr>
+        </table>
+      </div>
+    </div>
+  `;
 
   try {
-    const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`;
-    const res = await fetch(url, {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
-        "apikey": EVOLUTION_API_KEY,
       },
       body: JSON.stringify({
-        number: notifyNumber,
-        text: message,
+        from: "Adverse <noreply@adverse.rec.br>",
+        to: ["djeisson@adverse.rec.br"],
+        subject: `✅ Proposta ${budgetRef} aprovada — ${data.contactCompany}`,
+        html: htmlBody,
       }),
     });
 
     if (!res.ok) {
       const body = await res.text();
-      console.error(`[WhatsApp] Evolution API error [${res.status}]:`, body);
+      console.error(`[Email] Resend error [${res.status}]:`, body);
     } else {
-      console.log("[WhatsApp] Notification sent successfully");
+      console.log("[Email] Approval notification sent successfully");
     }
   } catch (err) {
-    console.error("[WhatsApp] Failed to send notification:", err);
+    console.error("[Email] Failed to send notification:", err);
   }
 }
 
