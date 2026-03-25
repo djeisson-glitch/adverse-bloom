@@ -782,6 +782,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[80px]">{config.field3}</th>
                             <th className="text-right text-[11px] font-medium text-muted-foreground px-2 py-1.5 w-[80px]">Total</th>
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[44px]">Forn?</th>
+                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]" title="Marcar como entrega para o cliente">🎯</th>
                             <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]"></th>
                           </tr>
                         </thead>
