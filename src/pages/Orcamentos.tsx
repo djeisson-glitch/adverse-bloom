@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2 } from "lucide-react";
+import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { BudgetCostTabs } from "@/components/budgets/BudgetCostTabs";
 import { VersionHistoryModal } from "@/components/budgets/VersionHistoryModal";
 import { NewBudgetModal } from "@/components/budgets/NewBudgetModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { GenerateProposalModal } from "@/components/budgets/GenerateProposalModal";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -136,6 +137,7 @@ export default function Orcamentos() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [proposalBudget, setProposalBudget] = useState<Budget | null>(null);
 
   // Handle deal_id from URL (coming from CRM won modal)
   useEffect(() => {
@@ -439,6 +441,7 @@ export default function Orcamentos() {
               <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setProposalBudget(b)}><FileText className="h-3.5 w-3.5 mr-2" />Gerar proposta</DropdownMenuItem>
                 {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                 <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
@@ -507,6 +510,7 @@ export default function Orcamentos() {
                     <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
                       <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setProposalBudget(b)}><FileText className="h-3.5 w-3.5 mr-2" />Gerar proposta</DropdownMenuItem>
                       {/* PDF desativado temporariamente */}
                       {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                       <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
@@ -605,6 +609,27 @@ export default function Orcamentos() {
           setCreating(true);
         }}
       />
+
+      {/* Proposal Letter Modal */}
+      {proposalBudget && (
+        <ProposalModalWrapper
+          budget={proposalBudget}
+          onClose={() => setProposalBudget(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Wrapper to fetch items before rendering GenerateProposalModal */
+function ProposalModalWrapper({ budget, onClose }: { budget: Budget; onClose: () => void }) {
+  const { data } = useBudgetWithItems(budget.id);
+  return (
+    <GenerateProposalModal
+      open
+      onClose={onClose}
+      budget={budget}
+      items={data?.budget_items || []}
+    />
   );
 }
