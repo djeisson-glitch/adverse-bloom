@@ -1370,6 +1370,21 @@ function ItemTableRow({
           </button>
         </td>
         <td className="px-1 py-1.5 text-center">
+          <button
+            type="button"
+            onClick={() => onUpdate("is_deliverable", !item.is_deliverable)}
+            className={`inline-flex items-center justify-center h-6 w-6 rounded text-xs transition-colors ${
+              item.is_deliverable
+                ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]"
+                : "bg-muted text-muted-foreground/40 hover:text-muted-foreground"
+            }`}
+            disabled={readOnly}
+            title={item.is_deliverable ? "Entrega para o cliente" : "Marcar como entrega"}
+          >
+            {item.is_deliverable ? "🎯" : "·"}
+          </button>
+        </td>
+        <td className="px-1 py-1.5 text-center">
           {!readOnly && (
             isNewRow && item.item_name.trim() ? (
               <Button
@@ -1392,7 +1407,7 @@ function ItemTableRow({
       {/* Supplier inline row */}
       {item.has_supplier_cost && expanded && (
         <tr className="bg-muted/10 border-b border-border/20">
-          <td colSpan={hdr.field2 ? 7 : 6} className="px-3 py-1.5">
+          <td colSpan={hdr.field2 ? 8 : 7} className="px-3 py-1.5">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-muted-foreground shrink-0">└─ Paga:</span>
               <NumInput
