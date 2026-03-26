@@ -203,7 +203,7 @@ export default function Orcamentos() {
       if (filters.status !== "all") {
         if (filters.status === "with_bv" && (b.bv_percent ?? 0) <= 0) return false;
         if (filters.status === "no_bv" && (b.bv_percent ?? 0) > 0) return false;
-        if (["draft", "approved", "rejected"].includes(filters.status) && b.status !== filters.status) return false;
+        if (["draft", "sent", "approved", "rejected"].includes(filters.status) && b.status !== filters.status) return false;
       }
       return true;
     });
