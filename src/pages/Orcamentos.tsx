@@ -29,7 +29,7 @@ type SortDir = "asc" | "desc";
 type PeriodPreset = "all" | "today" | "week" | "month" | "last_month" | "3months" | "6months" | "year" | "last_year";
 type ValueRange = "all" | "0-5000" | "5001-10000" | "10001-20000" | "20001-50000" | "50001+";
 type MarginRange = "all" | "critical" | "low" | "good" | "excellent";
-type StatusFilter = "all" | "draft" | "approved" | "rejected" | "with_bv" | "no_bv";
+type StatusFilter = "all" | "draft" | "sent" | "approved" | "rejected" | "with_bv" | "no_bv";
 
 const STORAGE_KEY = "adverse_budget_filters";
 
@@ -181,7 +181,7 @@ export default function Orcamentos() {
     const periodRange = getPeriodRange(filters.period);
 
     // Count per tab before filtering by tab
-    const counts = { draft: 0, approved: 0, rejected: 0 };
+    const counts = { draft: 0, sent: 0, approved: 0, rejected: 0 };
 
     const allFiltered = budgets.filter(b => {
       // Search
@@ -203,13 +203,14 @@ export default function Orcamentos() {
       if (filters.status !== "all") {
         if (filters.status === "with_bv" && (b.bv_percent ?? 0) <= 0) return false;
         if (filters.status === "no_bv" && (b.bv_percent ?? 0) > 0) return false;
-        if (["draft", "approved", "rejected"].includes(filters.status) && b.status !== filters.status) return false;
+        if (["draft", "sent", "approved", "rejected"].includes(filters.status) && b.status !== filters.status) return false;
       }
       return true;
     });
 
     allFiltered.forEach(b => {
       if (b.status === "draft") counts.draft++;
+      else if (b.status === "sent") counts.sent++;
       else if (b.status === "approved") counts.approved++;
       else if (b.status === "rejected") counts.rejected++;
     });
@@ -234,9 +235,10 @@ export default function Orcamentos() {
   }, [budgets, filters]);
 
   const totalAll = useMemo(() => {
-    const counts = { draft: 0, approved: 0, rejected: 0 };
+    const counts = { draft: 0, sent: 0, approved: 0, rejected: 0 };
     budgets.forEach(b => {
       if (b.status === "draft") counts.draft++;
+      else if (b.status === "sent") counts.sent++;
       else if (b.status === "approved") counts.approved++;
       else if (b.status === "rejected") counts.rejected++;
     });
@@ -547,15 +549,16 @@ export default function Orcamentos() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <TabsList>
             <TabsTrigger value="draft">Rascunhos ({tabCounts.draft})</TabsTrigger>
+            <TabsTrigger value="sent">Enviados ({tabCounts.sent})</TabsTrigger>
             <TabsTrigger value="approved">Aprovados ({tabCounts.approved})</TabsTrigger>
             <TabsTrigger value="rejected">Rejeitados ({tabCounts.rejected})</TabsTrigger>
           </TabsList>
           <span className="text-xs text-muted-foreground">
-            Exibindo {filtered.length} de {totalAll.draft + totalAll.approved + totalAll.rejected} orçamentos
+            Exibindo {filtered.length} de {totalAll.draft + totalAll.sent + totalAll.approved + totalAll.rejected} orçamentos
           </span>
         </div>
 
-        {(["draft", "approved", "rejected"] as const).map(status => (
+        {(["draft", "sent", "approved", "rejected"] as const).map(status => (
           <TabsContent key={status} value={status}>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
