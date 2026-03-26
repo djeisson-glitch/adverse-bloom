@@ -682,17 +682,17 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         <CardContent className="pt-4 pb-3">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Deal vinculado</Label>
+              <Label className="text-xs text-muted-foreground">Deal vinculado <span className="text-destructive">*</span></Label>
               <Select
                 value={dealId || "none"}
                 onValueChange={(v) => setDealId(v === "none" ? null : v)}
                 disabled={isApproved}
               >
-                <SelectTrigger className="h-8 text-sm">
-                  <SelectValue placeholder="Nenhum" />
+                <SelectTrigger className={`h-8 text-sm ${!dealId ? "border-destructive/50" : ""}`}>
+                  <SelectValue placeholder="Selecione um deal" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
+                  <SelectItem value="none" disabled>Selecione um deal</SelectItem>
                   {deals
                     .filter((d) => d.stage !== "perdido")
                     .map((d) => (
