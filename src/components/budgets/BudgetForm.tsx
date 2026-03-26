@@ -684,7 +684,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Deal vinculado <span className="text-destructive">*</span></Label>
               <Select
@@ -726,6 +726,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Proposta</Label>
               <Input value={proposalName} readOnly className="h-8 text-sm bg-muted/50 text-muted-foreground cursor-default" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Diárias de captação</Label>
+              <Input type="number" min={0} value={captureDays || ""} onChange={(e) => setCaptureDays(Number(e.target.value) || 0)} disabled={isApproved} className="h-8 text-sm" placeholder="0" />
             </div>
           </div>
         </CardContent>
