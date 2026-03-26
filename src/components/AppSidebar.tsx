@@ -1,6 +1,6 @@
 import {
   Home, DollarSign, Handshake, Calculator, FolderKanban, Map, Settings, LogOut, ChevronDown,
-  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot, Shield,
+  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot, Shield, CalendarDays,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -150,6 +150,18 @@ export function AppSidebar() {
                     <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
                       <FolderKanban className="mr-2 h-4 w-4" />
                       {!collapsed && <span>Produção</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* Agenda */}
+              {can("agenda") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/agenda" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Agenda</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

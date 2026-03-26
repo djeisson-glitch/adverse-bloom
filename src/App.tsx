@@ -24,6 +24,7 @@ import Comercial from "./pages/Comercial";
 import Projetos from "./pages/Projetos";
 import Assistente from "./pages/Assistente";
 import MapaOperacional from "./pages/MapaOperacional";
+import Agenda from "./pages/Agenda";
 import Configuracoes from "./pages/Configuracoes";
 import ConfiguracoesGeral from "./pages/ConfiguracoesGeral";
 import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/comercial" element={<ProtectedRoute><ModuleGuard module="crm"><Comercial /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="producao"><Projetos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/agenda" element={<ProtectedRoute><ModuleGuard module="agenda"><Agenda /></ModuleGuard></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
               <Route path="/assistente" element={<ProtectedRoute><Assistente /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />

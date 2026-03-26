@@ -174,6 +174,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [newCategory, setNewCategory] = useState("");
   const [dealId, setDealId] = useState<string | null>(initialDealId ?? null);
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
+  const [captureDays, setCaptureDays] = useState(0);
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
@@ -245,6 +246,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
+      setCaptureDays((existing as any).capture_days ?? 0);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
@@ -509,6 +511,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           proposal_name: proposalName,
           deal_id: dealId,
           not_included: notIncluded,
+          capture_days: captureDays,
         } as any,
         items: validItems,
       },
@@ -560,6 +563,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           proposal_name: proposalName,
           deal_id: dealId,
           not_included: notIncluded,
+          capture_days: captureDays,
         } as any,
         items: validItems,
       },
@@ -680,7 +684,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Deal vinculado <span className="text-destructive">*</span></Label>
               <Select
@@ -722,6 +726,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Proposta</Label>
               <Input value={proposalName} readOnly className="h-8 text-sm bg-muted/50 text-muted-foreground cursor-default" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Diárias de captação</Label>
+              <Input type="number" min={0} value={captureDays || ""} onChange={(e) => setCaptureDays(Number(e.target.value) || 0)} disabled={isApproved} className="h-8 text-sm" placeholder="0" />
             </div>
           </div>
         </CardContent>

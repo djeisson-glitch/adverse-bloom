@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type ModuleId = "crm" | "orcamentos" | "financeiro" | "propostas" | "producao";
+export type ModuleId = "crm" | "orcamentos" | "financeiro" | "propostas" | "producao" | "agenda";
 export type PermissionLevel = "none" | "view" | "edit";
 
 export const MODULES: { id: ModuleId; label: string; description: string }[] = [
@@ -11,6 +11,7 @@ export const MODULES: { id: ModuleId; label: string; description: string }[] = [
   { id: "financeiro", label: "Financeiro", description: "Fluxo de caixa, custos, contas a pagar, projeções" },
   { id: "propostas", label: "Propostas", description: "Gerar e enviar propostas aos clientes" },
   { id: "producao", label: "Produção", description: "Pipeline de produção dos projetos" },
+  { id: "agenda", label: "Agenda da Equipe", description: "Alocação de equipe e diárias de captação" },
 ];
 
 interface UserPermission {
