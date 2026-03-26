@@ -13,6 +13,16 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { STAGES, type Deal } from "@/hooks/useDeals";
+
+const ORIGIN_OPTIONS = [
+  "Indicação",
+  "Prospecção ativa",
+  "Inbound (site/redes)",
+  "Cliente recorrente",
+  "Parceiro/Agência",
+  "Evento",
+  "Outros",
+] as const;
 import { TaskList } from "./TaskList";
 import { ClientSelect } from "@/components/clientes/ClientSelect";
 import type { Tables } from "@/integrations/supabase/types";
@@ -37,6 +47,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
   const [closeDate, setCloseDate] = useState<Date>();
   const [notes, setNotes] = useState("");
   const [createdBy, setCreatedBy] = useState<string>("");
+  const [origin, setOrigin] = useState<string>("");
 
   useEffect(() => {
     if (deal) {
@@ -48,6 +59,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       setCloseDate(deal.expected_close_date ? new Date(deal.expected_close_date) : undefined);
       setNotes(deal.notes || "");
       setCreatedBy(deal.created_by || "");
+      setOrigin((deal as any).origin || "");
     } else {
       setTitle("");
       setClientId("");
@@ -57,6 +69,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       setCloseDate(undefined);
       setNotes("");
       setCreatedBy("");
+      setOrigin("");
     }
   }, [deal, open]);
 
@@ -70,6 +83,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       expected_close_date: closeDate ? format(closeDate, "yyyy-MM-dd") : null,
       notes: notes || null,
       created_by: createdBy || null,
+      origin: origin || null,
     });
   };
 
@@ -140,6 +154,20 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       </div>
 
       <div>
+        <Label>Origem *</Label>
+        <Select value={origin} onValueChange={setOrigin}>
+          <SelectTrigger className={cn(!origin && "text-muted-foreground")}>
+            <SelectValue placeholder="Selecionar origem" />
+          </SelectTrigger>
+          <SelectContent>
+            {ORIGIN_OPTIONS.map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
         <Label>Observações</Label>
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas sobre o deal..." rows={3} />
       </div>
@@ -170,7 +198,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!title.trim() || saving}>
+          <Button onClick={handleSubmit} disabled={!title.trim() || !origin || saving}>
             {saving ? "Salvando..." : deal ? "Salvar" : "Criar Deal"}
           </Button>
         </DialogFooter>
