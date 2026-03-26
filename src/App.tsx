@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Index from "./pages/Index";
@@ -20,6 +21,7 @@ import Projecoes2026 from "./pages/Projecoes2026";
 import Orcamentos from "./pages/Orcamentos";
 import ContasAPagar from "./pages/ContasAPagar";
 import Comercial from "./pages/Comercial";
+import Projetos from "./pages/Projetos";
 import Assistente from "./pages/Assistente";
 import MapaOperacional from "./pages/MapaOperacional";
 import Configuracoes from "./pages/Configuracoes";
@@ -28,10 +30,11 @@ import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
 import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
 import ConfiguracoesOrcamentos from "./pages/ConfiguracoesOrcamentos";
 import ConfiguracoesIntegracoes from "./pages/ConfiguracoesIntegracoes";
+import ConfiguracoesPermissoes from "./pages/ConfiguracoesPermissoes";
 import AuthContaAzul from "./pages/AuthContaAzul";
 import PropostaPublica from "./pages/PropostaPublica";
 import NotFound from "./pages/NotFound";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +49,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
+function ModuleGuard({ module, children }: { module: ModuleId; children: React.ReactNode }) {
+  const { can, isLoading } = usePermissions();
+  if (isLoading) return null;
+  if (!can(module)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-lg font-semibold text-foreground">Acesso restrito</h2>
+        <p className="text-sm text-muted-foreground mt-1">Você não tem permissão para acessar este módulo.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -57,18 +75,19 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-              <Route path="/financeiro" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/financeiro/fluxo" element={<ProtectedRoute><FluxoDeCaixa /></ProtectedRoute>} />
-              <Route path="/financeiro/custos" element={<ProtectedRoute><Custos /></ProtectedRoute>} />
-              <Route path="/financeiro/resultados" element={<ProtectedRoute><ResultadosMetas /></ProtectedRoute>} />
-              <Route path="/financeiro/runway" element={<ProtectedRoute><CaixaRunway /></ProtectedRoute>} />
-              <Route path="/financeiro/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-              <Route path="/financeiro/projecoes" element={<ProtectedRoute><Projecoes2026 /></ProtectedRoute>} />
-              <Route path="/financeiro/contas" element={<ProtectedRoute><ContasAPagar /></ProtectedRoute>} />
+              <Route path="/financeiro" element={<ProtectedRoute><ModuleGuard module="financeiro"><Index /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/fluxo" element={<ProtectedRoute><ModuleGuard module="financeiro"><FluxoDeCaixa /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/custos" element={<ProtectedRoute><ModuleGuard module="financeiro"><Custos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/resultados" element={<ProtectedRoute><ModuleGuard module="financeiro"><ResultadosMetas /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/runway" element={<ProtectedRoute><ModuleGuard module="financeiro"><CaixaRunway /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/insights" element={<ProtectedRoute><ModuleGuard module="financeiro"><Insights /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/projecoes" element={<ProtectedRoute><ModuleGuard module="financeiro"><Projecoes2026 /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/contas" element={<ProtectedRoute><ModuleGuard module="financeiro"><ContasAPagar /></ModuleGuard></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
-              <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
-              <Route path="/comercial" element={<ProtectedRoute><Comercial /></ProtectedRoute>} />
+              <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/comercial" element={<ProtectedRoute><ModuleGuard module="crm"><Comercial /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="producao"><Projetos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
               <Route path="/assistente" element={<ProtectedRoute><Assistente /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
@@ -77,6 +96,7 @@ const App = () => (
               <Route path="/configuracoes/comercial" element={<ProtectedRoute><ConfiguracoesComercial /></ProtectedRoute>} />
               <Route path="/configuracoes/orcamentos" element={<ProtectedRoute><ConfiguracoesOrcamentos /></ProtectedRoute>} />
               <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
+              <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ConfiguracoesPermissoes /></ProtectedRoute>} />
               <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="*" element={<NotFound />} />
