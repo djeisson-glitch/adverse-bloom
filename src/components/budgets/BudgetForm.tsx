@@ -473,6 +473,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
+    if (!dealId) {
+      toast({ title: "Vincule um deal ao orçamento", description: "É obrigatório selecionar um deal antes de salvar.", variant: "destructive" });
+      return;
+    }
     
     const validItems = items.filter((i) => i.item_name.trim());
     saveBudget.mutate(
