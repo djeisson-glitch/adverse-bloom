@@ -497,6 +497,7 @@ export type Database = {
           id: string
           lost_reason: string | null
           notes: string | null
+          origin: string | null
           probability: number | null
           stage: string
           title: string
@@ -511,6 +512,7 @@ export type Database = {
           id?: string
           lost_reason?: string | null
           notes?: string | null
+          origin?: string | null
           probability?: number | null
           stage?: string
           title: string
@@ -525,6 +527,7 @@ export type Database = {
           id?: string
           lost_reason?: string | null
           notes?: string | null
+          origin?: string | null
           probability?: number | null
           stage?: string
           title?: string
