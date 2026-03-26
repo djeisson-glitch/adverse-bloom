@@ -274,6 +274,7 @@ export type Database = {
           budget_number: number | null
           bv_percent: number
           bv_value: number | null
+          capture_days: number
           client_id: string | null
           client_name: string
           commission_percent: number
@@ -306,6 +307,7 @@ export type Database = {
           budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
+          capture_days?: number
           client_id?: string | null
           client_name: string
           commission_percent?: number
@@ -338,6 +340,7 @@ export type Database = {
           budget_number?: number | null
           bv_percent?: number
           bv_value?: number | null
+          capture_days?: number
           client_id?: string | null
           client_name?: string
           commission_percent?: number
@@ -547,6 +550,66 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_allocations: {
+        Row: {
+          allocation_date: string
+          budget_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_time: string | null
+          id: string
+          location: string | null
+          role_function: string | null
+          start_time: string | null
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          allocation_date: string
+          budget_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          role_function?: string | null
+          start_time?: string | null
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          allocation_date?: string
+          budget_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          role_function?: string | null
+          start_time?: string | null
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_allocations_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_allocations_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -1049,6 +1112,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      team_members: {
+        Row: {
+          color: string
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          role_function: string | null
+          user_id: string | null
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          role_function?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          role_function?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       user_permissions: {
         Row: {
