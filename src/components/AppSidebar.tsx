@@ -1,15 +1,15 @@
 import {
   Home, DollarSign, Handshake, Calculator, FolderKanban, Map, Settings, LogOut, ChevronDown,
-  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot,
+  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot, Shield,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +38,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
+  const { can, isAdmin } = usePermissions();
   const isFinanceiroActive = financeiroItems.some((i) => location.pathname === i.url);
   const [financeiroOpen, setFinanceiroOpen] = useState(isFinanceiroActive);
 
@@ -63,7 +64,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* Home */}
+              {/* Home — always visible */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/" end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
@@ -73,76 +74,86 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Financeiro - collapsible */}
-              <SidebarMenuItem>
-                <Collapsible open={financeiroOpen} onOpenChange={setFinanceiroOpen}>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className={`hover:bg-sidebar-accent/50 w-full ${isFinanceiroActive ? "text-primary font-medium" : ""}`}>
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 text-left">Financeiro</span>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${financeiroOpen ? "rotate-180" : ""}`} />
-                        </>
-                      )}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2">
-                      {financeiroItems.map((item) => (
-                        <SidebarMenuItem key={item.url}>
-                          <SidebarMenuButton asChild>
-                            <NavLink to={item.url} className="hover:bg-sidebar-accent/50 text-sm" activeClassName="bg-sidebar-accent text-primary font-medium">
-                              <item.icon className="mr-2 h-3.5 w-3.5" />
-                              {!collapsed && <span>{item.title}</span>}
-                            </NavLink>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </CollapsibleContent>
-                </Collapsible>
-              </SidebarMenuItem>
+              {/* Financeiro */}
+              {can("financeiro") && (
+                <SidebarMenuItem>
+                  <Collapsible open={financeiroOpen} onOpenChange={setFinanceiroOpen}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className={`hover:bg-sidebar-accent/50 w-full ${isFinanceiroActive ? "text-primary font-medium" : ""}`}>
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1 text-left">Financeiro</span>
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${financeiroOpen ? "rotate-180" : ""}`} />
+                          </>
+                        )}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2">
+                        {financeiroItems.map((item) => (
+                          <SidebarMenuItem key={item.url}>
+                            <SidebarMenuButton asChild>
+                              <NavLink to={item.url} className="hover:bg-sidebar-accent/50 text-sm" activeClassName="bg-sidebar-accent text-primary font-medium">
+                                <item.icon className="mr-2 h-3.5 w-3.5" />
+                                {!collapsed && <span>{item.title}</span>}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              )}
 
               {/* Comercial */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/comercial" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                    <Handshake className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>Comercial</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {can("crm") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/comercial" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Handshake className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Comercial</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
-              {/* Clientes */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/clientes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                    <Users className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>Clientes</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {/* Clientes — visible if CRM or Orçamentos */}
+              {(can("crm") || can("orcamentos")) && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/clientes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Users className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Clientes</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Orçamentos */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/orcamentos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                    <Calculator className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>Orçamentos</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {can("orcamentos") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/orcamentos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Calculator className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Orçamentos</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Produção */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                    <FolderKanban className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>Produção</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {can("producao") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <FolderKanban className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Produção</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Mapa Operacional */}
               <SidebarMenuItem>
@@ -173,6 +184,18 @@ export function AppSidebar() {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* Permissões — admin only */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/configuracoes/permissoes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Shield className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Permissões</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
