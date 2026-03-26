@@ -1047,6 +1047,30 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          id: string
+          module: string
+          permission: Database["public"]["Enums"]["permission_level"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          module: string
+          permission?: Database["public"]["Enums"]["permission_level"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          module?: string
+          permission?: Database["public"]["Enums"]["permission_level"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1070,6 +1094,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_permission: {
+        Args: {
+          _min_level: Database["public"]["Enums"]["permission_level"]
+          _module: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1081,6 +1113,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "operator"
+      permission_level: "none" | "view" | "edit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1209,6 +1242,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "operator"],
+      permission_level: ["none", "view", "edit"],
     },
   },
 } as const
