@@ -150,12 +150,12 @@ export default function Home() {
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
   // ===== COMERCIAL =====
-  const openDeals = deals.filter((d) => !["ganho", "perdido"].includes(d.stage));
+  const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
   const pipelineValue = openDeals.reduce((s, d) => s + (d.value || 0), 0);
 
   const wonThisMonth = useMemo(() => {
     return deals.filter((d) => {
-      if (d.stage !== "ganho") return false;
+      if (d.stage !== "fechamento") return false;
       const upd = d.updated_at ? new Date(d.updated_at) : null;
       return upd && upd >= monthStart;
     });

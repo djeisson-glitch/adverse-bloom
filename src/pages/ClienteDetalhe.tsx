@@ -115,7 +115,7 @@ export default function ClienteDetalhe() {
   };
 
   // Summary stats
-  const wonDeals = clientDeals.filter((d) => d.stage === "ganho");
+  const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
   const totalFaturado = wonDeals.reduce((s, d) => s + (d.value || 0), 0);
   const ticketMedio = wonDeals.length > 0 ? totalFaturado / wonDeals.length : 0;
   const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;

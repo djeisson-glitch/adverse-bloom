@@ -25,7 +25,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
     const openDeals = deals.filter((d) => openStages.includes(d.stage));
     const totalPipeline = openDeals.reduce((s, d) => s + (d.value || 0), 0);
 
-    const wonDeals = deals.filter((d) => d.stage === "ganho");
+    const wonDeals = deals.filter((d) => d.stage === "fechamento");
     const wonValue = wonDeals.reduce((s, d) => s + (d.value || 0), 0);
     const wonCount = wonDeals.length;
 
