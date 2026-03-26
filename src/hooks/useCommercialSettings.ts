@@ -25,9 +25,10 @@ const DEFAULT_SETTINGS: Omit<CommercialSettings, "id" | "created_at" | "updated_
   loss_reasons: ["Preço alto", "Sem budget agora", "Escolheu concorrente", "Projeto cancelado", "Sem resposta", "Outro"],
   pipeline_stages: [
     { id: "contato", label: "Contato Inicial", color: "#3b82f6" },
-    { id: "proposta", label: "Proposta", color: "#f59e0b" },
-    { id: "negociacao", label: "Negociação", color: "#8b5cf6" },
-    { id: "ganho", label: "Ganho", color: "#22c55e" },
+    { id: "diagnostico", label: "Diagnóstico", color: "#3b82f6" },
+    { id: "orcamento", label: "Orçamento em elaboração", color: "#f59e0b" },
+    { id: "proposta", label: "Proposta enviada", color: "#8b5cf6" },
+    { id: "fechamento", label: "Fechamento", color: "#22c55e" },
     { id: "perdido", label: "Perdido", color: "#ef4444" },
   ],
 };

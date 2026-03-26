@@ -19,12 +19,13 @@ interface Props {
   clientName?: string;
   profiles: Tables<"profiles">[];
   followupDays?: number;
-  onConfirm: (opts: { createBudget: boolean; followup?: { title: string; dueDate: string; responsibleId: string } }) => void;
+  onConfirm: (opts: { createBudget: boolean; createProject: boolean; followup?: { title: string; dueDate: string; responsibleId: string } }) => void;
   onCancel: () => void;
 }
 
 export function WonDealModal({ open, dealTitle, clientName, profiles, followupDays = 180, onConfirm, onCancel }: Props) {
   const [createBudget, setCreateBudget] = useState(true);
+  const [createProject, setCreateProject] = useState(true);
   const [followupTitle, setFollowupTitle] = useState("");
   const [followupDate, setFollowupDate] = useState<Date>();
   const [followupResponsible, setFollowupResponsible] = useState("");
@@ -33,6 +34,7 @@ export function WonDealModal({ open, dealTitle, clientName, profiles, followupDa
   useEffect(() => {
     if (open) {
       setCreateBudget(true);
+      setCreateProject(true);
       setEnableFollowup(true);
       setFollowupTitle(`Follow-up pós-projeto — ${clientName || dealTitle}`);
       setFollowupDate(addDays(new Date(), followupDays));
@@ -46,16 +48,22 @@ export function WonDealModal({ open, dealTitle, clientName, profiles, followupDa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-emerald-500" />
-            Marcar como Ganho?
+            Fechar negócio?
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">Deal: <span className="text-foreground font-medium">{dealTitle}</span></p>
 
-          <div className="flex items-center gap-2">
-            <Checkbox id="create-budget" checked={createBudget} onCheckedChange={(v) => setCreateBudget(!!v)} />
-            <Label htmlFor="create-budget" className="text-sm cursor-pointer">Criar orçamento vinculado</Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox id="create-budget" checked={createBudget} onCheckedChange={(v) => setCreateBudget(!!v)} />
+              <Label htmlFor="create-budget" className="text-sm cursor-pointer">Criar orçamento vinculado</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="create-project" checked={createProject} onCheckedChange={(v) => setCreateProject(!!v)} />
+              <Label htmlFor="create-project" className="text-sm cursor-pointer">Converter em projeto de Produção</Label>
+            </div>
           </div>
 
           <div className="border-t border-border pt-4 space-y-3">
@@ -107,6 +115,7 @@ export function WonDealModal({ open, dealTitle, clientName, profiles, followupDa
           <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => {
             onConfirm({
               createBudget,
+              createProject,
               followup: enableFollowup && followupTitle ? {
                 title: followupTitle,
                 dueDate: followupDate ? format(followupDate, "yyyy-MM-dd") : "",

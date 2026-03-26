@@ -1,0 +1,1 @@
+ALTER TABLE public.deals ALTER COLUMN stage SET DEFAULT 'diagnostico';

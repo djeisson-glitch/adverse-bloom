@@ -12,10 +12,10 @@ interface Props {
 }
 
 const stageColors: Record<string, string> = {
-  contato: "border-blue-500/40",
-  proposta: "border-amber-500/40",
-  negociacao: "border-purple-500/40",
-  ganho: "border-emerald-500/40",
+  diagnostico: "border-blue-500/40",
+  orcamento: "border-amber-500/40",
+  proposta: "border-purple-500/40",
+  fechamento: "border-emerald-500/40",
   perdido: "border-red-500/40",
 };
 

@@ -26,7 +26,7 @@ export default function Clientes() {
   const enriched = useMemo(() => {
     return clients.map((c) => {
       const clientDeals = deals.filter((d) => d.client_id === c.id);
-      const wonDeals = clientDeals.filter((d) => d.stage === "ganho");
+      const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
       const totalFaturado = wonDeals.reduce((sum, d) => sum + (d.value || 0), 0);
       const lastDeal = clientDeals[0];
       return {

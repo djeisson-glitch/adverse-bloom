@@ -32,7 +32,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState<string>("");
   const [value, setValue] = useState("");
-  const [stage, setStage] = useState("contato");
+  const [stage, setStage] = useState("diagnostico");
   const [probability, setProbability] = useState("50");
   const [closeDate, setCloseDate] = useState<Date>();
   const [notes, setNotes] = useState("");
@@ -52,7 +52,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       setTitle("");
       setClientId("");
       setValue("");
-      setStage("contato");
+      setStage("diagnostico");
       setProbability("50");
       setCloseDate(undefined);
       setNotes("");
