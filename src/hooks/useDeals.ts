@@ -8,10 +8,10 @@ export type Deal = Tables<"deals"> & {
 };
 
 export const STAGES = [
-  { id: "contato", label: "Contato Inicial" },
-  { id: "proposta", label: "Proposta" },
-  { id: "negociacao", label: "Negociação" },
-  { id: "ganho", label: "Ganho" },
+  { id: "diagnostico", label: "Diagnóstico" },
+  { id: "orcamento", label: "Orçamento em elaboração" },
+  { id: "proposta", label: "Proposta enviada" },
+  { id: "fechamento", label: "Fechamento" },
   { id: "perdido", label: "Perdido" },
 ] as const;
 
