@@ -29,7 +29,7 @@ type SortDir = "asc" | "desc";
 type PeriodPreset = "all" | "today" | "week" | "month" | "last_month" | "3months" | "6months" | "year" | "last_year";
 type ValueRange = "all" | "0-5000" | "5001-10000" | "10001-20000" | "20001-50000" | "50001+";
 type MarginRange = "all" | "critical" | "low" | "good" | "excellent";
-type StatusFilter = "all" | "draft" | "approved" | "rejected" | "with_bv" | "no_bv";
+type StatusFilter = "all" | "draft" | "sent" | "approved" | "rejected" | "with_bv" | "no_bv";
 
 const STORAGE_KEY = "adverse_budget_filters";
 
