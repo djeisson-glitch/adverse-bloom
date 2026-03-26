@@ -181,7 +181,7 @@ export default function Orcamentos() {
     const periodRange = getPeriodRange(filters.period);
 
     // Count per tab before filtering by tab
-    const counts = { draft: 0, approved: 0, rejected: 0 };
+    const counts = { draft: 0, sent: 0, approved: 0, rejected: 0 };
 
     const allFiltered = budgets.filter(b => {
       // Search
@@ -210,6 +210,7 @@ export default function Orcamentos() {
 
     allFiltered.forEach(b => {
       if (b.status === "draft") counts.draft++;
+      else if (b.status === "sent") counts.sent++;
       else if (b.status === "approved") counts.approved++;
       else if (b.status === "rejected") counts.rejected++;
     });
@@ -234,9 +235,10 @@ export default function Orcamentos() {
   }, [budgets, filters]);
 
   const totalAll = useMemo(() => {
-    const counts = { draft: 0, approved: 0, rejected: 0 };
+    const counts = { draft: 0, sent: 0, approved: 0, rejected: 0 };
     budgets.forEach(b => {
       if (b.status === "draft") counts.draft++;
+      else if (b.status === "sent") counts.sent++;
       else if (b.status === "approved") counts.approved++;
       else if (b.status === "rejected") counts.rejected++;
     });
@@ -547,15 +549,16 @@ export default function Orcamentos() {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <TabsList>
             <TabsTrigger value="draft">Rascunhos ({tabCounts.draft})</TabsTrigger>
+            <TabsTrigger value="sent">Enviados ({tabCounts.sent})</TabsTrigger>
             <TabsTrigger value="approved">Aprovados ({tabCounts.approved})</TabsTrigger>
             <TabsTrigger value="rejected">Rejeitados ({tabCounts.rejected})</TabsTrigger>
           </TabsList>
           <span className="text-xs text-muted-foreground">
-            Exibindo {filtered.length} de {totalAll.draft + totalAll.approved + totalAll.rejected} orçamentos
+            Exibindo {filtered.length} de {totalAll.draft + totalAll.sent + totalAll.approved + totalAll.rejected} orçamentos
           </span>
         </div>
 
-        {(["draft", "approved", "rejected"] as const).map(status => (
+        {(["draft", "sent", "approved", "rejected"] as const).map(status => (
           <TabsContent key={status} value={status}>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
