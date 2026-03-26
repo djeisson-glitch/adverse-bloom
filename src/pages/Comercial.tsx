@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
@@ -109,7 +110,7 @@ export default function Comercial() {
     setPendingMove(null);
   };
 
-  const handleWonConfirm = async (opts: { createBudget: boolean; followup?: { title: string; dueDate: string; responsibleId: string } }) => {
+  const handleWonConfirm = async (opts: { createBudget: boolean; createProject: boolean; followup?: { title: string; dueDate: string; responsibleId: string } }) => {
     if (pendingMove) {
       const deal = deals.find((d) => d.id === pendingMove.dealId);
       await updateDeal.mutateAsync({ id: pendingMove.dealId, stage: "fechamento" });
@@ -120,6 +121,17 @@ export default function Comercial() {
           title: opts.followup.title,
           due_date: opts.followup.dueDate,
           created_by: opts.followup.responsibleId || user?.id || null,
+        });
+      }
+      // Create production project from deal
+      if (opts.createProject && deal) {
+        await supabase.from("projects").insert({
+          name: deal.title,
+          client_name: deal.client?.name || "",
+          client_id: deal.client_id || null,
+          sold_value: deal.value || 0,
+          status: "Pré-produção",
+          sold_date: new Date().toISOString().slice(0, 10),
         });
       }
       if (opts.createBudget && deal) {
