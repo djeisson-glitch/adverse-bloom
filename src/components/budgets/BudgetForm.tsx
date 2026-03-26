@@ -563,6 +563,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           proposal_name: proposalName,
           deal_id: dealId,
           not_included: notIncluded,
+          capture_days: captureDays,
         } as any,
         items: validItems,
       },
