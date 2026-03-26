@@ -324,7 +324,7 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
       </Card>
 
       {/* Actions */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="sticky bottom-0 z-10 flex items-center gap-3 flex-wrap bg-background border-t border-border pt-3 pb-3 -mx-1 px-1">
         <Button variant="outline" onClick={onEdit}>
           <Edit className="mr-2 h-4 w-4" /> Editar Orçamento
         </Button>

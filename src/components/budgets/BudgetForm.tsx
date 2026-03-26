@@ -1140,7 +1140,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-end gap-3 border-t border-border pt-3">
+      <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t border-border pt-3 pb-3 bg-background -mx-1 px-1">
         <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
         {isApproved ? (
           <Button size="sm" onClick={() => setNewVersionOpen(true)} disabled={createNewVersion.isPending}>
