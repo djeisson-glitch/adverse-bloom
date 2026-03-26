@@ -134,18 +134,13 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Projetos (disabled) */}
+              {/* Produção */}
               <SidebarMenuItem>
-                <SidebarMenuButton disabled className="opacity-50 cursor-not-allowed">
-                  <FolderKanban className="mr-2 h-4 w-4" />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left">Projetos</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-muted-foreground/30 text-muted-foreground">
-                        em breve
-                      </Badge>
-                    </>
-                  )}
+                <SidebarMenuButton asChild>
+                  <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                    <FolderKanban className="mr-2 h-4 w-4" />
+                    {!collapsed && <span>Produção</span>}
+                  </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
