@@ -10,6 +10,8 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Project } from "@/hooks/useProjects";
 
@@ -36,8 +38,15 @@ interface Props {
 }
 
 function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDragging?: boolean; onEdit?: () => void }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: project.id });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
       className={`rounded-lg border border-border bg-card p-3 space-y-1.5 cursor-grab active:cursor-grabbing transition-shadow ${
         isDragging ? "shadow-lg opacity-80" : "hover:shadow-md"
       }`}
