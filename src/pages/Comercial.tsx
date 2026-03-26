@@ -75,7 +75,7 @@ export default function Comercial() {
       setWonClientName(deal?.client?.name || "");
       setPendingMove({ dealId, stage: newStage });
       setLostModalOpen(true);
-    } else if (newStage === "ganho") {
+    } else if (newStage === "fechamento") {
       const deal = deals.find((d) => d.id === dealId);
       setWonDealTitle(deal?.title || "");
       setWonClientName(deal?.client?.name || "");
@@ -112,7 +112,7 @@ export default function Comercial() {
   const handleWonConfirm = async (opts: { createBudget: boolean; followup?: { title: string; dueDate: string; responsibleId: string } }) => {
     if (pendingMove) {
       const deal = deals.find((d) => d.id === pendingMove.dealId);
-      await updateDeal.mutateAsync({ id: pendingMove.dealId, stage: "ganho" });
+      await updateDeal.mutateAsync({ id: pendingMove.dealId, stage: "fechamento" });
       if (opts.followup) {
         await createFollowupTask.mutateAsync({
           deal_id: pendingMove.dealId,
