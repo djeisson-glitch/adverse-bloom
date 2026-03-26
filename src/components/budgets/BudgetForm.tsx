@@ -174,6 +174,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [newCategory, setNewCategory] = useState("");
   const [dealId, setDealId] = useState<string | null>(initialDealId ?? null);
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
+  const [captureDays, setCaptureDays] = useState(0);
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
@@ -245,6 +246,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
+      setCaptureDays((existing as any).capture_days ?? 0);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
