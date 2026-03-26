@@ -188,6 +188,20 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
       created_by: user?.id,
     });
     setGeneratedToken(result.token);
+
+    // Move budget to "sent" status
+    await supabase
+      .from("budgets")
+      .update({ status: "sent", updated_at: new Date().toISOString() })
+      .eq("id", budget.id);
+
+    // Advance linked deal to "proposta" stage
+    if (budget.deal_id) {
+      await supabase
+        .from("deals")
+        .update({ stage: "proposta", updated_at: new Date().toISOString() })
+        .eq("id", budget.deal_id);
+    }
   };
 
   const handleGenerate = () => {
