@@ -23,10 +23,10 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
   const stats = useMemo(() => {
     const openStages = ["contato", "proposta", "negociacao"];
     const openDeals = deals.filter((d) => openStages.includes(d.stage));
-    const totalPipeline = openDeals.reduce((s, d) => s + (d.value || 0), 0);
+    const totalPipeline = openDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
 
     const wonDeals = deals.filter((d) => d.stage === "fechamento");
-    const wonValue = wonDeals.reduce((s, d) => s + (d.value || 0), 0);
+    const wonValue = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
     const wonCount = wonDeals.length;
 
     const totalCreated = deals.length;
@@ -53,7 +53,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
           const upd = deal.updated_at ? new Date(deal.updated_at) : null;
           return upd && upd.getFullYear() === d.getFullYear() && upd.getMonth() === d.getMonth();
         })
-        .reduce((s, deal) => s + (deal.value || 0), 0);
+        .reduce((s, deal) => s + (deal.approved_value ?? deal.value ?? 0), 0);
       months.push({ month: label, ganhos: monthWon, meta });
     }
 
