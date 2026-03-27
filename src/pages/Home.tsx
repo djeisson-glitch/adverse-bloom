@@ -151,7 +151,7 @@ export default function Home() {
 
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
-  const pipelineValue = openDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
+  const pipelineValue = openDeals.reduce((s, d) => s + (d.approved_value ?? 0), 0);
 
   const wonThisMonth = useMemo(() => {
     return deals.filter((d) => {
@@ -367,7 +367,7 @@ export default function Home() {
           <MetricCard
             label="Ganhos no mês"
             value={String(wonThisMonth.length)}
-            sub={formatCurrency(faturamentoMes)}
+            sub={formatCurrency(wonThisMonth.reduce((s, d) => s + (d.approved_value ?? 0), 0))}
             subColor="text-green-400"
             icon={Trophy}
             onClick={() => navigate("/comercial")}
@@ -402,7 +402,7 @@ export default function Home() {
                   <div key={d.id} className="flex items-center justify-between text-xs gap-2">
                     <span className="truncate min-w-0 font-medium">{d.title}</span>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-semibold">{formatCurrency(d.approved_value ?? d.value ?? 0)}</span>
+                      <span className={`font-semibold ${d.approved_value ? "text-primary" : "text-muted-foreground"}`}>{d.approved_value ? formatCurrency(d.approved_value) : "sem orçamento"}</span>
                       <span className="text-muted-foreground">{formatDate(d.expected_close_date)}</span>
                     </div>
                   </div>
