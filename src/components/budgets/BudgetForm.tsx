@@ -889,9 +889,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                       <Input
                         value={item}
                         onChange={(e) => updateNotIncludedItem(idx, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !isApproved) {
+                            e.preventDefault();
+                            addNotIncludedItem();
+                            setTimeout(() => {
+                              const inputs = document.querySelectorAll<HTMLInputElement>('[data-not-included-input]');
+                              inputs[inputs.length - 1]?.focus();
+                            }, 50);
+                          }
+                        }}
                         placeholder="Item não incluído..."
                         className="h-7 text-xs flex-1"
                         disabled={isApproved}
+                        data-not-included-input
                       />
                       {!isApproved && (
                         <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive" onClick={() => removeNotIncludedItem(idx)}>
