@@ -30,15 +30,14 @@ export function useDeals() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch approved budget values for all deals
+      // Fetch latest budget values for all deals
       const dealIds = (data || []).map((d: any) => d.id);
       let budgetMap: Record<string, number> = {};
       if (dealIds.length > 0) {
         const { data: budgets } = await supabase
           .from("budgets")
-          .select("deal_id, total_value")
+          .select("deal_id, total_value, status")
           .in("deal_id", dealIds)
-          .eq("status", "approved")
           .eq("is_latest_version", true);
         (budgets || []).forEach((b: any) => {
           if (b.deal_id) budgetMap[b.deal_id] = (budgetMap[b.deal_id] || 0) + (b.total_value || 0);
