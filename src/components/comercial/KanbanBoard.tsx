@@ -55,7 +55,7 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: 
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[60vh]">
         {STAGES.map((stage) => {
           const stageDeals = deals.filter((d) => d.stage === stage.id);
-          const total = stageDeals.reduce((s, d) => s + (d.value || 0), 0);
+          const total = stageDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
           return (
             <KanbanColumn
               key={stage.id}

@@ -5,6 +5,7 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
 export type Deal = Tables<"deals"> & {
   client?: Tables<"clients"> | null;
   creator?: Tables<"profiles"> | null;
+  approved_value?: number | null;
 };
 
 export const STAGES = [
@@ -28,7 +29,26 @@ export function useDeals() {
         .select("*, client:clients(*), creator:profiles!deals_created_by_fkey(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Deal[];
+
+      // Fetch approved budget values for all deals
+      const dealIds = (data || []).map((d: any) => d.id);
+      let budgetMap: Record<string, number> = {};
+      if (dealIds.length > 0) {
+        const { data: budgets } = await supabase
+          .from("budgets")
+          .select("deal_id, total_value")
+          .in("deal_id", dealIds)
+          .eq("status", "approved")
+          .eq("is_latest_version", true);
+        (budgets || []).forEach((b: any) => {
+          if (b.deal_id) budgetMap[b.deal_id] = (budgetMap[b.deal_id] || 0) + (b.total_value || 0);
+        });
+      }
+
+      return (data || []).map((d: any) => ({
+        ...d,
+        approved_value: budgetMap[d.id] ?? null,
+      })) as Deal[];
     },
   });
 
