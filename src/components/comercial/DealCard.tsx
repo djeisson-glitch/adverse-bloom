@@ -44,7 +44,12 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
           {deal.client.name}{deal.client.company ? ` — ${deal.client.company}` : ""}
         </p>
       )}
-      <p className="text-sm font-semibold text-primary mt-2">{formatCurrency(deal.value || 0)}</p>
+      <div className="mt-2">
+        <p className="text-sm font-semibold text-primary">{formatCurrency(deal.approved_value ?? deal.value ?? 0)}</p>
+        {deal.approved_value != null && (
+          <p className="text-[10px] text-muted-foreground">Valor do orçamento aprovado</p>
+        )}
+      </div>
 
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-2">

@@ -25,6 +25,7 @@ const ORIGIN_OPTIONS = [
 ] as const;
 import { TaskList } from "./TaskList";
 import { ClientSelect } from "@/components/clientes/ClientSelect";
+import { ClientContextPanel } from "./ClientContextPanel";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface Props {
@@ -101,6 +102,8 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
           onChange={(id) => setClientId(id || "")}
         />
       </div>
+
+      {clientId && <ClientContextPanel clientId={clientId} />}
 
       <div className="grid grid-cols-2 gap-4">
         <div>

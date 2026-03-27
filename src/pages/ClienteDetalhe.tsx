@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useClients, useDeals } from "@/hooks/useDeals";
-import { useTasks } from "@/hooks/useTasks";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency, formatPercent } from "@/lib/format";
@@ -14,17 +13,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { STAGES } from "@/hooks/useDeals";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 const ORIGINS = ["Apollo", "Indicação", "Evento", "Outros"];
 
+const stageLabels: Record<string, string> = {};
+STAGES.forEach((s) => { stageLabels[s.id] = s.label; });
+
 const stageBadge: Record<string, string> = {
-  contato: "bg-blue-500/20 text-blue-400",
-  proposta: "bg-amber-500/20 text-amber-400",
-  negociacao: "bg-purple-500/20 text-purple-400",
-  ganho: "bg-green-500/20 text-green-400",
+  diagnostico: "bg-blue-500/20 text-blue-400",
+  orcamento: "bg-amber-500/20 text-amber-400",
+  proposta: "bg-purple-500/20 text-purple-400",
+  fechamento: "bg-green-500/20 text-green-400",
   perdido: "bg-red-500/20 text-red-400",
 };
 
@@ -39,19 +42,35 @@ export default function ClienteDetalhe() {
 
   // Budget data for this client
   const budgetsQuery = useQuery({
-    queryKey: ["budgets-client", client?.name],
+    queryKey: ["budgets-client", id],
     queryFn: async () => {
-      if (!client) return [];
+      if (!id) return [];
       const { data, error } = await supabase
         .from("budgets")
         .select("*")
-        .eq("client_name", client.name)
+        .eq("client_id", id)
         .eq("is_latest_version", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!client,
+    enabled: !!id,
+  });
+
+  // Projects for this client
+  const projectsQuery = useQuery({
+    queryKey: ["projects-client", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("client_id", id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
   });
 
   // Tasks for this client's deals
@@ -116,20 +135,44 @@ export default function ClienteDetalhe() {
 
   // Summary stats
   const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
-  const totalFaturado = wonDeals.reduce((s, d) => s + (d.value || 0), 0);
-  const ticketMedio = wonDeals.length > 0 ? totalFaturado / wonDeals.length : 0;
+  const lostDeals = clientDeals.filter((d) => d.stage === "perdido");
+  const ltv = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
+  const lostValue = lostDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
+  const ticketMedio = wonDeals.length > 0 ? ltv / wonDeals.length : 0;
   const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;
   const budgets = budgetsQuery.data || [];
+  const projects = projectsQuery.data || [];
   const tasks = tasksQuery.data || [];
   const originMatch = client.notes?.match(/^Origem: (.+)$/m);
   const origin = originMatch?.[1] || "";
   const cleanNotes = client.notes?.replace(/^Origem: .+\n?/m, "").trim() || "";
 
+  // Timeline
+  const firstDealDate = clientDeals.length > 0
+    ? clientDeals.reduce((min, d) => (!min || (d.created_at && d.created_at < min) ? d.created_at! : min), "")
+    : null;
+  const lastProjectDate = projects.length > 0 ? projects[0].created_at : null;
+  const relationshipMonths = firstDealDate
+    ? Math.max(1, Math.round((Date.now() - new Date(firstDealDate).getTime()) / (1000 * 60 * 60 * 24 * 30)))
+    : 0;
+
+  // Cycle between projects
+  const sortedProjectDates = projects
+    .map((p) => new Date(p.created_at).getTime())
+    .sort((a, b) => a - b);
+  let avgCycleMonths = 0;
+  if (sortedProjectDates.length >= 2) {
+    const gaps = sortedProjectDates.slice(1).map((d, i) => d - sortedProjectDates[i]);
+    avgCycleMonths = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length / (1000 * 60 * 60 * 24 * 30));
+  }
+
   const summaryCards = [
-    { label: "Total Faturado", value: formatCurrency(totalFaturado), icon: DollarSign, color: "text-primary" },
+    { label: "LTV Total", value: formatCurrency(ltv), icon: DollarSign, color: "text-primary" },
     { label: "Ticket Médio", value: formatCurrency(ticketMedio), icon: TrendingUp, color: "text-primary" },
-    { label: "Projetos Ganhos", value: String(wonDeals.length), icon: Briefcase, color: "text-green-400" },
-    { label: "Taxa de Conversão", value: formatPercent(taxaConversao), icon: Target, color: taxaConversao >= 50 ? "text-green-400" : "text-amber-400" },
+    { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-green-400" },
+    { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-red-400" },
+    { label: "Projetos", value: String(projects.length), icon: Briefcase, color: "text-primary" },
+    { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-green-400" : "text-amber-400" },
   ];
 
   return (
@@ -147,7 +190,7 @@ export default function ClienteDetalhe() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {summaryCards.map((s) => (
           <Card key={s.label} className="bg-card border-border/50">
             <CardContent className="p-4 flex items-center gap-3">
@@ -162,6 +205,39 @@ export default function ClienteDetalhe() {
           </Card>
         ))}
       </div>
+
+      {/* Timeline card */}
+      {firstDealDate && (
+        <Card className="bg-card border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+              <Calendar className="h-4 w-4" /> Timeline de Relacionamento
+            </h3>
+            <div className="flex items-center gap-8 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Primeiro contato</p>
+                <p className="font-medium">{new Date(firstDealDate).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
+              </div>
+              {lastProjectDate && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Último projeto</p>
+                  <p className="font-medium">{new Date(lastProjectDate).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">Tempo de relacionamento</p>
+                <p className="font-medium">{relationshipMonths} {relationshipMonths === 1 ? "mês" : "meses"}</p>
+              </div>
+              {avgCycleMonths > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Ciclo médio entre projetos</p>
+                  <p className="font-medium">{avgCycleMonths} {avgCycleMonths === 1 ? "mês" : "meses"}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -243,7 +319,7 @@ export default function ClienteDetalhe() {
             <TabsList className="w-full justify-start">
               <TabsTrigger value="deals">Deals ({clientDeals.length})</TabsTrigger>
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
-              <TabsTrigger value="projetos">Projetos</TabsTrigger>
+              <TabsTrigger value="projetos">Projetos ({projects.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
             </TabsList>
 
@@ -266,9 +342,9 @@ export default function ClienteDetalhe() {
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(d.value || 0)}</span>
+                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(d.approved_value ?? d.value ?? 0)}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${stageBadge[d.stage] || "bg-secondary text-secondary-foreground"}`}>
-                          {d.stage}
+                          {stageLabels[d.stage] || d.stage}
                         </span>
                       </div>
                     </div>
@@ -306,11 +382,27 @@ export default function ClienteDetalhe() {
               )}
             </TabsContent>
 
-            <TabsContent value="projetos">
-              <div className="py-10 text-center text-muted-foreground">
-                <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Em breve</p>
-              </div>
+            <TabsContent value="projetos" className="space-y-3">
+              {projects.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum projeto vinculado</p>
+              ) : (
+                <div className="space-y-2">
+                  {projects.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card hover:bg-secondary/30 transition-colors">
+                      <div>
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.sold_date ? new Date(p.sold_date).toLocaleDateString("pt-BR") : new Date(p.created_at).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(p.sold_value || 0)}</span>
+                        <Badge variant="outline" className="text-xs">{p.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="tarefas" className="space-y-3">
