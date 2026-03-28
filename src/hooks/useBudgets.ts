@@ -154,8 +154,8 @@ export function useSaveBudget() {
           .eq("id", budgetId);
         if (error) throw error;
       } else {
-        // New budget: assign budget_number
-        const budgetNumber = await getNextBudgetNumber();
+        // New budget: use provided budget_number or assign next
+        const budgetNumber = budget.budget_number ?? await getNextBudgetNumber();
         const { data, error } = await supabase
           .from("budgets")
           .insert({ ...budget, budget_number: budgetNumber, version: 1, is_latest_version: true })
