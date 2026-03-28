@@ -40,7 +40,6 @@ export function AllocationModal({ open, onOpenChange, allocation, defaultDate }:
         .from("budgets")
         .select("id, project_name, client_name, capture_days")
         .eq("status", "approved")
-        .gt("capture_days", 0)
         .eq("is_latest_version", true)
         .order("project_name");
       if (error) throw error;
