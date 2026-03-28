@@ -47,7 +47,7 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
       <div className="mt-2">
         <p className="text-sm font-semibold text-primary">{formatCurrency(deal.approved_value ?? deal.value ?? 0)}</p>
         {deal.approved_value != null && (
-          <p className="text-[10px] text-muted-foreground">Valor do orçamento aprovado</p>
+          <p className="text-[10px] text-muted-foreground">Valor orçado</p>
         )}
       </div>
 
