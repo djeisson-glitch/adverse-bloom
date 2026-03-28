@@ -248,6 +248,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
+      setBudgetNumber(existing.budget_number);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
@@ -468,12 +469,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [items]);
 
   const proposalName = useMemo(() => {
-    const num = existing?.budget_number;
+    const num = budgetNumber ?? existing?.budget_number;
     const ver = existing?.version ?? 1;
     const numPart = num ? `#${num}` : "#???";
     const verPart = ver > 1 ? ` v${ver}` : "";
     return `Proposta Adverse ${numPart}${verPart} - ${clientName || "..."} | ${projectName || "..."}`;
-  }, [existing?.budget_number, existing?.version, clientName, projectName]);
+  }, [budgetNumber, existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
     if (!dealId) {
