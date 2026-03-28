@@ -554,6 +554,47 @@ export type Database = {
           },
         ]
       }
+      google_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          google_email: string | null
+          id: string
+          refresh_token: string
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          google_email?: string | null
+          id?: string
+          refresh_token: string
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          google_email?: string | null
+          id?: string
+          refresh_token?: string
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_tokens_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: true
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_allocations: {
         Row: {
           allocation_date: string
@@ -562,6 +603,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           end_time: string | null
+          google_calendar_event_id: string | null
           id: string
           location: string | null
           role_function: string | null
@@ -576,6 +618,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_time?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           location?: string | null
           role_function?: string | null
@@ -590,6 +633,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           end_time?: string | null
+          google_calendar_event_id?: string | null
           id?: string
           location?: string | null
           role_function?: string | null
