@@ -175,6 +175,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [dealId, setDealId] = useState<string | null>(initialDealId ?? null);
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
   const [captureDays, setCaptureDays] = useState(0);
+  const [budgetNumber, setBudgetNumber] = useState<number | null>(null);
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
@@ -247,6 +248,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
+      setBudgetNumber(existing.budget_number);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
@@ -467,12 +469,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [items]);
 
   const proposalName = useMemo(() => {
-    const num = existing?.budget_number;
+    const num = budgetNumber ?? existing?.budget_number;
     const ver = existing?.version ?? 1;
     const numPart = num ? `#${num}` : "#???";
     const verPart = ver > 1 ? ` v${ver}` : "";
     return `Proposta Adverse ${numPart}${verPart} - ${clientName || "..."} | ${projectName || "..."}`;
-  }, [existing?.budget_number, existing?.version, clientName, projectName]);
+  }, [budgetNumber, existing?.budget_number, existing?.version, clientName, projectName]);
 
   const handleSave = async (status: string) => {
     if (!dealId) {
@@ -504,7 +506,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           margin_value: totals.marginValue,
           margin_percent: totals.marginPercent,
           created_by: null,
-          budget_number: existing?.budget_number ?? null,
+           budget_number: budgetNumber ?? existing?.budget_number ?? null,
           version: existing?.version ?? 1,
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
@@ -555,7 +557,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           margin_value: totals.marginValue,
           margin_percent: totals.marginPercent,
           created_by: null,
-          budget_number: existing?.budget_number ?? null,
+          budget_number: budgetNumber ?? existing?.budget_number ?? null,
           version: existing?.version ?? 1,
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
@@ -622,8 +624,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   };
 
   const isApproved = existing?.status === "approved";
-  const budgetLabel = existing?.budget_number
-    ? `#${existing.budget_number} v${existing.version}`
+  const displayBudgetNumber = budgetNumber ?? existing?.budget_number;
+  const budgetLabel = displayBudgetNumber
+    ? `#${displayBudgetNumber} v${existing?.version ?? 1}`
     : "Novo";
 
   return (
@@ -683,7 +686,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nº Orçamento</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={1}
+                  value={budgetNumber ?? ""}
+                  onChange={(e) => setBudgetNumber(e.target.value ? Number(e.target.value) : null)}
+                  disabled={isApproved}
+                  className="h-8 text-sm"
+                  placeholder="Auto"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Deixe vazio para auto. Não use números duplicados.</p>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Deal vinculado <span className="text-destructive">*</span></Label>
               <Select
