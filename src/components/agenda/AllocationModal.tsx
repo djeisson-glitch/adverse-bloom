@@ -32,18 +32,28 @@ export function AllocationModal({ open, onOpenChange, allocation, defaultDate }:
   const save = useSaveJobAllocation();
   const { toast } = useToast();
 
-  // Fetch approved budgets with capture_days > 0
+  // Fetch approved budgets excluding projects marked as 'Encerrado'
   const { data: budgets = [] } = useQuery({
-    queryKey: ["budgets_with_capture_days"],
+    queryKey: ["budgets_for_allocation"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      // Get approved budgets
+      const { data: allBudgets, error } = await (supabase as any)
         .from("budgets")
         .select("id, project_name, client_name, capture_days")
         .eq("status", "approved")
         .eq("is_latest_version", true)
         .order("project_name");
       if (error) throw error;
-      return data as { id: string; project_name: string; client_name: string; capture_days: number }[];
+
+      // Get project names that are 'Encerrado'
+      const { data: closedProjects } = await (supabase as any)
+        .from("projects")
+        .select("name")
+        .eq("status", "Encerrado");
+      const closedNames = new Set((closedProjects || []).map((p: any) => p.name));
+
+      // Filter out budgets whose project is closed
+      return (allBudgets || []).filter((b: any) => !closedNames.has(b.project_name)) as { id: string; project_name: string; client_name: string; capture_days: number }[];
     },
   });
 

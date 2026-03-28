@@ -746,7 +746,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Diárias de captação</Label>
-              <Input type="number" min={0} value={captureDays || ""} onChange={(e) => setCaptureDays(Number(e.target.value) || 0)} disabled={isApproved} className="h-8 text-sm" placeholder="0" />
+              <Input type="number" min={0} step={0.5} value={captureDays || ""} onChange={(e) => setCaptureDays(Number(e.target.value) || 0)} disabled={isApproved} className="h-8 text-sm" placeholder="0" />
             </div>
           </div>
         </CardContent>
