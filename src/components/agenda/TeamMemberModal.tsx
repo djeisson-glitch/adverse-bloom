@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useSaveTeamMember, type TeamMember } from "@/hooks/useTeamMembers";
+import { useGoogleTokens, getGoogleAuthUrl } from "@/hooks/useGoogleTokens";
 import { useToast } from "@/hooks/use-toast";
+import { ExternalLink } from "lucide-react";
 
 const COLORS = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
 
@@ -24,6 +27,9 @@ export function TeamMemberModal({ open, onOpenChange, member }: Props) {
   const [isActive, setIsActive] = useState(true);
   const save = useSaveTeamMember();
   const { toast } = useToast();
+  const { data: googleTokens } = useGoogleTokens();
+
+  const googleToken = member ? googleTokens?.find((t) => t.team_member_id === member.id) : null;
 
   useEffect(() => {
     if (member) {
@@ -62,6 +68,11 @@ export function TeamMemberModal({ open, onOpenChange, member }: Props) {
         },
       }
     );
+  };
+
+  const handleConnectGoogle = () => {
+    if (!member) return;
+    window.open(getGoogleAuthUrl(member.id), "_blank");
   };
 
   return (
@@ -107,6 +118,30 @@ export function TeamMemberModal({ open, onOpenChange, member }: Props) {
             <Switch checked={isActive} onCheckedChange={setIsActive} />
             <Label className="text-xs">Ativo</Label>
           </div>
+
+          {/* Google Calendar connection */}
+          {member && (
+            <div className="border rounded-lg p-3 space-y-2">
+              <Label className="text-xs font-medium">Google Calendar</Label>
+              {googleToken ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                    Conectado
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">{googleToken.google_email}</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Conecte para criar eventos automaticamente na agenda do membro.
+                  </p>
+                  <Button variant="outline" size="sm" className="text-xs" onClick={handleConnectGoogle}>
+                    <ExternalLink className="h-3 w-3 mr-1" /> Conectar Google
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
