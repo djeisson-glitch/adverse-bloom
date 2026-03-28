@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.ca-sync-full]
 verify_jwt = false
+
+[functions.google-auth-callback]
+verify_jwt = false
+
+[functions.google-calendar-sync]
+verify_jwt = false
