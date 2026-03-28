@@ -14,9 +14,23 @@ export interface JobAllocation {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  google_calendar_event_id?: string | null;
   // joined
   team_member?: { id: string; name: string; color: string; email: string | null };
   budget?: { id: string; project_name: string; client_name: string; capture_days: number };
+}
+
+async function syncCalendar(action: "upsert" | "delete", allocationId: string) {
+  try {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    await fetch(`https://${projectId}.supabase.co/functions/v1/google-calendar-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, allocation_id: allocationId }),
+    });
+  } catch (e) {
+    console.warn("Calendar sync skipped:", e);
+  }
 }
 
 export function useJobAllocations(filters?: { budgetId?: string; from?: string; to?: string }) {
@@ -41,6 +55,7 @@ export function useSaveJobAllocation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (alloc: Partial<JobAllocation> & { budget_id: string; team_member_id: string; allocation_date: string }) => {
+      let allocId = alloc.id;
       if (alloc.id) {
         const { error } = await (supabase as any)
           .from("job_allocations")
@@ -58,7 +73,7 @@ export function useSaveJobAllocation() {
           .eq("id", alloc.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase as any)
+        const { data, error } = await (supabase as any)
           .from("job_allocations")
           .insert({
             budget_id: alloc.budget_id,
@@ -69,9 +84,14 @@ export function useSaveJobAllocation() {
             location: alloc.location,
             description: alloc.description,
             role_function: alloc.role_function,
-          });
+          })
+          .select("id")
+          .single();
         if (error) throw error;
+        allocId = data.id;
       }
+      // Sync to Google Calendar (fire-and-forget)
+      if (allocId) syncCalendar("upsert", allocId);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["job_allocations"] }),
   });
@@ -81,6 +101,8 @@ export function useDeleteJobAllocation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Sync delete to Google Calendar first
+      await syncCalendar("delete", id);
       const { error } = await (supabase as any)
         .from("job_allocations")
         .delete()
