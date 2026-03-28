@@ -624,8 +624,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   };
 
   const isApproved = existing?.status === "approved";
-  const budgetLabel = existing?.budget_number
-    ? `#${existing.budget_number} v${existing.version}`
+  const displayBudgetNumber = budgetNumber ?? existing?.budget_number;
+  const budgetLabel = displayBudgetNumber
+    ? `#${displayBudgetNumber} v${existing?.version ?? 1}`
     : "Novo";
 
   return (
