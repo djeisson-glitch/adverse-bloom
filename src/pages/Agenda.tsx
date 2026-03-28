@@ -92,11 +92,11 @@ export default function Agenda() {
               {members?.filter((m) => m.is_active).map((m) => (
                 <button
                   key={m.id}
-                  className="flex items-center gap-2 w-full text-left text-sm hover:bg-accent/30 rounded px-2 py-1 transition-colors"
+                  className="flex items-center gap-2 w-full text-left text-sm hover:bg-accent/30 rounded px-2 py-1 transition-colors min-w-0 overflow-hidden"
                   onClick={() => { if (isAdmin) { setEditMember(m); setMemberModalOpen(true); } }}
                 >
                   <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
-                  <span className="truncate">{m.name}</span>
+                  <span className="truncate min-w-0">{m.name}</span>
                   {m.role_function && (
                     <Badge variant="secondary" className="text-[9px] ml-auto shrink-0">{m.role_function}</Badge>
                   )}

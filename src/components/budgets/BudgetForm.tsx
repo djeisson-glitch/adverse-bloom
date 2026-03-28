@@ -709,7 +709,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                 onValueChange={(v) => setDealId(v === "none" ? null : v)}
                 disabled={isApproved}
               >
-                <SelectTrigger className={`h-8 text-sm ${!dealId ? "border-destructive/50" : ""}`}>
+                <SelectTrigger className={`h-8 text-sm truncate ${!dealId ? "border-destructive/50" : ""}`}>
                   <SelectValue placeholder="Selecione um deal" />
                 </SelectTrigger>
                 <SelectContent>
