@@ -686,7 +686,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Nº Orçamento</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={1}
+                  value={budgetNumber ?? ""}
+                  onChange={(e) => setBudgetNumber(e.target.value ? Number(e.target.value) : null)}
+                  disabled={isApproved}
+                  className="h-8 text-sm"
+                  placeholder="Auto"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">Deixe vazio para auto. Não use números duplicados.</p>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Deal vinculado <span className="text-destructive">*</span></Label>
               <Select
