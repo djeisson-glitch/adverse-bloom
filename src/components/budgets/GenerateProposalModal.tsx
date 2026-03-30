@@ -108,9 +108,12 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   }, [open, existingLetters, initialized, lettersLoading]);
 
-  // Reset initialized when modal closes
+  // Reset when modal closes
   useEffect(() => {
-    if (!open) setInitialized(false);
+    if (!open) {
+      setInitialized(false);
+      setExcludedItemIds(new Set());
+    }
   }, [open]);
 
   const addTag = () => {
