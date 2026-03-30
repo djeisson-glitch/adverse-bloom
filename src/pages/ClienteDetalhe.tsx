@@ -385,21 +385,25 @@ export default function ClienteDetalhe() {
             </TabsContent>
 
             <TabsContent value="projetos" className="space-y-3">
-              {projects.length === 0 ? (
+              {dealProjectsData.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">Nenhum projeto vinculado</p>
               ) : (
                 <div className="space-y-2">
-                  {projects.map((p) => (
+                  {dealProjectsData.map((p) => (
                     <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card hover:bg-secondary/30 transition-colors">
-                      <div>
-                        <p className="font-medium text-sm">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {p.sold_date ? new Date(p.sold_date).toLocaleDateString("pt-BR") : new Date(p.created_at).toLocaleDateString("pt-BR")}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <Film className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(p.sold_value || 0)}</span>
-                        <Badge variant="outline" className="text-xs">{p.status}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{p.delivery_type}</Badge>
+                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(p.value || 0)}</span>
+                        <span className="text-xs text-muted-foreground">{formatPercent(p.margin_percent || 0)} margem</span>
                       </div>
                     </div>
                   ))}
