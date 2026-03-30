@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -176,6 +177,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
   const [captureDays, setCaptureDays] = useState(0);
   const [budgetNumber, setBudgetNumber] = useState<number | null>(null);
+  const [internalNotes, setInternalNotes] = useState("");
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
@@ -248,6 +250,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
+      setInternalNotes((existing as any).internal_notes ?? "");
       setBudgetNumber(existing.budget_number);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
@@ -518,7 +521,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           proposal_name: proposalName,
           deal_id: dealId,
           not_included: notIncluded,
-          capture_days: captureDays,
+           capture_days: captureDays,
+           internal_notes: internalNotes || null,
         } as any,
         items: validItems,
       },
@@ -570,6 +574,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           deal_id: dealId,
           not_included: notIncluded,
           capture_days: captureDays,
+          internal_notes: internalNotes || null,
         } as any,
         items: validItems,
       },
@@ -753,6 +758,23 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
               <Label className="text-xs text-muted-foreground">Diárias de captação</Label>
               <Input type="number" min={0} step={0.5} value={captureDays || ""} onChange={(e) => setCaptureDays(Number(e.target.value) || 0)} disabled={isApproved} className="h-8 text-sm" placeholder="0" />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Internal Notes */}
+      <Card>
+        <CardContent className="pt-3 pb-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Observação interna <span className="text-muted-foreground/70 font-normal">(não aparece na proposta)</span></Label>
+            <Textarea
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              placeholder="Anotações internas sobre este orçamento..."
+              rows={2}
+              className="text-sm resize-none"
+              disabled={isApproved}
+            />
           </div>
         </CardContent>
       </Card>

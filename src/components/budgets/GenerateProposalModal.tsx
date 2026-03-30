@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles, Eye, AlertTriangle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCreateProposalLetter, useProposalLetters } from "@/hooks/useProposalLetters";
@@ -59,6 +60,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [generatingAI, setGeneratingAI] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [showRegenerateWarning, setShowRegenerateWarning] = useState(false);
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<number>>(new Set());
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -106,10 +108,23 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   }, [open, existingLetters, initialized, lettersLoading]);
 
-  // Reset initialized when modal closes
+  // Reset when modal closes
   useEffect(() => {
-    if (!open) setInitialized(false);
+    if (!open) {
+      setInitialized(false);
+      setExcludedItemIds(new Set());
+    }
   }, [open]);
+
+  const toggleItemExclusion = (idx: number) => {
+    setExcludedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  const filteredItems = items.filter((_, i) => !excludedItemIds.has(i));
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -215,7 +230,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const handlePreview = () => {
     const previewData = {
       budget,
-      items,
+      items: filteredItems,
       contactName,
       contactCompany,
       projectDescription,
@@ -347,6 +362,42 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
                   </Badge>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* Scope Item Selection */}
+          <div className="space-y-2">
+            <Label className="text-xs">Itens do escopo na proposta</Label>
+            <div className="border border-border rounded-md max-h-48 overflow-y-auto">
+              {(() => {
+                const cats = [...new Set(items.map(i => i.category))];
+                return cats.map(cat => {
+                  const catItems = items
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item }) => item.category === cat && item.client_price > 0);
+                  if (catItems.length === 0) return null;
+                  return (
+                    <div key={cat}>
+                      <div className="px-3 py-1.5 bg-muted/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{cat}</div>
+                      {catItems.map(({ item, idx }) => (
+                        <label key={idx} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 cursor-pointer text-sm">
+                          <Checkbox
+                            checked={!excludedItemIds.has(idx)}
+                            onCheckedChange={() => toggleItemExclusion(idx)}
+                          />
+                          <span className="truncate">{item.item_name}</span>
+                          <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(item.client_price)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            {excludedItemIds.size > 0 && (
+              <p className="text-[10px] text-muted-foreground">{excludedItemIds.size} item(ns) excluído(s) da proposta</p>
             )}
           </div>
 

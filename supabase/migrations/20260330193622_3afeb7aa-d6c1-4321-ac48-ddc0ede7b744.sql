@@ -1,0 +1,1 @@
+ALTER TABLE public.budgets ADD COLUMN internal_notes text DEFAULT null;

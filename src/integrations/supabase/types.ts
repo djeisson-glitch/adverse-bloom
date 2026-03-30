@@ -284,6 +284,7 @@ export type Database = {
           deal_id: string | null
           discount: number
           id: string
+          internal_notes: string | null
           is_latest_version: boolean
           margin_percent: number | null
           margin_value: number | null
@@ -317,6 +318,7 @@ export type Database = {
           deal_id?: string | null
           discount?: number
           id?: string
+          internal_notes?: string | null
           is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
@@ -350,6 +352,7 @@ export type Database = {
           deal_id?: string | null
           discount?: number
           id?: string
+          internal_notes?: string | null
           is_latest_version?: boolean
           margin_percent?: number | null
           margin_value?: number | null
