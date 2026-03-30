@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRef } from "react";
+import { DetailModal } from "@/components/financeiro/DetailModal";
 
 export default function ResultadosMetas() {
   const { receivables, payables } = useAllContaAzulCache();
