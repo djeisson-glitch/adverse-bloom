@@ -153,7 +153,7 @@ export default function ClienteDetalhe() {
   const firstDealDate = clientDeals.length > 0
     ? clientDeals.reduce((min, d) => (!min || (d.created_at && d.created_at < min) ? d.created_at! : min), "")
     : null;
-  const lastProjectDate = projects.length > 0 ? projects[0].created_at : null;
+  const lastProjectDate = dealProjectsData.length > 0 ? dealProjectsData[0].created_at : (projects.length > 0 ? projects[0].created_at : null);
   const relationshipMonths = firstDealDate
     ? Math.max(1, Math.round((Date.now() - new Date(firstDealDate).getTime()) / (1000 * 60 * 60 * 24 * 30)))
     : 0;
