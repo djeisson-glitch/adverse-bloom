@@ -365,6 +365,42 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
             )}
           </div>
 
+          {/* Scope Item Selection */}
+          <div className="space-y-2">
+            <Label className="text-xs">Itens do escopo na proposta</Label>
+            <div className="border border-border rounded-md max-h-48 overflow-y-auto">
+              {(() => {
+                const cats = [...new Set(items.map(i => i.category))];
+                return cats.map(cat => {
+                  const catItems = items
+                    .map((item, idx) => ({ item, idx }))
+                    .filter(({ item }) => item.category === cat && item.client_price > 0);
+                  if (catItems.length === 0) return null;
+                  return (
+                    <div key={cat}>
+                      <div className="px-3 py-1.5 bg-muted/50 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{cat}</div>
+                      {catItems.map(({ item, idx }) => (
+                        <label key={idx} className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/30 cursor-pointer text-sm">
+                          <Checkbox
+                            checked={!excludedItemIds.has(idx)}
+                            onCheckedChange={() => toggleItemExclusion(idx)}
+                          />
+                          <span className="truncate">{item.item_name}</span>
+                          <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(item.client_price)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            {excludedItemIds.size > 0 && (
+              <p className="text-[10px] text-muted-foreground">{excludedItemIds.size} item(ns) excluído(s) da proposta</p>
+            )}
+          </div>
+
           {/* Deliverables */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
