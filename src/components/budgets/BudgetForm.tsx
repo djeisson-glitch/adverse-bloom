@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
