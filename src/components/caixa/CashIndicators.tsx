@@ -36,7 +36,7 @@ function KpiCard({ title, value, subtitle, level, icon: Icon, delay }: {
         <span className="text-xs text-muted-foreground font-medium">{title}</span>
         <Icon className="h-4 w-4 opacity-60" />
       </div>
-      <p className="font-heading text-xl font-bold">{value}</p>
+      <p className="font-heading text-xl font-bold truncate" title={value}>{value}</p>
       <p className="text-xs mt-1 opacity-70">{subtitle}</p>
     </motion.div>
   );
