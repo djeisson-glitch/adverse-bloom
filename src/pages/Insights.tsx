@@ -192,7 +192,7 @@ export default function Insights() {
         <PeriodFilter value={period} onChange={setPeriod} defaultPreset="ano_atual" />
       </div>
 
-      <SurvivalWidget burnRate={burnRate} recItems={recItems} payItems={payItems} />
+      <SurvivalWidget burnRate={burnRate} saldoAtual={saldoEmConta} recItems={recItems} payItems={payItems} />
 
       {!hasData ? (
         <div className="glass-card p-10 text-center text-muted-foreground">
