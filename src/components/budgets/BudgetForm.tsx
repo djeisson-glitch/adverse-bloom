@@ -706,7 +706,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nº Orçamento</Label>
               <div className="relative">

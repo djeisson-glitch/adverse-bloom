@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
+import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle, Film } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { STAGES } from "@/hooks/useDeals";
+import { useDealProjectsByClient, type DealProject } from "@/hooks/useDealProjects";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 const ORIGINS = ["Apollo", "Indicação", "Evento", "Outros"];
