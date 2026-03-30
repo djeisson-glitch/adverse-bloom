@@ -140,7 +140,7 @@ export default function ClienteDetalhe() {
   const lostDeals = clientDeals.filter((d) => d.stage === "perdido");
   const ltv = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
   const lostValue = lostDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
-  const ticketMedio = wonDeals.length > 0 ? ltv / wonDeals.length : 0;
+  const ticketMedio = dealProjectsData.length > 0 ? ltv / dealProjectsData.length : (wonDeals.length > 0 ? ltv / wonDeals.length : 0);
   const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;
   const budgets = budgetsQuery.data || [];
   const projects = projectsQuery.data || [];
