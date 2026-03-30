@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DollarSign, TrendingUp, Target, BarChart3, Percent, Calculator, Hash } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
