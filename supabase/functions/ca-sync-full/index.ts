@@ -71,7 +71,7 @@ async function refreshToken(supabase: any, payload: any): Promise<{ token: strin
   return { token: tokenData.access_token };
 }
 
-const BASE = "https://api.contaazul.com/v2";
+const BASE = "https://api.contaazul.com/v1";
 const dataInicio = "2025-01-01";
 const dataFim = "2026-12-31";
 
@@ -115,7 +115,7 @@ async function syncEndpoint(
     let allItems: any[] = [];
     for (let pagina = 1; pagina <= 25; pagina++) {
       const sep = url.includes("?") ? "&" : "?";
-      const pageUrl = `${url}${sep}page=${pagina}&size=200`;
+      const pageUrl = `${url}${sep}pagina=${pagina}&tamanho_pagina=200`;
       const res = await fetch(pageUrl, { headers });
       console.log(`[sync] ${label} página ${pagina}: HTTP ${res.status}`);
       if (res.status === 401) {
@@ -171,12 +171,12 @@ serve(async (req) => {
     const results: Record<string, SyncResult> = {};
 
     const jobs = [
-      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/accounts`, paginated: false },
-      { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
-      { key: "receivables", label: "Contas a receber", url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
-      { key: "payables", label: "Contas a pagar", url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`, paginated: true },
-      { key: "sales", label: "Vendas", url: `${BASE}/sales?sort=EMISSION_DATE&order=DESC&emit_date_from=${dataInicio}&emit_date_to=${dataFim}`, paginated: true },
-      { key: "transactions", label: "Transações", url: `${BASE}/financial-transactions?competence_from=${dataInicio}&competence_to=${dataFim}`, paginated: true },
+      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/conta-financeira`, paginated: false },
+      { key: "categories", label: "Categorias", url: `${BASE}/categorias?tamanho_pagina=200`, paginated: false },
+      { key: "receivables", label: "Contas a receber", url: `${BASE}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`, paginated: true },
+      { key: "payables", label: "Contas a pagar", url: `${BASE}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`, paginated: true },
+      { key: "sales", label: "Vendas", url: `${BASE}/vendas?sort=EMISSION_DATE&order=DESC&emit_date_from=${dataInicio}&emit_date_to=${dataFim}`, paginated: true },
+      { key: "transactions", label: "Transações", url: `${BASE}/financeiro/eventos-financeiros?data_competencia_inicio=${dataInicio}&data_competencia_fim=${dataFim}`, paginated: true },
     ];
 
     let needsReauth = false;
