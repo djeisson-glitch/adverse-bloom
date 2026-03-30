@@ -215,7 +215,7 @@ export default function ResultadosMetas() {
           <ChartContainer config={{
             faturamento: { label: "Faturamento", color: "hsl(var(--primary))" },
             meta: { label: "Meta", color: "hsl(var(--warning))" },
-          }} className="h-[280px]">
+          }} className="h-[280px] w-full">
             <BarChart data={fatVsMetaData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
