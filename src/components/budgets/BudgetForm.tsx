@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +27,7 @@ import { GenerateProposalModal } from "./GenerateProposalModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { ProposalTemplate } from "@/hooks/useTemplates";
+import { useDealProjects, DELIVERY_TYPES } from "@/hooks/useDealProjects";
 import {
   useBudgetWithItems,
   useSaveBudget,
@@ -174,10 +175,16 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
   const [dealId, setDealId] = useState<string | null>(initialDealId ?? null);
+  const [dealProjectId, setDealProjectId] = useState<string | null>(null);
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
   const [captureDays, setCaptureDays] = useState(0);
   const [budgetNumber, setBudgetNumber] = useState<number | null>(null);
   const [internalNotes, setInternalNotes] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectType, setNewProjectType] = useState<string>("Institucional");
+  const [showNewProject, setShowNewProject] = useState(false);
+
+  const { projects: dealProjects, createProject: createDealProject } = useDealProjects(dealId);
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
@@ -248,6 +255,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setAddition(existing.addition);
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
+      setDealProjectId((existing as any).deal_project_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
       setInternalNotes((existing as any).internal_notes ?? "");
@@ -519,16 +527,28 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
           proposal_name: proposalName,
-          deal_id: dealId,
-          not_included: notIncluded,
+           deal_id: dealId,
+           deal_project_id: dealProjectId,
+           not_included: notIncluded,
            capture_days: captureDays,
            internal_notes: internalNotes || null,
         } as any,
         items: validItems,
       },
       {
-        onSuccess: (newId) => {
+        onSuccess: async (newId) => {
           if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
+          // Sync deal_project value/margin
+          if (dealProjectId) {
+            const supplierTotal = validItems.reduce((s, i) => s + (i.supplier_cost || 0), 0);
+            await supabase.from("deal_projects").update({
+              value: totals.totalValue,
+              internal_cost: supplierTotal,
+              margin_value: totals.marginValue,
+              margin_percent: totals.marginPercent,
+              updated_at: new Date().toISOString(),
+            } as any).eq("id", dealProjectId);
+          }
           toast({ title: "Orçamento salvo com sucesso!" });
         },
       }
@@ -571,10 +591,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           parent_budget_id: existing?.parent_budget_id ?? null,
           is_latest_version: existing?.is_latest_version ?? true,
           proposal_name: proposalName,
-          deal_id: dealId,
-          not_included: notIncluded,
-          capture_days: captureDays,
-          internal_notes: internalNotes || null,
+           deal_id: dealId,
+           deal_project_id: dealProjectId,
+           not_included: notIncluded,
+           capture_days: captureDays,
+           internal_notes: internalNotes || null,
         } as any,
         items: validItems,
       },
@@ -696,7 +717,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {/* Basic Info - compact */}
       <Card>
         <CardContent className="pt-4 pb-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Nº Orçamento</Label>
               <div className="relative">
@@ -745,6 +766,89 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                 disabled={isApproved}
                 size="sm"
               />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Projeto do Deal</Label>
+              {showNewProject ? (
+                <div className="flex gap-1">
+                  <Input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Nome do projeto"
+                    className="h-8 text-sm flex-1"
+                  />
+                  <Select value={newProjectType} onValueChange={setNewProjectType}>
+                    <SelectTrigger className="h-8 text-sm w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DELIVERY_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="h-8 px-2"
+                    disabled={!newProjectName.trim() || !dealId}
+                    onClick={async () => {
+                      if (!dealId || !newProjectName.trim()) return;
+                      try {
+                        const result = await createDealProject.mutateAsync({
+                          deal_id: dealId,
+                          name: newProjectName.trim(),
+                          delivery_type: newProjectType,
+                        });
+                        setDealProjectId(result.id);
+                        setProjectName(newProjectName.trim());
+                        setNewProjectName("");
+                        setShowNewProject(false);
+                      } catch {}
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowNewProject(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-1">
+                  <Select
+                    value={dealProjectId || "none"}
+                    onValueChange={(v) => {
+                      if (v === "none") {
+                        setDealProjectId(null);
+                        return;
+                      }
+                      setDealProjectId(v);
+                      const proj = dealProjects.find((p) => p.id === v);
+                      if (proj) setProjectName(proj.name);
+                    }}
+                    disabled={isApproved || !dealId}
+                  >
+                    <SelectTrigger className="h-8 text-sm flex-1">
+                      <SelectValue placeholder={dealId ? "Selecione um projeto" : "Selecione um deal primeiro"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" disabled>Selecione um projeto</SelectItem>
+                      {dealProjects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <span className="flex items-center gap-1.5">
+                            <Film className="h-3 w-3 text-primary" />
+                            {p.name} <span className="text-muted-foreground">({p.delivery_type})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!isApproved && dealId && (
+                    <Button variant="outline" size="sm" className="h-8 px-2 shrink-0" onClick={() => setShowNewProject(true)}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Projeto</Label>

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle } from "lucide-react";
+import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle, Film } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { Deal } from "@/hooks/useDeals";
 import type { Task } from "@/hooks/useTasks";
 import { addDays, isAfter, isBefore } from "date-fns";
+import { useAllDealProjects } from "@/hooks/useDealProjects";
 
 interface Props {
   deals: Deal[];
@@ -20,6 +21,8 @@ interface Props {
 const PIE_COLORS = ["hsl(var(--primary))", "#f59e0b", "#8b5cf6", "#22c55e", "#ec4899", "#6b7280"];
 
 export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, periodTo }: Props) {
+  const { data: allDealProjects = [] } = useAllDealProjects();
+
   const stats = useMemo(() => {
     const openStages = ["contato", "proposta", "negociacao"];
     const openDeals = deals.filter((d) => openStages.includes(d.stage));
@@ -31,7 +34,11 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
 
     const totalCreated = deals.length;
     const conversionRate = totalCreated > 0 ? (wonCount / totalCreated) * 100 : 0;
-    const avgTicket = wonCount > 0 ? wonValue / wonCount : 0;
+
+    // Ticket médio por projeto (deal_projects)
+    const wonDealIds = new Set(wonDeals.map((d) => d.id));
+    const wonProjects = allDealProjects.filter((p) => wonDealIds.has(p.deal_id));
+    const avgTicket = wonProjects.length > 0 ? wonValue / wonProjects.length : (wonCount > 0 ? wonValue / wonCount : 0);
 
     const cycles = wonDeals
       .filter((d) => d.created_at && d.updated_at)
@@ -67,7 +74,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
     const lossReasons = Object.entries(reasonMap).map(([name, value]) => ({ name, value }));
 
     return { totalPipeline, wonValue, wonCount, conversionRate, avgTicket, avgCycle, months, meta, lossReasons };
-  }, [deals, meta]);
+  }, [deals, meta, allDealProjects]);
 
   // Upcoming / overdue tasks
   const urgentTasks = useMemo(() => {
