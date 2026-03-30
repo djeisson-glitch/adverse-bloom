@@ -124,14 +124,15 @@ async function syncEndpoint(
       console.log(`[sync] ${label} página ${pagina}: HTTP ${res.status}`);
       if (res.status === 401) {
         const body = await res.text();
-        if (pagina === 1) return { status: "error", label, message: `401: ${body.slice(0, 200)}` };
+        console.error(`[sync] ${label} página ${pagina} 401 body: ${body}`);
+        if (pagina === 1) return { status: "error", label, message: `401: ${body}` };
         break;
       }
       if (!res.ok) {
         if (pagina === 1) {
           const body = await res.text();
           console.error(`[sync] ${label} FALHOU: ${body}`);
-          return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+          return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
         }
         break;
       }
