@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useEffect, useCallback } from "react";
 import { DollarSign, TrendingUp, Target, BarChart3, Percent, Calculator, Hash } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
@@ -20,15 +20,76 @@ import {
   calcMargemContribuicao, calcLucroLiquido, calcPontoEquilibrio, calcTicketMedio,
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
 } from "@/lib/financial";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useRef } from "react";
 
 export default function ResultadosMetas() {
   const { receivables, payables } = useAllContaAzulCache();
-
   const { period, setPeriod } = usePeriod();
+  const queryClient = useQueryClient();
+  const currentYear = new Date().getFullYear();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const [metaAnual, setMetaAnual] = useState(1500000);
+  // Load targets from DB
+  const { data: targetRow, isLoading: loadingTargets } = useQuery({
+    queryKey: ["budget-targets", currentYear],
+    queryFn: async () => {
+      const { data } = await supabase.from("budget_targets").select("*")
+        .eq("year", currentYear).maybeSingle();
+      return data;
+    },
+  });
+
+  const metaAnual = targetRow?.annual_target ?? 1500000;
+  const metaTicketLocal = useRef(50000);
+  const metaMargemLocal = useRef(20);
+
+  // We use local state that syncs from DB
+  const [metaAnualInput, setMetaAnualInput] = useState(metaAnual);
   const [metaTicket, setMetaTicket] = useState(50000);
   const [metaMargem, setMetaMargem] = useState(20);
+
+  // Need to import useState
+  useEffect(() => {
+    if (targetRow) {
+      setMetaAnualInput(targetRow.annual_target ?? 1500000);
+    }
+  }, [targetRow]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: { annual_target?: number }) => {
+      const payload = {
+        year: currentYear,
+        annual_target: values.annual_target ?? metaAnualInput,
+        q1_percent: targetRow?.q1_percent ?? 25,
+        q2_percent: targetRow?.q2_percent ?? 25,
+        q3_percent: targetRow?.q3_percent ?? 25,
+        q4_percent: targetRow?.q4_percent ?? 25,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("budget_targets")
+        .upsert(payload, { onConflict: "year" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["budget-targets"] });
+      toast.success("Meta salva!");
+    },
+  });
+
+  const debouncedSave = useCallback((annual: number) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      saveMutation.mutate({ annual_target: annual });
+    }, 800);
+  }, [saveMutation]);
+
+  const handleMetaAnualChange = (v: number) => {
+    setMetaAnualInput(v);
+    debouncedSave(v);
+  };
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
@@ -43,7 +104,6 @@ export default function ResultadosMetas() {
   const pontoEquilibrio = calcPontoEquilibrio(custosFixos, margemContribuicao);
   const { valor: ticketMedio, qtde: qtdeProjetos } = calcTicketMedio(recItems, period, receitaTotal);
 
-  // Monthly evolution - last 12 months (competência for receita, vencimento for despesas)
   const monthlyData = useMemo(() => {
     const now = new Date();
     const months: { label: string; key: string; receita: number; despesas: number; margem: number }[] = [];
@@ -59,11 +119,10 @@ export default function ResultadosMetas() {
     return months;
   }, [recItems, payItems]);
 
-  // Faturamento vs Meta monthly (current year, competência)
   const fatVsMetaData = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
-    const metaMensal = metaAnual / 12;
+    const metaMensal = metaAnualInput / 12;
     const months: { label: string; faturamento: number; meta: number }[] = [];
     for (let m = 0; m < 12; m++) {
       const k = monthKey(y, m);
@@ -72,9 +131,8 @@ export default function ResultadosMetas() {
       months.push({ label, faturamento: fat, meta: metaMensal });
     }
     return months;
-  }, [recItems, metaAnual]);
+  }, [recItems, metaAnualInput]);
 
-  // Top clients by revenue (competência)
   const topClients = useMemo(() => {
     const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
     const byClient: Record<string, { revenue: number; count: number }> = {};
@@ -105,7 +163,7 @@ export default function ResultadosMetas() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <Label className="text-xs text-muted-foreground">Meta Anual (R$)</Label>
-            <Input type="number" value={metaAnual} onChange={e => setMetaAnual(Number(e.target.value))} className="h-8 mt-1" />
+            <Input type="number" value={metaAnualInput} onChange={e => handleMetaAnualChange(Number(e.target.value))} className="h-8 mt-1" />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Meta Ticket Médio (R$)</Label>
@@ -165,7 +223,7 @@ export default function ResultadosMetas() {
               <ChartTooltip content={<ChartTooltipContent />} />
               <Legend />
               <Bar dataKey="faturamento" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              <ReferenceLine y={metaAnual / 12} stroke="hsl(var(--warning))" strokeDasharray="5 5" label={{ value: "Meta", fill: "hsl(var(--warning))", fontSize: 11 }} />
+              <ReferenceLine y={metaAnualInput / 12} stroke="hsl(var(--warning))" strokeDasharray="5 5" label={{ value: "Meta", fill: "hsl(var(--warning))", fontSize: 11 }} />
             </BarChart>
           </ChartContainer>
         </motion.div>

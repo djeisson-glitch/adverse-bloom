@@ -5,7 +5,7 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
 import {
   type CAItem, isInRange, calcReceitaTotal, calcReceitaRecebida,
-  calcDespesasOperacionais, calcSaldoEmConta,
+  calcDespesasOperacionais, calcSaldoEmConta, getCat,
 } from "@/lib/financial";
 import { motion } from "framer-motion";
 import {
@@ -14,10 +14,11 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PeriodFilter } from "@/components/PeriodFilter";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { DetailModal } from "@/components/financeiro/DetailModal";
 
 export default function Index() {
   const { data: projects, isLoading: loadingProjects } = useProjects();
@@ -28,29 +29,42 @@ export default function Index() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  // KPI 1: Receita do Período (competência)
-  const receitaPeriodo = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  // Detail modal state
+  const [detailModal, setDetailModal] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" } | null>(null);
 
-  // KPI 2: Recebido (caixa)
+  // KPI 1: Faturamento = NFS emitidas no período (competência, field total)
+  const faturamentoPeriodo = useMemo(() => calcReceitaTotal(recItems, period), [recItems, period]);
+  const faturamentoItems = useMemo(() =>
+    recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period)),
+    [recItems, period]);
+
+  // KPI 2: Recebido = valor efetivamente recebido no período (vencimento, field pago)
   const recebidoPeriodo = useMemo(() => calcReceitaRecebida(recItems, period), [recItems, period]);
+  const recebidoItems = useMemo(() =>
+    recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period)),
+    [recItems, period]);
 
-  // KPI 3: Faturamento (competência) - same as receita total
-  const faturamentoPeriodo = receitaPeriodo;
-
-  // KPI 4: A Receber - PENDING, no period filter
+  // KPI 3: A Receber - PENDING, no period filter
   const aReceber = useMemo(() =>
     recItems.filter(r => r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0),
     [recItems]);
+  const aReceberItems = useMemo(() => recItems.filter(r => r?.status === "PENDING"), [recItems]);
 
-  // KPI 5: Despesas Operacionais do Período
+  // KPI 4: Despesas Operacionais do Período
   const despesasPeriodo = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
+  const despesasItems = useMemo(() =>
+    payItems.filter(r => !isInRange(r?.data_vencimento, period) ? false : true).filter(r => isInRange(r?.data_vencimento, period)),
+    [payItems, period]);
 
-  // KPI 6: Pago no Período
+  // KPI 5: Pago no Período
   const pagoPeriodo = useMemo(() =>
     payItems.filter(r => isInRange(r?.data_vencimento, period)).reduce((s, r) => s + (r?.pago ?? 0), 0),
     [payItems, period]);
+  const pagoItems = useMemo(() =>
+    payItems.filter(r => isInRange(r?.data_vencimento, period)),
+    [payItems, period]);
 
-  // KPI 7: Saldo em Conta
+  // KPI 6: Saldo em Conta
   const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
 
   // Fluxo chart: always last 6 months
@@ -72,7 +86,7 @@ export default function Index() {
     return months;
   }, [recItems]);
 
-  // Top 5 categorias filtered by period using data_vencimento
+  // Top 5 categorias filtered by period
   const expenseCategories = useMemo(() => {
     const filtered = payItems.filter(r => isInRange(r?.data_competencia, period));
     const byCategory: Record<string, number> = {};
@@ -106,14 +120,18 @@ export default function Index() {
         <PeriodFilter value={period} onChange={setPeriod} />
       </div>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-        <StatCard title="Receita do Período" value={formatCurrency(receitaPeriodo)} icon={DollarSign} delay={0} />
-        <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05} />
-        <StatCard title="Faturamento" value={formatCurrency(faturamentoPeriodo)} icon={Receipt} delay={0.1} />
-        <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.15} />
-        <StatCard title="Despesas do Período" value={formatCurrency(despesasPeriodo)} icon={Wallet} delay={0.2} />
-        <StatCard title="Pago no Período" value={formatCurrency(pagoPeriodo)} icon={CreditCard} delay={0.25} />
-        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={Wallet} delay={0.3} />
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Faturamento" value={formatCurrency(faturamentoPeriodo)} icon={Receipt} delay={0}
+          onClick={() => setDetailModal({ title: "Faturamento — NFS Emitidas", items: faturamentoItems, valueField: "total" })} />
+        <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05}
+          onClick={() => setDetailModal({ title: "Recebido no Período", items: recebidoItems, valueField: "pago" })} />
+        <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.1}
+          onClick={() => setDetailModal({ title: "A Receber (Pendentes)", items: aReceberItems, valueField: "total" })} />
+        <StatCard title="Despesas do Período" value={formatCurrency(despesasPeriodo)} icon={Wallet} delay={0.15}
+          onClick={() => setDetailModal({ title: "Despesas do Período", items: despesasItems, valueField: "total" })} />
+        <StatCard title="Pago no Período" value={formatCurrency(pagoPeriodo)} icon={CreditCard} delay={0.2}
+          onClick={() => setDetailModal({ title: "Pago no Período", items: pagoItems, valueField: "pago" })} />
+        <StatCard title="Saldo em Conta" value={formatCurrency(saldoEmConta)} icon={DollarSign} delay={0.25} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -156,6 +174,16 @@ export default function Index() {
           )}
         </motion.div>
       </div>
+
+      {detailModal && (
+        <DetailModal
+          open={!!detailModal}
+          onOpenChange={(open) => !open && setDetailModal(null)}
+          title={detailModal.title}
+          items={detailModal.items}
+          valueField={detailModal.valueField}
+        />
+      )}
     </div>
   );
 }
