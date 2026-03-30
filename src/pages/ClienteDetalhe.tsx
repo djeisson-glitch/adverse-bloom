@@ -13,10 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle, Film } from "lucide-react";
+import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { STAGES } from "@/hooks/useDeals";
-import { useDealProjectsByClient, type DealProject } from "@/hooks/useDealProjects";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 const ORIGINS = ["Apollo", "Indicação", "Evento", "Outros"];
@@ -38,7 +37,6 @@ export default function ClienteDetalhe() {
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
   const { toast } = useToast();
-  const { data: dealProjectsData = [] } = useDealProjectsByClient(id);
 
   const client = clients.find((c) => c.id === id);
 
@@ -140,11 +138,17 @@ export default function ClienteDetalhe() {
   const lostDeals = clientDeals.filter((d) => d.stage === "perdido");
   const ltv = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
   const lostValue = lostDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
-  const ticketMedio = dealProjectsData.length > 0 ? ltv / dealProjectsData.length : (wonDeals.length > 0 ? ltv / wonDeals.length : 0);
-  const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;
   const budgets = budgetsQuery.data || [];
   const projects = projectsQuery.data || [];
   const tasks = tasksQuery.data || [];
+
+  // Count projects from budgets' project_count
+  const totalProjectCount = budgets
+    .filter((b) => wonDeals.some((d) => d.id === (b as any).deal_id))
+    .reduce((s, b) => s + ((b as any).project_count || 1), 0);
+  const ticketMedio = totalProjectCount > 0 ? ltv / totalProjectCount : (wonDeals.length > 0 ? ltv / wonDeals.length : 0);
+  const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;
+
   const originMatch = client.notes?.match(/^Origem: (.+)$/m);
   const origin = originMatch?.[1] || "";
   const cleanNotes = client.notes?.replace(/^Origem: .+\n?/m, "").trim() || "";
@@ -153,7 +157,7 @@ export default function ClienteDetalhe() {
   const firstDealDate = clientDeals.length > 0
     ? clientDeals.reduce((min, d) => (!min || (d.created_at && d.created_at < min) ? d.created_at! : min), "")
     : null;
-  const lastProjectDate = dealProjectsData.length > 0 ? dealProjectsData[0].created_at : (projects.length > 0 ? projects[0].created_at : null);
+  const lastProjectDate = projects.length > 0 ? projects[0].created_at : null;
   const relationshipMonths = firstDealDate
     ? Math.max(1, Math.round((Date.now() - new Date(firstDealDate).getTime()) / (1000 * 60 * 60 * 24 * 30)))
     : 0;
@@ -173,7 +177,7 @@ export default function ClienteDetalhe() {
     { label: "Ticket Médio", value: formatCurrency(ticketMedio), icon: TrendingUp, color: "text-primary" },
     { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-green-400" },
     { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-red-400" },
-    { label: "Projetos", value: String(dealProjectsData.length), icon: Film, color: "text-primary" },
+    { label: "Projetos", value: String(totalProjectCount || projects.length), icon: Briefcase, color: "text-primary" },
     { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-green-400" : "text-amber-400" },
   ];
 
@@ -321,7 +325,6 @@ export default function ClienteDetalhe() {
             <TabsList className="w-full justify-start">
               <TabsTrigger value="deals">Deals ({clientDeals.length})</TabsTrigger>
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
-              <TabsTrigger value="projetos">Projetos ({dealProjectsData.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
             </TabsList>
 
@@ -377,33 +380,6 @@ export default function ClienteDetalhe() {
                         <Badge variant={b.status === "approved" ? "default" : "outline"} className="text-xs">
                           {b.status === "approved" ? "Aprovado" : "Rascunho"}
                         </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="projetos" className="space-y-3">
-              {dealProjectsData.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum projeto vinculado</p>
-              ) : (
-                <div className="space-y-2">
-                  {dealProjectsData.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card hover:bg-secondary/30 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <Film className="h-4 w-4 text-primary shrink-0" />
-                        <div>
-                          <p className="font-medium text-sm">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(p.created_at).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="secondary" className="text-[10px]">{p.delivery_type}</Badge>
-                        <span className="font-heading font-semibold text-sm text-primary">{formatCurrency(p.value || 0)}</span>
-                        <span className="text-xs text-muted-foreground">{formatPercent(p.margin_percent || 0)} margem</span>
                       </div>
                     </div>
                   ))}
