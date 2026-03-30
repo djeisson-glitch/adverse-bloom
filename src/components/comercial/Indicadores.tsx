@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle } from "lucide-react";
+import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle, Film } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { Deal } from "@/hooks/useDeals";
 import type { Task } from "@/hooks/useTasks";
 import { addDays, isAfter, isBefore } from "date-fns";
+import { useAllDealProjects } from "@/hooks/useDealProjects";
 
 interface Props {
   deals: Deal[];
