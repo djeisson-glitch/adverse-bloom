@@ -176,6 +176,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
   const [captureDays, setCaptureDays] = useState(0);
   const [budgetNumber, setBudgetNumber] = useState<number | null>(null);
+  const [internalNotes, setInternalNotes] = useState("");
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
