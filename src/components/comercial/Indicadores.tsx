@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle, Film } from "lucide-react";
+import { TrendingUp, Trophy, Target, DollarSign, Clock, BarChart3, AlertTriangle } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart, PieChart, Pie, Cell } from "recharts";
 import type { Deal } from "@/hooks/useDeals";
 import type { Task } from "@/hooks/useTasks";
-import { addDays, isAfter, isBefore } from "date-fns";
-import { useAllDealProjects } from "@/hooks/useDealProjects";
+import { addDays, isBefore } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   deals: Deal[];
@@ -21,7 +22,18 @@ interface Props {
 const PIE_COLORS = ["hsl(var(--primary))", "#f59e0b", "#8b5cf6", "#22c55e", "#ec4899", "#6b7280"];
 
 export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, periodTo }: Props) {
-  const { data: allDealProjects = [] } = useAllDealProjects();
+  // Fetch budgets to get project_count for ticket médio
+  const { data: allBudgets = [] } = useQuery({
+    queryKey: ["budgets_for_indicators"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("budgets")
+        .select("deal_id, project_count, total_value, is_latest_version")
+        .eq("is_latest_version", true);
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const stats = useMemo(() => {
     const openStages = ["contato", "proposta", "negociacao"];
@@ -35,10 +47,12 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
     const totalCreated = deals.length;
     const conversionRate = totalCreated > 0 ? (wonCount / totalCreated) * 100 : 0;
 
-    // Ticket médio por projeto (deal_projects)
+    // Ticket médio por projeto usando project_count dos budgets
     const wonDealIds = new Set(wonDeals.map((d) => d.id));
-    const wonProjects = allDealProjects.filter((p) => wonDealIds.has(p.deal_id));
-    const avgTicket = wonProjects.length > 0 ? wonValue / wonProjects.length : (wonCount > 0 ? wonValue / wonCount : 0);
+    const totalProjects = allBudgets
+      .filter((b) => b.deal_id && wonDealIds.has(b.deal_id))
+      .reduce((s, b) => s + ((b as any).project_count || 1), 0);
+    const avgTicket = totalProjects > 0 ? wonValue / totalProjects : (wonCount > 0 ? wonValue / wonCount : 0);
 
     const cycles = wonDeals
       .filter((d) => d.created_at && d.updated_at)
@@ -73,8 +87,8 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
     });
     const lossReasons = Object.entries(reasonMap).map(([name, value]) => ({ name, value }));
 
-    return { totalPipeline, wonValue, wonCount, conversionRate, avgTicket, avgCycle, months, meta, lossReasons };
-  }, [deals, meta, allDealProjects]);
+    return { totalPipeline, wonValue, wonCount, conversionRate, avgTicket, avgCycle, months, meta, lossReasons, totalProjects };
+  }, [deals, meta, allBudgets]);
 
   // Upcoming / overdue tasks
   const urgentTasks = useMemo(() => {
