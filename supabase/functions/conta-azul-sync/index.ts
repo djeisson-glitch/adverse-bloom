@@ -98,9 +98,8 @@ async function getValidToken(supabase: any): Promise<{ token: string } | { error
   return { token: tokenData.access_token };
 }
 
-// IMPORTANT: Correct API base URL per official Conta Azul docs
-const BASE = "https://api-v2.contaazul.com/v2";
-const BASE_V1 = "https://api-v2.contaazul.com/v1";
+// Conta Azul Financial API (v1)
+const BASE_V1 = "https://api.contaazul.com/v1";
 const dataInicio = "2025-01-01";
 const dataFim = new Date().toISOString().slice(0, 10);
 const dataInicioEmpresa = "2023-06-05";
@@ -123,7 +122,7 @@ async function syncEndpoint(
       if (!res.ok) {
         const body = await res.text();
         console.error(`[sync] ${label} FALHOU: ${body}`);
-        return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+        return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
       }
       const payload = await res.json();
       const items = Array.isArray(payload) ? payload : payload.itens || payload.items || payload.data || [];
@@ -138,14 +137,14 @@ async function syncEndpoint(
     let allItems: any[] = [];
     for (let pagina = 1; pagina <= 25; pagina++) {
       const sep = url.includes("?") ? "&" : "?";
-      const pageUrl = `${url}${sep}page=${pagina}&size=200`;
+      const pageUrl = `${url}${sep}pagina=${pagina}&tamanho_pagina=200`;
       const res = await fetch(pageUrl, { headers });
       console.log(`[sync] ${label} página ${pagina}: HTTP ${res.status}`);
       if (!res.ok) {
         const body = await res.text();
         if (pagina === 1) {
           console.error(`[sync] ${label} FALHOU na primeira página: ${body}`);
-          return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+          return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
         }
         break;
       }
@@ -168,42 +167,20 @@ async function syncEndpoint(
     return { status: "error", label, message: String(e) };
   }
 }
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  try {
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    const tokenResult = await getValidToken(supabase);
-    if ("error" in tokenResult) {
-      return new Response(JSON.stringify({ error: tokenResult.error, reauth: tokenResult.reauth }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    let token = tokenResult.token;
-    let headers = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-    const now = new Date().toISOString();
-    const period = now.slice(0, 7);
-    const results: Record<string, any> = {};
-
+...
     const jobs = [
-      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/accounts`, paginated: false },
-      { key: "categories", label: "Categorias", url: `${BASE}/categories?size=200`, paginated: false },
+      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE_V1}/conta-financeira`, paginated: false },
+      { key: "categories", label: "Categorias", url: `${BASE_V1}/categorias`, paginated: true },
       {
         key: "receivables",
         label: "Contas a receber",
-        url: `${BASE}/receivables?due_date_start=${dataInicio}&due_date_end=${dataFim}`,
+        url: `${BASE_V1}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`,
         paginated: true,
       },
       {
         key: "payables",
         label: "Contas a pagar",
-        url: `${BASE}/payables?due_date_start=${dataInicio}&due_date_end=${dataFim}`,
+        url: `${BASE_V1}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`,
         paginated: true,
       },
     ];
