@@ -17,7 +17,7 @@ export function StatCard({ title, value, change, changeType = "neutral", icon: I
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className={`glass-card stat-glow p-5 ${onClick ? "cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow" : ""}`}
+      className={`glass-card stat-glow p-5 overflow-hidden ${onClick ? "cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
