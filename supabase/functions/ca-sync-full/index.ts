@@ -97,12 +97,13 @@ async function syncEndpoint(
       console.log(`[sync] ${label}: HTTP ${res.status}`);
       if (res.status === 401) {
         const body = await res.text();
-        return { status: "error", label, message: `401: ${body.slice(0, 200)}` };
+        console.error(`[sync] ${label} 401 body: ${body}`);
+        return { status: "error", label, message: `401: ${body}` };
       }
       if (!res.ok) {
         const body = await res.text();
         console.error(`[sync] ${label} FALHOU: ${body}`);
-        return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+        return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
       }
       const payload = await res.json();
       const items = Array.isArray(payload) ? payload : (payload.itens || payload.items || payload.data || []);
