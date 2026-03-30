@@ -173,7 +173,7 @@ export default function ClienteDetalhe() {
     { label: "Ticket Médio", value: formatCurrency(ticketMedio), icon: TrendingUp, color: "text-primary" },
     { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-green-400" },
     { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-red-400" },
-    { label: "Projetos", value: String(projects.length), icon: Briefcase, color: "text-primary" },
+    { label: "Projetos", value: String(dealProjectsData.length), icon: Film, color: "text-primary" },
     { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-green-400" : "text-amber-400" },
   ];
 
