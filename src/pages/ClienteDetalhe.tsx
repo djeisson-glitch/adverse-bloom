@@ -38,6 +38,7 @@ export default function ClienteDetalhe() {
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
   const { toast } = useToast();
+  const { data: dealProjectsData = [] } = useDealProjectsByClient(id);
 
   const client = clients.find((c) => c.id === id);
 
