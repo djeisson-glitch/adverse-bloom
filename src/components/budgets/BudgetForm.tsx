@@ -761,6 +761,23 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         </CardContent>
       </Card>
 
+      {/* Internal Notes */}
+      <Card>
+        <CardContent className="pt-3 pb-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Observação interna <span className="text-muted-foreground/70 font-normal">(não aparece na proposta)</span></Label>
+            <Textarea
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              placeholder="Anotações internas sobre este orçamento..."
+              rows={2}
+              className="text-sm resize-none"
+              disabled={isApproved}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Left: Items */}
         <div className="lg:col-span-2 space-y-3">
