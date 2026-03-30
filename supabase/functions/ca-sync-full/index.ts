@@ -181,7 +181,8 @@ serve(async (req) => {
       { key: "receivables", label: "Contas a receber", url: `${BASE}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },
       { key: "payables", label: "Contas a pagar", url: `${BASE}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },
       { key: "sales", label: "Vendas", url: `${BASE}/venda/busca?data_emissao_de=${dataInicio}&data_emissao_ate=${dataFim}`, paginated: true },
-      { key: "transactions", label: "Transferências", url: `${BASE}/financeiro/transferencias?data_inicio=${dataInicio}&data_fim=${dataFim}`, paginated: true },
+      { key: "transactions_2025", label: "Transferências 2025", url: `${BASE}/financeiro/transferencias?data_inicio=2025-01-01&data_fim=2025-12-31`, paginated: true },
+      { key: "transactions_2026", label: "Transferências 2026", url: `${BASE}/financeiro/transferencias?data_inicio=2026-01-01&data_fim=2026-12-31`, paginated: true },
     ];
 
     let needsReauth = false;
