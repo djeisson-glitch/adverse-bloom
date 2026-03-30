@@ -296,8 +296,13 @@ export default function ResultadosMetas() {
             </thead>
             <tbody>
               {topClients.map((c, i) => (
-                <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="py-3 font-medium">{c.name}</td>
+                <tr key={i} className={`border-b border-border/50 hover:bg-muted/30 ${c.clientId ? "cursor-pointer" : ""}`}
+                  onClick={() => c.clientId && navigate(`/clientes/${c.clientId}`)}>
+                  <td className="py-3 font-medium">
+                    {c.clientId ? (
+                      <span className="text-primary hover:underline">{c.name}</span>
+                    ) : c.name}
+                  </td>
                   <td className="py-3 text-right">{formatCurrency(c.revenue)}</td>
                   <td className="py-3 text-right">{c.projects}</td>
                   <td className="py-3 text-right">{formatCurrency(c.ticket)}</td>
@@ -309,6 +314,16 @@ export default function ResultadosMetas() {
           {topClients.length === 0 && <p className="text-center text-muted-foreground py-8">Sem dados no período selecionado.</p>}
         </div>
       </motion.div>
+
+      {detailModal && (
+        <DetailModal
+          open={!!detailModal}
+          onOpenChange={(open) => !open && setDetailModal(null)}
+          title={detailModal.title}
+          items={detailModal.items}
+          valueField={detailModal.valueField}
+        />
+      )}
     </div>
   );
 }
