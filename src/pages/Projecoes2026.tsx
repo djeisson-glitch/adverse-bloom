@@ -13,6 +13,10 @@ import {
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ReferenceLine, Cell, LabelList } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { QuarterlyTargets } from "@/components/projections/QuarterlyTargets";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -21,6 +25,35 @@ export default function Projecoes2026() {
   const [metaAnual, setMetaAnual] = useState(1500000);
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
+
+  // Ciclo médio de conversão (deals fechados)
+  const { data: cicloMedio } = useQuery({
+    queryKey: ["ciclo-medio-projecoes"],
+    queryFn: async () => {
+      const { data: wonDeals } = await supabase.from("deals").select("id, created_at, updated_at")
+        .eq("stage", "fechamento");
+      if (!wonDeals?.length) return 45; // default
+      const dealIds = wonDeals.map(d => d.id);
+      const { data: budgets } = await supabase.from("budgets").select("deal_id, created_at")
+        .in("deal_id", dealIds).order("created_at", { ascending: true });
+      const earliestBudget: Record<string, string> = {};
+      (budgets || []).forEach(b => {
+        if (b.deal_id && !earliestBudget[b.deal_id]) earliestBudget[b.deal_id] = b.created_at;
+      });
+      let totalDays = 0, count = 0;
+      wonDeals.forEach(deal => {
+        const closeDate = new Date(deal.updated_at!);
+        const dealCreated = new Date(deal.created_at!);
+        const budgetCreated = earliestBudget[deal.id] ? new Date(earliestBudget[deal.id]) : dealCreated;
+        const startDate = budgetCreated < dealCreated ? budgetCreated : dealCreated;
+        const days = Math.round((closeDate.getTime() - startDate.getTime()) / 86400000);
+        if (days > 0) { totalDays += days; count++; }
+      });
+      return count > 0 ? Math.round(totalDays / count) : 45;
+    },
+  });
+
+  const ciclo = cicloMedio ?? 45;
 
   // Always use data_competencia + item.total (faturamento, not recebimento)
   const getMonthlyByYear = (year: number) => {
@@ -60,19 +93,54 @@ export default function Projecoes2026() {
   const proj2026Agressivo = proj2026Base.map(v => v * 1.1);
 
   // Dynamic: months before current month = real, from current month onward = projection
-  const currentMonth = new Date().getMonth(); // 0-indexed (Mar = 2)
+  const currentMonth = new Date().getMonth(); // 0-indexed
+
+  // Build projection explanations per month
+  const explanations = useMemo(() => {
+    return MONTH_LABELS.map((label, i) => {
+      const seasonPct = seasonality[i];
+      const classif = classify(seasonPct);
+      const meta = proj2026Base[i];
+      const prospectMonth = new Date(2026, i, 1);
+      prospectMonth.setDate(prospectMonth.getDate() - ciclo);
+      const prospectLabel = MONTH_LABELS[prospectMonth.getMonth()];
+      const prospectYear = prospectMonth.getFullYear();
+
+      const hist2024 = data2024[i];
+      const hist2025 = data2025[i];
+
+      const parts: string[] = [];
+
+      // Seasonality explanation
+      if (classif === "Pico") {
+        parts.push(`Mês de pico histórico (${seasonPct.toFixed(1)}% da receita anual).`);
+      } else if (classif === "Baixa") {
+        parts.push(`Mês de baixa demanda (${seasonPct.toFixed(1)}% da receita anual).`);
+      } else {
+        parts.push(`Demanda normal (${seasonPct.toFixed(1)}% da receita anual).`);
+      }
+
+      // Historical context
+      if (hist2024 > 0 || hist2025 > 0) {
+        parts.push(`Histórico: ${formatCurrency(hist2024)} em 2024, ${formatCurrency(hist2025)} em 2025.`);
+      }
+
+      // Prospecting deadline
+      parts.push(`Prospectar até ${prospectLabel}/${prospectYear} (ciclo médio: ${ciclo} dias) para fechar a meta de ${formatCurrency(meta)}.`);
+
+      return parts.join(" ");
+    });
+  }, [seasonality, proj2026Base, ciclo, data2024, data2025]);
 
   const chartData = useMemo(() =>
     MONTH_LABELS.map((label, i) => {
       const isReal = i < currentMonth && data2026[i] > 0;
-      const isTransition = i === currentMonth - 1; // last real month bridges to projection
+      const isTransition = i === currentMonth - 1;
       return {
         label,
         real2024: data2024[i],
         real2025: data2025[i],
-        // Solid line: real data for closed months
         solid2026: isReal ? data2026[i] : (isTransition ? data2026[i] : null),
-        // Dashed line: projection from current month onward, overlapping last real point for continuity
         dash2026: i >= currentMonth ? proj2026Base[i] : (isTransition && data2026[i] > 0 ? data2026[i] : null),
         meta2026: proj2026Base[i],
       };
@@ -106,6 +174,7 @@ export default function Projecoes2026() {
     real2025: data2025[i],
     real2026: data2026[i],
     gap2026: data2026[i] > 0 ? data2026[i] - proj2026Base[i] : 0,
+    explanation: explanations[i],
   }));
 
   const total2024 = data2024.reduce((s, v) => s + v, 0);
@@ -117,7 +186,7 @@ export default function Projecoes2026() {
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold">Projeções 2026</h1>
-        <p className="text-sm text-muted-foreground">Cenários e sazonalidade baseados em dados históricos</p>
+        <p className="text-sm text-muted-foreground">Cenários e sazonalidade baseados em dados históricos • Ciclo médio de fechamento: {ciclo} dias</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
@@ -173,7 +242,7 @@ export default function Projecoes2026() {
             </div>
           </div>
 
-           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
+           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 overflow-hidden">
             <h2 className="font-heading text-lg font-semibold mb-4">Faturamento Mensal — Comparativo Anual</h2>
             <ChartContainer config={{
               real2024: { label: "2024 Real", color: "hsl(var(--muted-foreground))" },
@@ -181,7 +250,7 @@ export default function Projecoes2026() {
               solid2026: { label: "2026 Real", color: "#3b82f6" },
               dash2026: { label: "2026 Projeção", color: "#3b82f6" },
               meta2026: { label: "2026 Meta", color: "#fbbf24" },
-            }} className="h-[500px] max-sm:h-[350px]">
+            }} className="h-[500px] max-sm:h-[350px] w-full">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
@@ -200,61 +269,77 @@ export default function Projecoes2026() {
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Detalhamento Mensal</h2>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">Mês</th>
-                    <th className="pb-3 font-medium text-center">Sazonalidade</th>
-                    <th className="pb-3 font-medium text-right">Real 2024</th>
-                    <th className="pb-3 font-medium text-right">Real 2025</th>
-                    <th className="pb-3 font-medium text-right">Real 2026</th>
-                    <th className="pb-3 font-medium text-right">Meta 2026</th>
-                    <th className="pb-3 font-medium text-right">Conservador</th>
-                    <th className="pb-3 font-medium text-right">Agressivo</th>
-                    <th className="pb-3 font-medium text-right">Gap 2026</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableData.map((row, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
-                      <td className="py-2 font-medium">{row.month}</td>
-                      <td className="py-2 text-center">
-                        <Badge variant={row.classification === "Pico" ? "default" : row.classification === "Baixa" ? "destructive" : "secondary"} className="text-xs">
-                          {formatPercent(row.seasonPct)} · {row.classification}
-                        </Badge>
-                      </td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
-                      <td className="py-2 text-right">{row.real2026 > 0 ? formatCurrency(row.real2026) : "—"}</td>
-                      <td className="py-2 text-right">{formatCurrency(row.meta2026)}</td>
-                      <td className="py-2 text-right text-warning">{formatCurrency(row.conservador)}</td>
-                      <td className="py-2 text-right text-success">{formatCurrency(row.agressivo)}</td>
-                      <td className={`py-2 text-right ${row.gap2026 >= 0 ? "text-success" : "text-destructive"}`}>
-                        {row.real2026 > 0 ? formatCurrency(row.gap2026) : "—"}
-                      </td>
+              <TooltipProvider>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="pb-3 font-medium">Mês</th>
+                      <th className="pb-3 font-medium text-center">Sazonalidade</th>
+                      <th className="pb-3 font-medium text-right">Real 2024</th>
+                      <th className="pb-3 font-medium text-right">Real 2025</th>
+                      <th className="pb-3 font-medium text-right">Real 2026</th>
+                      <th className="pb-3 font-medium text-right">Meta 2026</th>
+                      <th className="pb-3 font-medium text-right">Conservador</th>
+                      <th className="pb-3 font-medium text-right">Agressivo</th>
+                      <th className="pb-3 font-medium text-right">Gap 2026</th>
+                      <th className="pb-3 font-medium text-center">Explicação</th>
                     </tr>
-                  ))}
-                  <tr className="border-t-2 border-border font-semibold">
-                    <td className="py-2">Total</td>
-                    <td className="py-2 text-center">100%</td>
-                    <td className="py-2 text-right">{formatCurrency(total2024)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2025)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2026)}</td>
-                    <td className="py-2 text-right">{formatCurrency(metaAnual)}</td>
-                    <td className="py-2 text-right text-warning">{formatCurrency(metaAnual * 0.9)}</td>
-                    <td className="py-2 text-right text-success">{formatCurrency(metaAnual * 1.1)}</td>
-                    <td className="py-2 text-right">{formatCurrency(total2026 - metaAnual)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {tableData.map((row, i) => (
+                      <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                        <td className="py-2 font-medium">{row.month}</td>
+                        <td className="py-2 text-center">
+                          <Badge variant={row.classification === "Pico" ? "default" : row.classification === "Baixa" ? "destructive" : "secondary"} className="text-xs">
+                            {formatPercent(row.seasonPct)} · {row.classification}
+                          </Badge>
+                        </td>
+                        <td className="py-2 text-right">{formatCurrency(row.real2024)}</td>
+                        <td className="py-2 text-right">{formatCurrency(row.real2025)}</td>
+                        <td className="py-2 text-right">{row.real2026 > 0 ? formatCurrency(row.real2026) : "—"}</td>
+                        <td className="py-2 text-right">{formatCurrency(row.meta2026)}</td>
+                        <td className="py-2 text-right text-warning">{formatCurrency(row.conservador)}</td>
+                        <td className="py-2 text-right text-success">{formatCurrency(row.agressivo)}</td>
+                        <td className={`py-2 text-right ${row.gap2026 >= 0 ? "text-success" : "text-destructive"}`}>
+                          {row.real2026 > 0 ? formatCurrency(row.gap2026) : "—"}
+                        </td>
+                        <td className="py-2 text-center">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                                <Info className="h-4 w-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="max-w-xs text-xs">
+                              {row.explanation}
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-border font-semibold">
+                      <td className="py-2">Total</td>
+                      <td className="py-2 text-center">100%</td>
+                      <td className="py-2 text-right">{formatCurrency(total2024)}</td>
+                      <td className="py-2 text-right">{formatCurrency(total2025)}</td>
+                      <td className="py-2 text-right">{formatCurrency(total2026)}</td>
+                      <td className="py-2 text-right">{formatCurrency(metaAnual)}</td>
+                      <td className="py-2 text-right text-warning">{formatCurrency(metaAnual * 0.9)}</td>
+                      <td className="py-2 text-right text-success">{formatCurrency(metaAnual * 1.1)}</td>
+                      <td className="py-2 text-right">{formatCurrency(total2026 - metaAnual)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </TooltipProvider>
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden">
             <h2 className="font-heading text-lg font-semibold mb-4">Visualização de Sazonalidade</h2>
             <ChartContainer config={{
               seasonality: { label: "Sazonalidade", color: "hsl(var(--primary))" },
-            }} className="h-[400px] sm:h-[400px] max-sm:h-[300px]">
+            }} className="h-[400px] sm:h-[400px] max-sm:h-[300px] w-full">
               <BarChart data={seasonChartData} margin={{ top: 20, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
