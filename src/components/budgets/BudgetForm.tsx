@@ -249,6 +249,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setDealId((existing as any).deal_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
+      setInternalNotes((existing as any).internal_notes ?? "");
       setBudgetNumber(existing.budget_number);
       setSavedBudgetId(existing.id);
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
