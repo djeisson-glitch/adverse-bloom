@@ -523,9 +523,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           is_latest_version: existing?.is_latest_version ?? true,
           proposal_name: proposalName,
            deal_id: dealId,
-           deal_project_id: dealProjectId,
            not_included: notIncluded,
            capture_days: captureDays,
+           project_count: projectCount,
            internal_notes: internalNotes || null,
         } as any,
         items: validItems,
@@ -533,17 +533,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       {
         onSuccess: async (newId) => {
           if (!savedBudgetId && newId) setSavedBudgetId(newId as unknown as string);
-          // Sync deal_project value/margin
-          if (dealProjectId) {
-            const supplierTotal = validItems.reduce((s, i) => s + (i.supplier_cost || 0), 0);
-            await supabase.from("deal_projects").update({
-              value: totals.totalValue,
-              internal_cost: supplierTotal,
-              margin_value: totals.marginValue,
-              margin_percent: totals.marginPercent,
-              updated_at: new Date().toISOString(),
-            } as any).eq("id", dealProjectId);
-          }
           toast({ title: "Orçamento salvo com sucesso!" });
         },
       }
