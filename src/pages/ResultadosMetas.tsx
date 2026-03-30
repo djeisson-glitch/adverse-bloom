@@ -230,7 +230,7 @@ export default function ResultadosMetas() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6 overflow-hidden min-w-0">
           <h2 className="font-heading text-lg font-semibold mb-4">Receita vs Despesas - 12 Meses</h2>
           <ChartContainer config={{
             receita: { label: "Receita", color: "hsl(var(--success))" },
@@ -248,7 +248,7 @@ export default function ResultadosMetas() {
           </ChartContainer>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 overflow-hidden min-w-0">
           <h2 className="font-heading text-lg font-semibold mb-4">Faturamento vs Meta Mensal</h2>
           <ChartContainer config={{
             faturamento: { label: "Faturamento", color: "hsl(var(--primary))" },
@@ -267,7 +267,7 @@ export default function ResultadosMetas() {
         </motion.div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden min-w-0">
         <h2 className="font-heading text-lg font-semibold mb-4">Margem Líquida % - Evolução Mensal</h2>
         <ChartContainer config={{ margem: { label: "Margem %", color: "hsl(var(--primary))" } }} className="h-[250px] w-full">
           <LineChart data={monthlyData}>

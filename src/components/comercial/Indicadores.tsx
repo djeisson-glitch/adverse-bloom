@@ -92,7 +92,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="bg-card border-border">
+           <Card className="bg-card border-border overflow-hidden min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Deals ganhos vs Meta mensal</CardTitle>
             </CardHeader>
@@ -116,7 +116,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
 
         {stats.lossReasons.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border overflow-hidden min-w-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Motivos de perda</CardTitle>
               </CardHeader>
@@ -139,7 +139,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
 
       {urgentTasks.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border overflow-hidden min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-400" />

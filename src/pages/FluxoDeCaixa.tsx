@@ -106,7 +106,7 @@ export default function FluxoDeCaixa() {
           <ChartContainer config={{
             entradas: { label: "Entradas", color: "hsl(var(--success))" },
             saidas: { label: "Saídas", color: "hsl(var(--destructive))" },
-          }} className="h-[300px]">
+          }} className="h-[300px] w-full">
             <BarChart data={monthlyChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
