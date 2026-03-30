@@ -175,16 +175,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [newCategory, setNewCategory] = useState("");
   const [dealId, setDealId] = useState<string | null>(initialDealId ?? null);
-  const [dealProjectId, setDealProjectId] = useState<string | null>(null);
   const [notIncluded, setNotIncluded] = useState<string[]>(DEFAULT_NOT_INCLUDED);
   const [captureDays, setCaptureDays] = useState(0);
+  const [projectCount, setProjectCount] = useState(1);
   const [budgetNumber, setBudgetNumber] = useState<number | null>(null);
   const [internalNotes, setInternalNotes] = useState("");
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectType, setNewProjectType] = useState<string>("Institucional");
-  const [showNewProject, setShowNewProject] = useState(false);
-
-  const { projects: dealProjects, createProject: createDealProject } = useDealProjects(dealId);
 
   // Commission split
   const [djEnabled, setDjEnabled] = useState(true);
