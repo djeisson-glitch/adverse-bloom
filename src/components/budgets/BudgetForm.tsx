@@ -250,9 +250,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setAddition(existing.addition);
       setItems(existing.budget_items || []);
       setDealId((existing as any).deal_id ?? null);
-      setDealProjectId((existing as any).deal_project_id ?? null);
       setNotIncluded((existing as any).not_included ?? []);
       setCaptureDays((existing as any).capture_days ?? 0);
+      setProjectCount((existing as any).project_count ?? 1);
       setInternalNotes((existing as any).internal_notes ?? "");
       setBudgetNumber(existing.budget_number);
       setSavedBudgetId(existing.id);
