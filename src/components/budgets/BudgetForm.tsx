@@ -773,15 +773,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
                     {!isApproved && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs px-2"
-                        onClick={() => addInlineRow(cat)}
-                        disabled={hasNewRow}
-                      >
-                        <Plus className="h-3 w-3 mr-1" /> Adicionar
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs px-2"
+                          onClick={() => addInlineRow(cat)}
+                          disabled={hasNewRow}
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Adicionar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 px-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCategory(cat)}
+                          title={`Excluir categoria ${cat}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardHeader>
