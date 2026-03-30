@@ -178,10 +178,10 @@ serve(async (req) => {
     const jobs = [
       { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/conta-financeira`, paginated: false },
       { key: "categories", label: "Categorias", url: `${BASE}/categorias?tamanho_pagina=200`, paginated: false },
-      { key: "receivables", label: "Contas a receber", url: `${BASE}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`, paginated: true },
-      { key: "payables", label: "Contas a pagar", url: `${BASE}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_inicio=${dataInicio}&data_vencimento_fim=${dataFim}`, paginated: true },
-      { key: "sales", label: "Vendas", url: `${BASE}/vendas?sort=EMISSION_DATE&order=DESC&emit_date_from=${dataInicio}&emit_date_to=${dataFim}`, paginated: true },
-      { key: "transactions", label: "Transações", url: `${BASE}/financeiro/eventos-financeiros?data_competencia_inicio=${dataInicio}&data_competencia_fim=${dataFim}`, paginated: true },
+      { key: "receivables", label: "Contas a receber", url: `${BASE}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },
+      { key: "payables", label: "Contas a pagar", url: `${BASE}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },
+      { key: "sales", label: "Vendas", url: `${BASE}/venda/busca?data_emissao_de=${dataInicio}&data_emissao_ate=${dataFim}`, paginated: true },
+      { key: "transactions", label: "Transferências", url: `${BASE}/financeiro/transferencias?data_inicio=${dataInicio}&data_fim=${dataFim}`, paginated: true },
     ];
 
     let needsReauth = false;
