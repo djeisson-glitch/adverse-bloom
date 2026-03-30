@@ -64,7 +64,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* Home — always visible */}
+              {/* 1. Home */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/" end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
@@ -74,7 +74,67 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Financeiro */}
+              {/* 2. Comercial */}
+              {can("crm") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/comercial" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Handshake className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Comercial</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* 3. Clientes */}
+              {(can("crm") || can("orcamentos")) && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/clientes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Users className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Clientes</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* 4. Orçamentos */}
+              {can("orcamentos") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/orcamentos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <Calculator className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Orçamentos</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* 5. Agenda */}
+              {can("agenda") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/agenda" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Agenda</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* 6. Produção */}
+              {can("producao") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
+                      <FolderKanban className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Produção</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* 7. Financeiro */}
               {can("financeiro") && (
                 <SidebarMenuItem>
                   <Collapsible open={financeiroOpen} onOpenChange={setFinanceiroOpen}>
@@ -107,67 +167,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* Comercial */}
-              {can("crm") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/comercial" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <Handshake className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Comercial</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {/* Clientes — visible if CRM or Orçamentos */}
-              {(can("crm") || can("orcamentos")) && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/clientes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <Users className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Clientes</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {/* Orçamentos */}
-              {can("orcamentos") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/orcamentos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <Calculator className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Orçamentos</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {/* Produção */}
-              {can("producao") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/projetos" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <FolderKanban className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Produção</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {/* Agenda */}
-              {can("agenda") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/agenda" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <CalendarDays className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Agenda</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-
-              {/* Mapa Operacional */}
+              {/* 8. Mapa Operacional */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/mapa-operacional" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
@@ -177,7 +177,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Assistente */}
+              {/* 9. Assistente */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/assistente" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
@@ -187,7 +187,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Configurações */}
+              {/* 10. Configurações */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink to="/configuracoes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
@@ -197,7 +197,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Permissões — admin only */}
+              {/* 11. Permissões — admin only */}
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
