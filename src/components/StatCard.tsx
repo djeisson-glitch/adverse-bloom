@@ -21,9 +21,9 @@ export function StatCard({ title, value, change, changeType = "neutral", icon: I
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1 flex flex-col justify-center">
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-1 font-heading text-2xl font-bold">{value}</p>
+        <div className="min-w-0 flex-1 flex flex-col justify-center overflow-hidden">
+          <p className="text-sm text-muted-foreground truncate">{title}</p>
+          <p className="mt-1 font-heading text-xl font-bold truncate" title={value}>{value}</p>
           {change && (
             <p className={`mt-1 text-xs font-medium ${
               changeType === "positive" ? "text-success" :
