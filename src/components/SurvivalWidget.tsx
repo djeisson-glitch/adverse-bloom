@@ -15,19 +15,12 @@ import type { CAItem } from "@/lib/financial";
 
 interface SurvivalWidgetProps {
   burnRate: number;
+  saldoAtual: number;
   recItems: CAItem[];
   payItems: CAItem[];
 }
 
-const LS_KEY = "adverse_saldo_atual";
-
-export function SurvivalWidget({ burnRate, recItems, payItems }: SurvivalWidgetProps) {
-  const [saldoAtual, setSaldoAtual] = useState(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    return saved ? Number(saved) : 37000;
-  });
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+export function SurvivalWidget({ burnRate, saldoAtual, recItems, payItems }: SurvivalWidgetProps) {
 
   const now = new Date();
   const mesAtual = now.toISOString().slice(0, 7);
