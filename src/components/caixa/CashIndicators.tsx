@@ -131,9 +131,42 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
   const gapPct = metaMinima > 0 ? (gapComercial / metaMinima) * 100 : 0;
   const gapLevel = gapPct > 70 ? "red" : gapPct > 30 ? "orange" : "green";
 
-  // 6. Ciclo Conversão Caixa
-  const cicloDias = 38;
-  const cicloLevel = cicloDias < 30 ? "green" : cicloDias < 45 ? "green" : cicloDias < 60 ? "orange" : "red";
+  // 6. Ciclo Conversão Caixa — média real de deals fechados
+  const { data: cicloData } = useQuery({
+    queryKey: ["ciclo-conversao"],
+    queryFn: async () => {
+      // Get won deals
+      const { data: wonDeals } = await supabase.from("deals").select("id, created_at, updated_at")
+        .eq("stage", "fechamento");
+      if (!wonDeals?.length) return { ciclo: 0, count: 0 };
+
+      // Get earliest budget creation per deal
+      const dealIds = wonDeals.map(d => d.id);
+      const { data: budgets } = await supabase.from("budgets").select("deal_id, created_at")
+        .in("deal_id", dealIds).order("created_at", { ascending: true });
+
+      const earliestBudget: Record<string, string> = {};
+      (budgets || []).forEach(b => {
+        if (b.deal_id && !earliestBudget[b.deal_id]) {
+          earliestBudget[b.deal_id] = b.created_at;
+        }
+      });
+
+      let totalDays = 0, count = 0;
+      wonDeals.forEach(deal => {
+        const closeDate = new Date(deal.updated_at!);
+        // Use earliest between deal creation and budget creation
+        const dealCreated = new Date(deal.created_at!);
+        const budgetCreated = earliestBudget[deal.id] ? new Date(earliestBudget[deal.id]) : dealCreated;
+        const startDate = budgetCreated < dealCreated ? budgetCreated : dealCreated;
+        const days = Math.round((closeDate.getTime() - startDate.getTime()) / 86400000);
+        if (days > 0) { totalDays += days; count++; }
+      });
+      return { ciclo: count > 0 ? Math.round(totalDays / count) : 0, count };
+    },
+  });
+  const cicloDias = cicloData?.ciclo ?? 0;
+  const cicloLevel = cicloDias === 0 ? "green" : cicloDias < 30 ? "green" : cicloDias < 45 ? "green" : cicloDias < 60 ? "orange" : "red";
 
   // 7. Contas a Pagar 7 dias
   const aPagar7 = useMemo(() =>
