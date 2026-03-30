@@ -301,7 +301,11 @@ export default function PropostaPublica() {
                 marginBottom: 48,
               }}>
                 {scopeItems.map((item, i) => (
-                  <div key={i} style={{ background: "#0a0a0a", padding: "22px 24px" }}>
+                  <div key={i} style={{
+                    background: "#0a0a0a",
+                    padding: "22px 24px",
+                    ...(scopeItems.length % 2 !== 0 && i === scopeItems.length - 1 ? { gridColumn: "1 / -1" } : {}),
+                  }}>
                     <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 8 }}>
                       {item.label}
                     </div>
