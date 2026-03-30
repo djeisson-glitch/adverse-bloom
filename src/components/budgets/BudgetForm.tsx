@@ -386,6 +386,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     }
   };
 
+  const removeCategory = (cat: string) => {
+    setItems((prev) => prev.filter((i) => i.category !== cat));
+    setCategories((prev) => prev.filter((c) => c !== cat));
+  };
+
   const addInlineRow = useCallback((cat: string) => {
     if (newRowCats.has(cat)) return;
     const newItem = emptyItem(cat, items.length);
