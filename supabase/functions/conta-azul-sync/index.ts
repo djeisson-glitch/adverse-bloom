@@ -162,12 +162,9 @@ async function syncEndpoint(
       );
     console.log(`[sync] ${label}: OK (${allItems.length} registros total)`);
     return { status: "ok", label, total: allItems.length };
-  } catch (e) {
-    console.error(`[sync] ${label} ERRO:`, String(e));
-    return { status: "error", label, message: String(e) };
   }
 }
-...
+
     const jobs = [
       { key: "accounts_v2", label: "Contas financeiras", url: `${BASE_V1}/conta-financeira`, paginated: false },
       { key: "categories", label: "Categorias", url: `${BASE_V1}/categorias`, paginated: true },
