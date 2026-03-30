@@ -27,7 +27,7 @@ import { GenerateProposalModal } from "./GenerateProposalModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { ProposalTemplate } from "@/hooks/useTemplates";
-import { useDealProjects, DELIVERY_TYPES } from "@/hooks/useDealProjects";
+
 import {
   useBudgetWithItems,
   useSaveBudget,
