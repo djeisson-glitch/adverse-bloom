@@ -116,7 +116,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
 
         {stats.lossReasons.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-            <Card className="bg-card border-border">
+            <Card className="bg-card border-border overflow-hidden min-w-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Motivos de perda</CardTitle>
               </CardHeader>
