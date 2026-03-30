@@ -103,6 +103,12 @@ export default function ResultadosMetas() {
   const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
+  // Detail item sets for clickable cards
+  const receitaItems = useMemo(() => recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period)), [recItems, period]);
+  const despesasItems = useMemo(() => payItems.filter(r => isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const custosFixosItems = useMemo(() => payItems.filter(r => FIXED_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const custosVariaveisItems = useMemo(() => payItems.filter(r => !FIXED_COSTS.includes(getCat(r)) && !EXCLUDED_FROM_MARGIN.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
+
   const { valor: margemContribValor, pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
   const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
   const pontoEquilibrio = calcPontoEquilibrio(custosFixos, margemContribuicao);
@@ -137,8 +143,17 @@ export default function ResultadosMetas() {
     return months;
   }, [recItems, metaAnualInput]);
 
+  // Load clients for mapping
+  const { data: clientsList } = useQuery({
+    queryKey: ["clients-list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("clients").select("id, name, company, trade_name");
+      return data ?? [];
+    },
+  });
+
   const topClients = useMemo(() => {
-    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
+    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period) && getCat(r) !== "Empréstimos de Bancos");
     const byClient: Record<string, { revenue: number; count: number }> = {};
     recFiltered.forEach(item => {
       const name = item?.cliente?.nome || "Sem cliente";
@@ -146,11 +161,26 @@ export default function ResultadosMetas() {
       byClient[name].revenue += item?.total ?? 0;
       byClient[name].count += 1;
     });
+
+    // Map CA client names to real client records
     return Object.entries(byClient)
-      .map(([name, d]) => ({ name, revenue: d.revenue, projects: d.count, ticket: d.count > 0 ? d.revenue / d.count : 0 }))
+      .map(([caName, d]) => {
+        const matchedClient = (clientsList ?? []).find(c =>
+          c.name?.toLowerCase() === caName.toLowerCase() ||
+          c.company?.toLowerCase() === caName.toLowerCase() ||
+          c.trade_name?.toLowerCase() === caName.toLowerCase()
+        );
+        return {
+          name: matchedClient?.trade_name || matchedClient?.name || caName,
+          clientId: matchedClient?.id || null,
+          revenue: d.revenue,
+          projects: d.count,
+          ticket: d.count > 0 ? d.revenue / d.count : 0,
+        };
+      })
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 15);
-  }, [recItems, period]);
+  }, [recItems, period, clientsList]);
 
   return (
     <div className="space-y-6">
