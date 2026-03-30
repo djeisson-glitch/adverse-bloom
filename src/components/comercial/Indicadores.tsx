@@ -74,7 +74,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
     const lossReasons = Object.entries(reasonMap).map(([name, value]) => ({ name, value }));
 
     return { totalPipeline, wonValue, wonCount, conversionRate, avgTicket, avgCycle, months, meta, lossReasons };
-  }, [deals, meta]);
+  }, [deals, meta, allDealProjects]);
 
   // Upcoming / overdue tasks
   const urgentTasks = useMemo(() => {
