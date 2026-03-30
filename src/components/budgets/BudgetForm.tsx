@@ -757,6 +757,89 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
               />
             </div>
             <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Projeto do Deal</Label>
+              {showNewProject ? (
+                <div className="flex gap-1">
+                  <Input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Nome do projeto"
+                    className="h-8 text-sm flex-1"
+                  />
+                  <Select value={newProjectType} onValueChange={setNewProjectType}>
+                    <SelectTrigger className="h-8 text-sm w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DELIVERY_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="h-8 px-2"
+                    disabled={!newProjectName.trim() || !dealId}
+                    onClick={async () => {
+                      if (!dealId || !newProjectName.trim()) return;
+                      try {
+                        const result = await createDealProject.mutateAsync({
+                          deal_id: dealId,
+                          name: newProjectName.trim(),
+                          delivery_type: newProjectType,
+                        });
+                        setDealProjectId(result.id);
+                        setProjectName(newProjectName.trim());
+                        setNewProjectName("");
+                        setShowNewProject(false);
+                      } catch {}
+                    }}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setShowNewProject(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-1">
+                  <Select
+                    value={dealProjectId || "none"}
+                    onValueChange={(v) => {
+                      if (v === "none") {
+                        setDealProjectId(null);
+                        return;
+                      }
+                      setDealProjectId(v);
+                      const proj = dealProjects.find((p) => p.id === v);
+                      if (proj) setProjectName(proj.name);
+                    }}
+                    disabled={isApproved || !dealId}
+                  >
+                    <SelectTrigger className="h-8 text-sm flex-1">
+                      <SelectValue placeholder={dealId ? "Selecione um projeto" : "Selecione um deal primeiro"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" disabled>Selecione um projeto</SelectItem>
+                      {dealProjects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          <span className="flex items-center gap-1.5">
+                            <Film className="h-3 w-3 text-primary" />
+                            {p.name} <span className="text-muted-foreground">({p.delivery_type})</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!isApproved && dealId && (
+                    <Button variant="outline" size="sm" className="h-8 px-2 shrink-0" onClick={() => setShowNewProject(true)}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Projeto</Label>
               <Input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="Ex: Campanha X" disabled={isApproved} className="h-8 text-sm" />
             </div>
