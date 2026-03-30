@@ -116,6 +116,16 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   }, [open]);
 
+  const toggleItemExclusion = (idx: number) => {
+    setExcludedItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  const filteredItems = items.filter((_, i) => !excludedItemIds.has(i));
+
   const addTag = () => {
     const t = tagInput.trim();
     if (t && !tags.includes(t)) {
