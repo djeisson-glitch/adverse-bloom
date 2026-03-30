@@ -80,7 +80,7 @@ export default function Custos() {
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Top 10 Categorias de Despesas</h2>
             {categoryChart.length > 0 ? (
-              <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[320px]">
+              <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[320px] w-full">
                 <BarChart data={categoryChart} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
