@@ -210,7 +210,7 @@ export default function ResultadosMetas() {
           </ChartContainer>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 overflow-hidden">
           <h2 className="font-heading text-lg font-semibold mb-4">Faturamento vs Meta Mensal</h2>
           <ChartContainer config={{
             faturamento: { label: "Faturamento", color: "hsl(var(--primary))" },
