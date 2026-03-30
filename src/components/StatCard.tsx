@@ -20,8 +20,8 @@ export function StatCard({ title, value, change, changeType = "neutral", icon: I
       className={`glass-card stat-glow p-5 ${onClick ? "cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow" : ""}`}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-between">
+        <div className="min-w-0 flex-1 flex flex-col justify-center">
           <p className="text-sm text-muted-foreground">{title}</p>
           <p className="mt-1 font-heading text-2xl font-bold">{value}</p>
           {change && (
