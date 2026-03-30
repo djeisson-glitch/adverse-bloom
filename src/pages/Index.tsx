@@ -157,7 +157,7 @@ export default function Index() {
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden min-w-0">
           <h2 className="font-heading text-lg font-semibold mb-4">Top 5 Categorias de Gastos</h2>
           {expenseCategories.length > 0 ? (
             <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[280px] w-full">
