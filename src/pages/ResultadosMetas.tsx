@@ -211,15 +211,19 @@ export default function ResultadosMetas() {
       </motion.div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Receita Total" value={formatCurrency(receitaTotal)} icon={DollarSign} delay={0} />
-        <StatCard title="Despesas Operacionais" value={formatCurrency(despesasOp)} icon={TrendingUp} delay={0.05} />
+        <StatCard title="Receita Total" value={formatCurrency(receitaTotal)} icon={DollarSign} delay={0}
+          onClick={() => setDetailModal({ title: "Receita Total", items: receitaItems, valueField: "total" })} />
+        <StatCard title="Despesas Operacionais" value={formatCurrency(despesasOp)} icon={TrendingUp} delay={0.05}
+          onClick={() => setDetailModal({ title: "Despesas Operacionais", items: despesasItems, valueField: "total" })} />
         <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={Target} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
         <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} change={`Meta: ${metaMargem}%`} changeType={margemLiquida >= metaMargem ? "positive" : "negative"} delay={0.15} />
         <StatCard title="Ticket Médio" value={formatCurrency(ticketMedio)} icon={BarChart3} change={`Meta: ${formatCurrency(metaTicket)}`} changeType={ticketMedio >= metaTicket ? "positive" : "negative"} delay={0.2} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Custos Fixos" value={formatCurrency(custosFixos)} icon={Calculator} delay={0.25} />
-        <StatCard title="Custos Variáveis" value={formatCurrency(custosVariaveis)} icon={Calculator} delay={0.3} />
+        <StatCard title="Custos Fixos" value={formatCurrency(custosFixos)} icon={Calculator} delay={0.25}
+          onClick={() => setDetailModal({ title: "Custos Fixos", items: custosFixosItems, valueField: "total" })} />
+        <StatCard title="Custos Variáveis" value={formatCurrency(custosVariaveis)} icon={Calculator} delay={0.3}
+          onClick={() => setDetailModal({ title: "Custos Variáveis", items: custosVariaveisItems, valueField: "total" })} />
         <StatCard title="Margem Contribuição" value={formatPercent(margemContribuicao)} icon={Percent} delay={0.35} />
         <StatCard title="Qtde Projetos" value={String(qtdeProjetos)} icon={Hash} delay={0.4} />
         <StatCard title="Ponto de Equilíbrio" value={formatCurrency(pontoEquilibrio)} icon={Target} delay={0.45} />
