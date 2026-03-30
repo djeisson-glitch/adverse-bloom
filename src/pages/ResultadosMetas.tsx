@@ -28,6 +28,8 @@ import { useRef } from "react";
 import { DetailModal } from "@/components/financeiro/DetailModal";
 
 export default function ResultadosMetas() {
+  const navigate = useNavigate();
+  const [detailModal, setDetailModal] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" } | null>(null);
   const { receivables, payables } = useAllContaAzulCache();
   const { period, setPeriod } = usePeriod();
   const queryClient = useQueryClient();
