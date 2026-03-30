@@ -60,6 +60,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [generatingAI, setGeneratingAI] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [showRegenerateWarning, setShowRegenerateWarning] = useState(false);
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<number>>(new Set());
 
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
