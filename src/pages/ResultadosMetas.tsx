@@ -197,7 +197,7 @@ export default function ResultadosMetas() {
           <ChartContainer config={{
             receita: { label: "Receita", color: "hsl(var(--success))" },
             despesas: { label: "Despesas", color: "hsl(var(--destructive))" },
-          }} className="h-[280px]">
+          }} className="h-[280px] w-full">
             <LineChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
