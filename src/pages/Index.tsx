@@ -135,13 +135,13 @@ export default function Index() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6 overflow-hidden">
           <h2 className="font-heading text-lg font-semibold mb-4">Fluxo de Caixa - Últimos 6 Meses</h2>
           {hasFluxoData ? (
             <ChartContainer config={{
               recebido: { label: "Recebido (Caixa)", color: "hsl(var(--success))" },
               faturado: { label: "Faturado (Competência)", color: "hsl(var(--primary))" },
-            }} className="h-[280px]">
+            }} className="h-[280px] w-full">
               <LineChart data={fluxoChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
@@ -157,10 +157,10 @@ export default function Index() {
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden">
           <h2 className="font-heading text-lg font-semibold mb-4">Top 5 Categorias de Gastos</h2>
           {expenseCategories.length > 0 ? (
-            <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[280px]">
+            <ChartContainer config={{ value: { label: "Valor", color: "hsl(var(--destructive))" } }} className="h-[280px] w-full">
               <BarChart data={expenseCategories} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
