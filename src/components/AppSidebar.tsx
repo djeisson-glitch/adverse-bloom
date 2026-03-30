@@ -213,7 +213,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-1">
+      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-1 shrink-0">
 
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-2 py-1.5">
