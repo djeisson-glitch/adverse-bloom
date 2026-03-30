@@ -267,7 +267,7 @@ export default function ResultadosMetas() {
         </motion.div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden">
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6 overflow-hidden min-w-0">
         <h2 className="font-heading text-lg font-semibold mb-4">Margem Líquida % - Evolução Mensal</h2>
         <ChartContainer config={{ margem: { label: "Margem %", color: "hsl(var(--primary))" } }} className="h-[250px] w-full">
           <LineChart data={monthlyData}>
