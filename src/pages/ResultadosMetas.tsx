@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar, ReferenceLine } from "recharts";
 import {
-  type CAItem, isInRange,
+  type CAItem, isInRange, getCat, FIXED_COSTS, EXCLUDED_FROM_MARGIN,
   calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcPontoEquilibrio, calcTicketMedio,
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
