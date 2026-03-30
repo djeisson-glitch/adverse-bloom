@@ -282,6 +282,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deal_id: string | null
+          deal_project_id: string | null
           discount: number
           id: string
           internal_notes: string | null
@@ -316,6 +317,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id?: string | null
+          deal_project_id?: string | null
           discount?: number
           id?: string
           internal_notes?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deal_id?: string | null
+          deal_project_id?: string | null
           discount?: number
           id?: string
           internal_notes?: string | null
@@ -384,6 +387,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_deal_project_id_fkey"
+            columns: ["deal_project_id"]
+            isOneToOne: false
+            referencedRelation: "deal_projects"
             referencedColumns: ["id"]
           },
           {
@@ -493,6 +503,56 @@ export type Database = {
           period?: string | null
         }
         Relationships: []
+      }
+      deal_projects: {
+        Row: {
+          created_at: string
+          deal_id: string
+          delivery_type: string
+          id: string
+          internal_cost: number | null
+          margin_percent: number | null
+          margin_value: number | null
+          name: string
+          notes: string | null
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          delivery_type?: string
+          id?: string
+          internal_cost?: number | null
+          margin_percent?: number | null
+          margin_value?: number | null
+          name: string
+          notes?: string | null
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          delivery_type?: string
+          id?: string
+          internal_cost?: number | null
+          margin_percent?: number | null
+          margin_value?: number | null
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_projects_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deals: {
         Row: {
