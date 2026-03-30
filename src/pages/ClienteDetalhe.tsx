@@ -321,7 +321,7 @@ export default function ClienteDetalhe() {
             <TabsList className="w-full justify-start">
               <TabsTrigger value="deals">Deals ({clientDeals.length})</TabsTrigger>
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
-              <TabsTrigger value="projetos">Projetos ({projects.length})</TabsTrigger>
+              <TabsTrigger value="projetos">Projetos ({dealProjectsData.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
             </TabsList>
 
