@@ -230,7 +230,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const handlePreview = () => {
     const previewData = {
       budget,
-      items,
+      items: filteredItems,
       contactName,
       contactCompany,
       projectDescription,
