@@ -108,3 +108,17 @@
     box-shadow: 0 0 30px -10px hsl(var(--primary) / 0.15);
   }
 }
+
+/* Force all Recharts containers to respect parent bounds */
+.recharts-responsive-container {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden;
+}
+.recharts-wrapper {
+  max-width: 100% !important;
+  overflow: hidden;
+}
+.recharts-surface {
+  overflow: hidden;
+}
