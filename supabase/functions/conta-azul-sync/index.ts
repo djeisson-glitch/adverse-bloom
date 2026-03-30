@@ -38,15 +38,17 @@ async function refreshToken(supabase: any, payload: any): Promise<{ token: strin
   console.log("[token] Tentando refresh...");
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!;
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!;
+  const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
-  const tokenRes = await fetch("https://api.contaazul.com/oauth2/token", {
+  const tokenRes = await fetch("https://auth.contaazul.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${basicAuth}`,
+    },
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: payload.refresh_token,
-      client_id: clientId,
-      client_secret: clientSecret,
     }).toString(),
   });
 
