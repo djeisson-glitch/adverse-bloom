@@ -73,10 +73,10 @@ async function refreshToken(supabase: any, payload: any): Promise<{ token: strin
   return { token: tokenData.access_token };
 }
 
-const BASE = "https://api.contaazul.com/v1";
+const BASE = "https://api-v2.contaazul.com/v1";
 const dataInicio = "2025-01-01";
 const dataFim = "2026-12-31";
-// Force redeploy v2 - endpoints corrigidos para /v1
+// Force redeploy v3 - host correto é api-v2.contaazul.com/v1
 
 type SyncResult = { status: string; label: string; total?: number; message?: string };
 
@@ -97,12 +97,13 @@ async function syncEndpoint(
       console.log(`[sync] ${label}: HTTP ${res.status}`);
       if (res.status === 401) {
         const body = await res.text();
-        return { status: "error", label, message: `401: ${body.slice(0, 200)}` };
+        console.error(`[sync] ${label} 401 body: ${body}`);
+        return { status: "error", label, message: `401: ${body}` };
       }
       if (!res.ok) {
         const body = await res.text();
         console.error(`[sync] ${label} FALHOU: ${body}`);
-        return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+        return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
       }
       const payload = await res.json();
       const items = Array.isArray(payload) ? payload : (payload.itens || payload.items || payload.data || []);
@@ -123,14 +124,15 @@ async function syncEndpoint(
       console.log(`[sync] ${label} página ${pagina}: HTTP ${res.status}`);
       if (res.status === 401) {
         const body = await res.text();
-        if (pagina === 1) return { status: "error", label, message: `401: ${body.slice(0, 200)}` };
+        console.error(`[sync] ${label} página ${pagina} 401 body: ${body}`);
+        if (pagina === 1) return { status: "error", label, message: `401: ${body}` };
         break;
       }
       if (!res.ok) {
         if (pagina === 1) {
           const body = await res.text();
           console.error(`[sync] ${label} FALHOU: ${body}`);
-          return { status: "error", label, message: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+          return { status: "error", label, message: `HTTP ${res.status}: ${body}` };
         }
         break;
       }
