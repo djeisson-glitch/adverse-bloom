@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DollarSign, TrendingUp, Target, BarChart3, Percent, Calculator, Hash } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, BarChart, Bar, ReferenceLine } from "recharts";
 import {
-  type CAItem, isInRange,
+  type CAItem, isInRange, getCat, FIXED_COSTS, EXCLUDED_FROM_MARGIN,
   calcReceitaTotal, calcDespesasOperacionais, calcCustosFixos, calcCustosVariaveis,
   calcMargemContribuicao, calcLucroLiquido, calcPontoEquilibrio, calcTicketMedio,
   monthKey, monthlyReceitaTotal, monthlyDespesasOp,
@@ -24,8 +25,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRef } from "react";
+import { DetailModal } from "@/components/financeiro/DetailModal";
 
 export default function ResultadosMetas() {
+  const navigate = useNavigate();
+  const [detailModal, setDetailModal] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" } | null>(null);
   const { receivables, payables } = useAllContaAzulCache();
   const { period, setPeriod } = usePeriod();
   const queryClient = useQueryClient();
@@ -99,6 +103,12 @@ export default function ResultadosMetas() {
   const custosFixos = useMemo(() => calcCustosFixos(payItems, period), [payItems, period]);
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
+  // Detail item sets for clickable cards
+  const receitaItems = useMemo(() => recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period)), [recItems, period]);
+  const despesasItems = useMemo(() => payItems.filter(r => isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const custosFixosItems = useMemo(() => payItems.filter(r => FIXED_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const custosVariaveisItems = useMemo(() => payItems.filter(r => !FIXED_COSTS.includes(getCat(r)) && !EXCLUDED_FROM_MARGIN.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
+
   const { valor: margemContribValor, pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
   const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
   const pontoEquilibrio = calcPontoEquilibrio(custosFixos, margemContribuicao);
@@ -133,8 +143,17 @@ export default function ResultadosMetas() {
     return months;
   }, [recItems, metaAnualInput]);
 
+  // Load clients for mapping
+  const { data: clientsList } = useQuery({
+    queryKey: ["clients-list"],
+    queryFn: async () => {
+      const { data } = await supabase.from("clients").select("id, name, company, trade_name");
+      return data ?? [];
+    },
+  });
+
   const topClients = useMemo(() => {
-    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period));
+    const recFiltered = recItems.filter(r => isInRange(r?.data_competencia, period) && getCat(r) !== "Empréstimos de Bancos");
     const byClient: Record<string, { revenue: number; count: number }> = {};
     recFiltered.forEach(item => {
       const name = item?.cliente?.nome || "Sem cliente";
@@ -142,11 +161,26 @@ export default function ResultadosMetas() {
       byClient[name].revenue += item?.total ?? 0;
       byClient[name].count += 1;
     });
+
+    // Map CA client names to real client records
     return Object.entries(byClient)
-      .map(([name, d]) => ({ name, revenue: d.revenue, projects: d.count, ticket: d.count > 0 ? d.revenue / d.count : 0 }))
+      .map(([caName, d]) => {
+        const matchedClient = (clientsList ?? []).find(c =>
+          c.name?.toLowerCase() === caName.toLowerCase() ||
+          c.company?.toLowerCase() === caName.toLowerCase() ||
+          c.trade_name?.toLowerCase() === caName.toLowerCase()
+        );
+        return {
+          name: matchedClient?.trade_name || matchedClient?.name || caName,
+          clientId: matchedClient?.id || null,
+          revenue: d.revenue,
+          projects: d.count,
+          ticket: d.count > 0 ? d.revenue / d.count : 0,
+        };
+      })
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 15);
-  }, [recItems, period]);
+  }, [recItems, period, clientsList]);
 
   return (
     <div className="space-y-6">
@@ -177,15 +211,19 @@ export default function ResultadosMetas() {
       </motion.div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Receita Total" value={formatCurrency(receitaTotal)} icon={DollarSign} delay={0} />
-        <StatCard title="Despesas Operacionais" value={formatCurrency(despesasOp)} icon={TrendingUp} delay={0.05} />
+        <StatCard title="Receita Total" value={formatCurrency(receitaTotal)} icon={DollarSign} delay={0}
+          onClick={() => setDetailModal({ title: "Receita Total", items: receitaItems, valueField: "total" })} />
+        <StatCard title="Despesas Operacionais" value={formatCurrency(despesasOp)} icon={TrendingUp} delay={0.05}
+          onClick={() => setDetailModal({ title: "Despesas Operacionais", items: despesasItems, valueField: "total" })} />
         <StatCard title="Lucro Líquido" value={formatCurrency(lucroLiquido)} icon={Target} change={lucroLiquido >= 0 ? "Positivo" : "Negativo"} changeType={lucroLiquido >= 0 ? "positive" : "negative"} delay={0.1} />
         <StatCard title="Margem Líquida" value={formatPercent(margemLiquida)} icon={Percent} change={`Meta: ${metaMargem}%`} changeType={margemLiquida >= metaMargem ? "positive" : "negative"} delay={0.15} />
         <StatCard title="Ticket Médio" value={formatCurrency(ticketMedio)} icon={BarChart3} change={`Meta: ${formatCurrency(metaTicket)}`} changeType={ticketMedio >= metaTicket ? "positive" : "negative"} delay={0.2} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard title="Custos Fixos" value={formatCurrency(custosFixos)} icon={Calculator} delay={0.25} />
-        <StatCard title="Custos Variáveis" value={formatCurrency(custosVariaveis)} icon={Calculator} delay={0.3} />
+        <StatCard title="Custos Fixos" value={formatCurrency(custosFixos)} icon={Calculator} delay={0.25}
+          onClick={() => setDetailModal({ title: "Custos Fixos", items: custosFixosItems, valueField: "total" })} />
+        <StatCard title="Custos Variáveis" value={formatCurrency(custosVariaveis)} icon={Calculator} delay={0.3}
+          onClick={() => setDetailModal({ title: "Custos Variáveis", items: custosVariaveisItems, valueField: "total" })} />
         <StatCard title="Margem Contribuição" value={formatPercent(margemContribuicao)} icon={Percent} delay={0.35} />
         <StatCard title="Qtde Projetos" value={String(qtdeProjetos)} icon={Hash} delay={0.4} />
         <StatCard title="Ponto de Equilíbrio" value={formatCurrency(pontoEquilibrio)} icon={Target} delay={0.45} />
@@ -258,8 +296,13 @@ export default function ResultadosMetas() {
             </thead>
             <tbody>
               {topClients.map((c, i) => (
-                <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="py-3 font-medium">{c.name}</td>
+                <tr key={i} className={`border-b border-border/50 hover:bg-muted/30 ${c.clientId ? "cursor-pointer" : ""}`}
+                  onClick={() => c.clientId && navigate(`/clientes/${c.clientId}`)}>
+                  <td className="py-3 font-medium">
+                    {c.clientId ? (
+                      <span className="text-primary hover:underline">{c.name}</span>
+                    ) : c.name}
+                  </td>
                   <td className="py-3 text-right">{formatCurrency(c.revenue)}</td>
                   <td className="py-3 text-right">{c.projects}</td>
                   <td className="py-3 text-right">{formatCurrency(c.ticket)}</td>
@@ -271,6 +314,16 @@ export default function ResultadosMetas() {
           {topClients.length === 0 && <p className="text-center text-muted-foreground py-8">Sem dados no período selecionado.</p>}
         </div>
       </motion.div>
+
+      {detailModal && (
+        <DetailModal
+          open={!!detailModal}
+          onOpenChange={(open) => !open && setDetailModal(null)}
+          title={detailModal.title}
+          items={detailModal.items}
+          valueField={detailModal.valueField}
+        />
+      )}
     </div>
   );
 }

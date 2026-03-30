@@ -48,7 +48,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarContent>
+      <SidebarContent className="overflow-y-auto overflow-x-hidden">
         {/* Logo */}
         <div className={`flex items-center gap-3 px-4 py-5 ${collapsed ? "justify-center" : ""}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">

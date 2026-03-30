@@ -79,6 +79,25 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
   }
+
+  /* Sidebar scrollbar styling */
+  [data-sidebar] ::-webkit-scrollbar {
+    width: 4px;
+  }
+  [data-sidebar] ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  [data-sidebar] ::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border));
+    border-radius: 4px;
+  }
+  [data-sidebar] ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+  [data-sidebar] {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
 }
 
 @layer utilities {
