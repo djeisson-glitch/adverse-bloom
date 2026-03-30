@@ -196,8 +196,8 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
           subtitle={`${fatPct.toFixed(0)}% de ${formatCurrency(metaTrimestre)}`} level={fatLevel} icon={BarChart3} delay={0.55} />
         <KpiCard title="Gap Comercial" value={formatCurrency(gapComercial)}
           subtitle={`Falta fechar (${gapPct.toFixed(0)}% da meta)`} level={gapLevel} icon={Target} delay={0.6} />
-        <KpiCard title="Ciclo Conversão" value={`${cicloDias} dias`}
-          subtitle="Aprovação → recebimento" level={cicloLevel} icon={Timer} delay={0.65} />
+        <KpiCard title="Ciclo Conversão" value={cicloDias > 0 ? `${cicloDias} dias` : "—"}
+          subtitle={`Média de ${cicloData?.count ?? 0} deals fechados`} level={cicloLevel} icon={Timer} delay={0.65} />
         <KpiCard title="A Pagar 7 dias" value={formatCurrency(aPagar7)}
           subtitle="Vence em breve" level={pagar7Level} icon={CreditCard} delay={0.7} />
         <KpiCard title="A Receber 7 dias" value={formatCurrency(aReceber7)}
