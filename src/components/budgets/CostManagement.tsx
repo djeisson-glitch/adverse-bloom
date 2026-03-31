@@ -156,15 +156,7 @@ export function CostManagement({ budget, items }: Props) {
                   <Label>Data pagamento</Label>
                   <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={sentToContaAzul}
-                    onChange={(e) => setSentToContaAzul(e.target.checked)}
-                    className="rounded border-border"
-                  />
-                  <Label className="text-sm">Enviar pro Conta Azul</Label>
-                </div>
+                
                 <Button className="w-full" onClick={() => addCost.mutate()} disabled={addCost.isPending || !category || !amount}>
                   Salvar
                 </Button>
