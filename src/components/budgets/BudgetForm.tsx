@@ -1008,8 +1008,15 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   )}
                 </CardContent>
               </Card>
+                )}
+              </Draggable>
             );
           })}
+          {catListProvided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
 
           {/* Add Category */}
           {!isApproved && (
