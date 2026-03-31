@@ -67,7 +67,6 @@ export function CostManagement({ budget, items }: Props) {
         amount,
         supplier: supplier || null,
         payment_date: paymentDate || null,
-        sent_to_conta_azul: sentToContaAzul,
       });
       if (error) throw error;
     },
