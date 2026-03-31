@@ -146,52 +146,38 @@ export function useSaveBudget() {
       budget: Omit<Budget, "id" | "created_at" | "updated_at"> & { id?: string };
       items: BudgetItem[];
     }) => {
-      let budgetId = budget.id;
-
-      if (budgetId) {
-        const { error } = await supabase
-          .from("budgets")
-          .update({ ...budget, updated_at: new Date().toISOString() })
-          .eq("id", budgetId);
-        if (error) throw error;
-      } else {
-        // New budget: use provided budget_number or assign next
-        const budgetNumber = budget.budget_number ?? await getNextBudgetNumber();
-        const { data, error } = await supabase
-          .from("budgets")
-          .insert({ ...budget, budget_number: budgetNumber, version: 1, is_latest_version: true })
-          .select("id")
-          .single();
-        if (error) throw error;
-        budgetId = data.id;
+      // Prepare budget JSON for the atomic function
+      const budgetPayload: Record<string, any> = { ...budget };
+      if (!budgetPayload.budget_number && !budgetPayload.id) {
+        budgetPayload.budget_number = await getNextBudgetNumber();
       }
 
-      // Delete existing items and re-insert
-      await supabase.from("budget_items").delete().eq("budget_id", budgetId);
+      // Prepare items with fallback defaults
+      const itemsPayload = items.map((item, idx) => {
+        const { id, budget_id, ...rest } = item as any;
+        return {
+          ...rest,
+          order_index: idx,
+          quantity: rest.quantity ?? 1,
+          client_days: rest.client_days ?? 1,
+          client_people: rest.client_people ?? 1,
+          client_unit_price: rest.client_unit_price ?? 0,
+          client_price: rest.client_price ?? 0,
+          supplier_cost: rest.supplier_cost ?? 0,
+          supplier_days: rest.supplier_days ?? 0,
+          supplier_people: rest.supplier_people ?? 0,
+          supplier_unit_price: rest.supplier_unit_price ?? 0,
+        };
+      });
 
-      if (items.length > 0) {
-        const itemsToInsert = items.map((item, idx) => {
-          const { id, budget_id, ...rest } = item as any;
-          return {
-            ...rest,
-            budget_id: budgetId,
-            order_index: idx,
-            quantity: rest.quantity ?? 1,
-            client_days: rest.client_days ?? 1,
-            client_people: rest.client_people ?? 1,
-            client_unit_price: rest.client_unit_price ?? 0,
-            client_price: rest.client_price ?? 0,
-            supplier_cost: rest.supplier_cost ?? 0,
-            supplier_days: rest.supplier_days ?? 0,
-            supplier_people: rest.supplier_people ?? 0,
-            supplier_unit_price: rest.supplier_unit_price ?? 0,
-          };
-        });
-        const { error } = await supabase.from("budget_items").insert(itemsToInsert);
-        if (error) throw error;
-      }
+      // Call atomic DB function — delete + insert happen in one transaction
+      const { data, error } = await supabase.rpc("save_budget_atomic", {
+        p_budget: budgetPayload as any,
+        p_items: itemsPayload as any,
+      });
+      if (error) throw error;
 
-      return budgetId;
+      return data as string;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
