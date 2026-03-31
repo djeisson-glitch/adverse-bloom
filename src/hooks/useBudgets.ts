@@ -176,6 +176,15 @@ export function useSaveBudget() {
             ...rest,
             budget_id: budgetId,
             order_index: idx,
+            quantity: rest.quantity ?? 1,
+            client_days: rest.client_days ?? 1,
+            client_people: rest.client_people ?? 1,
+            client_unit_price: rest.client_unit_price ?? 0,
+            client_price: rest.client_price ?? 0,
+            supplier_cost: rest.supplier_cost ?? 0,
+            supplier_days: rest.supplier_days ?? 0,
+            supplier_people: rest.supplier_people ?? 0,
+            supplier_unit_price: rest.supplier_unit_price ?? 0,
           };
         });
         const { error } = await supabase.from("budget_items").insert(itemsToInsert);
