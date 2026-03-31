@@ -432,6 +432,16 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
   }, []);
 
+  const onCategoryDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination || result.source.index === result.destination.index) return;
+    setCategories((prev) => {
+      const reordered = [...prev];
+      const [moved] = reordered.splice(result.source.index, 1);
+      reordered.splice(result.destination!.index, 0, moved);
+      return reordered;
+    });
+  }, []);
+
   const onDragEnd = useCallback((result: DropResult) => {
     if (!result.destination || result.source.index === result.destination.index) return;
     const cat = result.source.droppableId;
