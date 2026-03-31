@@ -410,18 +410,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     }, 50);
   }, [items.length, newRowCats]);
 
-  const confirmInlineRow = useCallback((cat: string) => {
+  const confirmInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
     setNewRowCats((prev) => {
       const next = new Set(prev);
-      next.delete(cat);
+      next.delete(key);
       return next;
     });
   }, []);
 
-  const cancelInlineRow = useCallback((cat: string) => {
+  const cancelInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
     setItems((prev) => {
       const lastIdx = [...prev].reverse().findIndex(
-        (item) => item.category === cat && !item.item_name.trim()
+        (item) => item.category === cat && (item.group_name ?? null) === (groupName ?? null) && !item.item_name.trim()
       );
       if (lastIdx === -1) return prev;
       const realIdx = prev.length - 1 - lastIdx;
@@ -429,9 +431,31 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
     setNewRowCats((prev) => {
       const next = new Set(prev);
-      next.delete(cat);
+      next.delete(key);
       return next;
     });
+  }, []);
+
+  const addGroupToCategory = useCallback((cat: string) => {
+    const name = window.prompt("Nome do grupo:");
+    if (!name?.trim()) return;
+    // Add an empty item with group_name to create the group
+    const newItem = emptyItem(cat, items.length, name.trim());
+    setItems((prev) => [...prev, newItem]);
+    const key = `${cat}::${name.trim()}`;
+    setNewRowCats((prev) => new Set(prev).add(key));
+    setTimeout(() => {
+      newRowNameRefs.current[key]?.focus();
+    }, 50);
+  }, [items.length]);
+
+  const removeGroup = useCallback((cat: string, groupName: string) => {
+    // Move items from group to ungrouped (null)
+    setItems((prev) => prev.map((item) =>
+      item.category === cat && item.group_name === groupName
+        ? { ...item, group_name: null }
+        : item
+    ));
   }, []);
 
   const onCategoryDragEnd = useCallback((result: DropResult) => {
