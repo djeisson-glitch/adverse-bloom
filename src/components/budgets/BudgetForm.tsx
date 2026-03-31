@@ -542,12 +542,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     const logItems = validItems
       .filter((i) => i.category === "LOGÍSTICA")
       .map((item) => {
-        const needsPeople = logisticaNeedsPeople(item.item_name);
-        return {
-          nome: item.item_name,
-          dias: item.client_days,
-          pessoas: needsPeople ? item.client_people : null,
-        };
+        const logType = detectLogisticaType(item.item_name);
+        let resumoLabel = "";
+        switch (logType) {
+          case "combustivel":
+            resumoLabel = `${item.item_name}: ${item.client_days} km`;
+            break;
+          case "hospedagem":
+            resumoLabel = `${item.item_name}: ${item.client_people} diárias × ${item.client_days} quartos`;
+            break;
+          case "passagem":
+            resumoLabel = `${item.item_name}: ${item.client_days} unidades`;
+            break;
+          case "alimentacao":
+            resumoLabel = `${item.item_name}: ${item.client_people} dias × ${item.client_days} refeições`;
+            break;
+          default:
+            resumoLabel = `${item.item_name}: ${item.client_days} ${item.client_days > 1 ? "dias" : "dia"}`;
+            break;
+        }
+        return { nome: item.item_name, resumoLabel, logType };
       });
 
     const prodItems = validItems.filter((i) => i.category === "PRODUÇÃO");
