@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, DollarSign, AlertTriangle, CheckCircle, Trash2, CreditCard, Search, X } from "lucide-react";
+import { Plus, DollarSign, AlertTriangle, CheckCircle, Trash2, CreditCard, Search, X, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierContacts, useCreateSupplierContact, useTouchSupplierContact, type SupplierContact } from "@/hooks/useSupplierContacts";
+import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
 interface ProjectCost {
@@ -57,7 +58,8 @@ export function CostEntryTab({ budget, items }: Props) {
   const [paymentDate, setPaymentDate] = useState("");
   const [serviceDate, setServiceDate] = useState("");
   const [status, setStatus] = useState("pending");
-  const [sentToContaAzul, setSentToContaAzul] = useState(false);
+  const [installments, setInstallments] = useState(1);
+  const [accountId, setAccountId] = useState<string>("");
 
   // Supplier search
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -67,9 +69,19 @@ export function CostEntryTab({ budget, items }: Props) {
   const [newDoc, setNewDoc] = useState("");
   const [newType, setNewType] = useState("individual");
 
+  // Syncing state
+  const [syncingCostId, setSyncingCostId] = useState<string | null>(null);
+
   const { data: supplierContacts = [] } = useSupplierContacts();
   const createContact = useCreateSupplierContact();
   const touchContact = useTouchSupplierContact();
+
+  // Conta Azul accounts
+  const { data: accountsCache } = useContaAzulCache("accounts_v2");
+  const caAccounts = useMemo(() => {
+    const items = extractItems<any>(accountsCache?.payload);
+    return items.filter((a: any) => a?.id && a?.nome);
+  }, [accountsCache]);
 
   const { data: costs = [] } = useQuery({
     queryKey: ["project_costs", budget.id],
@@ -93,7 +105,8 @@ export function CostEntryTab({ budget, items }: Props) {
     setPaymentDate("");
     setServiceDate("");
     setStatus("pending");
-    setSentToContaAzul(false);
+    setInstallments(1);
+    setAccountId("");
     setEditingCost(null);
     setSupplierSearch("");
   };
@@ -108,8 +121,61 @@ export function CostEntryTab({ budget, items }: Props) {
     setPaymentDate(cost.payment_date || "");
     setServiceDate(cost.service_date || "");
     setStatus(cost.status || "pending");
-    setSentToContaAzul(cost.sent_to_conta_azul);
+    setInstallments(1);
+    setAccountId("");
     setSupplierSearch(cost.supplier_name || cost.supplier || "");
+  };
+
+  const sendToContaAzul = async (costId: string, costData: {
+    supplier_name: string;
+    description: string;
+    amount: number;
+    payment_date: string;
+    status: string;
+    installments: number;
+    account_id: string;
+  }) => {
+    try {
+      setSyncingCostId(costId);
+      const { data, error } = await supabase.functions.invoke("send-cost-to-conta-azul", {
+        body: {
+          cost_id: costId,
+          supplier_name: costData.supplier_name,
+          description: costData.description,
+          amount: costData.amount,
+          payment_date: costData.payment_date,
+          status: costData.status,
+          installments: costData.installments,
+          account_id: costData.account_id || undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.ok) {
+        toast({
+          title: "✅ Enviado ao Conta Azul",
+          description: data.partial_errors
+            ? `Parcialmente: ${data.created_ids?.length} parcela(s) ok, ${data.partial_errors.length} erro(s)`
+            : `${data.created_ids?.length || 1} parcela(s) criada(s) com sucesso`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
+      } else {
+        toast({
+          title: "⚠️ Erro ao enviar ao Conta Azul",
+          description: data?.error || "Erro desconhecido",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "⚠️ Falha na sincronização",
+        description: err.message || "O custo foi salvo localmente mas não foi enviado ao Conta Azul.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingCostId(null);
+    }
   };
 
   const saveCost = useMutation({
@@ -128,20 +194,38 @@ export function CostEntryTab({ budget, items }: Props) {
         payment_date: paymentDate || null,
         service_date: serviceDate || null,
         status,
-        sent_to_conta_azul: sentToContaAzul,
+        sent_to_conta_azul: false,
       };
       if (editingCost) {
         const { error } = await supabase.from("project_costs").update(payload).eq("id", editingCost.id);
         if (error) throw error;
+        return editingCost.id;
       } else {
-        const { error } = await supabase.from("project_costs").insert(payload);
+        const { data, error } = await supabase.from("project_costs").insert(payload).select("id").single();
         if (error) throw error;
+        return data.id;
       }
     },
-    onSuccess: () => {
+    onSuccess: async (costId: string) => {
       queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
       toast({ title: editingCost ? "Custo atualizado!" : "Custo lançado!" });
+
+      const costDataForCA = {
+        supplier_name: supplierName,
+        description,
+        amount,
+        payment_date: paymentDate,
+        status,
+        installments,
+        account_id: accountId,
+      };
+
       resetForm();
+
+      // Auto-send to Conta Azul (non-blocking)
+      if (supplierName && amount > 0) {
+        sendToContaAzul(costId, costDataForCA);
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao salvar custo", description: err.message, variant: "destructive" });
@@ -215,8 +299,6 @@ export function CostEntryTab({ budget, items }: Props) {
     setNewType("individual");
   };
 
-  const itemsWithSupplier = items.filter(i => i.has_supplier_cost);
-
   return (
     <>
       <Card>
@@ -273,6 +355,14 @@ export function CostEntryTab({ budget, items }: Props) {
             </div>
           )}
 
+          {/* Syncing indicator */}
+          {syncingCostId && (
+            <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 p-3 text-sm text-primary">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <p>Enviando para o Conta Azul...</p>
+            </div>
+          )}
+
           {/* Split layout: form left, list right */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* LEFT — form */}
@@ -324,15 +414,13 @@ export function CostEntryTab({ budget, items }: Props) {
                       if (!supplierPopoverOpen) setSupplierPopoverOpen(true);
                     }}
                     onFocus={() => setSupplierPopoverOpen(true)}
-                    onBlur={(e) => {
-                      // delay to allow click on dropdown items
+                    onBlur={() => {
                       setTimeout(() => setSupplierPopoverOpen(false), 200);
                     }}
                   />
                 </div>
                 {supplierPopoverOpen && (
                   <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-md max-h-[250px] overflow-y-auto">
-                  
                     {genericContacts.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-1">Genéricos</p>
@@ -413,10 +501,39 @@ export function CostEntryTab({ budget, items }: Props) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={sentToContaAzul} onChange={e => setSentToContaAzul(e.target.checked)} className="rounded border-border" />
-                <Label className="text-xs">Enviar para Conta Azul</Label>
+              {/* Installments + Account */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Parcelas</Label>
+                  <Input
+                    className="h-9 text-sm"
+                    type="number"
+                    min={1}
+                    max={48}
+                    value={installments}
+                    onChange={e => setInstallments(Math.max(1, Number(e.target.value)))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Conta (Conta Azul)</Label>
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma</SelectItem>
+                      {caAccounts.map((acc: any) => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {installments > 1 && amount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {installments}x de {formatCurrency(amount / installments)}
+                  {paymentDate && ` — 1ª parcela em ${formatDate(paymentDate)}`}
+                </p>
+              )}
 
               {wouldExceed200 && (
                 <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
@@ -435,7 +552,9 @@ export function CostEntryTab({ budget, items }: Props) {
                   onClick={() => saveCost.mutate()}
                   disabled={saveCost.isPending || !amount}
                 >
-                  {editingCost ? "Atualizar" : "Salvar Custo"}
+                  {saveCost.isPending ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Salvando...</>
+                  ) : editingCost ? "Atualizar" : "Salvar Custo"}
                 </Button>
               </div>
             </div>
@@ -449,6 +568,7 @@ export function CostEntryTab({ budget, items }: Props) {
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {costs.map(cost => {
                     const relatedItem = cost.budget_item_id ? items.find(i => i.id === cost.budget_item_id) : null;
+                    const isSyncing = syncingCostId === cost.id;
                     return (
                       <div
                         key={cost.id}
@@ -470,13 +590,35 @@ export function CostEntryTab({ budget, items }: Props) {
                           </span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs">{statusIcons[cost.status]} {statusLabels[cost.status]}</span>
-                            {cost.sent_to_conta_azul && <Badge variant="secondary" className="text-[9px] h-4 px-1">CA</Badge>}
+                            {isSyncing && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                            {cost.sent_to_conta_azul && <Badge variant="secondary" className="text-[9px] h-4 px-1">CA ✓</Badge>}
+                            {!cost.sent_to_conta_azul && !isSyncing && (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1 text-muted-foreground">Local</Badge>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
                           {cost.status !== "paid" && (
                             <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-[hsl(var(--success))]" onClick={() => markPaid.mutate(cost.id)}>
                               <CheckCircle className="h-3 w-3 mr-0.5" /> Pago
+                            </Button>
+                          )}
+                          {!cost.sent_to_conta_azul && !isSyncing && cost.supplier_name && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 text-primary"
+                              onClick={() => sendToContaAzul(cost.id, {
+                                supplier_name: cost.supplier_name || cost.supplier || "",
+                                description: cost.description || "",
+                                amount: cost.amount,
+                                payment_date: cost.payment_date || "",
+                                status: cost.status,
+                                installments: 1,
+                                account_id: "",
+                              })}
+                            >
+                              <CreditCard className="h-3 w-3 mr-0.5" /> Reenviar CA
                             </Button>
                           )}
                           <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-destructive" onClick={() => setDeleteId(cost.id)}>
