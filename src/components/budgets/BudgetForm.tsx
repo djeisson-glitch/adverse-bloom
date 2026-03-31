@@ -1687,34 +1687,15 @@ function ItemTableRow({
           ) : (
             <div className="relative flex items-center gap-1">
               {hasPresets && (
-                <Popover open={presetOpen} onOpenChange={setPresetOpen}>
-                  <PopoverTrigger asChild>
-                    <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[260px] p-1" align="start">
-                    <div className="max-h-[200px] overflow-y-auto">
-                      {filteredPresets.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum item encontrado</p>
-                      ) : (
-                        filteredPresets.map((p) => (
-                          <button
-                            key={p.id}
-                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                            onClick={() => {
-                              onApplyPreset?.(p);
-                              setPresetOpen(false);
-                            }}
-                          >
-                            <span className="font-medium">{p.item_name}</span>
-                            <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <button
+                  type="button"
+                  className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center"
+                  title="Selecionar item pré-cadastrado"
+                  onClick={() => { setPresetOpen((v) => !v); setHighlightIdx(-1); }}
+                  tabIndex={-1}
+                >
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
               )}
               <Input
                 ref={nameRef}
@@ -1722,8 +1703,28 @@ function ItemTableRow({
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
                 className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
-                onKeyDown={(e) => handleKeyDown(e)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={() => { setTimeout(() => setPresetOpen(false), 150); }}
               />
+              {presetOpen && filteredPresets.length > 0 && (
+                <div
+                  ref={listRef}
+                  className="absolute top-full left-0 z-50 mt-1 w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                >
+                  {filteredPresets.map((p, idx) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`w-full text-left px-2 py-1.5 text-xs rounded transition-colors ${idx === highlightIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"}`}
+                      onMouseDown={(e) => { e.preventDefault(); selectPreset(p); }}
+                      onMouseEnter={() => setHighlightIdx(idx)}
+                    >
+                      <span className="font-medium">{p.item_name}</span>
+                      <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </td>
