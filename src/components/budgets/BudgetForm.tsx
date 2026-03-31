@@ -821,7 +821,11 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Left: Items */}
         <div className="lg:col-span-2 space-y-3">
-          {categories.map((cat) => {
+          <DragDropContext onDragEnd={onCategoryDragEnd}>
+            <Droppable droppableId="categories-list" type="CATEGORY">
+              {(catListProvided) => (
+                <div ref={catListProvided.innerRef} {...catListProvided.droppableProps} className="space-y-3">
+          {categories.map((cat, catIndex) => {
             const config = getCatConfig(cat);
             const catItems = items
               .map((item, idx) => ({ item, idx }))
@@ -829,7 +833,13 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             const hasNewRow = newRowCats.has(cat);
 
             return (
-              <Card key={cat}>
+              <Draggable key={cat} draggableId={`cat-${cat}`} index={catIndex} isDragDisabled={isApproved}>
+                {(catDragProvided, catDragSnapshot) => (
+              <Card
+                ref={catDragProvided.innerRef}
+                {...catDragProvided.draggableProps}
+                className={catDragSnapshot.isDragging ? "shadow-lg ring-2 ring-primary/30" : ""}
+              >
                 <CardHeader className="py-2 px-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
