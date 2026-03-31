@@ -1380,6 +1380,8 @@ function ItemTableRow({
   onConfirm,
   onCancel,
   onEnterLastField,
+  dragProvided,
+  isDragging,
 }: {
   item: BudgetItem;
   config: CategoryFieldConfig;
@@ -1396,6 +1398,8 @@ function ItemTableRow({
   onConfirm?: () => void;
   onCancel?: () => void;
   onEnterLastField?: () => void;
+  dragProvided?: any;
+  isDragging?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
@@ -1414,7 +1418,23 @@ function ItemTableRow({
 
   return (
     <>
-      <tr className={`border-b border-border/30 hover:bg-muted/20 ${isNewRow ? "ring-1 ring-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5" : ""}`}>
+      <tr
+        ref={dragProvided?.innerRef}
+        {...(dragProvided?.draggableProps || {})}
+        className={`border-b border-border/30 hover:bg-muted/20 ${isNewRow ? "ring-1 ring-[hsl(var(--success))]/30 bg-[hsl(var(--success))]/5" : ""} ${isDragging ? "bg-muted shadow-lg opacity-90" : ""}`}
+      >
+        <td className="px-0.5 py-1.5 w-[28px]">
+          {!readOnly && !isNewRow ? (
+            <div
+              {...(dragProvided?.dragHandleProps || {})}
+              className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </div>
+          ) : (
+            <div {...(dragProvided?.dragHandleProps || {})} />
+          )}
+        </td>
         <td className="px-3 py-1.5">
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
