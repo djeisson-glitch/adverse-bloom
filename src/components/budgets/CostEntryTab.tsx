@@ -369,7 +369,7 @@ export function CostEntryTab({ budget, items }: Props) {
                 </Select>
                 {selectedItem && (
                   <p className="text-xs text-muted-foreground">
-                    Orçado: {formatCurrency(selectedItem.supplier_cost)} | Exec: {formatCurrency(executedForItem)} | Saldo: {formatCurrency(budgetedForItem - executedForItem)}
+                    Orçado: {formatCurrency(selectedItem.client_price)} | Exec: {formatCurrency(executedForItem)} | Saldo: {formatCurrency(budgetedForItem - executedForItem)}
                   </p>
                 )}
               </div>
