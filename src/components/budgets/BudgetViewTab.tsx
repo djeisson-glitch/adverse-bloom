@@ -244,12 +244,12 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                       {cat.items.map(item => {
                         const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
                         const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
-                        const unitLabel = "d";
+                        const qtyLabel = getLogisticaQtyLabel(cat.name, item);
                         return (
                           <TableRow key={item.id} className="border-border/50">
                             <TableCell className="py-2 px-3 text-sm font-medium">{item.item_name}</TableCell>
                             <TableCell className="py-2 px-3 text-xs text-muted-foreground text-center whitespace-nowrap">
-                              {item.client_days}{unitLabel} × {item.client_people}p
+                              {qtyLabel}
                             </TableCell>
                             <TableCell className="py-2 px-3 text-sm text-right font-medium whitespace-nowrap">
                               {formatCurrency(item.client_price)}
