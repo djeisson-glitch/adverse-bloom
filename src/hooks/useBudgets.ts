@@ -20,6 +20,7 @@ export interface BudgetItem {
   margin_percent: number;
   order_index: number;
   is_deliverable: boolean;
+  group_name?: string | null;
 }
 
 export interface Budget {

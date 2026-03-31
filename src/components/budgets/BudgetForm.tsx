@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, GripVertical } from "lucide-react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, GripVertical, FolderPlus } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +95,7 @@ function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
   return base;
 }
 
-function emptyItem(category: string, orderIndex: number): BudgetItem {
+function emptyItem(category: string, orderIndex: number, groupName?: string | null): BudgetItem {
   return {
     category,
     item_name: "",
@@ -112,6 +112,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
     margin_percent: 0,
     order_index: orderIndex,
     is_deliverable: false,
+    group_name: groupName ?? null,
   };
 }
 
@@ -398,28 +399,31 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     setCategories((prev) => prev.filter((c) => c !== cat));
   };
 
-  const addInlineRow = useCallback((cat: string) => {
-    if (newRowCats.has(cat)) return;
-    const newItem = emptyItem(cat, items.length);
+  const addInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
+    if (newRowCats.has(key)) return;
+    const newItem = emptyItem(cat, items.length, groupName);
     setItems((prev) => [...prev, newItem]);
-    setNewRowCats((prev) => new Set(prev).add(cat));
+    setNewRowCats((prev) => new Set(prev).add(key));
     setTimeout(() => {
-      newRowNameRefs.current[cat]?.focus();
+      newRowNameRefs.current[key]?.focus();
     }, 50);
   }, [items.length, newRowCats]);
 
-  const confirmInlineRow = useCallback((cat: string) => {
+  const confirmInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
     setNewRowCats((prev) => {
       const next = new Set(prev);
-      next.delete(cat);
+      next.delete(key);
       return next;
     });
   }, []);
 
-  const cancelInlineRow = useCallback((cat: string) => {
+  const cancelInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
     setItems((prev) => {
       const lastIdx = [...prev].reverse().findIndex(
-        (item) => item.category === cat && !item.item_name.trim()
+        (item) => item.category === cat && (item.group_name ?? null) === (groupName ?? null) && !item.item_name.trim()
       );
       if (lastIdx === -1) return prev;
       const realIdx = prev.length - 1 - lastIdx;
@@ -427,9 +431,31 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
     setNewRowCats((prev) => {
       const next = new Set(prev);
-      next.delete(cat);
+      next.delete(key);
       return next;
     });
+  }, []);
+
+  const addGroupToCategory = useCallback((cat: string) => {
+    const name = window.prompt("Nome do grupo:");
+    if (!name?.trim()) return;
+    // Add an empty item with group_name to create the group
+    const newItem = emptyItem(cat, items.length, name.trim());
+    setItems((prev) => [...prev, newItem]);
+    const key = `${cat}::${name.trim()}`;
+    setNewRowCats((prev) => new Set(prev).add(key));
+    setTimeout(() => {
+      newRowNameRefs.current[key]?.focus();
+    }, 50);
+  }, [items.length]);
+
+  const removeGroup = useCallback((cat: string, groupName: string) => {
+    // Move items from group to ungrouped (null)
+    setItems((prev) => prev.map((item) =>
+      item.category === cat && item.group_name === groupName
+        ? { ...item, group_name: null }
+        : item
+    ));
   }, []);
 
   const onCategoryDragEnd = useCallback((result: DropResult) => {
@@ -830,7 +856,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             const catItems = items
               .map((item, idx) => ({ item, idx }))
               .filter(({ item }) => item.category === cat);
-            const hasNewRow = newRowCats.has(cat);
+
+            // Compute groups for this category
+            const groupNames = [...new Set(catItems.map(({ item }) => item.group_name).filter((g): g is string => !!g))];
+            const ungroupedItems = catItems.filter(({ item }) => !item.group_name);
+            const hasNewRowForCat = (groupName?: string | null) => {
+              const key = groupName ? `${cat}::${groupName}` : cat;
+              return newRowCats.has(key);
+            };
 
             return (
               <Draggable key={cat} draggableId={`cat-${cat}`} index={catIndex} isDragDisabled={isApproved}>
@@ -856,8 +889,16 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           variant="ghost"
                           size="sm"
                           className="h-7 text-xs px-2"
+                          onClick={() => addGroupToCategory(cat)}
+                        >
+                          <FolderPlus className="h-3 w-3 mr-1" /> Grupo
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs px-2"
                           onClick={() => addInlineRow(cat)}
-                          disabled={hasNewRow}
+                          disabled={hasNewRowForCat()}
                         >
                           <Plus className="h-3 w-3 mr-1" /> Adicionar
                         </Button>
@@ -875,7 +916,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {catItems.length === 0 && !hasNewRow ? (
+                  {catItems.length === 0 && !hasNewRowForCat() ? (
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
                     <DragDropContext onDragEnd={onDragEnd}>
@@ -953,8 +994,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           <Droppable droppableId={cat}>
                             {(provided) => (
                               <tbody ref={provided.innerRef} {...provided.droppableProps}>
-                                {catItems.map(({ item, idx }, catIdx) => {
-                                  const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                                {/* Ungrouped items first */}
+                                {ungroupedItems.map(({ item, idx }, catIdx) => {
+                                  const rowKey = cat;
+                                  const isNewRow = hasNewRowForCat() && idx === ungroupedItems[ungroupedItems.length - 1]?.idx && !item.item_name.trim();
                                   const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
                                   return (
                                     <Draggable
@@ -978,14 +1021,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                             if (isNewRow) {
                                               setNewRowCats((prev) => {
                                                 const next = new Set(prev);
-                                                next.delete(cat);
+                                                next.delete(rowKey);
                                                 return next;
                                               });
                                             }
                                           }}
                                           readOnly={isApproved}
                                           isNewRow={isNewRow}
-                                          nameRef={isNewRow ? (el) => { newRowNameRefs.current[cat] = el; } : undefined}
+                                          nameRef={isNewRow ? (el) => { newRowNameRefs.current[rowKey] = el; } : undefined}
                                           onConfirm={() => {
                                             if (item.item_name.trim()) {
                                               confirmInlineRow(cat);
@@ -1003,6 +1046,106 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                         />
                                       )}
                                     </Draggable>
+                                  );
+                                })}
+                                {/* Groups */}
+                                {groupNames.map((gName) => {
+                                  const groupItems = catItems.filter(({ item }) => item.group_name === gName);
+                                  const groupSubtotal = groupItems.reduce((sum, { item }) => sum + item.client_price, 0);
+                                  const groupKey = `${cat}::${gName}`;
+                                  const colSpan = config.field2 ? 9 : 8;
+                                  return (
+                                    <React.Fragment key={`group-${gName}`}>
+                                      <tr className="bg-accent/30 border-b border-border/40">
+                                        <td colSpan={colSpan} className="px-3 py-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70">
+                                                ┗ {gName}
+                                              </span>
+                                              <span className="text-[10px] text-muted-foreground font-medium">
+                                                ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
+                                              </span>
+                                            </div>
+                                            {!isApproved && (
+                                              <div className="flex items-center gap-1">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 text-[10px] px-1.5"
+                                                  onClick={() => addInlineRow(cat, gName)}
+                                                  disabled={hasNewRowForCat(gName)}
+                                                >
+                                                  <Plus className="h-2.5 w-2.5 mr-0.5" /> Item
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 w-6 px-0 text-muted-foreground hover:text-destructive"
+                                                  onClick={() => removeGroup(cat, gName)}
+                                                  title="Desagrupar itens"
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {groupItems.map(({ item, idx }, gIdx) => {
+                                        const isNewRow = hasNewRowForCat(gName) && idx === groupItems[groupItems.length - 1]?.idx && !item.item_name.trim();
+                                        const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                                        const draggableIdx = ungroupedItems.length + groupNames.indexOf(gName) * 100 + gIdx;
+                                        return (
+                                          <Draggable
+                                            key={`desktop-${cat}-${idx}`}
+                                            draggableId={`desktop-${cat}-${idx}`}
+                                            index={draggableIdx}
+                                            isDragDisabled={isApproved || isNewRow}
+                                          >
+                                            {(dragProvided, snapshot) => (
+                                              <ItemTableRow
+                                                item={item}
+                                                config={itemConfig}
+                                                headerConfig={config}
+                                                supplierContacts={supplierContacts}
+                                                presetItems={presetItems.filter(p => p.category === cat)}
+                                                onUpdate={(field, value) => updateItem(idx, field, value)}
+                                                onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
+                                                onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                                                onRemove={() => {
+                                                  removeItem(idx);
+                                                  if (isNewRow) {
+                                                    setNewRowCats((prev) => {
+                                                      const next = new Set(prev);
+                                                      next.delete(groupKey);
+                                                      return next;
+                                                    });
+                                                  }
+                                                }}
+                                                readOnly={isApproved}
+                                                isNewRow={isNewRow}
+                                                nameRef={isNewRow ? (el) => { newRowNameRefs.current[groupKey] = el; } : undefined}
+                                                onConfirm={() => {
+                                                  if (item.item_name.trim()) {
+                                                    confirmInlineRow(cat, gName);
+                                                  }
+                                                }}
+                                                onCancel={() => cancelInlineRow(cat, gName)}
+                                                onEnterLastField={() => {
+                                                  if (item.item_name.trim()) {
+                                                    confirmInlineRow(cat, gName);
+                                                    setTimeout(() => addInlineRow(cat, gName), 50);
+                                                  }
+                                                }}
+                                                dragProvided={dragProvided}
+                                                isDragging={snapshot.isDragging}
+                                              />
+                                            )}
+                                          </Draggable>
+                                        );
+                                      })}
+                                    </React.Fragment>
                                   );
                                 })}
                                 {provided.placeholder}
@@ -1451,6 +1594,26 @@ function ItemTableRow({
 
   const hasPresets = presetItems && presetItems.length > 0;
 
+  // Filter presets by typed text
+  const filteredPresets = useMemo(() => {
+    if (!hasPresets) return [];
+    const search = item.item_name.toLowerCase().trim();
+    if (!search) return presetItems!;
+    return presetItems!.filter((p) => p.item_name.toLowerCase().includes(search));
+  }, [hasPresets, presetItems, item.item_name]);
+
+  // Auto-open when typing and there are matches
+  const handleNameChange = (value: string) => {
+    onUpdate("item_name", value);
+    if (hasPresets) {
+      const search = value.toLowerCase().trim();
+      const matches = search
+        ? presetItems!.filter((p) => p.item_name.toLowerCase().includes(search))
+        : presetItems!;
+      setPresetOpen(matches.length > 0 && value.length > 0);
+    }
+  };
+
   return (
     <>
       <tr
@@ -1474,29 +1637,33 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
           ) : (
-            <div className="flex items-center gap-1">
-              {hasPresets && !item.item_name.trim() && (
+            <div className="relative flex items-center gap-1">
+              {hasPresets && (
                 <Popover open={presetOpen} onOpenChange={setPresetOpen}>
                   <PopoverTrigger asChild>
                     <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
                       <ChevronDown className="h-3 w-3 text-muted-foreground" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[220px] p-1" align="start">
+                  <PopoverContent className="w-[260px] p-1" align="start">
                     <div className="max-h-[200px] overflow-y-auto">
-                      {presetItems!.map((p) => (
-                        <button
-                          key={p.id}
-                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                          onClick={() => {
-                            onApplyPreset?.(p);
-                            setPresetOpen(false);
-                          }}
-                        >
-                          <span className="font-medium">{p.item_name}</span>
-                          <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
-                        </button>
-                      ))}
+                      {filteredPresets.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum item encontrado</p>
+                      ) : (
+                        filteredPresets.map((p) => (
+                          <button
+                            key={p.id}
+                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                            onClick={() => {
+                              onApplyPreset?.(p);
+                              setPresetOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">{p.item_name}</span>
+                            <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -1504,7 +1671,7 @@ function ItemTableRow({
               <Input
                 ref={nameRef}
                 value={item.item_name}
-                onChange={(e) => onUpdate("item_name", e.target.value)}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
                 className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
                 onKeyDown={(e) => handleKeyDown(e)}
