@@ -226,7 +226,7 @@ export function CostEntryTab({ budget, items }: Props) {
   const executedForItem = budgetItemId
     ? costs.filter(c => c.budget_item_id === budgetItemId && c.id !== (editingCost?.id || "")).reduce((s, c) => s + c.amount, 0)
     : 0;
-  const budgetedForItem = selectedItem?.supplier_cost ?? 0;
+  const budgetedForItem = selectedItem?.client_price ?? 0;
   const wouldExceed200 = budgetedForItem > 0 && (executedForItem + amount) > budgetedForItem * 2;
 
   const filteredContacts = useMemo(() => {
