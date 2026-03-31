@@ -437,17 +437,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     const cat = result.source.droppableId;
     setItems((prev) => {
       const catIndices = prev
-        .map((item, idx) => ({ item, idx }))
-        .filter(({ item }) => item.category === cat)
+        .map((_item, idx) => ({ _item, idx }))
+        .filter(({ _item }) => _item.category === cat)
         .map(({ idx }) => idx);
-      const sourceGlobalIdx = catIndices[result.source.index];
-      const destGlobalIdx = catIndices[result.destination!.index];
+      const fromGlobal = catIndices[result.source.index];
+      const toGlobal = catIndices[result.destination!.index];
       const copy = [...prev];
-      const [moved] = copy.splice(sourceGlobalIdx, 1);
-      // Find new insert position after splice
-      const destAfterSplice = destGlobalIdx > sourceGlobalIdx ? destGlobalIdx - 1 : destGlobalIdx;
-      // Recalculate: we need the position in the modified array
-      copy.splice(destAfterSplice + (destGlobalIdx > sourceGlobalIdx ? 1 : 0), 0, moved);
+      const [moved] = copy.splice(fromGlobal, 1);
+      copy.splice(toGlobal, 0, moved);
       return copy.map((it, i) => ({ ...it, order_index: i }));
     });
   }, []);
