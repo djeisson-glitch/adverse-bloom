@@ -1268,6 +1268,10 @@ export type Database = {
         Returns: boolean
       }
       next_budget_number: { Args: never; Returns: number }
+      save_budget_atomic: {
+        Args: { p_budget: Json; p_items: Json }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "operator"
