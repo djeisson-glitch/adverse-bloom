@@ -436,15 +436,19 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     if (!result.destination || result.source.index === result.destination.index) return;
     const cat = result.source.droppableId;
     setItems((prev) => {
-      const catIndices = prev
-        .map((_item, idx) => ({ _item, idx }))
-        .filter(({ _item }) => _item.category === cat)
-        .map(({ idx }) => idx);
-      const fromGlobal = catIndices[result.source.index];
-      const toGlobal = catIndices[result.destination!.index];
+      // Get only the items in this category, preserving global indices
+      const catEntries = prev
+        .map((it, idx) => ({ it, idx }))
+        .filter(({ it }) => it.category === cat);
+      // Reorder the category items
+      const reordered = [...catEntries];
+      const [moved] = reordered.splice(result.source.index, 1);
+      reordered.splice(result.destination!.index, 0, moved);
+      // Rebuild: non-cat items stay, cat items get replaced in their slots
       const copy = [...prev];
-      const [moved] = copy.splice(fromGlobal, 1);
-      copy.splice(toGlobal, 0, moved);
+      catEntries.forEach((entry, i) => {
+        copy[entry.idx] = reordered[i].it;
+      });
       return copy.map((it, i) => ({ ...it, order_index: i }));
     });
   }, []);
