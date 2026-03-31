@@ -460,17 +460,19 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
   }, []);
 
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [pendingGroupCat, setPendingGroupCat] = useState<string | null>(null);
+  const groupNameInputRef = useRef<HTMLInputElement>(null);
+
   const addGroupToCategory = useCallback((cat: string) => {
-    const name = window.prompt("Nome do grupo:");
-    if (!name?.trim()) return;
-    // Add an empty item with group_name to create the group
-    const newItem = emptyItem(cat, items.length, name.trim());
+    const tempName = `__novo_grupo_${Date.now()}`;
+    const newItem = emptyItem(cat, items.length, tempName);
     setItems((prev) => [...prev, newItem]);
-    const key = `${cat}::${name.trim()}`;
+    const key = `${cat}::${tempName}`;
     setNewRowCats((prev) => new Set(prev).add(key));
-    setTimeout(() => {
-      newRowNameRefs.current[key]?.focus();
-    }, 50);
+    setPendingGroupCat(cat);
+    setEditingGroupName(tempName);
+    setTimeout(() => groupNameInputRef.current?.focus(), 80);
   }, [items.length]);
 
   const removeGroup = useCallback((cat: string, groupName: string) => {
