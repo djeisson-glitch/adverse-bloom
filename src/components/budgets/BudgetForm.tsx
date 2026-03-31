@@ -889,8 +889,16 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           variant="ghost"
                           size="sm"
                           className="h-7 text-xs px-2"
+                          onClick={() => addGroupToCategory(cat)}
+                        >
+                          <FolderPlus className="h-3 w-3 mr-1" /> Grupo
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs px-2"
                           onClick={() => addInlineRow(cat)}
-                          disabled={hasNewRow}
+                          disabled={hasNewRowForCat()}
                         >
                           <Plus className="h-3 w-3 mr-1" /> Adicionar
                         </Button>
@@ -908,7 +916,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {catItems.length === 0 && !hasNewRow ? (
+                  {catItems.length === 0 && !hasNewRowForCat() ? (
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
                     <DragDropContext onDragEnd={onDragEnd}>
@@ -986,8 +994,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           <Droppable droppableId={cat}>
                             {(provided) => (
                               <tbody ref={provided.innerRef} {...provided.droppableProps}>
-                                {catItems.map(({ item, idx }, catIdx) => {
-                                  const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                                {/* Ungrouped items first */}
+                                {ungroupedItems.map(({ item, idx }, catIdx) => {
+                                  const rowKey = cat;
+                                  const isNewRow = hasNewRowForCat() && idx === ungroupedItems[ungroupedItems.length - 1]?.idx && !item.item_name.trim();
                                   const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
                                   return (
                                     <Draggable
@@ -1011,14 +1021,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                             if (isNewRow) {
                                               setNewRowCats((prev) => {
                                                 const next = new Set(prev);
-                                                next.delete(cat);
+                                                next.delete(rowKey);
                                                 return next;
                                               });
                                             }
                                           }}
                                           readOnly={isApproved}
                                           isNewRow={isNewRow}
-                                          nameRef={isNewRow ? (el) => { newRowNameRefs.current[cat] = el; } : undefined}
+                                          nameRef={isNewRow ? (el) => { newRowNameRefs.current[rowKey] = el; } : undefined}
                                           onConfirm={() => {
                                             if (item.item_name.trim()) {
                                               confirmInlineRow(cat);
@@ -1036,6 +1046,106 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                         />
                                       )}
                                     </Draggable>
+                                  );
+                                })}
+                                {/* Groups */}
+                                {groupNames.map((gName) => {
+                                  const groupItems = catItems.filter(({ item }) => item.group_name === gName);
+                                  const groupSubtotal = groupItems.reduce((sum, { item }) => sum + item.client_price, 0);
+                                  const groupKey = `${cat}::${gName}`;
+                                  const colSpan = config.field2 ? 9 : 8;
+                                  return (
+                                    <React.Fragment key={`group-${gName}`}>
+                                      <tr className="bg-accent/30 border-b border-border/40">
+                                        <td colSpan={colSpan} className="px-3 py-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70">
+                                                ┗ {gName}
+                                              </span>
+                                              <span className="text-[10px] text-muted-foreground font-medium">
+                                                ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
+                                              </span>
+                                            </div>
+                                            {!isApproved && (
+                                              <div className="flex items-center gap-1">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 text-[10px] px-1.5"
+                                                  onClick={() => addInlineRow(cat, gName)}
+                                                  disabled={hasNewRowForCat(gName)}
+                                                >
+                                                  <Plus className="h-2.5 w-2.5 mr-0.5" /> Item
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 w-6 px-0 text-muted-foreground hover:text-destructive"
+                                                  onClick={() => removeGroup(cat, gName)}
+                                                  title="Desagrupar itens"
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {groupItems.map(({ item, idx }, gIdx) => {
+                                        const isNewRow = hasNewRowForCat(gName) && idx === groupItems[groupItems.length - 1]?.idx && !item.item_name.trim();
+                                        const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                                        const draggableIdx = ungroupedItems.length + groupNames.indexOf(gName) * 100 + gIdx;
+                                        return (
+                                          <Draggable
+                                            key={`desktop-${cat}-${idx}`}
+                                            draggableId={`desktop-${cat}-${idx}`}
+                                            index={draggableIdx}
+                                            isDragDisabled={isApproved || isNewRow}
+                                          >
+                                            {(dragProvided, snapshot) => (
+                                              <ItemTableRow
+                                                item={item}
+                                                config={itemConfig}
+                                                headerConfig={config}
+                                                supplierContacts={supplierContacts}
+                                                presetItems={presetItems.filter(p => p.category === cat)}
+                                                onUpdate={(field, value) => updateItem(idx, field, value)}
+                                                onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
+                                                onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                                                onRemove={() => {
+                                                  removeItem(idx);
+                                                  if (isNewRow) {
+                                                    setNewRowCats((prev) => {
+                                                      const next = new Set(prev);
+                                                      next.delete(groupKey);
+                                                      return next;
+                                                    });
+                                                  }
+                                                }}
+                                                readOnly={isApproved}
+                                                isNewRow={isNewRow}
+                                                nameRef={isNewRow ? (el) => { newRowNameRefs.current[groupKey] = el; } : undefined}
+                                                onConfirm={() => {
+                                                  if (item.item_name.trim()) {
+                                                    confirmInlineRow(cat, gName);
+                                                  }
+                                                }}
+                                                onCancel={() => cancelInlineRow(cat, gName)}
+                                                onEnterLastField={() => {
+                                                  if (item.item_name.trim()) {
+                                                    confirmInlineRow(cat, gName);
+                                                    setTimeout(() => addInlineRow(cat, gName), 50);
+                                                  }
+                                                }}
+                                                dragProvided={dragProvided}
+                                                isDragging={snapshot.isDragging}
+                                              />
+                                            )}
+                                          </Draggable>
+                                        );
+                                      })}
+                                    </React.Fragment>
                                   );
                                 })}
                                 {provided.placeholder}
