@@ -52,7 +52,7 @@ export function CostReportTab({ budget, items }: Props) {
     const byCategory = categories.map(cat => {
       const catItems = items.filter(i => i.category === cat);
       const catCosts = costs.filter(c => c.category === cat);
-      const orcado = catItems.reduce((s, i) => s + i.supplier_cost, 0);
+      const orcado = catItems.reduce((s, i) => s + i.client_price, 0);
       const executado = catCosts.reduce((s, c) => s + c.amount, 0);
 
       const itemDetails = catItems.map(item => {
@@ -60,9 +60,9 @@ export function CostReportTab({ budget, items }: Props) {
         const itemExecutado = itemCosts.reduce((s, c) => s + c.amount, 0);
         return {
           name: item.item_name,
-          orcado: item.supplier_cost,
+          orcado: item.client_price,
           executado: itemExecutado,
-          delta: item.supplier_cost - itemExecutado,
+          delta: item.client_price - itemExecutado,
         };
       });
 
