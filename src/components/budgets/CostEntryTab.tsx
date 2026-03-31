@@ -244,16 +244,7 @@ export function CostEntryTab({ budget, items }: Props) {
     },
   });
 
-  const markPaid = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("project_costs").update({ status: "paid" }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
-      toast({ title: "Marcado como pago!" });
-    },
-  });
+
 
   const totalExecutado = costs.reduce((s, c) => s + c.amount, 0);
   const orcado = budget.subtotal_1 ?? 0;
