@@ -52,7 +52,7 @@ export function CostReportTab({ budget, items }: Props) {
     const byCategory = categories.map(cat => {
       const catItems = items.filter(i => i.category === cat);
       const catCosts = costs.filter(c => c.category === cat);
-      const orcado = catItems.reduce((s, i) => s + i.supplier_cost, 0);
+      const orcado = catItems.reduce((s, i) => s + i.client_price, 0);
       const executado = catCosts.reduce((s, c) => s + c.amount, 0);
 
       const itemDetails = catItems.map(item => {
