@@ -33,9 +33,9 @@ export function CostReportTab({ budget, items }: Props) {
 
   const report = useMemo(() => {
     const subtotal1 = items.reduce((s, i) => s + i.client_price, 0);
-    const supplierTotal = items.filter(i => i.has_supplier_cost).reduce((s, i) => s + i.supplier_cost, 0);
+    const supplierTotal = items.reduce((s, i) => s + i.supplier_cost, 0);
     const executedTotal = costs.reduce((s, c) => s + c.amount, 0);
-    const economia = subtotal1 - executedTotal;
+    const economia = supplierTotal - executedTotal;
 
     const margemOrcada = budget.margin_value ?? 0;
     const margemOrcadaPct = budget.margin_percent ?? 0;
@@ -52,7 +52,7 @@ export function CostReportTab({ budget, items }: Props) {
     const byCategory = categories.map(cat => {
       const catItems = items.filter(i => i.category === cat);
       const catCosts = costs.filter(c => c.category === cat);
-      const orcado = catItems.filter(i => i.has_supplier_cost).reduce((s, i) => s + i.supplier_cost, 0);
+      const orcado = catItems.reduce((s, i) => s + i.supplier_cost, 0);
       const executado = catCosts.reduce((s, c) => s + c.amount, 0);
 
       const itemDetails = catItems.map(item => {
@@ -60,9 +60,9 @@ export function CostReportTab({ budget, items }: Props) {
         const itemExecutado = itemCosts.reduce((s, c) => s + c.amount, 0);
         return {
           name: item.item_name,
-          orcado: item.has_supplier_cost ? item.supplier_cost : 0,
+          orcado: item.supplier_cost,
           executado: itemExecutado,
-          delta: (item.has_supplier_cost ? item.supplier_cost : 0) - itemExecutado,
+          delta: item.supplier_cost - itemExecutado,
         };
       });
 
