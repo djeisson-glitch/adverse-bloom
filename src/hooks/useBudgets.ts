@@ -42,6 +42,9 @@ export interface Budget {
   total_value: number;
   margin_value: number;
   margin_percent: number;
+  original_margin_value?: number;
+  original_margin_percent?: number;
+  real_costs_total?: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -58,6 +61,34 @@ export interface BudgetWithItems extends Budget {
   budget_items: BudgetItem[];
 }
 
+type ProjectCostSummary = {
+  budget_id: string;
+  amount: number | null;
+};
+
+function buildRealCostsMap(costs: ProjectCostSummary[]) {
+  return costs.reduce<Record<string, number>>((acc, cost) => {
+    acc[cost.budget_id] = (acc[cost.budget_id] ?? 0) + (cost.amount ?? 0);
+    return acc;
+  }, {});
+}
+
+function applyRealMarginToBudget<T extends Budget>(budget: T, realCostsTotal: number): T {
+  const totalCliente = budget.total_value ?? 0;
+  const subtotal1 = budget.subtotal_1 ?? 0;
+  const realMarginValue = totalCliente - subtotal1 - realCostsTotal;
+  const realMarginPercent = totalCliente > 0 ? (realMarginValue / totalCliente) * 100 : 0;
+
+  return {
+    ...budget,
+    original_margin_value: budget.original_margin_value ?? budget.margin_value ?? 0,
+    original_margin_percent: budget.original_margin_percent ?? budget.margin_percent ?? 0,
+    real_costs_total: realCostsTotal,
+    margin_value: realMarginValue,
+    margin_percent: realMarginPercent,
+  };
+}
+
 export function useBudgets() {
   return useQuery({
     queryKey: ["budgets"],
@@ -68,10 +99,22 @@ export function useBudgets() {
         .eq("is_latest_version", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data as any[]).map((b) => ({
+
+      const budgets = ((data as any[]) ?? []).map((b) => ({
         ...b,
         not_included: (b.not_included ?? []) as string[],
       })) as Budget[];
+
+      if (budgets.length === 0) return [];
+
+      const { data: costs, error: costsError } = await supabase
+        .from("project_costs")
+        .select("budget_id, amount")
+        .in("budget_id", budgets.map((budget) => budget.id));
+      if (costsError) throw costsError;
+
+      const realCostsMap = buildRealCostsMap((costs ?? []) as ProjectCostSummary[]);
+      return budgets.map((budget) => applyRealMarginToBudget(budget, realCostsMap[budget.id] ?? 0));
     },
   });
 }
@@ -81,25 +124,22 @@ export function useBudgetWithItems(id: string | null) {
     queryKey: ["budget", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data: budget, error } = await supabase
-        .from("budgets")
-        .select("*")
-        .eq("id", id!)
-        .single();
+      const [{ data: budget, error }, { data: items, error: itemsError }, { data: costs, error: costsError }] = await Promise.all([
+        supabase.from("budgets").select("*").eq("id", id!).single(),
+        supabase.from("budget_items").select("*").eq("budget_id", id!).order("order_index", { ascending: true }),
+        supabase.from("project_costs").select("budget_id, amount").eq("budget_id", id!),
+      ]);
       if (error) throw error;
-
-      const { data: items, error: itemsError } = await supabase
-        .from("budget_items")
-        .select("*")
-        .eq("budget_id", id!)
-        .order("order_index", { ascending: true });
       if (itemsError) throw itemsError;
+      if (costsError) throw costsError;
 
-      return {
+      const realCostsTotal = ((costs ?? []) as ProjectCostSummary[]).reduce((sum, cost) => sum + (cost.amount ?? 0), 0);
+
+      return applyRealMarginToBudget({
         ...budget,
         not_included: (budget.not_included ?? []) as string[],
-        budget_items: items,
-      } as BudgetWithItems;
+        budget_items: (items ?? []) as BudgetItem[],
+      } as BudgetWithItems, realCostsTotal);
     },
   });
 }
@@ -115,7 +155,18 @@ export function useBudgetVersions(budgetNumber: number | null) {
         .eq("budget_number", budgetNumber!)
         .order("version", { ascending: true });
       if (error) throw error;
-      return data as Budget[];
+
+      const versions = (data ?? []) as Budget[];
+      if (versions.length === 0) return [];
+
+      const { data: costs, error: costsError } = await supabase
+        .from("project_costs")
+        .select("budget_id, amount")
+        .in("budget_id", versions.map((version) => version.id));
+      if (costsError) throw costsError;
+
+      const realCostsMap = buildRealCostsMap((costs ?? []) as ProjectCostSummary[]);
+      return versions.map((version) => applyRealMarginToBudget(version, realCostsMap[version.id] ?? 0));
     },
   });
 }

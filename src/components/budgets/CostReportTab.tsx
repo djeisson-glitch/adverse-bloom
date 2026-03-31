@@ -37,10 +37,9 @@ export function CostReportTab({ budget, items }: Props) {
     const executedTotal = costs.reduce((s, c) => s + c.amount, 0);
     const economia = supplierTotal - executedTotal;
 
-    const margemOrcada = budget.margin_value ?? 0;
-    const margemOrcadaPct = budget.margin_percent ?? 0;
+    const margemOrcada = budget.original_margin_value ?? budget.margin_value ?? 0;
+    const margemOrcadaPct = budget.original_margin_percent ?? budget.margin_percent ?? 0;
 
-    // Real margin = total_cliente - subtotal1 (custos orçados internos) - total_custos_reais
     const totalCliente = budget.total_value ?? 0;
     const subtotal1Value = budget.subtotal_1 ?? subtotal1;
     const margemReal = totalCliente - subtotal1Value - executedTotal;
