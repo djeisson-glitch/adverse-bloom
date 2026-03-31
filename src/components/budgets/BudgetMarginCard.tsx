@@ -1,28 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import type { Budget } from "@/hooks/useBudgets";
+import { useBudgets } from "@/hooks/useBudgets";
 
 export function BudgetMarginCard() {
   const navigate = useNavigate();
 
-  const { data: budgets = [] } = useQuery({
-    queryKey: ["budgets-approved"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("budgets")
-        .select("*")
-        .eq("status", "approved")
-        .order("margin_percent", { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data as Budget[];
-    },
-  });
+  const { data: allBudgets = [] } = useBudgets();
+
+  const budgets = allBudgets
+    .filter((b) => b.status === "approved")
+    .sort((a, b) => (b.margin_percent ?? 0) - (a.margin_percent ?? 0))
+    .slice(0, 5);
 
   if (budgets.length === 0) return null;
 
