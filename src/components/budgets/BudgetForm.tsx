@@ -432,7 +432,25 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
   }, []);
 
-  // Resumo de Entregas
+  const onDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination || result.source.index === result.destination.index) return;
+    const cat = result.source.droppableId;
+    setItems((prev) => {
+      const catIndices = prev
+        .map((item, idx) => ({ item, idx }))
+        .filter(({ item }) => item.category === cat)
+        .map(({ idx }) => idx);
+      const sourceGlobalIdx = catIndices[result.source.index];
+      const destGlobalIdx = catIndices[result.destination!.index];
+      const copy = [...prev];
+      const [moved] = copy.splice(sourceGlobalIdx, 1);
+      // Find new insert position after splice
+      const destAfterSplice = destGlobalIdx > sourceGlobalIdx ? destGlobalIdx - 1 : destGlobalIdx;
+      // Recalculate: we need the position in the modified array
+      copy.splice(destAfterSplice + (destGlobalIdx > sourceGlobalIdx ? 1 : 0), 0, moved);
+      return copy.map((it, i) => ({ ...it, order_index: i }));
+    });
+  }, []);
   const resumoEntregas = useMemo(() => {
     const validItems = items.filter((i) => i.item_name.trim());
     const producaoItems: { nome: string; qtd: number; dias: number }[] = [];
