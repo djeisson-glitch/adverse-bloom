@@ -40,11 +40,10 @@ export function CostReportTab({ budget, items }: Props) {
     const margemOrcada = budget.margin_value ?? 0;
     const margemOrcadaPct = budget.margin_percent ?? 0;
 
-    // Real margin = total_value - executedTotal - bv - commission
+    // Real margin = total_cliente - subtotal1 (custos orçados internos) - total_custos_reais
     const totalCliente = budget.total_value ?? 0;
-    const bv = budget.bv_value ?? 0;
-    const commission = budget.commission_value ?? 0;
-    const margemReal = totalCliente - executedTotal - bv - commission;
+    const subtotal1Value = budget.subtotal_1 ?? subtotal1;
+    const margemReal = totalCliente - subtotal1Value - executedTotal;
     const margemRealPct = totalCliente > 0 ? (margemReal / totalCliente) * 100 : 0;
 
     // Per category breakdown

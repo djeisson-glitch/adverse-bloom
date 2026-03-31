@@ -598,11 +598,6 @@ export function CostEntryTab({ budget, items }: Props) {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
-                          {cost.status !== "paid" && (
-                            <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-[hsl(var(--success))]" onClick={() => markPaid.mutate(cost.id)}>
-                              <CheckCircle className="h-3 w-3 mr-0.5" /> Pago
-                            </Button>
-                          )}
                           {!cost.sent_to_conta_azul && !isSyncing && cost.supplier_name && (
                             <Button
                               variant="ghost"
