@@ -516,10 +516,10 @@ export function CostEntryTab({ budget, items }: Props) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Conta (Conta Azul)</Label>
-                  <Select value={accountId} onValueChange={setAccountId}>
+                  <Select value={accountId || "_none"} onValueChange={v => setAccountId(v === "_none" ? "" : v)}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
+                      <SelectItem value="_none">Nenhuma</SelectItem>
                       {caAccounts.map((acc: any) => (
                         <SelectItem key={acc.id} value={acc.id}>{acc.nome}</SelectItem>
                       ))}

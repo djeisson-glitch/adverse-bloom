@@ -88,7 +88,6 @@ export function CostManagement({ budget, items }: Props) {
     setAmount(0);
     setSupplier("");
     setPaymentDate("");
-    setSentToContaAzul(false);
   };
 
   const totalExecutado = costs.reduce((s, c) => s + c.amount, 0);
