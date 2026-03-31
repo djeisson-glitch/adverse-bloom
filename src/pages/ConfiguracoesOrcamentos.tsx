@@ -67,22 +67,29 @@ export default function ConfiguracoesOrcamentos() {
   }, [settings]);
 
   const handleSave = async () => {
-    if (!settings) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("budget_settings")
-        .update({
-          markup_default: parseFloat(markup) || 35,
-          tax_default: parseFloat(tax) || 9.5,
-          commission_default: parseFloat(bv) || 0,
-          commission_djeisson_percent: commissions[0]?.percent || 3,
-          commission_djeisson_enabled: commissions[0]?.enabled ?? true,
-          commission_robert_percent: commissions[1]?.percent || 3,
-          commission_robert_enabled: commissions[1]?.enabled ?? true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", settings.id);
+      const payload = {
+        markup_default: parseFloat(markup) || 35,
+        tax_default: parseFloat(tax) || 9.5,
+        commission_default: parseFloat(bv) || 0,
+        commission_djeisson_percent: commissions[0]?.percent || 3,
+        commission_djeisson_enabled: commissions[0]?.enabled ?? true,
+        commission_robert_percent: commissions[1]?.percent || 3,
+        commission_robert_enabled: commissions[1]?.enabled ?? true,
+        updated_at: new Date().toISOString(),
+      };
+      let error;
+      if (settings?.id) {
+        ({ error } = await supabase
+          .from("budget_settings")
+          .update(payload)
+          .eq("id", settings.id));
+      } else {
+        ({ error } = await supabase
+          .from("budget_settings")
+          .insert(payload));
+      }
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["budget_settings"] });
       toast({ title: "Configurações de orçamento salvas" });
