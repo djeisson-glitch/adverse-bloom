@@ -61,6 +61,26 @@ const categoryConfig: Record<string, CategoryFieldConfig> = {
   "LOGÍSTICA": { field1: "Dias", field2: "Pessoas", field3: "Valor/dia", formula: "dias × pessoas × valor" },
 };
 
+/* ── Logistics item type detection ── */
+type LogisticaItemType = "combustivel" | "hospedagem" | "passagem" | "alimentacao" | "default";
+
+function detectLogisticaType(itemName: string): LogisticaItemType {
+  const lower = itemName.toLowerCase().trim();
+  if (lower.includes("combust")) return "combustivel";
+  if (lower.includes("hospeda") || lower.includes("hotel") || lower.includes("pousada") || lower.includes("airbnb")) return "hospedagem";
+  if (lower.includes("passag")) return "passagem";
+  if (lower.includes("aliment") || lower.includes("refei") || lower.includes("almoço") || lower.includes("almoco") || lower.includes("jantar") || lower.includes("café") || lower.includes("cafe") || lower.includes("lanche")) return "alimentacao";
+  return "default";
+}
+
+const logisticaConfigs: Record<LogisticaItemType, CategoryFieldConfig> = {
+  combustivel: { field1: "Km", field2: null, field3: "Valor/km", formula: "km × valor" },
+  hospedagem: { field1: "Quartos", field2: "Diárias", field3: "Valor/diária", formula: "quartos × diárias × valor" },
+  passagem: { field1: "Qtd", field2: null, field3: "Valor/unid.", formula: "qtd × valor" },
+  alimentacao: { field1: "Refeições", field2: "Dias", field3: "Valor/unid.", formula: "refeições × dias × valor" },
+  default: { field1: "Dias", field2: null, field3: "Valor/dia", formula: "dias × valor" },
+};
+
 const LOGISTICA_NEEDS_PEOPLE = ["alimentação", "café", "lanche", "jantar", "almoço", "refeição", "hotel", "hospedagem", "pousada", "airbnb"];
 
 function logisticaNeedsPeople(itemName: string): boolean {
@@ -89,8 +109,12 @@ function posIsEntrega(itemName: string): boolean {
 
 function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
   const base = categoryConfig[cat] ?? categoryConfig["PRODUÇÃO"];
-  if (cat === "LOGÍSTICA" && itemName && !logisticaNeedsPeople(itemName)) {
-    return { ...base, field2: null, formula: "dias × valor" };
+  if (cat === "LOGÍSTICA" && itemName) {
+    const logType = detectLogisticaType(itemName);
+    return logisticaConfigs[logType];
+  }
+  if (cat === "LOGÍSTICA") {
+    return logisticaConfigs["default"];
   }
   return base;
 }
