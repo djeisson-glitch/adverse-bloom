@@ -1152,12 +1152,36 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                         <td colSpan={colSpan} className="px-3 py-1.5">
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70">
-                                                ┗ {gName}
-                                              </span>
-                                              <span className="text-[10px] text-muted-foreground font-medium">
-                                                ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
-                                              </span>
+                                              {editingGroupName === gName ? (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-[11px] text-accent-foreground/70">┗</span>
+                                                  <Input
+                                                    ref={groupNameInputRef}
+                                                    defaultValue={gName.startsWith("__novo_grupo_") ? "" : gName}
+                                                    className="h-6 text-[11px] font-semibold uppercase w-[160px] px-1"
+                                                    placeholder="Nome do grupo..."
+                                                    onBlur={(e) => confirmGroupName(gName, e.target.value, cat)}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === "Enter") { e.preventDefault(); confirmGroupName(gName, (e.target as HTMLInputElement).value, cat); }
+                                                      if (e.key === "Escape") { confirmGroupName(gName, "", cat); }
+                                                    }}
+                                                    autoFocus
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <span
+                                                    className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70 cursor-pointer hover:text-accent-foreground"
+                                                    onDoubleClick={() => !isApproved && setEditingGroupName(gName)}
+                                                    title="Duplo-clique para renomear"
+                                                  >
+                                                    ┗ {gName}
+                                                  </span>
+                                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                                    ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
+                                                  </span>
+                                                </>
+                                              )}
                                             </div>
                                             {!isApproved && (
                                               <div className="flex items-center gap-1">
