@@ -684,7 +684,29 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         items: validItems,
       },
       {
-        onSuccess: async () => {
+        onSuccess: async (savedId) => {
+          // Auto-create tax cost entry on approval
+          const bId = savedId || budgetId;
+          if (bId && taxPercent > 0 && totals.totalValue > 0) {
+            const taxAmount = totals.totalValue * (taxPercent / 100);
+            // Check if tax cost already exists
+            const { data: existingTax } = await supabase
+              .from("project_costs")
+              .select("id")
+              .eq("budget_id", bId)
+              .eq("description", "Imposto")
+              .limit(1);
+            if (!existingTax || existingTax.length === 0) {
+              await supabase.from("project_costs").insert({
+                budget_id: bId,
+                description: "Imposto",
+                amount: taxAmount,
+                status: "pending",
+                category: "Imposto",
+              });
+            }
+          }
+
           if (opts.createProject) {
             try {
               await supabase.from("projects").insert({
