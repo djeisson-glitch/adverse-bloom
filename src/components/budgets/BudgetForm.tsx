@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, GripVertical, FolderPlus } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -1588,6 +1589,7 @@ function ItemTableRow({
   const [presetOpen, setPresetOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputElRef = useRef<HTMLInputElement | null>(null);
   const hdr = headerConfig ?? config;
 
   const hasPresets = presetItems && presetItems.length > 0;
@@ -1703,7 +1705,10 @@ function ItemTableRow({
                 </button>
               )}
               <Input
-                ref={nameRef}
+                ref={(el) => {
+                  inputElRef.current = el;
+                  if (nameRef) nameRef(el);
+                }}
                 value={item.item_name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
@@ -1711,10 +1716,14 @@ function ItemTableRow({
                 onKeyDown={handleNameKeyDown}
                 onBlur={() => { setTimeout(() => setPresetOpen(false), 150); }}
               />
-              {presetOpen && filteredPresets.length > 0 && (
+              {presetOpen && filteredPresets.length > 0 && inputElRef.current && ReactDOM.createPortal(
                 <div
                   ref={listRef}
-                  className="absolute top-full left-0 z-50 mt-1 w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                  className="fixed z-[9999] w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                  style={{
+                    top: inputElRef.current!.getBoundingClientRect().bottom + 4,
+                    left: inputElRef.current!.getBoundingClientRect().left,
+                  }}
                 >
                   {filteredPresets.map((p, idx) => (
                     <button
@@ -1728,7 +1737,8 @@ function ItemTableRow({
                       <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
                     </button>
                   ))}
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           )}
