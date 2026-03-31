@@ -95,7 +95,7 @@ function getCatConfig(cat: string, itemName?: string): CategoryFieldConfig {
   return base;
 }
 
-function emptyItem(category: string, orderIndex: number): BudgetItem {
+function emptyItem(category: string, orderIndex: number, groupName?: string | null): BudgetItem {
   return {
     category,
     item_name: "",
@@ -112,6 +112,7 @@ function emptyItem(category: string, orderIndex: number): BudgetItem {
     margin_percent: 0,
     order_index: orderIndex,
     is_deliverable: false,
+    group_name: groupName ?? null,
   };
 }
 
