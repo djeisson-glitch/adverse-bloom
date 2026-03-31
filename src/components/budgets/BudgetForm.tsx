@@ -1333,8 +1333,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                       <ul className="space-y-0.5">
                         {resumoEntregas.logItems.map((r, i) => (
                           <li key={i} className="text-foreground">
-                            • {r.nome}: {r.dias} {r.dias > 1 ? "dias" : "dia"}
-                            {r.pessoas != null && r.pessoas > 0 && ` × ${r.pessoas} ${r.pessoas > 1 ? "pessoas" : "pessoa"}`}
+                            • {r.resumoLabel}
                           </li>
                         ))}
                       </ul>
