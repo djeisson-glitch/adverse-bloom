@@ -475,6 +475,30 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     setTimeout(() => groupNameInputRef.current?.focus(), 80);
   }, [items.length]);
 
+  const confirmGroupName = useCallback((oldName: string, newName: string, cat: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      // Cancel: remove the group items
+      setItems((prev) => prev.filter((item) => !(item.category === cat && item.group_name === oldName && !item.item_name.trim())));
+      setNewRowCats((prev) => { const n = new Set(prev); n.delete(`${cat}::${oldName}`); return n; });
+    } else if (trimmed !== oldName) {
+      // Rename group
+      setItems((prev) => prev.map((item) =>
+        item.category === cat && item.group_name === oldName
+          ? { ...item, group_name: trimmed }
+          : item
+      ));
+      // Update newRowCats key
+      setNewRowCats((prev) => {
+        const n = new Set(prev);
+        if (n.has(`${cat}::${oldName}`)) { n.delete(`${cat}::${oldName}`); n.add(`${cat}::${trimmed}`); }
+        return n;
+      });
+    }
+    setEditingGroupName(null);
+    setPendingGroupCat(null);
+  }, []);
+
   const removeGroup = useCallback((cat: string, groupName: string) => {
     // Move items from group to ungrouped (null)
     setItems((prev) => prev.map((item) =>
