@@ -1721,8 +1721,8 @@ function ItemTableRow({
                   ref={listRef}
                   className="fixed z-[9999] w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
                   style={{
-                    top: nameRef.current.getBoundingClientRect().bottom + 4,
-                    left: nameRef.current.getBoundingClientRect().left,
+                    top: inputElRef.current!.getBoundingClientRect().bottom + 4,
+                    left: inputElRef.current!.getBoundingClientRect().left,
                   }}
                 >
                   {filteredPresets.map((p, idx) => (
