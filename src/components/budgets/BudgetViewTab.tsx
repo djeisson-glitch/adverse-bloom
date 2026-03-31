@@ -25,6 +25,27 @@ function sobraColor(pct: number) {
   return "text-destructive";
 }
 
+function detectLogisticaType(itemName: string): string {
+  const lower = itemName.toLowerCase().trim();
+  if (lower.includes("combust")) return "combustivel";
+  if (lower.includes("hospeda") || lower.includes("hotel") || lower.includes("pousada") || lower.includes("airbnb")) return "hospedagem";
+  if (lower.includes("passag")) return "passagem";
+  if (lower.includes("aliment") || lower.includes("refei") || lower.includes("almoço") || lower.includes("almoco") || lower.includes("jantar") || lower.includes("café") || lower.includes("cafe") || lower.includes("lanche")) return "alimentacao";
+  return "default";
+}
+
+function getLogisticaQtyLabel(catName: string, item: any): string {
+  if (catName !== "LOGÍSTICA") return `${item.client_days}d × ${item.client_people}p`;
+  const logType = detectLogisticaType(item.item_name);
+  switch (logType) {
+    case "combustivel": return `${item.client_days} km × R$${item.client_unit_price}/km`;
+    case "hospedagem": return `${item.client_days} qts × ${item.client_people} diár.`;
+    case "passagem": return `${item.client_days} unid.`;
+    case "alimentacao": return `${item.client_days} ref. × ${item.client_people} dias`;
+    default: return `${item.client_days}d × ${item.client_people}p`;
+  }
+}
+
 function sobraIcon(pct: number) {
   if (pct >= 50) return "✅";
   if (pct >= 20) return "⚠️";
@@ -244,12 +265,12 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                       {cat.items.map(item => {
                         const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
                         const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
-                        const unitLabel = "d";
+                        const qtyLabel = getLogisticaQtyLabel(cat.name, item);
                         return (
                           <TableRow key={item.id} className="border-border/50">
                             <TableCell className="py-2 px-3 text-sm font-medium">{item.item_name}</TableCell>
                             <TableCell className="py-2 px-3 text-xs text-muted-foreground text-center whitespace-nowrap">
-                              {item.client_days}{unitLabel} × {item.client_people}p
+                              {qtyLabel}
                             </TableCell>
                             <TableCell className="py-2 px-3 text-sm text-right font-medium whitespace-nowrap">
                               {formatCurrency(item.client_price)}
