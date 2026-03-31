@@ -349,9 +349,22 @@ export function CostEntryTab({ budget, items }: Props) {
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_none">Nenhum</SelectItem>
-                    {items.map(i => (
-                      <SelectItem key={i.id} value={i.id}>{i.item_name} ({i.category})</SelectItem>
-                    ))}
+                    {(() => {
+                      const grouped = items.reduce<Record<string, typeof items>>((acc, item) => {
+                        const group = item.group_name || item.category;
+                        if (!acc[group]) acc[group] = [];
+                        acc[group].push(item);
+                        return acc;
+                      }, {});
+                      return Object.entries(grouped).map(([group, groupItems]) => (
+                        <SelectGroup key={group}>
+                          <SelectLabel className="text-xs font-bold uppercase text-muted-foreground tracking-wide">{group}</SelectLabel>
+                          {groupItems.map(i => (
+                            <SelectItem key={i.id} value={i.id} className="pl-6">{i.item_name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ));
+                    })()}
                   </SelectContent>
                 </Select>
                 {selectedItem && (
