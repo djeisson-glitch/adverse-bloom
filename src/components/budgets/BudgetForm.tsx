@@ -549,6 +549,12 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     }
     
     const validItems = items.filter((i) => i.item_name.trim());
+    
+    // Protection: never overwrite an existing budget with 0 items
+    if (savedBudgetId && validItems.length === 0) {
+      toast({ title: "Orçamento sem itens", description: "Adicione pelo menos um item antes de salvar.", variant: "destructive" });
+      return;
+    }
     saveBudget.mutate(
       {
         budget: {
