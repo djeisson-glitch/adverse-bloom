@@ -850,85 +850,140 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   {catItems.length === 0 && !hasNewRow ? (
                     <p className="text-xs text-muted-foreground text-center py-4">Nenhum item</p>
                   ) : isMobile ? (
-                    <div className="px-3 pb-3 space-y-2">
-                      {catItems.map(({ item, idx }) => {
-                        const mobileConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
-                        return (
-                          <MobileItemRow
-                            key={idx}
-                            item={item}
-                            config={mobileConfig}
-                            onUpdate={(field, value) => updateItem(idx, field, value)}
-                            onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
-                            onRemove={() => removeItem(idx)}
-                            readOnly={isApproved}
-                          />
-                        );
-                      })}
-                    </div>
+                    <DragDropContext onDragEnd={onDragEnd}>
+                      <Droppable droppableId={cat}>
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className="px-3 pb-3 space-y-2"
+                          >
+                            {catItems.map(({ item, idx }, catIdx) => {
+                              const mobileConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                              return (
+                                <Draggable
+                                  key={`mobile-${cat}-${idx}`}
+                                  draggableId={`mobile-${cat}-${idx}`}
+                                  index={catIdx}
+                                  isDragDisabled={isApproved}
+                                >
+                                  {(dragProvided, snapshot) => (
+                                    <div
+                                      ref={dragProvided.innerRef}
+                                      {...dragProvided.draggableProps}
+                                      className={snapshot.isDragging ? "opacity-90 shadow-lg rounded-lg" : ""}
+                                    >
+                                      <div className="flex items-start gap-1">
+                                        {!isApproved && (
+                                          <div
+                                            {...dragProvided.dragHandleProps}
+                                            className="pt-3 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground"
+                                          >
+                                            <GripVertical className="h-4 w-4" />
+                                          </div>
+                                        )}
+                                        <div className="flex-1">
+                                          <MobileItemRow
+                                            item={item}
+                                            config={mobileConfig}
+                                            onUpdate={(field, value) => updateItem(idx, field, value)}
+                                            onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                                            onRemove={() => removeItem(idx)}
+                                            readOnly={isApproved}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border/50 bg-muted/20">
-                            <th className="text-left text-[11px] font-medium text-muted-foreground px-3 py-1.5 min-w-[160px]">Nome</th>
-                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[60px]">{config.field1}</th>
-                            {config.field2 && (
-                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[60px]">{config.field2}</th>
+                    <DragDropContext onDragEnd={onDragEnd}>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border/50 bg-muted/20">
+                              <th className="w-[28px]"></th>
+                              <th className="text-left text-[11px] font-medium text-muted-foreground px-3 py-1.5 min-w-[160px]">Nome</th>
+                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[60px]">{config.field1}</th>
+                              {config.field2 && (
+                                <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[60px]">{config.field2}</th>
+                              )}
+                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[80px]">{config.field3}</th>
+                              <th className="text-right text-[11px] font-medium text-muted-foreground px-2 py-1.5 w-[80px]">Total</th>
+                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[44px]">Forn?</th>
+                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]" title="Marcar como entrega para o cliente">🎯</th>
+                              <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]"></th>
+                            </tr>
+                          </thead>
+                          <Droppable droppableId={cat}>
+                            {(provided) => (
+                              <tbody ref={provided.innerRef} {...provided.droppableProps}>
+                                {catItems.map(({ item, idx }, catIdx) => {
+                                  const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
+                                  const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
+                                  return (
+                                    <Draggable
+                                      key={`desktop-${cat}-${idx}`}
+                                      draggableId={`desktop-${cat}-${idx}`}
+                                      index={catIdx}
+                                      isDragDisabled={isApproved || isNewRow}
+                                    >
+                                      {(dragProvided, snapshot) => (
+                                        <ItemTableRow
+                                          item={item}
+                                          config={itemConfig}
+                                          headerConfig={config}
+                                          supplierContacts={supplierContacts}
+                                          presetItems={presetItems.filter(p => p.category === cat)}
+                                          onUpdate={(field, value) => updateItem(idx, field, value)}
+                                          onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
+                                          onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
+                                          onRemove={() => {
+                                            removeItem(idx);
+                                            if (isNewRow) {
+                                              setNewRowCats((prev) => {
+                                                const next = new Set(prev);
+                                                next.delete(cat);
+                                                return next;
+                                              });
+                                            }
+                                          }}
+                                          readOnly={isApproved}
+                                          isNewRow={isNewRow}
+                                          nameRef={isNewRow ? (el) => { newRowNameRefs.current[cat] = el; } : undefined}
+                                          onConfirm={() => {
+                                            if (item.item_name.trim()) {
+                                              confirmInlineRow(cat);
+                                            }
+                                          }}
+                                          onCancel={() => cancelInlineRow(cat)}
+                                          onEnterLastField={() => {
+                                            if (item.item_name.trim()) {
+                                              confirmInlineRow(cat);
+                                              setTimeout(() => addInlineRow(cat), 50);
+                                            }
+                                          }}
+                                          dragProvided={dragProvided}
+                                          isDragging={snapshot.isDragging}
+                                        />
+                                      )}
+                                    </Draggable>
+                                  );
+                                })}
+                                {provided.placeholder}
+                              </tbody>
                             )}
-                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[80px]">{config.field3}</th>
-                            <th className="text-right text-[11px] font-medium text-muted-foreground px-2 py-1.5 w-[80px]">Total</th>
-                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[44px]">Forn?</th>
-                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]" title="Marcar como entrega para o cliente">🎯</th>
-                            <th className="text-center text-[11px] font-medium text-muted-foreground px-1 py-1.5 w-[36px]"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {catItems.map(({ item, idx }) => {
-                            const isNewRow = hasNewRow && idx === catItems[catItems.length - 1]?.idx && !item.item_name.trim();
-                            const itemConfig = cat === "LOGÍSTICA" ? getCatConfig(cat, item.item_name) : config;
-                            return (
-                              <ItemTableRow
-                                key={idx}
-                                item={item}
-                                config={itemConfig}
-                                headerConfig={config}
-                                supplierContacts={supplierContacts}
-                                presetItems={presetItems.filter(p => p.category === cat)}
-                                onUpdate={(field, value) => updateItem(idx, field, value)}
-                                onApplyPreset={(preset) => applyPresetToItem(idx, preset)}
-                                onToggleSupplier={(checked) => toggleSupplier(idx, checked)}
-                                onRemove={() => {
-                                  removeItem(idx);
-                                  if (isNewRow) {
-                                    setNewRowCats((prev) => {
-                                      const next = new Set(prev);
-                                      next.delete(cat);
-                                      return next;
-                                    });
-                                  }
-                                }}
-                                readOnly={isApproved}
-                                isNewRow={isNewRow}
-                                nameRef={isNewRow ? (el) => { newRowNameRefs.current[cat] = el; } : undefined}
-                                onConfirm={() => {
-                                  if (item.item_name.trim()) {
-                                    confirmInlineRow(cat);
-                                  }
-                                }}
-                                onCancel={() => cancelInlineRow(cat)}
-                                onEnterLastField={() => {
-                                  if (item.item_name.trim()) {
-                                    confirmInlineRow(cat);
-                                    setTimeout(() => addInlineRow(cat), 50);
-                                  }
-                                }}
-                              />
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                          </Droppable>
+                        </table>
+                      </div>
+                    </DragDropContext>
                   )}
                 </CardContent>
               </Card>
