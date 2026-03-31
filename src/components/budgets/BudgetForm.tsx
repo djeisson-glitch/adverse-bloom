@@ -856,7 +856,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
             const catItems = items
               .map((item, idx) => ({ item, idx }))
               .filter(({ item }) => item.category === cat);
-            const hasNewRow = newRowCats.has(cat);
+
+            // Compute groups for this category
+            const groupNames = [...new Set(catItems.map(({ item }) => item.group_name).filter((g): g is string => !!g))];
+            const ungroupedItems = catItems.filter(({ item }) => !item.group_name);
+            const hasNewRowForCat = (groupName?: string | null) => {
+              const key = groupName ? `${cat}::${groupName}` : cat;
+              return newRowCats.has(key);
+            };
 
             return (
               <Draggable key={cat} draggableId={`cat-${cat}`} index={catIndex} isDragDisabled={isApproved}>
