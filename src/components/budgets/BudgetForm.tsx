@@ -399,13 +399,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     setCategories((prev) => prev.filter((c) => c !== cat));
   };
 
-  const addInlineRow = useCallback((cat: string) => {
-    if (newRowCats.has(cat)) return;
-    const newItem = emptyItem(cat, items.length);
+  const addInlineRow = useCallback((cat: string, groupName?: string | null) => {
+    const key = groupName ? `${cat}::${groupName}` : cat;
+    if (newRowCats.has(key)) return;
+    const newItem = emptyItem(cat, items.length, groupName);
     setItems((prev) => [...prev, newItem]);
-    setNewRowCats((prev) => new Set(prev).add(cat));
+    setNewRowCats((prev) => new Set(prev).add(key));
     setTimeout(() => {
-      newRowNameRefs.current[cat]?.focus();
+      newRowNameRefs.current[key]?.focus();
     }, 50);
   }, [items.length, newRowCats]);
 
