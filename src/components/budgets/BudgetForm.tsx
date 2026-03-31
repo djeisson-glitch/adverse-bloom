@@ -1581,16 +1581,9 @@ function ItemTableRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const listRef = useRef<HTMLDivElement>(null);
   const hdr = headerConfig ?? config;
-
-  const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
-    if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
-      onCancel?.();
-    }
-    if (e.key === "Enter" && isLastField) {
-      onEnterLastField?.();
-    }
-  };
 
   const hasPresets = presetItems && presetItems.length > 0;
 
@@ -1611,6 +1604,61 @@ function ItemTableRow({
         ? presetItems!.filter((p) => p.item_name.toLowerCase().includes(search))
         : presetItems!;
       setPresetOpen(matches.length > 0 && value.length > 0);
+      setHighlightIdx(-1);
+    }
+  };
+
+  const selectPreset = (p: any) => {
+    onApplyPreset?.(p);
+    setPresetOpen(false);
+    setHighlightIdx(-1);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (presetOpen && filteredPresets.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIdx((prev) => (prev + 1) % filteredPresets.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIdx((prev) => (prev <= 0 ? filteredPresets.length - 1 : prev - 1));
+      } else if (e.key === "Enter") {
+        if (highlightIdx >= 0 && highlightIdx < filteredPresets.length) {
+          e.preventDefault();
+          selectPreset(filteredPresets[highlightIdx]);
+        }
+      } else if (e.key === "Tab") {
+        if (highlightIdx >= 0 && highlightIdx < filteredPresets.length) {
+          selectPreset(filteredPresets[highlightIdx]);
+          // allow default Tab to move focus
+        }
+        setPresetOpen(false);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setPresetOpen(false);
+        setHighlightIdx(-1);
+      }
+    } else {
+      if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
+        onCancel?.();
+      }
+    }
+  };
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightIdx >= 0 && listRef.current) {
+      const el = listRef.current.children[highlightIdx] as HTMLElement;
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIdx]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
+    if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
+      onCancel?.();
+    }
+    if (e.key === "Enter" && isLastField) {
+      onEnterLastField?.();
     }
   };
 
