@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, DollarSign, AlertTriangle, Trash2, CreditCard, Search, X, Loader2 } from "lucide-react";
+import { Plus, DollarSign, AlertTriangle, Trash2, Search, Download } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierContacts, useCreateSupplierContact, useTouchSupplierContact, type SupplierContact } from "@/hooks/useSupplierContacts";
-import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
 interface ProjectCost {
@@ -43,6 +41,59 @@ interface Props {
 const statusLabels: Record<string, string> = { pending: "Pendente", paid: "Pago", overdue: "Atrasado" };
 const statusIcons: Record<string, string> = { pending: "🟡", paid: "✅", overdue: "🔴" };
 
+const ACCOUNT_OPTIONS = [
+  { value: "sicredi_0228", label: "Conta Sicredi 0228" },
+  { value: "cartao_clara", label: "Cartão Clara - Verba de Produção" },
+];
+
+function exportCostsToXLS(costs: ProjectCost[], items: BudgetItem[], budget: Budget) {
+  const header = [
+    "Data de Competência",
+    "Data de Vencimento",
+    "Data de Pagamento",
+    "Valor",
+    "Categoria",
+    "Descrição",
+    "Cliente/Fornecedor",
+    "CNPJ/CPF Cliente/Fornecedor",
+    "Centro de Custo",
+    "Observações",
+  ];
+
+  const rows = costs.map(cost => {
+    const relatedItem = cost.budget_item_id ? items.find(i => i.id === cost.budget_item_id) : null;
+    const formatLocalDate = (d: string | null) => {
+      if (!d) return "";
+      const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+      return d;
+    };
+    return [
+      formatLocalDate(cost.service_date),
+      formatLocalDate(cost.payment_date),
+      cost.status === "paid" ? formatLocalDate(cost.payment_date) : "",
+      cost.amount.toFixed(2).replace(".", ","),
+      relatedItem?.item_name || cost.category || "",
+      cost.description || "",
+      cost.supplier_name || cost.supplier || "",
+      cost.supplier_doc || "",
+      budget.project_name || "",
+      "",
+    ];
+  });
+
+  // Build TSV (tab-separated) with .xls extension for Excel compatibility
+  const tsv = [header, ...rows].map(r => r.map(c => `"${(c || "").replace(/"/g, '""')}"`).join("\t")).join("\r\n");
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + tsv], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `custos_${budget.project_name?.replace(/\s+/g, "_") || budget.id}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function CostEntryTab({ budget, items }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -59,7 +110,7 @@ export function CostEntryTab({ budget, items }: Props) {
   const [serviceDate, setServiceDate] = useState("");
   const [status, setStatus] = useState("pending");
   const [installments, setInstallments] = useState(1);
-  const [accountId, setAccountId] = useState<string>("");
+  const [account, setAccount] = useState("");
 
   // Supplier search
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -69,19 +120,9 @@ export function CostEntryTab({ budget, items }: Props) {
   const [newDoc, setNewDoc] = useState("");
   const [newType, setNewType] = useState("individual");
 
-  // Syncing state
-  const [syncingCostId, setSyncingCostId] = useState<string | null>(null);
-
   const { data: supplierContacts = [] } = useSupplierContacts();
   const createContact = useCreateSupplierContact();
   const touchContact = useTouchSupplierContact();
-
-  // Conta Azul accounts
-  const { data: accountsCache } = useContaAzulCache("accounts_v2");
-  const caAccounts = useMemo(() => {
-    const items = extractItems<any>(accountsCache?.payload);
-    return items.filter((a: any) => a?.id && a?.nome);
-  }, [accountsCache]);
 
   const { data: costs = [] } = useQuery({
     queryKey: ["project_costs", budget.id],
@@ -106,7 +147,7 @@ export function CostEntryTab({ budget, items }: Props) {
     setServiceDate("");
     setStatus("pending");
     setInstallments(1);
-    setAccountId("");
+    setAccount("");
     setEditingCost(null);
     setSupplierSearch("");
   };
@@ -122,60 +163,8 @@ export function CostEntryTab({ budget, items }: Props) {
     setServiceDate(cost.service_date || "");
     setStatus(cost.status || "pending");
     setInstallments(1);
-    setAccountId("");
+    setAccount("");
     setSupplierSearch(cost.supplier_name || cost.supplier || "");
-  };
-
-  const sendToContaAzul = async (costId: string, costData: {
-    supplier_name: string;
-    description: string;
-    amount: number;
-    payment_date: string;
-    status: string;
-    installments: number;
-    account_id: string;
-  }) => {
-    try {
-      setSyncingCostId(costId);
-      const { data, error } = await supabase.functions.invoke("send-cost-to-conta-azul", {
-        body: {
-          cost_id: costId,
-          supplier_name: costData.supplier_name,
-          description: costData.description,
-          amount: costData.amount,
-          payment_date: costData.payment_date,
-          status: costData.status,
-          installments: costData.installments,
-          account_id: costData.account_id || undefined,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.ok) {
-        toast({
-          title: "✅ Enviado ao Conta Azul",
-          description: data.partial_errors
-            ? `Parcialmente: ${data.created_ids?.length} parcela(s) ok, ${data.partial_errors.length} erro(s)`
-            : `${data.created_ids?.length || 1} parcela(s) criada(s) com sucesso`,
-        });
-        queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
-      } else {
-        toast({
-          title: "⚠️ Erro ao enviar ao Conta Azul",
-          description: data?.error || "Erro desconhecido",
-          variant: "destructive",
-        });
-      }
-    } catch (err: any) {
-      toast({
-        title: "⚠️ Falha na sincronização",
-        description: err.message || "O custo foi salvo localmente mas não foi enviado ao Conta Azul.",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncingCostId(null);
-    }
   };
 
   const saveCost = useMutation({
@@ -194,7 +183,6 @@ export function CostEntryTab({ budget, items }: Props) {
         payment_date: paymentDate || null,
         service_date: serviceDate || null,
         status,
-        sent_to_conta_azul: false,
       };
       if (editingCost) {
         const { error } = await supabase.from("project_costs").update(payload).eq("id", editingCost.id);
@@ -206,26 +194,10 @@ export function CostEntryTab({ budget, items }: Props) {
         return data.id;
       }
     },
-    onSuccess: async (costId: string) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
       toast({ title: editingCost ? "Custo atualizado!" : "Custo lançado!" });
-
-      const costDataForCA = {
-        supplier_name: supplierName,
-        description,
-        amount,
-        payment_date: paymentDate,
-        status,
-        installments,
-        account_id: accountId,
-      };
-
       resetForm();
-
-      // Auto-send to Conta Azul (non-blocking)
-      if (supplierName && amount > 0) {
-        sendToContaAzul(costId, costDataForCA);
-      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao salvar custo", description: err.message, variant: "destructive" });
@@ -244,15 +216,12 @@ export function CostEntryTab({ budget, items }: Props) {
     },
   });
 
-
-
   const totalExecutado = costs.reduce((s, c) => s + c.amount, 0);
   const orcado = budget.subtotal_1 ?? 0;
   const saldo = orcado - totalExecutado;
   const percentualSaldo = orcado > 0 ? (saldo / orcado) * 100 : 100;
   const percentualExecutado = orcado > 0 ? (totalExecutado / orcado) * 100 : 0;
 
-  // Selected item info
   const selectedItem = budgetItemId ? items.find(i => i.id === budgetItemId) : null;
   const executedForItem = budgetItemId
     ? costs.filter(c => c.budget_item_id === budgetItemId && c.id !== (editingCost?.id || "")).reduce((s, c) => s + c.amount, 0)
@@ -260,7 +229,6 @@ export function CostEntryTab({ budget, items }: Props) {
   const budgetedForItem = selectedItem?.supplier_cost ?? 0;
   const wouldExceed200 = budgetedForItem > 0 && (executedForItem + amount) > budgetedForItem * 2;
 
-  // Supplier filtering
   const filteredContacts = useMemo(() => {
     const q = supplierSearch.toLowerCase();
     if (!q) return supplierContacts;
@@ -294,10 +262,21 @@ export function CostEntryTab({ budget, items }: Props) {
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-primary" />
-            Custos Reais
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-primary" />
+              Custos Reais
+            </CardTitle>
+            {costs.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportCostsToXLS(costs, items, budget)}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" /> Exportar para Conta Azul
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Summary row */}
@@ -343,14 +322,6 @@ export function CostEntryTab({ budget, items }: Props) {
             <div className="flex items-center gap-2 rounded-lg bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20 p-3 text-sm text-[hsl(var(--warning))]">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <p className="font-medium">🟡 Custos já representam {percentualExecutado.toFixed(0)}% do orçado</p>
-            </div>
-          )}
-
-          {/* Syncing indicator */}
-          {syncingCostId && (
-            <div className="flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 p-3 text-sm text-primary">
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              <p>Enviando para o Conta Azul...</p>
             </div>
           )}
 
@@ -506,13 +477,13 @@ export function CostEntryTab({ budget, items }: Props) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Conta (Conta Azul)</Label>
-                  <Select value={accountId || "_none"} onValueChange={v => setAccountId(v === "_none" ? "" : v)}>
+                  <Label className="text-xs">Conta</Label>
+                  <Select value={account || "_none"} onValueChange={v => setAccount(v === "_none" ? "" : v)}>
                     <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none">Nenhuma</SelectItem>
-                      {caAccounts.map((acc: any) => (
-                        <SelectItem key={acc.id} value={acc.id}>{acc.nome}</SelectItem>
+                      {ACCOUNT_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -543,9 +514,7 @@ export function CostEntryTab({ budget, items }: Props) {
                   onClick={() => saveCost.mutate()}
                   disabled={saveCost.isPending || !amount}
                 >
-                  {saveCost.isPending ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Salvando...</>
-                  ) : editingCost ? "Atualizar" : "Salvar Custo"}
+                  {editingCost ? "Atualizar" : "Salvar Custo"}
                 </Button>
               </div>
             </div>
@@ -559,7 +528,6 @@ export function CostEntryTab({ budget, items }: Props) {
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {costs.map(cost => {
                     const relatedItem = cost.budget_item_id ? items.find(i => i.id === cost.budget_item_id) : null;
-                    const isSyncing = syncingCostId === cost.id;
                     return (
                       <div
                         key={cost.id}
@@ -579,34 +547,9 @@ export function CostEntryTab({ budget, items }: Props) {
                           <span className="text-xs text-muted-foreground">
                             {cost.service_date ? formatDate(cost.service_date) : "—"} → {cost.payment_date ? formatDate(cost.payment_date) : "—"}
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs">{statusIcons[cost.status]} {statusLabels[cost.status]}</span>
-                            {isSyncing && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                            {cost.sent_to_conta_azul && <Badge variant="secondary" className="text-[9px] h-4 px-1">CA ✓</Badge>}
-                            {!cost.sent_to_conta_azul && !isSyncing && (
-                              <Badge variant="outline" className="text-[9px] h-4 px-1 text-muted-foreground">Local</Badge>
-                            )}
-                          </div>
+                          <span className="text-xs">{statusIcons[cost.status]} {statusLabels[cost.status]}</span>
                         </div>
                         <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
-                          {!cost.sent_to_conta_azul && !isSyncing && cost.supplier_name && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-[11px] px-2 text-primary"
-                              onClick={() => sendToContaAzul(cost.id, {
-                                supplier_name: cost.supplier_name || cost.supplier || "",
-                                description: cost.description || "",
-                                amount: cost.amount,
-                                payment_date: cost.payment_date || "",
-                                status: cost.status,
-                                installments: 1,
-                                account_id: "",
-                              })}
-                            >
-                              <CreditCard className="h-3 w-3 mr-0.5" /> Reenviar CA
-                            </Button>
-                          )}
                           <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-destructive" onClick={() => setDeleteId(cost.id)}>
                             <Trash2 className="h-3 w-3 mr-0.5" /> Excluir
                           </Button>
