@@ -58,7 +58,7 @@ interface CategoryFieldConfig {
 const categoryConfig: Record<string, CategoryFieldConfig> = {
   "PRODUÇÃO": { field1: "Dias", field2: "Pessoas", field3: "Valor/diária", formula: "dias × pessoas × valor" },
   "PÓS-PRODUÇÃO": { field1: "Horas", field2: null, field3: "Valor/hora", formula: "horas × valor" },
-  "LOGÍSTICA": { field1: "Dias", field2: "Pessoas", field3: "Valor/dia", formula: "dias × pessoas × valor" },
+  "LOGÍSTICA": { field1: "Qtd", field2: "Qtd 2", field3: "Valor/un.", formula: "qtd × valor" },
 };
 
 /* ── Logistics item type detection ── */
