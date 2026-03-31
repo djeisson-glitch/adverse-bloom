@@ -33,9 +33,9 @@ export function CostReportTab({ budget, items }: Props) {
 
   const report = useMemo(() => {
     const subtotal1 = items.reduce((s, i) => s + i.client_price, 0);
-    const supplierTotal = items.filter(i => i.has_supplier_cost).reduce((s, i) => s + i.supplier_cost, 0);
+    const supplierTotal = items.reduce((s, i) => s + i.supplier_cost, 0);
     const executedTotal = costs.reduce((s, c) => s + c.amount, 0);
-    const economia = subtotal1 - executedTotal;
+    const economia = supplierTotal - executedTotal;
 
     const margemOrcada = budget.margin_value ?? 0;
     const margemOrcadaPct = budget.margin_percent ?? 0;
