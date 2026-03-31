@@ -842,7 +842,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
               >
                 <CardHeader className="py-2 px-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {!isApproved && (
+                        <div {...catDragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+                      )}
+                      <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cat}</CardTitle>
+                    </div>
                     {!isApproved && (
                       <div className="flex items-center gap-1">
                         <Button
