@@ -1314,9 +1314,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                 </CollapsibleTrigger>
               </CardHeader>
               <CollapsibleContent>
-                <CardContent className="px-4 pb-3 space-y-2">
+                <CardContent className="px-4 pb-3 space-y-1">
                   {notIncluded.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex items-center gap-2 group">
                       <span className="text-xs text-muted-foreground">•</span>
                       <Input
                         value={item}
@@ -1332,21 +1332,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           }
                         }}
                         placeholder="Item não incluído..."
-                        className="h-7 text-xs flex-1"
+                        className="h-7 text-xs flex-1 border-transparent bg-transparent hover:border-border focus:border-border px-1"
                         disabled={isApproved}
                         data-not-included-input
                       />
                       {!isApproved && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive" onClick={() => removeNotIncludedItem(idx)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeNotIncludedItem(idx)}>
                           <X className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
                   ))}
                   {!isApproved && (
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addNotIncludedItem}>
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar
-                    </Button>
+                    <button
+                      type="button"
+                      onClick={addNotIncludedItem}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-1 pl-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Adicionar item</span>
+                    </button>
                   )}
                 </CardContent>
               </CollapsibleContent>

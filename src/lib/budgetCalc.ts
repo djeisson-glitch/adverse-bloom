@@ -23,11 +23,11 @@ export function calcBudgetTotals(
   discount: number,
   addition: number
 ): BudgetTotals {
-  const subtotal1 = items.reduce((s, i) => s + i.client_price, 0);
-  const markupValue = subtotal1 * (markupPercent / 100);
+  const subtotal1 = Math.ceil(items.reduce((s, i) => s + i.client_price, 0));
+  const markupValue = Math.ceil(subtotal1 * (markupPercent / 100));
 
   // Jobb formula: commission is on (subtotal1 + markup)
-  const commissionValue = (subtotal1 + markupValue) * (commissionPercent / 100);
+  const commissionValue = Math.ceil((subtotal1 + markupValue) * (commissionPercent / 100));
   const subtotal2 = subtotal1 + markupValue + commissionValue;
 
   // Recursive: Total = ST2 / (1 - bv% - tax%)
@@ -42,8 +42,8 @@ export function calcBudgetTotals(
 
   if (denominator > 0) {
     totalBeforeAdj = subtotal2 / denominator;
-    bvValue = bv * totalBeforeAdj;
-    taxValue = tax * totalBeforeAdj;
+    bvValue = Math.ceil(bv * totalBeforeAdj);
+    taxValue = Math.ceil(tax * totalBeforeAdj);
   } else {
     totalBeforeAdj = subtotal2;
     bvValue = 0;
@@ -52,7 +52,7 @@ export function calcBudgetTotals(
 
   const totalValue = Math.ceil(totalBeforeAdj + addition - discount);
 
-  const supplierTotal = items.reduce((s, i) => s + i.supplier_cost, 0);
+  const supplierTotal = Math.ceil(items.reduce((s, i) => s + i.supplier_cost, 0));
   // Margem Real = Total - Fornecedores - BV - Comissão (impostos não alocados)
   const marginValue = totalValue - supplierTotal - bvValue - commissionValue;
   const marginPercent = totalValue > 0 ? (marginValue / totalValue) * 100 : 0;
