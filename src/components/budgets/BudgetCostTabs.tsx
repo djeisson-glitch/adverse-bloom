@@ -1,11 +1,44 @@
+import { Component, type ReactNode } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BudgetViewTab } from "./BudgetViewTab";
 import { CostEntryTab } from "./CostEntryTab";
 import { CostReportTab } from "./CostReportTab";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import type { BudgetWithItems } from "@/hooks/useBudgets";
+
+// Error boundary to prevent black screen
+class CostTabErrorBoundary extends Component<
+  { children: ReactNode; fallbackLabel: string },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: ReactNode; fallbackLabel: string }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <p className="text-sm font-medium text-destructive">Erro ao carregar {this.props.fallbackLabel}</p>
+            <p className="text-xs text-muted-foreground max-w-md text-center">{this.state.error}</p>
+            <Button size="sm" variant="outline" onClick={() => this.setState({ hasError: false, error: "" })}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface Props {
   budget: BudgetWithItems;
@@ -38,15 +71,21 @@ export function BudgetCostTabs({ budget, onClose, onEdit }: Props) {
         </TabsList>
 
         <TabsContent value="view">
-          <BudgetViewTab budget={budget} onEdit={onEdit} onRevertToDraft={onClose} />
+          <CostTabErrorBoundary fallbackLabel="Orçamento">
+            <BudgetViewTab budget={budget} onEdit={onEdit} onRevertToDraft={onClose} />
+          </CostTabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="costs">
-          <CostEntryTab budget={budget} items={budget.budget_items} />
+          <CostTabErrorBoundary fallbackLabel="Custos Reais">
+            <CostEntryTab budget={budget} items={budget.budget_items} />
+          </CostTabErrorBoundary>
         </TabsContent>
 
         <TabsContent value="report">
-          <CostReportTab budget={budget} items={budget.budget_items} />
+          <CostTabErrorBoundary fallbackLabel="Relatório">
+            <CostReportTab budget={budget} items={budget.budget_items} />
+          </CostTabErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>
