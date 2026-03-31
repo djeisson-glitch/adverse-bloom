@@ -60,9 +60,9 @@ export function CostReportTab({ budget, items }: Props) {
         const itemExecutado = itemCosts.reduce((s, c) => s + c.amount, 0);
         return {
           name: item.item_name,
-          orcado: item.supplier_cost,
+          orcado: item.client_price,
           executado: itemExecutado,
-          delta: item.supplier_cost - itemExecutado,
+          delta: item.client_price - itemExecutado,
         };
       });
 
