@@ -43,7 +43,6 @@ export function CostManagement({ budget, items }: Props) {
   const [amount, setAmount] = useState(0);
   const [supplier, setSupplier] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
-  const [sentToContaAzul, setSentToContaAzul] = useState(false);
 
   const { data: costs = [] } = useQuery({
     queryKey: ["project_costs", budget.id],
