@@ -1594,6 +1594,26 @@ function ItemTableRow({
 
   const hasPresets = presetItems && presetItems.length > 0;
 
+  // Filter presets by typed text
+  const filteredPresets = useMemo(() => {
+    if (!hasPresets) return [];
+    const search = item.item_name.toLowerCase().trim();
+    if (!search) return presetItems!;
+    return presetItems!.filter((p) => p.item_name.toLowerCase().includes(search));
+  }, [hasPresets, presetItems, item.item_name]);
+
+  // Auto-open when typing and there are matches
+  const handleNameChange = (value: string) => {
+    onUpdate("item_name", value);
+    if (hasPresets) {
+      const search = value.toLowerCase().trim();
+      const matches = search
+        ? presetItems!.filter((p) => p.item_name.toLowerCase().includes(search))
+        : presetItems!;
+      setPresetOpen(matches.length > 0 && value.length > 0);
+    }
+  };
+
   return (
     <>
       <tr
@@ -1617,29 +1637,33 @@ function ItemTableRow({
           {readOnly ? (
             <span className="text-sm font-medium">{item.item_name}</span>
           ) : (
-            <div className="flex items-center gap-1">
-              {hasPresets && !item.item_name.trim() && (
+            <div className="relative flex items-center gap-1">
+              {hasPresets && (
                 <Popover open={presetOpen} onOpenChange={setPresetOpen}>
                   <PopoverTrigger asChild>
                     <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
                       <ChevronDown className="h-3 w-3 text-muted-foreground" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[220px] p-1" align="start">
+                  <PopoverContent className="w-[260px] p-1" align="start">
                     <div className="max-h-[200px] overflow-y-auto">
-                      {presetItems!.map((p) => (
-                        <button
-                          key={p.id}
-                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                          onClick={() => {
-                            onApplyPreset?.(p);
-                            setPresetOpen(false);
-                          }}
-                        >
-                          <span className="font-medium">{p.item_name}</span>
-                          <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
-                        </button>
-                      ))}
+                      {filteredPresets.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum item encontrado</p>
+                      ) : (
+                        filteredPresets.map((p) => (
+                          <button
+                            key={p.id}
+                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                            onClick={() => {
+                              onApplyPreset?.(p);
+                              setPresetOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">{p.item_name}</span>
+                            <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -1647,7 +1671,7 @@ function ItemTableRow({
               <Input
                 ref={nameRef}
                 value={item.item_name}
-                onChange={(e) => onUpdate("item_name", e.target.value)}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
                 className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
                 onKeyDown={(e) => handleKeyDown(e)}
