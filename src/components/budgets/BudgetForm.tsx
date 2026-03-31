@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { calcBudgetTotals } from "@/lib/budgetCalc";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -1581,16 +1580,9 @@ function ItemTableRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
+  const listRef = useRef<HTMLDivElement>(null);
   const hdr = headerConfig ?? config;
-
-  const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
-    if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
-      onCancel?.();
-    }
-    if (e.key === "Enter" && isLastField) {
-      onEnterLastField?.();
-    }
-  };
 
   const hasPresets = presetItems && presetItems.length > 0;
 
@@ -1611,6 +1603,61 @@ function ItemTableRow({
         ? presetItems!.filter((p) => p.item_name.toLowerCase().includes(search))
         : presetItems!;
       setPresetOpen(matches.length > 0 && value.length > 0);
+      setHighlightIdx(-1);
+    }
+  };
+
+  const selectPreset = (p: any) => {
+    onApplyPreset?.(p);
+    setPresetOpen(false);
+    setHighlightIdx(-1);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (presetOpen && filteredPresets.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIdx((prev) => (prev + 1) % filteredPresets.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIdx((prev) => (prev <= 0 ? filteredPresets.length - 1 : prev - 1));
+      } else if (e.key === "Enter") {
+        if (highlightIdx >= 0 && highlightIdx < filteredPresets.length) {
+          e.preventDefault();
+          selectPreset(filteredPresets[highlightIdx]);
+        }
+      } else if (e.key === "Tab") {
+        if (highlightIdx >= 0 && highlightIdx < filteredPresets.length) {
+          selectPreset(filteredPresets[highlightIdx]);
+          // allow default Tab to move focus
+        }
+        setPresetOpen(false);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setPresetOpen(false);
+        setHighlightIdx(-1);
+      }
+    } else {
+      if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
+        onCancel?.();
+      }
+    }
+  };
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightIdx >= 0 && listRef.current) {
+      const el = listRef.current.children[highlightIdx] as HTMLElement;
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIdx]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, isLastField?: boolean) => {
+    if (e.key === "Escape" && isNewRow && !item.item_name.trim()) {
+      onCancel?.();
+    }
+    if (e.key === "Enter" && isLastField) {
+      onEnterLastField?.();
     }
   };
 
@@ -1639,34 +1686,15 @@ function ItemTableRow({
           ) : (
             <div className="relative flex items-center gap-1">
               {hasPresets && (
-                <Popover open={presetOpen} onOpenChange={setPresetOpen}>
-                  <PopoverTrigger asChild>
-                    <button type="button" className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center" title="Selecionar item pré-cadastrado">
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[260px] p-1" align="start">
-                    <div className="max-h-[200px] overflow-y-auto">
-                      {filteredPresets.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum item encontrado</p>
-                      ) : (
-                        filteredPresets.map((p) => (
-                          <button
-                            key={p.id}
-                            className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                            onClick={() => {
-                              onApplyPreset?.(p);
-                              setPresetOpen(false);
-                            }}
-                          >
-                            <span className="font-medium">{p.item_name}</span>
-                            <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <button
+                  type="button"
+                  className="shrink-0 h-6 w-6 rounded bg-muted hover:bg-muted/80 flex items-center justify-center"
+                  title="Selecionar item pré-cadastrado"
+                  onClick={() => { setPresetOpen((v) => !v); setHighlightIdx(-1); }}
+                  tabIndex={-1}
+                >
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
               )}
               <Input
                 ref={nameRef}
@@ -1674,8 +1702,28 @@ function ItemTableRow({
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
                 className="h-7 text-xs border-transparent bg-transparent hover:border-border focus:border-border px-1 flex-1"
-                onKeyDown={(e) => handleKeyDown(e)}
+                onKeyDown={handleNameKeyDown}
+                onBlur={() => { setTimeout(() => setPresetOpen(false), 150); }}
               />
+              {presetOpen && filteredPresets.length > 0 && (
+                <div
+                  ref={listRef}
+                  className="absolute top-full left-0 z-50 mt-1 w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                >
+                  {filteredPresets.map((p, idx) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`w-full text-left px-2 py-1.5 text-xs rounded transition-colors ${idx === highlightIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"}`}
+                      onMouseDown={(e) => { e.preventDefault(); selectPreset(p); }}
+                      onMouseEnter={() => setHighlightIdx(idx)}
+                    >
+                      <span className="font-medium">{p.item_name}</span>
+                      <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </td>
