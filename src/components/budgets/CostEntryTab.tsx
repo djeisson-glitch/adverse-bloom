@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, DollarSign, AlertTriangle, CheckCircle, Trash2, CreditCard, Search, X, Loader2 } from "lucide-react";
+import { Plus, DollarSign, AlertTriangle, Trash2, CreditCard, Search, X, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -244,16 +244,7 @@ export function CostEntryTab({ budget, items }: Props) {
     },
   });
 
-  const markPaid = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("project_costs").update({ status: "paid" }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["project_costs", budget.id] });
-      toast({ title: "Marcado como pago!" });
-    },
-  });
+
 
   const totalExecutado = costs.reduce((s, c) => s + c.amount, 0);
   const orcado = budget.subtotal_1 ?? 0;
@@ -598,11 +589,6 @@ export function CostEntryTab({ budget, items }: Props) {
                           </div>
                         </div>
                         <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
-                          {cost.status !== "paid" && (
-                            <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2 text-[hsl(var(--success))]" onClick={() => markPaid.mutate(cost.id)}>
-                              <CheckCircle className="h-3 w-3 mr-0.5" /> Pago
-                            </Button>
-                          )}
                           {!cost.sent_to_conta_azul && !isSyncing && cost.supplier_name && (
                             <Button
                               variant="ghost"
