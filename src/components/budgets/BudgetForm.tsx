@@ -460,18 +460,44 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
   }, []);
 
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [pendingGroupCat, setPendingGroupCat] = useState<string | null>(null);
+  const groupNameInputRef = useRef<HTMLInputElement>(null);
+
   const addGroupToCategory = useCallback((cat: string) => {
-    const name = window.prompt("Nome do grupo:");
-    if (!name?.trim()) return;
-    // Add an empty item with group_name to create the group
-    const newItem = emptyItem(cat, items.length, name.trim());
+    const tempName = `__novo_grupo_${Date.now()}`;
+    const newItem = emptyItem(cat, items.length, tempName);
     setItems((prev) => [...prev, newItem]);
-    const key = `${cat}::${name.trim()}`;
+    const key = `${cat}::${tempName}`;
     setNewRowCats((prev) => new Set(prev).add(key));
-    setTimeout(() => {
-      newRowNameRefs.current[key]?.focus();
-    }, 50);
+    setPendingGroupCat(cat);
+    setEditingGroupName(tempName);
+    setTimeout(() => groupNameInputRef.current?.focus(), 80);
   }, [items.length]);
+
+  const confirmGroupName = useCallback((oldName: string, newName: string, cat: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      // Cancel: remove the group items
+      setItems((prev) => prev.filter((item) => !(item.category === cat && item.group_name === oldName && !item.item_name.trim())));
+      setNewRowCats((prev) => { const n = new Set(prev); n.delete(`${cat}::${oldName}`); return n; });
+    } else if (trimmed !== oldName) {
+      // Rename group
+      setItems((prev) => prev.map((item) =>
+        item.category === cat && item.group_name === oldName
+          ? { ...item, group_name: trimmed }
+          : item
+      ));
+      // Update newRowCats key
+      setNewRowCats((prev) => {
+        const n = new Set(prev);
+        if (n.has(`${cat}::${oldName}`)) { n.delete(`${cat}::${oldName}`); n.add(`${cat}::${trimmed}`); }
+        return n;
+      });
+    }
+    setEditingGroupName(null);
+    setPendingGroupCat(null);
+  }, []);
 
   const removeGroup = useCallback((cat: string, groupName: string) => {
     // Move items from group to ungrouped (null)
@@ -1126,12 +1152,36 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                                         <td colSpan={colSpan} className="px-3 py-1.5">
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70">
-                                                ┗ {gName}
-                                              </span>
-                                              <span className="text-[10px] text-muted-foreground font-medium">
-                                                ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
-                                              </span>
+                                              {editingGroupName === gName ? (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-[11px] text-accent-foreground/70">┗</span>
+                                                  <Input
+                                                    ref={groupNameInputRef}
+                                                    defaultValue={gName.startsWith("__novo_grupo_") ? "" : gName}
+                                                    className="h-6 text-[11px] font-semibold uppercase w-[160px] px-1"
+                                                    placeholder="Nome do grupo..."
+                                                    onBlur={(e) => confirmGroupName(gName, e.target.value, cat)}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === "Enter") { e.preventDefault(); confirmGroupName(gName, (e.target as HTMLInputElement).value, cat); }
+                                                      if (e.key === "Escape") { confirmGroupName(gName, "", cat); }
+                                                    }}
+                                                    autoFocus
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <span
+                                                    className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70 cursor-pointer hover:text-accent-foreground"
+                                                    onDoubleClick={() => !isApproved && setEditingGroupName(gName)}
+                                                    title="Duplo-clique para renomear"
+                                                  >
+                                                    ┗ {gName}
+                                                  </span>
+                                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                                    ({groupItems.length} {groupItems.length === 1 ? "item" : "itens"} • {formatCurrency(groupSubtotal)})
+                                                  </span>
+                                                </>
+                                              )}
                                             </div>
                                             {!isApproved && (
                                               <div className="flex items-center gap-1">
@@ -1264,9 +1314,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                 </CollapsibleTrigger>
               </CardHeader>
               <CollapsibleContent>
-                <CardContent className="px-4 pb-3 space-y-2">
+                <CardContent className="px-4 pb-3 space-y-1">
                   {notIncluded.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex items-center gap-2 group">
                       <span className="text-xs text-muted-foreground">•</span>
                       <Input
                         value={item}
@@ -1282,21 +1332,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                           }
                         }}
                         placeholder="Item não incluído..."
-                        className="h-7 text-xs flex-1"
+                        className="h-7 text-xs flex-1 border-transparent bg-transparent hover:border-border focus:border-border px-1"
                         disabled={isApproved}
                         data-not-included-input
                       />
                       {!isApproved && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive" onClick={() => removeNotIncludedItem(idx)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeNotIncludedItem(idx)}>
                           <X className="h-3 w-3" />
                         </Button>
                       )}
                     </div>
                   ))}
                   {!isApproved && (
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addNotIncludedItem}>
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar
-                    </Button>
+                    <button
+                      type="button"
+                      onClick={addNotIncludedItem}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-1 pl-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Adicionar item</span>
+                    </button>
                   )}
                 </CardContent>
               </CollapsibleContent>
