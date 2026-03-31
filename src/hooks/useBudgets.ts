@@ -75,9 +75,11 @@ function buildRealCostsMap(costs: ProjectCostSummary[]) {
 
 function applyRealMarginToBudget<T extends Budget>(budget: T, realCostsTotal: number): T {
   const totalCliente = budget.total_value ?? 0;
-  const subtotal1 = budget.subtotal_1 ?? 0;
-  const realMarginValue = totalCliente - subtotal1 - realCostsTotal;
-  const realMarginPercent = totalCliente > 0 ? (realMarginValue / totalCliente) * 100 : 0;
+  // Margin = total_cliente - sum(project_costs). No costs → 100%.
+  const realMarginValue = totalCliente - realCostsTotal;
+  const realMarginPercent = totalCliente > 0
+    ? (realCostsTotal === 0 ? 100 : (realMarginValue / totalCliente) * 100)
+    : 0;
 
   return {
     ...budget,
