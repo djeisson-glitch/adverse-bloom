@@ -1705,7 +1705,10 @@ function ItemTableRow({
                 </button>
               )}
               <Input
-                ref={nameRef}
+                ref={(el) => {
+                  inputElRef.current = el;
+                  if (nameRef) nameRef(el);
+                }}
                 value={item.item_name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder={isNewRow ? "Digite ou selecione ▼" : "Nome..."}
@@ -1713,7 +1716,7 @@ function ItemTableRow({
                 onKeyDown={handleNameKeyDown}
                 onBlur={() => { setTimeout(() => setPresetOpen(false), 150); }}
               />
-              {presetOpen && filteredPresets.length > 0 && nameRef.current && ReactDOM.createPortal(
+              {presetOpen && filteredPresets.length > 0 && inputElRef.current && ReactDOM.createPortal(
                 <div
                   ref={listRef}
                   className="fixed z-[9999] w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
