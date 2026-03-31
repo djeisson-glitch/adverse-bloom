@@ -1712,10 +1712,14 @@ function ItemTableRow({
                 onKeyDown={handleNameKeyDown}
                 onBlur={() => { setTimeout(() => setPresetOpen(false), 150); }}
               />
-              {presetOpen && filteredPresets.length > 0 && (
+              {presetOpen && filteredPresets.length > 0 && nameRef.current && ReactDOM.createPortal(
                 <div
                   ref={listRef}
-                  className="absolute top-full left-0 z-50 mt-1 w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                  className="fixed z-[9999] w-[260px] rounded-md border bg-popover p-1 shadow-md max-h-[200px] overflow-y-auto"
+                  style={{
+                    top: nameRef.current.getBoundingClientRect().bottom + 4,
+                    left: nameRef.current.getBoundingClientRect().left,
+                  }}
                 >
                   {filteredPresets.map((p, idx) => (
                     <button
@@ -1729,7 +1733,8 @@ function ItemTableRow({
                       <span className="text-muted-foreground ml-1">({formatCurrency(p.client_unit_price)})</span>
                     </button>
                   ))}
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           )}
