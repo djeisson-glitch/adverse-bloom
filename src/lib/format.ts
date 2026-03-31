@@ -13,5 +13,11 @@ export function formatPercent(value: number): string {
 
 export function formatDate(date: string | null): string {
   if (!date) return "—";
+  // For date-only strings (YYYY-MM-DD), parse parts to avoid UTC timezone shift
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, y, m, d] = match;
+    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("pt-BR");
+  }
   return new Date(date).toLocaleDateString("pt-BR");
 }
