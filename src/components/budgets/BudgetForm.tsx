@@ -1589,6 +1589,7 @@ function ItemTableRow({
   const [presetOpen, setPresetOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputElRef = useRef<HTMLInputElement | null>(null);
   const hdr = headerConfig ?? config;
 
   const hasPresets = presetItems && presetItems.length > 0;
