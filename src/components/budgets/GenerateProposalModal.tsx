@@ -74,7 +74,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const hasExistingLink = !!(existingLetters && existingLetters.length > 0);
+  const hasExistingLink = !!(existingLetters && existingLetters.some(l => (l.status as any) !== "draft"));
 
   const proposalUrl = generatedToken
     ? `${window.location.origin}/proposta/${generatedToken}`
@@ -84,7 +84,9 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   useEffect(() => {
     if (!open || initialized || lettersLoading) return;
 
-    const latest = existingLetters?.[0];
+    // Prefer draft, then latest sent proposal
+    const draft = existingLetters?.find(l => (l.status as any) === "draft");
+    const latest = draft || existingLetters?.[0];
     if (latest) {
       setContactName(latest.contact_name || "");
       setContactCompany(latest.contact_company || "");
@@ -260,7 +262,36 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   };
 
-  const handleClose = () => {
+  const saveDraft = async () => {
+    // Save current form state as a draft proposal_letter so it persists across modal reopens
+    const draftPayload = {
+      budget_id: budget.id,
+      template_type: "reduzida",
+      contact_name: contactName || "",
+      contact_company: contactCompany || "",
+      project_description: projectDescription || null,
+      tags: tags,
+      deliverables: JSON.parse(JSON.stringify(deliverables.filter(d => d.name.trim()))),
+      payment_conditions: paymentConditions,
+      validity_days: validityDays,
+      status: "draft",
+      created_by: user?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const latestDraft = existingLetters?.find(l => l.status === "draft" as any);
+    if (latestDraft) {
+      await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
+    } else {
+      await (supabase as any).from("proposal_letters").insert(draftPayload);
+    }
+  };
+
+  const handleClose = async () => {
+    // Save draft on close (only if not just generated a token)
+    if (!generatedToken && initialized) {
+      await saveDraft();
+    }
     setGeneratedToken(null);
     setCopied(false);
     onClose();
