@@ -2080,6 +2080,121 @@ function ItemTableRow({
           </td>
         </tr>
       )}
+      {/* Delivery specs row — only for PÓS-PRODUÇÃO / ENTREGAS deliverable items */}
+      {item.is_deliverable && ["PÓS-PRODUÇÃO", "ENTREGAS"].includes(item.category?.toUpperCase?.() ?? "") && (
+        <tr className="bg-[hsl(var(--success))]/5 border-b border-border/20">
+          <td colSpan={hdr.field2 ? 9 : 8} className="px-3 py-1.5">
+            <div className="flex items-center gap-3 text-xs flex-wrap">
+              <span className="text-muted-foreground shrink-0">└─ Entrega:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground text-[10px]">Formato:</span>
+                <div className="flex gap-1 flex-wrap">
+                  {["16:9", "9:16", "1:1", "4:5"].map((fmt) => {
+                    const selected = (item.delivery_formats ?? []).includes(fmt);
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => {
+                          const current = item.delivery_formats ?? [];
+                          const next = selected ? current.filter((f) => f !== fmt) : [...current, fmt];
+                          onUpdate("delivery_formats" as any, next);
+                        }}
+                        disabled={readOnly}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                          selected
+                            ? "bg-primary/20 border-primary/40 text-primary"
+                            : "bg-muted border-border text-muted-foreground hover:border-primary/30"
+                        }`}
+                      >
+                        {fmt}
+                      </button>
+                    );
+                  })}
+                  {(() => {
+                    const hasCustomFormat = (item.delivery_formats ?? []).some(
+                      (f) => !["16:9", "9:16", "1:1", "4:5"].includes(f)
+                    );
+                    const customValue = (item.delivery_formats ?? []).find(
+                      (f) => !["16:9", "9:16", "1:1", "4:5"].includes(f)
+                    );
+                    return hasCustomFormat ? (
+                      <Input
+                        value={customValue || ""}
+                        onChange={(e) => {
+                          const standard = (item.delivery_formats ?? []).filter((f) =>
+                            ["16:9", "9:16", "1:1", "4:5"].includes(f)
+                          );
+                          onUpdate("delivery_formats" as any, e.target.value ? [...standard, e.target.value] : standard);
+                        }}
+                        className="h-5 text-[10px] w-16 px-1"
+                        placeholder="Ex: 2:1"
+                        disabled={readOnly}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current = item.delivery_formats ?? [];
+                          onUpdate("delivery_formats" as any, [...current, ""]);
+                        }}
+                        disabled={readOnly}
+                        className="px-1.5 py-0.5 rounded text-[10px] border border-dashed border-border text-muted-foreground hover:border-primary/30"
+                      >
+                        +
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+              <span className="text-muted-foreground">|</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground text-[10px]">Duração:</span>
+                <select
+                  value={
+                    ["15s", "30s", "1min", "1min30s", "2min", "3min", "5min+"].includes(item.delivery_duration ?? "")
+                      ? item.delivery_duration!
+                      : item.delivery_duration
+                        ? "__custom__"
+                        : ""
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "__custom__") {
+                      onUpdate("delivery_duration" as any, "");
+                    } else {
+                      onUpdate("delivery_duration" as any, v || null);
+                    }
+                  }}
+                  disabled={readOnly}
+                  className="h-5 text-[10px] bg-muted border border-border rounded px-1 text-foreground"
+                >
+                  <option value="">—</option>
+                  <option value="15s">15s</option>
+                  <option value="30s">30s</option>
+                  <option value="1min">1min</option>
+                  <option value="1min30s">1min30s</option>
+                  <option value="2min">2min</option>
+                  <option value="3min">3min</option>
+                  <option value="5min+">5min+</option>
+                  <option value="__custom__">Personalizado</option>
+                </select>
+                {item.delivery_duration !== null &&
+                  item.delivery_duration !== undefined &&
+                  !["15s", "30s", "1min", "1min30s", "2min", "3min", "5min+", ""].includes(item.delivery_duration) && (
+                    <Input
+                      value={item.delivery_duration}
+                      onChange={(e) => onUpdate("delivery_duration" as any, e.target.value)}
+                      className="h-5 text-[10px] w-16 px-1"
+                      placeholder="Ex: 45s"
+                      disabled={readOnly}
+                    />
+                  )}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }
