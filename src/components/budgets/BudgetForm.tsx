@@ -1602,30 +1602,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
 
               <div className="rounded-lg bg-muted/50 p-2 text-center">
                 <p className="text-[10px] text-muted-foreground">💰 Margem Real</p>
-                <p className={`text-base font-semibold ${marginColor(totals.marginPercent)}`}>
-                  {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
+                <p className={`text-base font-semibold ${marginColor(realMargin.marginPercent)}`}>
+                  {formatCurrency(realMargin.marginValue)} ({formatPercent(realMargin.marginPercent)})
                 </p>
               </div>
 
               {/* Cost Breakdown */}
               <div className="space-y-1 rounded-lg border border-border bg-background p-2 mt-1">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">📊 Custos</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">📊 Custos Deduzidos</p>
                 <div className="space-y-0.5 text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Fornecedores</span>
-                    <span className="font-medium">{formatCurrency(totals.supplierTotal)}</span>
+                    <span className="text-muted-foreground">├ Imposto ({taxPercent}%)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.impostoValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ BV</span>
-                    <span className="font-medium">{formatCurrency(totals.bvValue)}</span>
+                    <span className="text-muted-foreground">├ Logística (previsto)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.logisticaSum)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Comissão</span>
-                    <span className="font-medium">{formatCurrency(totals.commissionValue)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground/60 italic">
-                    <span>└ Impostos</span>
-                    <span>{formatCurrency(totals.taxValue)}</span>
+                    <span className="text-muted-foreground">└ Fornecedores (lançados)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.projectCostsTotal)}</span>
                   </div>
                 </div>
               </div>
