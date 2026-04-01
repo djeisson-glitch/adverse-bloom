@@ -11,7 +11,7 @@ import { GenerateProposalModal } from "./GenerateProposalModal";
 import { useProposalLetters } from "@/hooks/useProposalLetters";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
 interface Props {
   budget: BudgetWithItems;
@@ -91,6 +91,28 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
   const { data: proposalLetters } = useProposalLetters(budget.id);
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  const { data: projectCosts = [] } = useQuery({
+    queryKey: ["project_costs", budget.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_costs")
+        .select("id, budget_item_id, amount")
+        .eq("budget_id", budget.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const costsByItem = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of projectCosts) {
+      if (c.budget_item_id) {
+        map[c.budget_item_id] = (map[c.budget_item_id] || 0) + c.amount;
+      }
+    }
+    return map;
+  }, [projectCosts]);
 
   const latestLetter = proposalLetters?.[0];
 
@@ -263,7 +285,8 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                     </TableHeader>
                     <TableBody>
                       {cat.items.map(item => {
-                        const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
+                        const fornExec = costsByItem[item.id] || 0;
+                        const sobra = item.client_price - fornExec;
                         const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
                         const qtyLabel = getLogisticaQtyLabel(cat.name, item);
                         return (
@@ -276,7 +299,7 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                               {formatCurrency(item.client_price)}
                             </TableCell>
                             <TableCell className="py-2 px-3 text-sm text-right whitespace-nowrap text-muted-foreground">
-                              {item.has_supplier_cost ? formatCurrency(item.supplier_cost) : "—"}
+                              {formatCurrency(fornExec)}
                             </TableCell>
                             <TableCell className={`py-2 px-3 text-sm text-right font-medium whitespace-nowrap ${sobraColor(sobraPct)}`}>
                               {formatCurrency(sobra)} {sobraIcon(sobraPct)}
