@@ -271,7 +271,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setMarkupPercent(existing.markup_percent);
       setTaxPercent(existing.tax_percent);
       setBvPercent(existing.bv_percent);
-      setCommissionPercent(existing.commission_percent);
       setDiscount(existing.discount);
       setAddition(existing.addition);
       setItems(existing.budget_items || []);
@@ -285,6 +284,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
         setCategories([...new Set([...DEFAULT_CATEGORIES, ...cats])]);
+      }
+      // Load commission split from settings (budget only stores total)
+      if (settings && 'commission_djeisson_percent' in settings) {
+        const dj = (settings as any).commission_djeisson_percent ?? 3;
+        const rob = (settings as any).commission_robert_percent ?? 3;
+        const djOn = (settings as any).commission_djeisson_enabled ?? true;
+        const robOn = (settings as any).commission_robert_enabled ?? true;
+        setDjPercent(dj);
+        setRobertPercent(rob);
+        setDjEnabled(djOn);
+        setRobertEnabled(robOn);
+        // commissionPercent will be set by the useEffect below
+      } else {
+        setCommissionPercent(existing.commission_percent);
       }
     } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
