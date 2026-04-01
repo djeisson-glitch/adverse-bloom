@@ -52,6 +52,10 @@ export default function Comercial() {
   const [wonClientName, setWonClientName] = useState("");
 
   // Filter deals by period
+  // Pipeline shows ALL active deals (not filtered by period)
+  // Period filter only applies to Indicadores tab
+  const pipelineDeals = useMemo(() => deals, [deals]);
+
   const filteredDeals = useMemo(() => {
     return deals.filter((d) => {
       const created = d.created_at ? d.created_at.slice(0, 10) : "";
