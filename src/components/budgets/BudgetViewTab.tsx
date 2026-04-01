@@ -214,7 +214,7 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
           {latestLetter ? (
             <div className="space-y-3">
               <ProposalStatusTimeline letter={latestLetter} />
-              {latestLetter.status !== "draft" && (
+              {(latestLetter.status as string) !== "draft" && (
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground truncate max-w-[300px]">
                     {`${window.location.origin}/proposta/${latestLetter.token}`}
