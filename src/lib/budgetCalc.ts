@@ -50,7 +50,7 @@ export function calcBudgetTotals(
     taxValue = 0;
   }
 
-  const totalValue = Math.ceil(totalBeforeAdj + addition - discount);
+  const totalValue = Math.ceil((totalBeforeAdj + addition - discount) / 50) * 50;
 
   const supplierTotal = Math.ceil(items.reduce((s, i) => s + i.supplier_cost, 0));
   // Margem Real = Total - Fornecedores - BV - Comissão (impostos não alocados)
