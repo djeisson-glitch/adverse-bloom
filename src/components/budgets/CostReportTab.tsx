@@ -110,22 +110,18 @@ export function CostReportTab({ budget, items }: Props) {
               <span className="font-semibold">{formatCurrency(report.totalCliente)}</span>
             </div>
             <div className="border-t border-border pt-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custos Fornecedores</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custos Deduzidos</p>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Orçado</span>
-                <span>{formatCurrency(report.supplierTotal)}</span>
+                <span className="text-muted-foreground">Imposto ({budget.tax_percent ?? 0}%)</span>
+                <span>{formatCurrency(report.impostoValue)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Executado</span>
+                <span className="text-muted-foreground">Logística (previsto)</span>
+                <span>{formatCurrency(report.logisticaSum)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fornecedores (lançados)</span>
                 <span>{formatCurrency(report.executedTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-medium">
-                <span className={deltaColor(report.economia)}>
-                  {report.economia >= 0 ? "Economia" : "Estouro"}
-                </span>
-                <span className={deltaColor(report.economia)}>
-                  {formatCurrency(Math.abs(report.economia))} {report.economia >= 0 ? "✅" : "⚠️"}
-                </span>
               </div>
             </div>
             <div className="border-t border-border pt-3 space-y-2">
