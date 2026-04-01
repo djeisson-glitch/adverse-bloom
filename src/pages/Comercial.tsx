@@ -196,7 +196,7 @@ export default function Comercial() {
         </TabsList>
 
         <TabsContent value="pipeline" className="mt-4">
-          <KanbanBoard deals={filteredDeals} onMoveDeal={handleMoveDeal} onEditDeal={openEditDeal} taskCounts={taskCounts} />
+          <KanbanBoard deals={pipelineDeals} onMoveDeal={handleMoveDeal} onEditDeal={openEditDeal} taskCounts={taskCounts} />
         </TabsContent>
 
         <TabsContent value="indicadores" className="mt-4">
