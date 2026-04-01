@@ -519,6 +519,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     });
   }, []);
 
+  // Track whether form has been loaded from DB to prevent re-initialization
+  const formLoadedRef = useRef(false);
+
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [pendingGroupCat, setPendingGroupCat] = useState<string | null>(null);
   const groupNameInputRef = useRef<HTMLInputElement>(null);
