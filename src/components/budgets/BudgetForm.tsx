@@ -523,6 +523,15 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   // Track whether form has been loaded from DB to prevent re-initialization
   const formLoadedRef = useRef(false);
 
+  // Reset formLoadedRef when budgetId changes so data reloads for the new version
+  const prevBudgetIdRef = useRef(budgetId);
+  useEffect(() => {
+    if (budgetId !== prevBudgetIdRef.current) {
+      prevBudgetIdRef.current = budgetId;
+      formLoadedRef.current = false;
+    }
+  }, [budgetId]);
+
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [pendingGroupCat, setPendingGroupCat] = useState<string | null>(null);
   const groupNameInputRef = useRef<HTMLInputElement>(null);
