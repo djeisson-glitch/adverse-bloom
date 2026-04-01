@@ -156,10 +156,11 @@ export function useBudgets() {
   return useQuery({
     queryKey: ["budgets"],
     queryFn: async () => {
+      // Fetch latest versions + any approved version (so approved older versions appear in "Aprovados" tab)
       const { data, error } = await supabase
         .from("budgets")
         .select("*")
-        .eq("is_latest_version", true)
+        .or("is_latest_version.eq.true,status.eq.approved")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
