@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles, Eye, AlertTriangle } from "lucide-react";
+import { Plus, X, Link as LinkIcon, Copy, Check, Loader2, Sparkles, Eye, AlertTriangle, Save } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCreateProposalLetter, useProposalLetters } from "@/hooks/useProposalLetters";
 import { useAuth } from "@/contexts/AuthContext";
@@ -487,6 +487,10 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Action */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button variant="outline" onClick={async () => { await saveDraft(); toast({ title: "Rascunho salvo!" }); }}>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar
+            </Button>
             <Button variant="outline" onClick={handlePreview}>
               <Eye className="h-4 w-4 mr-2" />
               Pré-visualizar
