@@ -361,6 +361,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
+  // Compute real margin: total - imposto - logística - project_costs
+  const realMargin = useMemo(() => {
+    const totalCliente = totals.totalValue;
+    const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
+    const logisticaSum = items
+      .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
+      .reduce((s, i) => s + i.client_price, 0);
+    const projectCostsTotal = projectCosts.reduce((s, c) => s + (c.amount ?? 0), 0);
+    const marginValue = totalCliente - impostoValue - logisticaSum - projectCostsTotal;
+    const hasAnyCost = logisticaSum > 0 || projectCostsTotal > 0;
+    const marginPercent = totalCliente > 0
+      ? (!hasAnyCost ? 100 : (marginValue / totalCliente) * 100)
+      : 0;
+    return { marginValue, marginPercent, impostoValue, logisticaSum, projectCostsTotal };
+  }, [totals.totalValue, taxPercent, items, projectCosts]);
+
   // Autosave removed — save only on explicit user action
 
   const recalcItem = (item: BudgetItem, cat?: string): BudgetItem => {
