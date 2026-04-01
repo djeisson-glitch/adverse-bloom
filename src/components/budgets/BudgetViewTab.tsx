@@ -285,7 +285,8 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                     </TableHeader>
                     <TableBody>
                       {cat.items.map(item => {
-                        const sobra = item.client_price - (item.has_supplier_cost ? item.supplier_cost : 0);
+                        const fornExec = costsByItem[item.id] || 0;
+                        const sobra = item.client_price - fornExec;
                         const sobraPct = item.client_price > 0 ? (sobra / item.client_price) * 100 : 100;
                         const qtyLabel = getLogisticaQtyLabel(cat.name, item);
                         return (
@@ -298,7 +299,7 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
                               {formatCurrency(item.client_price)}
                             </TableCell>
                             <TableCell className="py-2 px-3 text-sm text-right whitespace-nowrap text-muted-foreground">
-                              {item.has_supplier_cost ? formatCurrency(item.supplier_cost) : "—"}
+                              {formatCurrency(fornExec)}
                             </TableCell>
                             <TableCell className={`py-2 px-3 text-sm text-right font-medium whitespace-nowrap ${sobraColor(sobraPct)}`}>
                               {formatCurrency(sobra)} {sobraIcon(sobraPct)}
