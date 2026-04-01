@@ -303,19 +303,25 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       if (cats.length > 0) {
         setCategories([...new Set([...DEFAULT_CATEGORIES, ...cats])]);
       }
-      // Load commission split from settings (budget only stores total)
+      // Load commission: use saved total, derive splits from settings ratio
+      const savedTotal = existing.commission_percent;
+      setCommissionPercent(savedTotal);
       if (settings && 'commission_djeisson_percent' in settings) {
-        const dj = (settings as any).commission_djeisson_percent ?? 3;
-        const rob = (settings as any).commission_robert_percent ?? 3;
         const djOn = (settings as any).commission_djeisson_enabled ?? true;
         const robOn = (settings as any).commission_robert_enabled ?? true;
-        setDjPercent(dj);
-        setRobertPercent(rob);
         setDjEnabled(djOn);
         setRobertEnabled(robOn);
-        // commissionPercent will be set by the useEffect below
-      } else {
-        setCommissionPercent(existing.commission_percent);
+        // Distribute saved total proportionally based on settings ratio
+        const settingsDj = (settings as any).commission_djeisson_percent ?? 3;
+        const settingsRob = (settings as any).commission_robert_percent ?? 3;
+        const settingsTotal = (djOn ? settingsDj : 0) + (robOn ? settingsRob : 0);
+        if (settingsTotal > 0 && savedTotal > 0) {
+          setDjPercent(djOn ? Math.round((settingsDj / settingsTotal) * savedTotal * 100) / 100 : 0);
+          setRobertPercent(robOn ? Math.round((settingsRob / settingsTotal) * savedTotal * 100) / 100 : 0);
+        } else {
+          setDjPercent(settingsDj);
+          setRobertPercent(settingsRob);
+        }
       }
     } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
