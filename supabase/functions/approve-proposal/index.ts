@@ -131,10 +131,10 @@ serve(async (req) => {
       .eq("id", proposal.id);
     if (updateErr) throw updateErr;
 
-    // Update budget status
+    // Update budget status (this version)
     const { data: budget } = await supabase
       .from("budgets")
-      .select("project_name, budget_number, total_value")
+      .select("project_name, budget_number, total_value, parent_budget_id")
       .eq("id", proposal.budget_id)
       .single();
 
@@ -143,6 +143,15 @@ serve(async (req) => {
       .update({ status: "approved", updated_at: now })
       .eq("id", proposal.budget_id);
     if (budgetErr) console.error("Failed to update budget status:", budgetErr);
+
+    // Also update the parent (main) budget status if this is a version
+    if (budget?.parent_budget_id) {
+      const { error: parentErr } = await supabase
+        .from("budgets")
+        .update({ status: "approved", updated_at: now })
+        .eq("id", budget.parent_budget_id);
+      if (parentErr) console.error("Failed to update parent budget status:", parentErr);
+    }
 
     // Send email notification via Resend
     await sendEmailNotification({
