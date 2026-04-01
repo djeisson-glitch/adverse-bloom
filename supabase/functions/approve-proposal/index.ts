@@ -144,14 +144,8 @@ serve(async (req) => {
       .eq("id", proposal.budget_id);
     if (budgetErr) console.error("Failed to update budget status:", budgetErr);
 
-    // Also update the parent (main) budget status if this is a version
-    if (budget?.parent_budget_id) {
-      const { error: parentErr } = await supabase
-        .from("budgets")
-        .update({ status: "approved", updated_at: now })
-        .eq("id", budget.parent_budget_id);
-      if (parentErr) console.error("Failed to update parent budget status:", parentErr);
-    }
+    // Note: we no longer update the parent budget status — the approved version
+    // itself appears in the "Aprovados" listing with its own total_value.
 
     // Send email notification via Resend
     await sendEmailNotification({
