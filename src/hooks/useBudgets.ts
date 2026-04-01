@@ -310,6 +310,8 @@ export function useSaveBudget() {
           supplier_days: rest.supplier_days ?? 0,
           supplier_people: rest.supplier_people ?? 0,
           supplier_unit_price: rest.supplier_unit_price ?? 0,
+          delivery_formats: rest.delivery_formats ?? [],
+          delivery_duration: rest.delivery_duration ?? null,
         };
       });
 
