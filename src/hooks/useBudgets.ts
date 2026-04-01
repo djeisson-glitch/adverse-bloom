@@ -21,6 +21,8 @@ export interface BudgetItem {
   order_index: number;
   is_deliverable: boolean;
   group_name?: string | null;
+  delivery_formats?: string[];
+  delivery_duration?: string | null;
 }
 
 export interface Budget {
@@ -308,6 +310,8 @@ export function useSaveBudget() {
           supplier_days: rest.supplier_days ?? 0,
           supplier_people: rest.supplier_people ?? 0,
           supplier_unit_price: rest.supplier_unit_price ?? 0,
+          delivery_formats: rest.delivery_formats ?? [],
+          delivery_duration: rest.delivery_duration ?? null,
         };
       });
 

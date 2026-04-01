@@ -21,18 +21,27 @@ interface Props {
   items: BudgetItem[];
 }
 
-/** Build deliverables from budget items marked as is_deliverable — only PÓS-PRODUÇÃO */
+/** Build deliverables from budget items marked as is_deliverable — only PÓS-PRODUÇÃO / ENTREGAS */
 function buildDeliverablesFromItems(items: BudgetItem[]): { name: string; description: string }[] {
   const deliverableItems = items.filter(i =>
     i.is_deliverable &&
     i.client_price > 0 &&
-    (i.category || "").trim().toUpperCase() === "PÓS-PRODUÇÃO"
+    ["PÓS-PRODUÇÃO", "ENTREGAS"].includes((i.category || "").trim().toUpperCase())
   );
 
-  return deliverableItems.map(item => ({
-    name: item.item_name,
-    description: "",
-  }));
+  return deliverableItems.map(item => {
+    const parts: string[] = [];
+    const formats = (item as any).delivery_formats ?? [];
+    const duration = (item as any).delivery_duration;
+    if (formats.length > 0) parts.push(formats.join(", "));
+    if (duration) parts.push(duration);
+    const qty = item.client_days > 1 ? `${item.client_days} × ` : "";
+    const desc = parts.length > 0 ? parts.join(" | ") : "";
+    return {
+      name: `${qty}${item.item_name}`,
+      description: desc,
+    };
+  });
 }
 
 /** Build tags from budget categories */
