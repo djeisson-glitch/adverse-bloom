@@ -52,6 +52,10 @@ export default function Comercial() {
   const [wonClientName, setWonClientName] = useState("");
 
   // Filter deals by period
+  // Pipeline shows ALL active deals (not filtered by period)
+  // Period filter only applies to Indicadores tab
+  const pipelineDeals = useMemo(() => deals, [deals]);
+
   const filteredDeals = useMemo(() => {
     return deals.filter((d) => {
       const created = d.created_at ? d.created_at.slice(0, 10) : "";
@@ -192,7 +196,7 @@ export default function Comercial() {
         </TabsList>
 
         <TabsContent value="pipeline" className="mt-4">
-          <KanbanBoard deals={filteredDeals} onMoveDeal={handleMoveDeal} onEditDeal={openEditDeal} taskCounts={taskCounts} />
+          <KanbanBoard deals={pipelineDeals} onMoveDeal={handleMoveDeal} onEditDeal={openEditDeal} taskCounts={taskCounts} />
         </TabsContent>
 
         <TabsContent value="indicadores" className="mt-4">
