@@ -84,7 +84,9 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   useEffect(() => {
     if (!open || initialized || lettersLoading) return;
 
-    const latest = existingLetters?.[0];
+    // Prefer draft, then latest sent proposal
+    const draft = existingLetters?.find(l => (l.status as any) === "draft");
+    const latest = draft || existingLetters?.[0];
     if (latest) {
       setContactName(latest.contact_name || "");
       setContactCompany(latest.contact_company || "");
