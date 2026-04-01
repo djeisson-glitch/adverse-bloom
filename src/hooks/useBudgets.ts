@@ -61,31 +61,90 @@ export interface BudgetWithItems extends Budget {
   budget_items: BudgetItem[];
 }
 
-type ProjectCostSummary = {
+type ProjectCostDetail = {
   budget_id: string;
+  budget_item_id: string | null;
   amount: number | null;
 };
 
-function buildRealCostsMap(costs: ProjectCostSummary[]) {
-  return costs.reduce<Record<string, number>>((acc, cost) => {
-    acc[cost.budget_id] = (acc[cost.budget_id] ?? 0) + (cost.amount ?? 0);
-    return acc;
-  }, {});
+type ItemSummary = {
+  id: string;
+  budget_id: string;
+  category: string;
+  client_price: number;
+};
+
+/**
+ * Builds a map of budget_id → item_id → sum(real costs)
+ */
+function buildCostsByBudgetItem(costs: ProjectCostDetail[]) {
+  const map: Record<string, Record<string, number>> = {};
+  for (const c of costs) {
+    if (!map[c.budget_id]) map[c.budget_id] = {};
+    const itemKey = c.budget_item_id ?? "__unlinked__";
+    map[c.budget_id][itemKey] = (map[c.budget_id][itemKey] ?? 0) + (c.amount ?? 0);
+  }
+  return map;
 }
 
-function applyRealMarginToBudget<T extends Budget>(budget: T, realCostsTotal: number): T {
+/**
+ * Calculates real margin for a budget:
+ * - Always deducts tax (tax_value)
+ * - Logística items are assumed costs (client_price) unless real costs exist for that item
+ * - All other real costs are deducted normally
+ */
+function applyRealMarginToBudget<T extends Budget>(
+  budget: T,
+  costsByItem: Record<string, number>,
+  items: ItemSummary[]
+): T {
   const totalCliente = budget.total_value ?? 0;
-  // Margin = total_cliente - sum(project_costs). No costs → 100%.
-  const realMarginValue = totalCliente - realCostsTotal;
+  const taxValue = budget.tax_value ?? 0;
+
+  // Calculate effective costs per item
+  let totalDeductions = taxValue;
+
+  // Track which items have real costs
+  const itemIdsWithCosts = new Set(
+    Object.keys(costsByItem).filter((k) => k !== "__unlinked__" && costsByItem[k] > 0)
+  );
+
+  // Add Logística assumed costs (client_price) for items WITHOUT real costs
+  for (const item of items) {
+    if (item.category.toLowerCase() === "logística") {
+      const realCost = costsByItem[item.id] ?? 0;
+      if (realCost > 0) {
+        totalDeductions += realCost;
+        itemIdsWithCosts.delete(item.id); // handled
+      } else {
+        totalDeductions += item.client_price;
+      }
+    }
+  }
+
+  // Add all other real costs (non-Logística items + unlinked)
+  const logisticaItemIds = new Set(
+    items.filter((i) => i.category.toLowerCase() === "logística").map((i) => i.id)
+  );
+  for (const [itemId, amount] of Object.entries(costsByItem)) {
+    if (!logisticaItemIds.has(itemId) && amount > 0) {
+      totalDeductions += amount;
+    }
+  }
+
+  const realMarginValue = totalCliente - totalDeductions;
+  const hasAnyCost = totalDeductions > taxValue; // has costs beyond just tax
   const realMarginPercent = totalCliente > 0
-    ? (realCostsTotal === 0 ? 100 : (realMarginValue / totalCliente) * 100)
+    ? (!hasAnyCost && items.filter(i => i.category.toLowerCase() === "logística").length === 0
+        ? 100
+        : (realMarginValue / totalCliente) * 100)
     : 0;
 
   return {
     ...budget,
     original_margin_value: budget.original_margin_value ?? budget.margin_value ?? 0,
     original_margin_percent: budget.original_margin_percent ?? budget.margin_percent ?? 0,
-    real_costs_total: realCostsTotal,
+    real_costs_total: totalDeductions,
     margin_value: realMarginValue,
     margin_percent: realMarginPercent,
   };
@@ -109,14 +168,25 @@ export function useBudgets() {
 
       if (budgets.length === 0) return [];
 
-      const { data: costs, error: costsError } = await supabase
-        .from("project_costs")
-        .select("budget_id, amount")
-        .in("budget_id", budgets.map((budget) => budget.id));
-      if (costsError) throw costsError;
+      const budgetIds = budgets.map((b) => b.id);
 
-      const realCostsMap = buildRealCostsMap((costs ?? []) as ProjectCostSummary[]);
-      return budgets.map((budget) => applyRealMarginToBudget(budget, realCostsMap[budget.id] ?? 0));
+      const [{ data: costs, error: costsError }, { data: allItems, error: itemsError }] = await Promise.all([
+        supabase.from("project_costs").select("budget_id, budget_item_id, amount").in("budget_id", budgetIds),
+        supabase.from("budget_items").select("id, budget_id, category, client_price").in("budget_id", budgetIds),
+      ]);
+      if (costsError) throw costsError;
+      if (itemsError) throw itemsError;
+
+      const costsByBudget = buildCostsByBudgetItem((costs ?? []) as ProjectCostDetail[]);
+      const itemsByBudget: Record<string, ItemSummary[]> = {};
+      for (const item of (allItems ?? []) as ItemSummary[]) {
+        if (!itemsByBudget[item.budget_id]) itemsByBudget[item.budget_id] = [];
+        itemsByBudget[item.budget_id].push(item);
+      }
+
+      return budgets.map((budget) =>
+        applyRealMarginToBudget(budget, costsByBudget[budget.id] ?? {}, itemsByBudget[budget.id] ?? [])
+      );
     },
   });
 }
@@ -129,19 +199,26 @@ export function useBudgetWithItems(id: string | null) {
       const [{ data: budget, error }, { data: items, error: itemsError }, { data: costs, error: costsError }] = await Promise.all([
         supabase.from("budgets").select("*").eq("id", id!).single(),
         supabase.from("budget_items").select("*").eq("budget_id", id!).order("order_index", { ascending: true }),
-        supabase.from("project_costs").select("budget_id, amount").eq("budget_id", id!),
+        supabase.from("project_costs").select("budget_id, budget_item_id, amount").eq("budget_id", id!),
       ]);
       if (error) throw error;
       if (itemsError) throw itemsError;
       if (costsError) throw costsError;
 
-      const realCostsTotal = ((costs ?? []) as ProjectCostSummary[]).reduce((sum, cost) => sum + (cost.amount ?? 0), 0);
+      const costsByItem = buildCostsByBudgetItem((costs ?? []) as ProjectCostDetail[]);
+      const budgetItems = (items ?? []) as BudgetItem[];
+      const itemSummaries: ItemSummary[] = budgetItems.map((i) => ({
+        id: i.id!,
+        budget_id: id!,
+        category: i.category,
+        client_price: i.client_price,
+      }));
 
       return applyRealMarginToBudget({
         ...budget,
         not_included: (budget.not_included ?? []) as string[],
-        budget_items: (items ?? []) as BudgetItem[],
-      } as BudgetWithItems, realCostsTotal);
+        budget_items: budgetItems,
+      } as BudgetWithItems, costsByItem[id!] ?? {}, itemSummaries);
     },
   });
 }
@@ -161,14 +238,25 @@ export function useBudgetVersions(budgetNumber: number | null) {
       const versions = (data ?? []) as Budget[];
       if (versions.length === 0) return [];
 
-      const { data: costs, error: costsError } = await supabase
-        .from("project_costs")
-        .select("budget_id, amount")
-        .in("budget_id", versions.map((version) => version.id));
-      if (costsError) throw costsError;
+      const versionIds = versions.map((v) => v.id);
 
-      const realCostsMap = buildRealCostsMap((costs ?? []) as ProjectCostSummary[]);
-      return versions.map((version) => applyRealMarginToBudget(version, realCostsMap[version.id] ?? 0));
+      const [{ data: costs, error: costsError }, { data: allItems, error: itemsError }] = await Promise.all([
+        supabase.from("project_costs").select("budget_id, budget_item_id, amount").in("budget_id", versionIds),
+        supabase.from("budget_items").select("id, budget_id, category, client_price").in("budget_id", versionIds),
+      ]);
+      if (costsError) throw costsError;
+      if (itemsError) throw itemsError;
+
+      const costsByBudget = buildCostsByBudgetItem((costs ?? []) as ProjectCostDetail[]);
+      const itemsByBudget: Record<string, ItemSummary[]> = {};
+      for (const item of (allItems ?? []) as ItemSummary[]) {
+        if (!itemsByBudget[item.budget_id]) itemsByBudget[item.budget_id] = [];
+        itemsByBudget[item.budget_id].push(item);
+      }
+
+      return versions.map((version) =>
+        applyRealMarginToBudget(version, costsByBudget[version.id] ?? {}, itemsByBudget[version.id] ?? [])
+      );
     },
   });
 }
