@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, GripVertical, FolderPlus } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
@@ -185,7 +186,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const { deals } = useDeals();
   const { data: supplierContacts = [] } = useSupplierContacts();
   const { data: presetItems = [] } = usePresetItems();
-  
+
+  // Fetch real costs for this budget
+  const activeBudgetId = budgetId || null;
+  const { data: projectCosts = [] } = useQuery({
+    queryKey: ["project_costs_form", activeBudgetId],
+    enabled: !!activeBudgetId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_costs")
+        .select("budget_item_id, amount")
+        .eq("budget_id", activeBudgetId!);
+      if (error) throw error;
+      return (data ?? []) as { budget_item_id: string | null; amount: number }[];
+    },
+  });
+
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
@@ -271,7 +287,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       setMarkupPercent(existing.markup_percent);
       setTaxPercent(existing.tax_percent);
       setBvPercent(existing.bv_percent);
-      setCommissionPercent(existing.commission_percent);
       setDiscount(existing.discount);
       setAddition(existing.addition);
       setItems(existing.budget_items || []);
@@ -285,6 +300,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       const cats = [...new Set((existing.budget_items || []).map((i) => i.category))];
       if (cats.length > 0) {
         setCategories([...new Set([...DEFAULT_CATEGORIES, ...cats])]);
+      }
+      // Load commission split from settings (budget only stores total)
+      if (settings && 'commission_djeisson_percent' in settings) {
+        const dj = (settings as any).commission_djeisson_percent ?? 3;
+        const rob = (settings as any).commission_robert_percent ?? 3;
+        const djOn = (settings as any).commission_djeisson_enabled ?? true;
+        const robOn = (settings as any).commission_robert_enabled ?? true;
+        setDjPercent(dj);
+        setRobertPercent(rob);
+        setDjEnabled(djOn);
+        setRobertEnabled(robOn);
+        // commissionPercent will be set by the useEffect below
+      } else {
+        setCommissionPercent(existing.commission_percent);
       }
     } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
@@ -331,6 +360,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     () => calcBudgetTotals(items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition),
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
+
+  // Compute real margin: total - imposto - logística - project_costs
+  const realMargin = useMemo(() => {
+    const totalCliente = totals.totalValue;
+    const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
+    const logisticaSum = items
+      .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
+      .reduce((s, i) => s + i.client_price, 0);
+    const projectCostsTotal = projectCosts.reduce((s, c) => s + (c.amount ?? 0), 0);
+    const marginValue = totalCliente - impostoValue - logisticaSum - projectCostsTotal;
+    const hasAnyCost = logisticaSum > 0 || projectCostsTotal > 0;
+    const marginPercent = totalCliente > 0
+      ? (!hasAnyCost ? 100 : (marginValue / totalCliente) * 100)
+      : 0;
+    return { marginValue, marginPercent, impostoValue, logisticaSum, projectCostsTotal };
+  }, [totals.totalValue, taxPercent, items, projectCosts]);
 
   // Autosave removed — save only on explicit user action
 
@@ -1557,30 +1602,26 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
 
               <div className="rounded-lg bg-muted/50 p-2 text-center">
                 <p className="text-[10px] text-muted-foreground">💰 Margem Real</p>
-                <p className={`text-base font-semibold ${marginColor(totals.marginPercent)}`}>
-                  {formatCurrency(totals.marginValue)} ({formatPercent(totals.marginPercent)})
+                <p className={`text-base font-semibold ${marginColor(realMargin.marginPercent)}`}>
+                  {formatCurrency(realMargin.marginValue)} ({formatPercent(realMargin.marginPercent)})
                 </p>
               </div>
 
               {/* Cost Breakdown */}
               <div className="space-y-1 rounded-lg border border-border bg-background p-2 mt-1">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">📊 Custos</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">📊 Custos Deduzidos</p>
                 <div className="space-y-0.5 text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Fornecedores</span>
-                    <span className="font-medium">{formatCurrency(totals.supplierTotal)}</span>
+                    <span className="text-muted-foreground">├ Imposto ({taxPercent}%)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.impostoValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ BV</span>
-                    <span className="font-medium">{formatCurrency(totals.bvValue)}</span>
+                    <span className="text-muted-foreground">├ Logística (previsto)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.logisticaSum)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Comissão</span>
-                    <span className="font-medium">{formatCurrency(totals.commissionValue)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground/60 italic">
-                    <span>└ Impostos</span>
-                    <span>{formatCurrency(totals.taxValue)}</span>
+                    <span className="text-muted-foreground">└ Fornecedores (lançados)</span>
+                    <span className="font-medium">{formatCurrency(realMargin.projectCostsTotal)}</span>
                   </div>
                 </div>
               </div>

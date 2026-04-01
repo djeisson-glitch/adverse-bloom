@@ -32,28 +32,30 @@ export function CostReportTab({ budget, items }: Props) {
   });
 
   const report = useMemo(() => {
-    const subtotal1 = items.reduce((s, i) => s + i.client_price, 0);
-    const supplierTotal = items.reduce((s, i) => s + i.supplier_cost, 0);
     const executedTotal = costs.reduce((s, c) => s + c.amount, 0);
-    const economia = supplierTotal - executedTotal;
 
+    const totalCliente = budget.total_value ?? 0;
+    const taxPercent = budget.tax_percent ?? 0;
+    const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
+    const logisticaSum = items
+      .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
+      .reduce((s, i) => s + i.client_price, 0);
+    
     const margemOrcada = budget.original_margin_value ?? budget.margin_value ?? 0;
     const margemOrcadaPct = budget.original_margin_percent ?? budget.margin_percent ?? 0;
 
-    const totalCliente = budget.total_value ?? 0;
-    // Margin = total_cliente - sum(project_costs). No costs → 100%.
-    const margemReal = totalCliente - executedTotal;
+    // Real margin = total - imposto - logística - project_costs
+    const margemReal = totalCliente - impostoValue - logisticaSum - executedTotal;
+    const hasAnyCost = logisticaSum > 0 || executedTotal > 0;
     const margemRealPct = totalCliente > 0
-      ? (executedTotal === 0 ? 100 : (margemReal / totalCliente) * 100)
+      ? (!hasAnyCost ? 100 : (margemReal / totalCliente) * 100)
       : 0;
 
     // Per category breakdown
     const categories = [...new Set(items.map(i => i.category))];
     const byCategory = categories.map(cat => {
       const catItems = items.filter(i => i.category === cat);
-      const catCosts = costs.filter(c => c.category === cat);
       const orcado = catItems.reduce((s, i) => s + i.client_price, 0);
-      const executado = catCosts.reduce((s, c) => s + c.amount, 0);
 
       const itemDetails = catItems.map(item => {
         const itemCosts = costs.filter(c => c.budget_item_id === item.id);
@@ -66,14 +68,16 @@ export function CostReportTab({ budget, items }: Props) {
         };
       });
 
-      return { category: cat, orcado, executado, delta: orcado - executado, items: itemDetails };
+      const catExecutado = itemDetails.reduce((s, i) => s + i.executado, 0);
+
+      return { category: cat, orcado, executado: catExecutado, delta: orcado - catExecutado, items: itemDetails };
     });
 
     return {
       totalCliente,
-      supplierTotal,
+      impostoValue,
+      logisticaSum,
       executedTotal,
-      economia,
       margemOrcada,
       margemOrcadaPct,
       margemReal,
@@ -106,22 +110,18 @@ export function CostReportTab({ budget, items }: Props) {
               <span className="font-semibold">{formatCurrency(report.totalCliente)}</span>
             </div>
             <div className="border-t border-border pt-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custos Fornecedores</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custos Deduzidos</p>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Orçado</span>
-                <span>{formatCurrency(report.supplierTotal)}</span>
+                <span className="text-muted-foreground">Imposto ({budget.tax_percent ?? 0}%)</span>
+                <span>{formatCurrency(report.impostoValue)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Executado</span>
+                <span className="text-muted-foreground">Logística (previsto)</span>
+                <span>{formatCurrency(report.logisticaSum)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Fornecedores (lançados)</span>
                 <span>{formatCurrency(report.executedTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-medium">
-                <span className={deltaColor(report.economia)}>
-                  {report.economia >= 0 ? "Economia" : "Estouro"}
-                </span>
-                <span className={deltaColor(report.economia)}>
-                  {formatCurrency(Math.abs(report.economia))} {report.economia >= 0 ? "✅" : "⚠️"}
-                </span>
               </div>
             </div>
             <div className="border-t border-border pt-3 space-y-2">
