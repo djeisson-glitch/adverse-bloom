@@ -186,7 +186,22 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   const { deals } = useDeals();
   const { data: supplierContacts = [] } = useSupplierContacts();
   const { data: presetItems = [] } = usePresetItems();
-  
+
+  // Fetch real costs for this budget
+  const activeBudgetId = budgetId || null;
+  const { data: projectCosts = [] } = useQuery({
+    queryKey: ["project_costs_form", activeBudgetId],
+    enabled: !!activeBudgetId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_costs")
+        .select("budget_item_id, amount")
+        .eq("budget_id", activeBudgetId!);
+      if (error) throw error;
+      return (data ?? []) as { budget_item_id: string | null; amount: number }[];
+    },
+  });
+
 
   const [projectName, setProjectName] = useState("");
   const [clientName, setClientName] = useState("");
