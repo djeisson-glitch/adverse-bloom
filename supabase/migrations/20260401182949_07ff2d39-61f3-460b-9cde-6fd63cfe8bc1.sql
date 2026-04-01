@@ -1,0 +1,2 @@
+ALTER TABLE public.proposal_letters DROP CONSTRAINT proposal_letters_status_check;
+ALTER TABLE public.proposal_letters ADD CONSTRAINT proposal_letters_status_check CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'expired'::text, 'draft'::text]));
