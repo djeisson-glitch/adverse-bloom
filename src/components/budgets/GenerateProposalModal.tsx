@@ -260,7 +260,36 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     }
   };
 
-  const handleClose = () => {
+  const saveDraft = async () => {
+    // Save current form state as a draft proposal_letter so it persists across modal reopens
+    const draftPayload = {
+      budget_id: budget.id,
+      template_type: "reduzida",
+      contact_name: contactName || "",
+      contact_company: contactCompany || "",
+      project_description: projectDescription || null,
+      tags: tags,
+      deliverables: JSON.parse(JSON.stringify(deliverables.filter(d => d.name.trim()))),
+      payment_conditions: paymentConditions,
+      validity_days: validityDays,
+      status: "draft",
+      created_by: user?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const latestDraft = existingLetters?.find(l => l.status === "draft" as any);
+    if (latestDraft) {
+      await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
+    } else {
+      await (supabase as any).from("proposal_letters").insert(draftPayload);
+    }
+  };
+
+  const handleClose = async () => {
+    // Save draft on close (only if not just generated a token)
+    if (!generatedToken && initialized) {
+      await saveDraft();
+    }
     setGeneratedToken(null);
     setCopied(false);
     onClose();
