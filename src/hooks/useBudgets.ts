@@ -21,6 +21,8 @@ export interface BudgetItem {
   order_index: number;
   is_deliverable: boolean;
   group_name?: string | null;
+  delivery_formats?: string[];
+  delivery_duration?: string | null;
 }
 
 export interface Budget {
