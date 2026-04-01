@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { Edit, FileText, Eye, RotateCcw, CheckCircle, Clock, Link as LinkIcon, Send } from "lucide-react";
+import { Edit, FileText, Eye, RotateCcw, CheckCircle, Clock, Link as LinkIcon, Send, Copy } from "lucide-react";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";

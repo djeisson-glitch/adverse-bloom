@@ -186,7 +186,7 @@ export default function PropostaPublica() {
   categories.forEach((cat: string) => {
     if (isLogisticsCategory(cat)) return; // skip logistics entirely
 
-    const catItems = items.filter((i: any) => i.category === cat && i.client_price > 0);
+    const catItems = items.filter((i: any) => i.category === cat && i.client_price > 0 && (i.item_name || "").trim().toLowerCase() !== "edição horas");
 
     if (catItems.length > 0) {
       scopeItems.push({
