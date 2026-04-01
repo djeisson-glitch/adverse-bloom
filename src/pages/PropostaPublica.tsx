@@ -339,8 +339,13 @@ export default function PropostaPublica() {
                       {d.name}
                     </div>
                     {d.description && (
-                      <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)" }}>
-                        {d.description}
+                      <div style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,235,227,0.65)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        {d.description.split(" | ").map((part: string, pi: number) => (
+                          <span key={pi} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            {pi > 0 && <span style={{ color: "rgba(240,235,227,0.25)" }}>|</span>}
+                            {part}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
