@@ -289,12 +289,18 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     } else if (settings && !initialTemplate) {
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
-      setCommissionPercent(settings.commission_default);
       if ('commission_djeisson_percent' in settings) {
-        setDjPercent((settings as any).commission_djeisson_percent ?? 3);
-        setRobertPercent((settings as any).commission_robert_percent ?? 3);
-        setDjEnabled((settings as any).commission_djeisson_enabled ?? true);
-        setRobertEnabled((settings as any).commission_robert_enabled ?? true);
+        const dj = (settings as any).commission_djeisson_percent ?? 3;
+        const rob = (settings as any).commission_robert_percent ?? 3;
+        const djOn = (settings as any).commission_djeisson_enabled ?? true;
+        const robOn = (settings as any).commission_robert_enabled ?? true;
+        setDjPercent(dj);
+        setRobertPercent(rob);
+        setDjEnabled(djOn);
+        setRobertEnabled(robOn);
+        setCommissionPercent((djOn ? dj : 0) + (robOn ? rob : 0));
+      } else {
+        setCommissionPercent((settings as any).commission_default ?? 0);
       }
     }
   }, [existing, settings]);
