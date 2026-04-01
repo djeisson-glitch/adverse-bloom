@@ -265,7 +265,6 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   };
 
   const saveDraft = async () => {
-    // Save current form state as a draft proposal_letter so it persists across modal reopens
     const draftPayload = {
       budget_id: budget.id,
       template_type: "reduzida",
@@ -282,11 +281,20 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     };
 
     const latestDraft = existingLetters?.find(l => l.status === "draft" as any);
+    let result;
     if (latestDraft) {
-      await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
+      result = await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
     } else {
-      await (supabase as any).from("proposal_letters").insert(draftPayload);
+      result = await (supabase as any).from("proposal_letters").insert(draftPayload);
     }
+
+    if (result.error) {
+      toast({ title: "Erro ao salvar rascunho", description: result.error.message, variant: "destructive" });
+      return false;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["proposal_letters", budget.id] });
+    return true;
   };
 
   const handleClose = async () => {
