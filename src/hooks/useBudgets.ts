@@ -156,17 +156,27 @@ export function useBudgets() {
   return useQuery({
     queryKey: ["budgets"],
     queryFn: async () => {
+      // Fetch latest versions + any approved version (so approved older versions appear in "Aprovados" tab)
       const { data, error } = await supabase
         .from("budgets")
         .select("*")
-        .eq("is_latest_version", true)
+        .or("is_latest_version.eq.true,status.eq.approved")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const budgets = ((data as any[]) ?? []).map((b) => ({
-        ...b,
-        not_included: (b.not_included ?? []) as string[],
-      })) as Budget[];
+      // Deduplicate: if an approved non-latest version exists alongside its latest version, keep both
+      // but remove duplicates (same id appearing twice)
+      const seen = new Set<string>();
+      const budgets = ((data as any[]) ?? [])
+        .filter((b) => {
+          if (seen.has(b.id)) return false;
+          seen.add(b.id);
+          return true;
+        })
+        .map((b) => ({
+          ...b,
+          not_included: (b.not_included ?? []) as string[],
+        })) as Budget[];
 
       if (budgets.length === 0) return [];
 
