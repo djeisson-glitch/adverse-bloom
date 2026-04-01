@@ -92,6 +92,28 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const { data: projectCosts = [] } = useQuery({
+    queryKey: ["project_costs", budget.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_costs")
+        .select("id, budget_item_id, amount")
+        .eq("budget_id", budget.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const costsByItem = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of projectCosts) {
+      if (c.budget_item_id) {
+        map[c.budget_item_id] = (map[c.budget_item_id] || 0) + c.amount;
+      }
+    }
+    return map;
+  }, [projectCosts]);
+
   const latestLetter = proposalLetters?.[0];
 
   const proposalStatus = useMemo(() => {
