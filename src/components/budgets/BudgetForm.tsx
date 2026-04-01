@@ -282,7 +282,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
   }, [initialTemplate, budgetId]);
 
   useEffect(() => {
-    if (existing) {
+    if (existing && !formLoadedRef.current) {
+      formLoadedRef.current = true;
       setProjectName(existing.project_name);
       setClientName(existing.client_name);
       setClientId((existing as any).client_id ?? null);
@@ -311,7 +312,6 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         const robOn = (settings as any).commission_robert_enabled ?? true;
         setDjEnabled(djOn);
         setRobertEnabled(robOn);
-        // Distribute saved total proportionally based on settings ratio
         const settingsDj = (settings as any).commission_djeisson_percent ?? 3;
         const settingsRob = (settings as any).commission_robert_percent ?? 3;
         const settingsTotal = (djOn ? settingsDj : 0) + (robOn ? settingsRob : 0);
@@ -323,7 +323,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
           setRobertPercent(settingsRob);
         }
       }
-    } else if (settings && !initialTemplate) {
+    } else if (!existing && !budgetId && settings && !initialTemplate && !formLoadedRef.current) {
+      formLoadedRef.current = true;
       setMarkupPercent(settings.markup_default);
       setTaxPercent(settings.tax_default);
       if ('commission_djeisson_percent' in settings) {
@@ -518,6 +519,9 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
       return next;
     });
   }, []);
+
+  // Track whether form has been loaded from DB to prevent re-initialization
+  const formLoadedRef = useRef(false);
 
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const [pendingGroupCat, setPendingGroupCat] = useState<string | null>(null);

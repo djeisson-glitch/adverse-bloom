@@ -197,6 +197,8 @@ export function useBudgetWithItems(id: string | null) {
   return useQuery({
     queryKey: ["budget", id],
     enabled: !!id,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
     queryFn: async () => {
       const [{ data: budget, error }, { data: items, error: itemsError }, { data: costs, error: costsError }] = await Promise.all([
         supabase.from("budgets").select("*").eq("id", id!).single(),
