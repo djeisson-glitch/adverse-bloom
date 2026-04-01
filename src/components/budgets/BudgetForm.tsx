@@ -300,7 +300,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
         setRobertEnabled(robOn);
         setCommissionPercent((djOn ? dj : 0) + (robOn ? rob : 0));
       } else {
-        setCommissionPercent(settings.commission_default);
+        setCommissionPercent((settings as any).commission_default ?? 0);
       }
     }
   }, [existing, settings]);
