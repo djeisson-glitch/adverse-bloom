@@ -138,6 +138,8 @@ function emptyItem(category: string, orderIndex: number, groupName?: string | nu
     order_index: orderIndex,
     is_deliverable: false,
     group_name: groupName ?? null,
+    delivery_formats: [],
+    delivery_duration: null,
   };
 }
 
