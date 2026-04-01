@@ -496,7 +496,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Action */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button variant="outline" onClick={async () => { await saveDraft(); toast({ title: "Rascunho salvo!" }); }}>
+            <Button variant="outline" onClick={async () => { const ok = await saveDraft(); if (ok) toast({ title: "Rascunho salvo!" }); }}>
               <Save className="h-4 w-4 mr-2" />
               Salvar
             </Button>
