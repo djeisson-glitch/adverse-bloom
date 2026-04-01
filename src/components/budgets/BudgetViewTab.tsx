@@ -212,7 +212,27 @@ export function BudgetViewTab({ budget, onEdit, onRevertToDraft }: Props) {
         </CardHeader>
         <CardContent>
           {latestLetter ? (
-            <ProposalStatusTimeline letter={latestLetter} />
+            <div className="space-y-3">
+              <ProposalStatusTimeline letter={latestLetter} />
+              {latestLetter.status !== "draft" && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground truncate max-w-[300px]">
+                    {`${window.location.origin}/proposta/${latestLetter.token}`}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/proposta/${latestLetter.token}`);
+                      toast({ title: "Link copiado!" });
+                    }}
+                  >
+                    <Copy className="mr-1 h-3 w-3" /> Copiar link
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma proposta gerada para este orçamento.</p>
           )}
