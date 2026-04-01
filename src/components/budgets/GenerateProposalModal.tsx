@@ -74,7 +74,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const hasExistingLink = !!(existingLetters && existingLetters.length > 0);
+  const hasExistingLink = !!(existingLetters && existingLetters.some(l => (l.status as any) !== "draft"));
 
   const proposalUrl = generatedToken
     ? `${window.location.origin}/proposta/${generatedToken}`
