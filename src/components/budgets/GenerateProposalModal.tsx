@@ -54,6 +54,7 @@ function buildTagsFromItems(items: BudgetItem[]): string[] {
 export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const createLetter = useCreateProposalLetter();
   const { data: existingLetters, isLoading: lettersLoading } = useProposalLetters(budget.id);
 
