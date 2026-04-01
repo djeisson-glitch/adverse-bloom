@@ -124,7 +124,6 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   // Reset when modal closes
   useEffect(() => {
     if (!open) {
-      setInitialized(false);
       setExcludedItemIds(new Set());
     }
   }, [open]);
