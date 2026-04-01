@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useCreateProposalLetter, useProposalLetters } from "@/hooks/useProposalLetters";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
@@ -53,6 +54,7 @@ function buildTagsFromItems(items: BudgetItem[]): string[] {
 export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const createLetter = useCreateProposalLetter();
   const { data: existingLetters, isLoading: lettersLoading } = useProposalLetters(budget.id);
 
@@ -122,7 +124,6 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   // Reset when modal closes
   useEffect(() => {
     if (!open) {
-      setInitialized(false);
       setExcludedItemIds(new Set());
     }
   }, [open]);
@@ -263,7 +264,6 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
   };
 
   const saveDraft = async () => {
-    // Save current form state as a draft proposal_letter so it persists across modal reopens
     const draftPayload = {
       budget_id: budget.id,
       template_type: "reduzida",
@@ -280,11 +280,20 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
     };
 
     const latestDraft = existingLetters?.find(l => l.status === "draft" as any);
+    let result;
     if (latestDraft) {
-      await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
+      result = await (supabase as any).from("proposal_letters").update(draftPayload).eq("id", latestDraft.id);
     } else {
-      await (supabase as any).from("proposal_letters").insert(draftPayload);
+      result = await (supabase as any).from("proposal_letters").insert(draftPayload);
     }
+
+    if (result.error) {
+      toast({ title: "Erro ao salvar rascunho", description: result.error.message, variant: "destructive" });
+      return false;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["proposal_letters", budget.id] });
+    return true;
   };
 
   const handleClose = async () => {
@@ -487,7 +496,7 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
           {/* Action */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button variant="outline" onClick={async () => { await saveDraft(); toast({ title: "Rascunho salvo!" }); }}>
+            <Button variant="outline" onClick={async () => { const ok = await saveDraft(); if (ok) toast({ title: "Rascunho salvo!" }); }}>
               <Save className="h-4 w-4 mr-2" />
               Salvar
             </Button>
