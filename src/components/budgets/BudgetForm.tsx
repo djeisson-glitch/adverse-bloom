@@ -1557,7 +1557,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   </div>
                   <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-border/50">
                     <span className="text-muted-foreground">Total</span>
-                    <span className="font-semibold">{commissionPercent}% ({formatCurrency(totals.commissionValue)})</span>
+                    <span className="font-semibold">{commissionPercent}% ({formatCurrency(
+                      (djEnabled ? Math.ceil(totals.subtotal2 * (djPercent / 100)) : 0) +
+                      (robertEnabled ? Math.ceil(totals.subtotal2 * (robertPercent / 100)) : 0)
+                    )})</span>
                   </div>
                 </div>
               </div>
