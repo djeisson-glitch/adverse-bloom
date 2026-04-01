@@ -77,6 +77,8 @@ export type Database = {
           client_price: number
           client_unit_price: number
           created_at: string
+          delivery_duration: string | null
+          delivery_formats: string[] | null
           group_name: string | null
           has_supplier_cost: boolean
           id: string
@@ -100,6 +102,8 @@ export type Database = {
           client_price?: number
           client_unit_price?: number
           created_at?: string
+          delivery_duration?: string | null
+          delivery_formats?: string[] | null
           group_name?: string | null
           has_supplier_cost?: boolean
           id?: string
@@ -123,6 +127,8 @@ export type Database = {
           client_price?: number
           client_unit_price?: number
           created_at?: string
+          delivery_duration?: string | null
+          delivery_formats?: string[] | null
           group_name?: string | null
           has_supplier_cost?: boolean
           id?: string
