@@ -472,6 +472,11 @@ export default function Orcamentos() {
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setProposalBudget(b)}><FileText className="h-3.5 w-3.5 mr-2" />Gerar proposta</DropdownMenuItem>
+                {(b.status === "approved" || b.status === "sent") && (
+                  <DropdownMenuItem onClick={() => handleStartProduction(b.id)}>
+                    {projectsByBudget[b.id] ? <><ExternalLink className="h-3.5 w-3.5 mr-2" />Ver Projeto</> : <><Play className="h-3.5 w-3.5 mr-2" />Iniciar Produção</>}
+                  </DropdownMenuItem>
+                )}
                 {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                 <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
