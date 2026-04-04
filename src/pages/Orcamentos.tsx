@@ -139,6 +139,33 @@ export default function Orcamentos() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [proposalBudget, setProposalBudget] = useState<Budget | null>(null);
+  const createProjectFromBudget = useCreateProjectFromBudget();
+  const { data: allProjects } = useProjects();
+  const navigate = useNavigate();
+
+  // Map budget_id -> project exists
+  const projectsByBudget = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    (allProjects || []).forEach((p: any) => {
+      if (p.budget_id) map[p.budget_id] = true;
+    });
+    return map;
+  }, [allProjects]);
+
+  const handleStartProduction = async (budgetId: string) => {
+    if (projectsByBudget[budgetId]) {
+      toast({ title: "Projeto já existe" });
+      navigate("/projetos");
+      return;
+    }
+    try {
+      await createProjectFromBudget.mutateAsync(budgetId);
+      toast({ title: "Projeto criado em Produção" });
+      navigate("/projetos");
+    } catch (err: any) {
+      toast({ title: "Erro ao criar projeto", description: err?.message, variant: "destructive" });
+    }
+  };
 
   // Handle deal_id from URL (coming from CRM won modal)
   useEffect(() => {
