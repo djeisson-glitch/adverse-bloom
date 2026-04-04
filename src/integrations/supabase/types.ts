@@ -60,6 +60,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_item_suppliers_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
             foreignKeyName: "budget_item_suppliers_budget_item_id_fkey"
             columns: ["budget_item_id"]
             isOneToOne: false
@@ -151,6 +158,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_items_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
           },
         ]
       }
@@ -402,11 +416,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budgets_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["deal_id"]
+          },
+          {
             foreignKeyName: "budgets_parent_budget_id_fkey"
             columns: ["parent_budget_id"]
             isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_parent_budget_id_fkey"
+            columns: ["parent_budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
           },
         ]
       }
@@ -668,6 +696,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_allocations_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
             foreignKeyName: "job_allocations_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -735,6 +770,7 @@ export type Database = {
           description: string | null
           id: string
           payment_date: string | null
+          project_id: string | null
           sent_to_conta_azul: boolean
           service_date: string | null
           status: string
@@ -752,6 +788,7 @@ export type Database = {
           description?: string | null
           id?: string
           payment_date?: string | null
+          project_id?: string | null
           sent_to_conta_azul?: boolean
           service_date?: string | null
           status?: string
@@ -769,6 +806,7 @@ export type Database = {
           description?: string | null
           id?: string
           payment_date?: string | null
+          project_id?: string | null
           sent_to_conta_azul?: boolean
           service_date?: string | null
           status?: string
@@ -785,67 +823,137 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "project_costs_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
             foreignKeyName: "project_costs_budget_item_id_fkey"
             columns: ["budget_item_id"]
             isOneToOne: false
             referencedRelation: "budget_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_costs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "project_costs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       projects: {
         Row: {
+          billing_status: string
+          budget_id: string | null
+          clickup_task_id: string | null
           client_id: string | null
           client_name: string
+          contract_value: number
           created_at: string
+          deal_id: string | null
           delivery_date: string | null
           direct_costs: number | null
           gross_margin_percent: number | null
           gross_margin_value: number | null
           id: string
+          invoiced_value: number
           name: string
           notes: string | null
+          project_type: string | null
           sold_date: string | null
           sold_value: number | null
           status: string
         }
         Insert: {
+          billing_status?: string
+          budget_id?: string | null
+          clickup_task_id?: string | null
           client_id?: string | null
           client_name: string
+          contract_value?: number
           created_at?: string
+          deal_id?: string | null
           delivery_date?: string | null
           direct_costs?: number | null
           gross_margin_percent?: number | null
           gross_margin_value?: number | null
           id?: string
+          invoiced_value?: number
           name: string
           notes?: string | null
+          project_type?: string | null
           sold_date?: string | null
           sold_value?: number | null
           status?: string
         }
         Update: {
+          billing_status?: string
+          budget_id?: string | null
+          clickup_task_id?: string | null
           client_id?: string | null
           client_name?: string
+          contract_value?: number
           created_at?: string
+          deal_id?: string | null
           delivery_date?: string | null
           direct_costs?: number | null
           gross_margin_percent?: number | null
           gross_margin_value?: number | null
           id?: string
+          invoiced_value?: number
           name?: string
           notes?: string | null
+          project_type?: string | null
           sold_date?: string | null
           sold_value?: number | null
           status?: string
         }
         Relationships: [
           {
+            foreignKeyName: "projects_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
             foreignKeyName: "projects_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["deal_id"]
           },
         ]
       }
@@ -923,6 +1031,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budgets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_letters_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
           },
         ]
       }
@@ -1025,6 +1140,13 @@ export type Database = {
             referencedRelation: "deals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "proposals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["deal_id"]
+          },
         ]
       }
       supplier_contacts: {
@@ -1109,6 +1231,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "suppliers_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
             foreignKeyName: "suppliers_budget_item_id_fkey"
             columns: ["budget_item_id"]
             isOneToOne: false
@@ -1172,6 +1301,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "deals"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["deal_id"]
           },
         ]
       }
@@ -1255,9 +1391,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pipeline_completo: {
+        Row: {
+          billing_status: string | null
+          budget_id: string | null
+          budget_status: string | null
+          budget_value: number | null
+          clickup_task_id: string | null
+          client_id: string | null
+          contract_value: number | null
+          deal_id: string | null
+          deal_stage: string | null
+          deal_title: string | null
+          deal_value: number | null
+          delivery_date: string | null
+          direct_costs: number | null
+          gross_margin_percent: number | null
+          invoiced_value: number | null
+          margin_percent: number | null
+          project_id: string | null
+          project_name: string | null
+          project_status: string | null
+          project_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      create_project_from_budget: {
+        Args: { p_budget_id: string }
+        Returns: string
+      }
       has_permission: {
         Args: {
           _min_level: Database["public"]["Enums"]["permission_level"]
