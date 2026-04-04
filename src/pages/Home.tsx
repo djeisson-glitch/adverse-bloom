@@ -85,6 +85,20 @@ export default function Home() {
   const { allTasks } = useTasks("__all__");
   const { accounts, receivables, payables } = useAllContaAzulCache();
   const [syncing, setSyncing] = useState(false);
+  const { data: allProjectsData } = useProjects();
+
+  // Production metrics
+  const productionMetrics = useMemo(() => {
+    const projects = allProjectsData || [];
+    const active = projects.filter((p) => p.status !== "faturado");
+    const receitaAberto = active.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0);
+    const last90 = new Date(Date.now() - 90 * 86400000);
+    const recent = projects.filter((p) => new Date(p.created_at) >= last90);
+    const ticketMedio = recent.length > 0
+      ? recent.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0) / recent.length
+      : 0;
+    return { activeCount: active.length, receitaAberto, ticketMedio };
+  }, [allProjectsData]);
 
   const financialLoading = receivables.isLoading || payables.isLoading;
 
