@@ -13,22 +13,19 @@ import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
+import { ExternalLink, FileText, Handshake } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Project } from "@/hooks/useProjects";
+import { PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
 
-export const PRODUCTION_STAGES = [
-  { id: "Pré-produção", label: "Pré-produção" },
-  { id: "Captação", label: "Captação" },
-  { id: "Pós-produção", label: "Pós-produção" },
-  { id: "Aprovação do cliente", label: "Aprovação do cliente" },
-  { id: "Encerrado", label: "Encerrado" },
-] as const;
+export const PRODUCTION_STAGES = PRODUCTION_STAGES_NEW;
 
-const stageColors: Record<string, string> = {
-  "Pré-produção": "border-amber-500/40",
-  "Captação": "border-blue-500/40",
-  "Pós-produção": "border-purple-500/40",
-  "Aprovação do cliente": "border-cyan-500/40",
-  "Encerrado": "border-emerald-500/40",
+const billingBadge: Record<string, { label: string; className: string }> = {
+  pending: { label: "A faturar", className: "bg-muted text-muted-foreground" },
+  partial: { label: "Parcial", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
+  invoiced: { label: "Faturado", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  paid: { label: "Recebido", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
 };
 
 interface Props {
@@ -39,7 +36,11 @@ interface Props {
 
 function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDragging?: boolean; onEdit?: () => void }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: project.id });
+  const navigate = useNavigate();
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+
+  const isOverdue = project.delivery_date && new Date(project.delivery_date) < new Date();
+  const billing = billingBadge[(project as any).billing_status] || billingBadge.pending;
 
   return (
     <div
@@ -47,36 +48,77 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
       style={style}
       {...listeners}
       {...attributes}
-      className={`rounded-lg border border-border bg-card p-3 space-y-1.5 cursor-grab active:cursor-grabbing transition-shadow ${
+      className={`rounded-lg border border-border bg-card p-3 space-y-2 cursor-grab active:cursor-grabbing transition-shadow ${
         isDragging ? "shadow-lg opacity-80" : "hover:shadow-md"
       }`}
       onClick={onEdit}
     >
       <p className="text-sm font-medium text-foreground leading-tight">{project.name}</p>
       <p className="text-xs text-muted-foreground">{project.client_name}</p>
+      
       <div className="flex items-center justify-between text-xs">
-        <span className="text-primary font-medium">{formatCurrency(project.sold_value ?? 0)}</span>
+        <span className="text-primary font-semibold">
+          {formatCurrency((project as any).contract_value || project.sold_value || 0)}
+        </span>
         {project.delivery_date && (
-          <span className="text-muted-foreground">{formatDate(project.delivery_date)}</span>
+          <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
+            {formatDate(project.delivery_date)}
+            {isOverdue && " ⚠"}
+          </span>
         )}
+      </div>
+
+      <div className="flex items-center justify-between gap-1">
+        <Badge variant="outline" className={`text-[10px] px-1.5 h-4 ${billing.className}`}>
+          {billing.label}
+        </Badge>
+        <div className="flex gap-1">
+          {(project as any).budget_id && (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/orcamentos`); }}
+              className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5"
+            >
+              <FileText className="h-3 w-3" />
+            </button>
+          )}
+          {(project as any).deal_id && (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/comercial`); }}
+              className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5"
+            >
+              <Handshake className="h-3 w-3" />
+            </button>
+          )}
+          {(project as any).clickup_task_id && (
+            <a
+              href={`https://app.clickup.com/t/${(project as any).clickup_task_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[10px] text-muted-foreground hover:text-primary"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 function ProductionColumn({ stage, projects, onEditProject }: {
-  stage: { id: string; label: string };
+  stage: { id: string; label: string; color: string };
   projects: Project[];
   onEditProject?: (project: Project) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
-  const total = projects.reduce((s, p) => s + (p.sold_value || 0), 0);
+  const total = projects.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0);
 
   return (
     <div
       ref={setNodeRef}
       className={`flex-shrink-0 w-[260px] flex flex-col rounded-lg border bg-card/50 transition-colors ${
-        isOver ? "border-primary/60 bg-primary/5" : stageColors[stage.id] || "border-border"
+        isOver ? "border-primary/60 bg-primary/5" : stage.color
       }`}
     >
       <div className="px-3 py-3 border-b border-border/50">
