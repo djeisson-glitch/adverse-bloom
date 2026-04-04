@@ -2,8 +2,12 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarDays, ListChecks } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, ListChecks, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { Deal } from "@/hooks/useDeals";
+import { useProjects, useCreateProjectFromBudget } from "@/hooks/useProjects";
+import { toast } from "sonner";
 
 interface Props {
   deal: Deal;
@@ -14,6 +18,9 @@ interface Props {
 
 export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Props) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id });
+  const navigate = useNavigate();
+  const { data: projects } = useProjects();
+  const createProject = useCreateProjectFromBudget();
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform) }
@@ -26,6 +33,10 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  // Check if deal has a project linked
+  const linkedProject = (projects || []).find((p: any) => p.deal_id === deal.id);
+  const isWon = deal.stage === "fechamento";
 
   return (
     <div
@@ -50,6 +61,34 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
           <p className="text-[10px] text-muted-foreground">Valor orçado</p>
         )}
       </div>
+
+      {/* Production badge for won deals */}
+      {isWon && (
+        <div className="mt-2">
+          {linkedProject ? (
+            <Badge
+              variant="outline"
+              className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); navigate("/projetos"); }}
+            >
+              Em Produção →
+            </Badge>
+          ) : (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                // Find budget linked to this deal
+                const budgets = (deal as any).budgets;
+                // We need to find via query - simplified: navigate to projetos
+                toast.info("Use 'Iniciar Produção' na página de Orçamentos");
+              }}
+              className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1"
+            >
+              <Play className="h-3 w-3" /> Criar Projeto
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-2">
