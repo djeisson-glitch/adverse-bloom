@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox,
+  Inbox, Briefcase, Clapperboard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
