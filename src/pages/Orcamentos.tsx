@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2, FileText } from "lucide-react";
+import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2, FileText, Play, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 import type { ProposalTemplate } from "@/hooks/useTemplates";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useCreateProjectFromBudget, useProjects } from "@/hooks/useProjects";
 
 // ── Filter types ──────────────────────────────────────────
 type SortField = "number" | "date" | "client" | "total" | "margin";
@@ -138,6 +139,33 @@ export default function Orcamentos() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [proposalBudget, setProposalBudget] = useState<Budget | null>(null);
+  const createProjectFromBudget = useCreateProjectFromBudget();
+  const { data: allProjects } = useProjects();
+  const navigate = useNavigate();
+
+  // Map budget_id -> project exists
+  const projectsByBudget = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    (allProjects || []).forEach((p: any) => {
+      if (p.budget_id) map[p.budget_id] = true;
+    });
+    return map;
+  }, [allProjects]);
+
+  const handleStartProduction = async (budgetId: string) => {
+    if (projectsByBudget[budgetId]) {
+      toast({ title: "Projeto já existe" });
+      navigate("/projetos");
+      return;
+    }
+    try {
+      await createProjectFromBudget.mutateAsync(budgetId);
+      toast({ title: "Projeto criado em Produção" });
+      navigate("/projetos");
+    } catch (err: any) {
+      toast({ title: "Erro ao criar projeto", description: err?.message, variant: "destructive" });
+    }
+  };
 
   // Handle deal_id from URL (coming from CRM won modal)
   useEffect(() => {
@@ -444,6 +472,11 @@ export default function Orcamentos() {
                 <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setProposalBudget(b)}><FileText className="h-3.5 w-3.5 mr-2" />Gerar proposta</DropdownMenuItem>
+                {(b.status === "approved" || b.status === "sent") && (
+                  <DropdownMenuItem onClick={() => handleStartProduction(b.id)}>
+                    {projectsByBudget[b.id] ? <><ExternalLink className="h-3.5 w-3.5 mr-2" />Ver Projeto</> : <><Play className="h-3.5 w-3.5 mr-2" />Iniciar Produção</>}
+                  </DropdownMenuItem>
+                )}
                 {/* PDF desativado temporariamente */}
                 {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                 <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>
@@ -513,6 +546,11 @@ export default function Orcamentos() {
                       <DropdownMenuItem onClick={() => setEditingId(b.id)}><Edit className="h-3.5 w-3.5 mr-2" />Editar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => duplicateBudget.mutate(b.id)}><Copy className="h-3.5 w-3.5 mr-2" />Duplicar</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setProposalBudget(b)}><FileText className="h-3.5 w-3.5 mr-2" />Gerar proposta</DropdownMenuItem>
+                      {(b.status === "approved" || b.status === "sent") && (
+                        <DropdownMenuItem onClick={() => handleStartProduction(b.id)}>
+                          {projectsByBudget[b.id] ? <><ExternalLink className="h-3.5 w-3.5 mr-2" />Ver Projeto</> : <><Play className="h-3.5 w-3.5 mr-2" />Iniciar Produção</>}
+                        </DropdownMenuItem>
+                      )}
                       {/* PDF desativado temporariamente */}
                       {b.version > 1 && <DropdownMenuItem onClick={() => setVersionBudget(b)}><History className="h-3.5 w-3.5 mr-2" />{b.version} versões</DropdownMenuItem>}
                       <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5 mr-2" />Excluir</DropdownMenuItem>

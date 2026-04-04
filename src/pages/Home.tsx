@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDeals } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
+import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox,
+  Inbox, Briefcase, Clapperboard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -84,6 +85,20 @@ export default function Home() {
   const { allTasks } = useTasks("__all__");
   const { accounts, receivables, payables } = useAllContaAzulCache();
   const [syncing, setSyncing] = useState(false);
+  const { data: allProjectsData } = useProjects();
+
+  // Production metrics
+  const productionMetrics = useMemo(() => {
+    const projects = allProjectsData || [];
+    const active = projects.filter((p) => p.status !== "faturado");
+    const receitaAberto = active.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0);
+    const last90 = new Date(Date.now() - 90 * 86400000);
+    const recent = projects.filter((p) => new Date(p.created_at) >= last90);
+    const ticketMedio = recent.length > 0
+      ? recent.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0) / recent.length
+      : 0;
+    return { activeCount: active.length, receitaAberto, ticketMedio };
+  }, [allProjectsData]);
 
   const financialLoading = receivables.isLoading || payables.isLoading;
 
@@ -410,6 +425,43 @@ export default function Home() {
               )}
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* PRODUÇÃO */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+            <Clapperboard className="h-5 w-5 text-primary" /> Produção Ativa
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/projetos")}
+            className="text-xs text-muted-foreground"
+          >
+            Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <MetricCard
+            label="Projetos em andamento"
+            value={String(productionMetrics.activeCount)}
+            icon={Briefcase}
+            onClick={() => navigate("/projetos")}
+          />
+          <MetricCard
+            label="Receita a faturar"
+            value={formatCurrency(productionMetrics.receitaAberto)}
+            icon={DollarSign}
+            onClick={() => navigate("/projetos")}
+          />
+          <MetricCard
+            label="Ticket médio (90d)"
+            value={formatCurrency(productionMetrics.ticketMedio)}
+            icon={TrendingUp}
+            onClick={() => navigate("/projetos")}
+          />
         </div>
       </section>
 
