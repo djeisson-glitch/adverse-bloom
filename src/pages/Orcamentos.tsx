@@ -21,7 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 import type { ProposalTemplate } from "@/hooks/useTemplates";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useCreateProjectFromBudget, useProjects } from "@/hooks/useProjects";
 
 // ── Filter types ──────────────────────────────────────────
 type SortField = "number" | "date" | "client" | "total" | "margin";
