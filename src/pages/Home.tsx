@@ -428,6 +428,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* PRODUÇÃO */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+            <Clapperboard className="h-5 w-5 text-primary" /> Produção Ativa
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/projetos")}
+            className="text-xs text-muted-foreground"
+          >
+            Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <MetricCard
+            label="Projetos em andamento"
+            value={String(productionMetrics.activeCount)}
+            icon={Briefcase}
+            onClick={() => navigate("/projetos")}
+          />
+          <MetricCard
+            label="Receita a faturar"
+            value={formatCurrency(productionMetrics.receitaAberto)}
+            icon={DollarSign}
+            onClick={() => navigate("/projetos")}
+          />
+          <MetricCard
+            label="Ticket médio (90d)"
+            value={formatCurrency(productionMetrics.ticketMedio)}
+            icon={TrendingUp}
+            onClick={() => navigate("/projetos")}
+          />
+        </div>
+      </section>
+
       {/* OPERACIONAL */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
