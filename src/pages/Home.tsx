@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDeals } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
-import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
+import { useAllContaAzulCache, extractItems, useSyncSheets } from "@/hooks/useContaAzulCache";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
