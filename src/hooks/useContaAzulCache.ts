@@ -45,3 +45,11 @@ export function useSyncContaAzul() {
     return data;
   };
 }
+
+export function useSyncSheets() {
+  return async () => {
+    const { data, error } = await supabase.functions.invoke("sheets-sync");
+    if (error) throw error;
+    return data;
+  };
+}
