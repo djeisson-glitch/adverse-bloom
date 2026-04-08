@@ -1638,12 +1638,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                     <span className="font-medium">{formatCurrency(realMargin.impostoValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Logística (previsto)</span>
-                    <span className="font-medium">{formatCurrency(realMargin.logisticaSum)}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">└ Fornecedores (lançados)</span>
-                    <span className="font-medium">{formatCurrency(realMargin.projectCostsTotal)}</span>
+                    <span className="font-medium">{formatCurrency(realMargin.fornecedoresLancadosTotal)}</span>
                   </div>
                 </div>
               </div>

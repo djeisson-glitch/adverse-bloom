@@ -115,10 +115,6 @@ export function CostReportTab({ budget, items }: Props) {
                 <span>{formatCurrency(report.impostoValue)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Logística (previsto)</span>
-                <span>{formatCurrency(report.logisticaSum)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Fornecedores (lançados)</span>
                 <span>{formatCurrency(report.executedTotal)}</span>
               </div>
