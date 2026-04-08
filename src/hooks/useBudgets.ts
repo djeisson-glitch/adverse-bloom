@@ -74,6 +74,8 @@ type ItemSummary = {
   budget_id: string;
   category: string;
   client_price: number;
+  has_supplier_cost: boolean;
+  supplier_cost: number;
 };
 
 /**
@@ -90,63 +92,33 @@ function buildCostsByBudgetItem(costs: ProjectCostDetail[]) {
 }
 
 /**
- * Calculates real margin for a budget:
- * - Always deducts tax (tax_value)
- * - Logística items are assumed costs (client_price) unless real costs exist for that item
- * - All other real costs are deducted normally
+ * Calculates real margin for a budget using the same rule shown in the budget form:
+ * Sub-Total 2 - imposto - fornecedores lançados
  */
 function applyRealMarginToBudget<T extends Budget>(
   budget: T,
   costsByItem: Record<string, number>,
   items: ItemSummary[]
 ): T {
-  const totalCliente = budget.total_value ?? 0;
+  const marginBase = budget.subtotal_2 ?? 0;
   const taxValue = budget.tax_value ?? 0;
-
-  // Calculate effective costs per item
-  let totalDeductions = taxValue;
-
-  // Track which items have real costs
-  const itemIdsWithCosts = new Set(
-    Object.keys(costsByItem).filter((k) => k !== "__unlinked__" && costsByItem[k] > 0)
+  const supplierCostsFromItems = items.reduce(
+    (sum, item) => sum + (item.has_supplier_cost ? item.supplier_cost ?? 0 : 0),
+    0
   );
-
-  // Add Logística assumed costs (client_price) for items WITHOUT real costs
-  for (const item of items) {
-    if (item.category.toLowerCase() === "logística") {
-      const realCost = costsByItem[item.id] ?? 0;
-      if (realCost > 0) {
-        totalDeductions += realCost;
-        itemIdsWithCosts.delete(item.id); // handled
-      } else {
-        totalDeductions += item.client_price;
-      }
-    }
-  }
-
-  // Add all other real costs (non-Logística items + unlinked)
-  const logisticaItemIds = new Set(
-    items.filter((i) => i.category.toLowerCase() === "logística").map((i) => i.id)
+  const manualProjectCosts = Object.values(costsByItem).reduce(
+    (sum, amount) => sum + (amount ?? 0),
+    0
   );
-  for (const [itemId, amount] of Object.entries(costsByItem)) {
-    if (!logisticaItemIds.has(itemId) && amount > 0) {
-      totalDeductions += amount;
-    }
-  }
-
-  const realMarginValue = totalCliente - totalDeductions;
-  const hasAnyCost = totalDeductions > taxValue; // has costs beyond just tax
-  const realMarginPercent = totalCliente > 0
-    ? (!hasAnyCost && items.filter(i => i.category.toLowerCase() === "logística").length === 0
-        ? 100
-        : (realMarginValue / totalCliente) * 100)
-    : 0;
+  const fornecedoresLancadosTotal = supplierCostsFromItems + manualProjectCosts;
+  const realMarginValue = marginBase - taxValue - fornecedoresLancadosTotal;
+  const realMarginPercent = marginBase > 0 ? (realMarginValue / marginBase) * 100 : 0;
 
   return {
     ...budget,
     original_margin_value: budget.original_margin_value ?? budget.margin_value ?? 0,
     original_margin_percent: budget.original_margin_percent ?? budget.margin_percent ?? 0,
-    real_costs_total: totalDeductions,
+    real_costs_total: fornecedoresLancadosTotal,
     margin_value: realMarginValue,
     margin_percent: realMarginPercent,
   };
