@@ -240,8 +240,8 @@ export default function PropostaPublica() {
           )}
           {/* HEADER */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 40, borderBottom: "1px solid rgba(240,235,227,0.18)", marginBottom: 48, flexWrap: "wrap", gap: 16 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "clamp(20px, 3vw, 22px)", letterSpacing: "0.02em", color: "#f0ebe3", display: "flex", alignItems: "center", gap: 4 }}>
-              adverse<span style={{ color: "#e8281e", fontWeight: 700 }}>/</span>rec
+            <div>
+              <img src="/images/advr_white.png" alt="Adverse" style={{ height: 28, width: "auto" }} />
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(240,235,227,0.65)", marginBottom: 4 }}>
@@ -491,8 +491,8 @@ export default function PropostaPublica() {
 
           {/* FOOTER */}
           <div style={{ marginTop: 60, paddingTop: 32, borderTop: "1px solid rgba(240,235,227,0.18)", display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: 18, color: "rgba(240,235,227,0.4)", display: "flex", alignItems: "center", gap: 3 }}>
-              adverse<span style={{ color: "#e8281e", opacity: 0.5 }}>/</span>rec
+            <div>
+              <img src="/images/advr_white.png" alt="Adverse" style={{ height: 22, width: "auto", opacity: 0.4 }} />
             </div>
             <div style={{ textAlign: "right", fontSize: 13, color: "rgba(240,235,227,0.4)", lineHeight: 1.8 }}>
               djeisson@adverse.rec.br<br />
