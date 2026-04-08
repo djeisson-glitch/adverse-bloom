@@ -1570,7 +1570,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                     <NumInput value={djPercent} onChange={setDjPercent} className="h-6 text-xs w-12" min={0} disabled={isApproved} />
                     <span className="text-[10px] text-muted-foreground">%</span>
                     <span className="text-[10px] font-medium w-16 text-right">
-                      {djEnabled ? formatCurrency(totals.subtotal2 * (djPercent / 100)) : "—"}
+                      {djEnabled ? formatCurrency((totals.subtotal1 + totals.markupValue) * (djPercent / 100)) : "—"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1579,14 +1579,14 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                     <NumInput value={robertPercent} onChange={setRobertPercent} className="h-6 text-xs w-12" min={0} disabled={isApproved} />
                     <span className="text-[10px] text-muted-foreground">%</span>
                     <span className="text-[10px] font-medium w-16 text-right">
-                      {robertEnabled ? formatCurrency(totals.subtotal2 * (robertPercent / 100)) : "—"}
+                      {robertEnabled ? formatCurrency((totals.subtotal1 + totals.markupValue) * (robertPercent / 100)) : "—"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] pt-0.5 border-t border-border/50">
                     <span className="text-muted-foreground">Total</span>
                     <span className="font-semibold">{commissionPercent}% ({formatCurrency(
-                      (djEnabled ? Math.ceil(totals.subtotal2 * (djPercent / 100)) : 0) +
-                      (robertEnabled ? Math.ceil(totals.subtotal2 * (robertPercent / 100)) : 0)
+                      (djEnabled ? Math.ceil((totals.subtotal1 + totals.markupValue) * (djPercent / 100)) : 0) +
+                      (robertEnabled ? Math.ceil((totals.subtotal1 + totals.markupValue) * (robertPercent / 100)) : 0)
                     )})</span>
                   </div>
                 </div>
