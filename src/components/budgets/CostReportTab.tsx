@@ -33,28 +33,20 @@ export function CostReportTab({ budget, items }: Props) {
 
   const report = useMemo(() => {
     const manualCosts = costs.reduce((s, c) => s + c.amount, 0);
-
+    const marginBase = budget.subtotal_2 ?? 0;
     const totalCliente = budget.total_value ?? 0;
-    const taxPercent = budget.tax_percent ?? 0;
-    const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
-    const logisticaSum = items
-      .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
-      .reduce((s, i) => s + i.client_price, 0);
-    // Include supplier_cost from items with has_supplier_cost (excluding logística)
+    const impostoValue = budget.tax_value ?? 0;
     const supplierCostsFromItems = items
-      .filter((i) => i.has_supplier_cost && i.category.toUpperCase() !== "LOGÍSTICA")
-      .reduce((s, i) => s + i.supplier_cost, 0);
+      .filter((i) => i.has_supplier_cost)
+      .reduce((s, i) => s + (i.supplier_cost ?? 0), 0);
     const executedTotal = supplierCostsFromItems + manualCosts;
-    
+
     const margemOrcada = budget.original_margin_value ?? budget.margin_value ?? 0;
     const margemOrcadaPct = budget.original_margin_percent ?? budget.margin_percent ?? 0;
 
-    // Real margin = total - imposto - logística - fornecedores
-    const margemReal = totalCliente - impostoValue - logisticaSum - executedTotal;
-    const hasAnyCost = logisticaSum > 0 || executedTotal > 0;
-    const margemRealPct = totalCliente > 0
-      ? (!hasAnyCost ? 100 : (margemReal / totalCliente) * 100)
-      : 0;
+    // Real margin = Sub-Total 2 - imposto - fornecedores lançados
+    const margemReal = marginBase - impostoValue - executedTotal;
+    const margemRealPct = marginBase > 0 ? (margemReal / marginBase) * 100 : 0;
 
     // Per category breakdown
     const categories = [...new Set(items.map(i => i.category))];
@@ -64,7 +56,9 @@ export function CostReportTab({ budget, items }: Props) {
 
       const itemDetails = catItems.map(item => {
         const itemCosts = costs.filter(c => c.budget_item_id === item.id);
-        const itemExecutado = itemCosts.reduce((s, c) => s + c.amount, 0);
+        const manualItemCosts = itemCosts.reduce((s, c) => s + c.amount, 0);
+        const supplierItemCost = item.has_supplier_cost ? item.supplier_cost ?? 0 : 0;
+        const itemExecutado = supplierItemCost + manualItemCosts;
         return {
           name: item.item_name,
           orcado: item.client_price,
@@ -80,8 +74,8 @@ export function CostReportTab({ budget, items }: Props) {
 
     return {
       totalCliente,
+      marginBase,
       impostoValue,
-      logisticaSum,
       executedTotal,
       margemOrcada,
       margemOrcadaPct,
@@ -119,10 +113,6 @@ export function CostReportTab({ budget, items }: Props) {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Imposto ({budget.tax_percent ?? 0}%)</span>
                 <span>{formatCurrency(report.impostoValue)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Logística (previsto)</span>
-                <span>{formatCurrency(report.logisticaSum)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Fornecedores (lançados)</span>

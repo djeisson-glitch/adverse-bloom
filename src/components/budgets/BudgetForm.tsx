@@ -370,27 +370,19 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
-  // Compute real margin: total - imposto - logística - fornecedores(supplier_cost + project_costs)
+  // Compute real margin: Sub-Total 2 - imposto - fornecedores lançados
   const realMargin = useMemo(() => {
-    const totalCliente = totals.totalValue;
-    const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
-    const logisticaSum = items
-      .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
-      .reduce((s, i) => s + i.client_price, 0);
-    // Sum supplier_cost from items with has_supplier_cost (excluding logística, already counted)
+    const marginBase = totals.subtotal2;
+    const impostoValue = totals.taxValue;
     const supplierCostsFromItems = items
-      .filter((i) => i.has_supplier_cost && i.category.toUpperCase() !== "LOGÍSTICA")
-      .reduce((s, i) => s + i.supplier_cost, 0);
-    // Sum manually entered project_costs
+      .filter((i) => i.has_supplier_cost)
+      .reduce((s, i) => s + (i.supplier_cost ?? 0), 0);
     const manualProjectCosts = projectCosts.reduce((s, c) => s + (c.amount ?? 0), 0);
-    const projectCostsTotal = supplierCostsFromItems + manualProjectCosts;
-    const marginValue = totalCliente - impostoValue - logisticaSum - projectCostsTotal;
-    const hasAnyCost = logisticaSum > 0 || projectCostsTotal > 0;
-    const marginPercent = totalCliente > 0
-      ? (!hasAnyCost ? 100 : (marginValue / totalCliente) * 100)
-      : 0;
-    return { marginValue, marginPercent, impostoValue, logisticaSum, projectCostsTotal };
-  }, [totals.totalValue, taxPercent, items, projectCosts]);
+    const fornecedoresLancadosTotal = supplierCostsFromItems + manualProjectCosts;
+    const marginValue = marginBase - impostoValue - fornecedoresLancadosTotal;
+    const marginPercent = marginBase > 0 ? (marginValue / marginBase) * 100 : 0;
+    return { marginBase, marginValue, marginPercent, impostoValue, fornecedoresLancadosTotal };
+  }, [totals.subtotal2, totals.taxValue, items, projectCosts]);
 
   // Autosave removed — save only on explicit user action
 
@@ -1646,12 +1638,8 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                     <span className="font-medium">{formatCurrency(realMargin.impostoValue)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">├ Logística (previsto)</span>
-                    <span className="font-medium">{formatCurrency(realMargin.logisticaSum)}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">└ Fornecedores (lançados)</span>
-                    <span className="font-medium">{formatCurrency(realMargin.projectCostsTotal)}</span>
+                    <span className="font-medium">{formatCurrency(realMargin.fornecedoresLancadosTotal)}</span>
                   </div>
                 </div>
               </div>
