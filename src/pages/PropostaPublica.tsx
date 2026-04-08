@@ -289,7 +289,7 @@ export default function PropostaPublica() {
 
           {/* OBSERVAÇÃO */}
           {budget.internal_notes && (
-            <div style={{ fontSize: 14, lineHeight: 1.8, color: "rgba(240,235,227,0.65)", marginBottom: 48, maxWidth: 620, fontStyle: "italic", borderLeft: "2px solid #e8281e", paddingLeft: 16 }}>
+            <div style={{ fontSize: 14, lineHeight: 1.8, color: "rgba(240,235,227,0.65)", marginBottom: 48, maxWidth: 620, fontStyle: "italic", borderLeft: "2px solid #e8281e", paddingLeft: 16, whiteSpace: "pre-wrap" }}>
               {budget.internal_notes}
             </div>
           )}
