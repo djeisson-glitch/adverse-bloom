@@ -370,14 +370,20 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
     [items, markupPercent, taxPercent, bvPercent, commissionPercent, discount, addition]
   );
 
-  // Compute real margin: total - imposto - logística - project_costs
+  // Compute real margin: total - imposto - logística - fornecedores(supplier_cost + project_costs)
   const realMargin = useMemo(() => {
     const totalCliente = totals.totalValue;
     const impostoValue = Math.ceil(totalCliente * (taxPercent / 100));
     const logisticaSum = items
       .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
       .reduce((s, i) => s + i.client_price, 0);
-    const projectCostsTotal = projectCosts.reduce((s, c) => s + (c.amount ?? 0), 0);
+    // Sum supplier_cost from items with has_supplier_cost (excluding logística, already counted)
+    const supplierCostsFromItems = items
+      .filter((i) => i.has_supplier_cost && i.category.toUpperCase() !== "LOGÍSTICA")
+      .reduce((s, i) => s + i.supplier_cost, 0);
+    // Sum manually entered project_costs
+    const manualProjectCosts = projectCosts.reduce((s, c) => s + (c.amount ?? 0), 0);
+    const projectCostsTotal = supplierCostsFromItems + manualProjectCosts;
     const marginValue = totalCliente - impostoValue - logisticaSum - projectCostsTotal;
     const hasAnyCost = logisticaSum > 0 || projectCostsTotal > 0;
     const marginPercent = totalCliente > 0

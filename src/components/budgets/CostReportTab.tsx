@@ -32,7 +32,7 @@ export function CostReportTab({ budget, items }: Props) {
   });
 
   const report = useMemo(() => {
-    const executedTotal = costs.reduce((s, c) => s + c.amount, 0);
+    const manualCosts = costs.reduce((s, c) => s + c.amount, 0);
 
     const totalCliente = budget.total_value ?? 0;
     const taxPercent = budget.tax_percent ?? 0;
@@ -40,11 +40,16 @@ export function CostReportTab({ budget, items }: Props) {
     const logisticaSum = items
       .filter((i) => i.category.toUpperCase() === "LOGÍSTICA")
       .reduce((s, i) => s + i.client_price, 0);
+    // Include supplier_cost from items with has_supplier_cost (excluding logística)
+    const supplierCostsFromItems = items
+      .filter((i) => i.has_supplier_cost && i.category.toUpperCase() !== "LOGÍSTICA")
+      .reduce((s, i) => s + i.supplier_cost, 0);
+    const executedTotal = supplierCostsFromItems + manualCosts;
     
     const margemOrcada = budget.original_margin_value ?? budget.margin_value ?? 0;
     const margemOrcadaPct = budget.original_margin_percent ?? budget.margin_percent ?? 0;
 
-    // Real margin = total - imposto - logística - project_costs
+    // Real margin = total - imposto - logística - fornecedores
     const margemReal = totalCliente - impostoValue - logisticaSum - executedTotal;
     const hasAnyCost = logisticaSum > 0 || executedTotal > 0;
     const margemRealPct = totalCliente > 0
