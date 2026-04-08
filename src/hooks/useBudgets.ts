@@ -156,7 +156,7 @@ export function useBudgets() {
 
       const [{ data: costs, error: costsError }, { data: allItems, error: itemsError }] = await Promise.all([
         supabase.from("project_costs").select("budget_id, budget_item_id, amount").in("budget_id", budgetIds),
-        supabase.from("budget_items").select("id, budget_id, category, client_price").in("budget_id", budgetIds),
+        supabase.from("budget_items").select("id, budget_id, category, client_price, has_supplier_cost, supplier_cost").in("budget_id", budgetIds),
       ]);
       if (costsError) throw costsError;
       if (itemsError) throw itemsError;
@@ -198,6 +198,8 @@ export function useBudgetWithItems(id: string | null) {
         budget_id: id!,
         category: i.category,
         client_price: i.client_price,
+        has_supplier_cost: i.has_supplier_cost,
+        supplier_cost: i.supplier_cost,
       }));
 
       return applyRealMarginToBudget({
@@ -228,7 +230,7 @@ export function useBudgetVersions(budgetNumber: number | null) {
 
       const [{ data: costs, error: costsError }, { data: allItems, error: itemsError }] = await Promise.all([
         supabase.from("project_costs").select("budget_id, budget_item_id, amount").in("budget_id", versionIds),
-        supabase.from("budget_items").select("id, budget_id, category, client_price").in("budget_id", versionIds),
+        supabase.from("budget_items").select("id, budget_id, category, client_price, has_supplier_cost, supplier_cost").in("budget_id", versionIds),
       ]);
       if (costsError) throw costsError;
       if (itemsError) throw itemsError;
