@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { lovable } from "@/integrations/lovable/index";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const { user, loading } = useAuth();
@@ -25,8 +25,12 @@ export default function Login() {
     setError("");
     setSubmitting(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      // OAuth nativo do Supabase: redireciona o browser pro Google e volta pra
+      // origin. O gating de convidados é imposto no signup (trigger
+      // check_email_allowed); contas não autorizadas voltam com erro.
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin },
       });
       if (error) setError("Erro ao entrar com Google. Verifique se seu acesso foi autorizado.");
     } catch {

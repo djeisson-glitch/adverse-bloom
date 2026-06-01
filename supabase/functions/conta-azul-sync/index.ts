@@ -176,7 +176,7 @@ serve(async (req) => {
     const results: Record<string, SyncResult> = {};
 
     const jobs = [
-      { key: "accounts_v2", label: "Contas financeiras", url: `${BASE}/conta-financeira`, paginated: false },
+      { key: "accounts", label: "Contas financeiras", url: `${BASE}/conta-financeira`, paginated: false },
       { key: "categories", label: "Categorias", url: `${BASE}/categorias?tamanho_pagina=200`, paginated: false },
       { key: "receivables", label: "Contas a receber", url: `${BASE}/financeiro/eventos-financeiros/contas-a-receber/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },
       { key: "payables", label: "Contas a pagar", url: `${BASE}/financeiro/eventos-financeiros/contas-a-pagar/buscar?data_vencimento_de=${dataInicio}&data_vencimento_ate=${dataFim}`, paginated: true },

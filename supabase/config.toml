@@ -1,9 +1,13 @@
-project_id = "tappbjqwnwaelrvhcogw"
+project_id = "ythmkxudzaoaayxxlgqy"
 
 [functions.conta-azul-token]
 verify_jwt = false
 
 [functions.conta-azul-sync]
+verify_jwt = false
+
+# Callback do OAuth: o Conta Azul redireciona o BROWSER pra cá sem JWT.
+[functions.conta-azul-callback]
 verify_jwt = false
 
 [functions.ca-sync-full]

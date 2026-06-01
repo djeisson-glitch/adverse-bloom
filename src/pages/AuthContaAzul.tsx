@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 const CONTA_AZUL_CLIENT_ID = "4ajs7b65jihimmv0cluuaoqp5s";
-const REDIRECT_URI = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback";
+const REDIRECT_URI = "https://ythmkxudzaoaayxxlgqy.supabase.co/functions/v1/conta-azul-callback";
 
 export default function AuthContaAzul() {
   useEffect(() => {
