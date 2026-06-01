@@ -25,7 +25,7 @@ serve(async (req) => {
 
   const clientId = Deno.env.get("CONTA_AZUL_CLIENT_ID")!
   const clientSecret = Deno.env.get("CONTA_AZUL_CLIENT_SECRET")!
-  const redirectUri = "https://tappbjqwnwaelrvhcogw.supabase.co/functions/v1/conta-azul-callback"
+  const redirectUri = Deno.env.get("CONTA_AZUL_REDIRECT_URI") || "https://ythmkxudzaoaayxxlgqy.supabase.co/functions/v1/conta-azul-callback"
   const basicAuth = toBase64(`${clientId}:${clientSecret}`)
 
   console.log("[callback] Code recebido, trocando token...")
