@@ -27,6 +27,7 @@ import MapaOperacional from "./pages/MapaOperacional";
 import Agenda from "./pages/Agenda";
 import Configuracoes from "./pages/Configuracoes";
 import ConfiguracoesGeral from "./pages/ConfiguracoesGeral";
+import ConfiguracoesContexto from "./pages/ConfiguracoesContexto";
 import ConfiguracoesUsuarios from "./pages/ConfiguracoesUsuarios";
 import ConfiguracoesComercial from "./pages/ConfiguracoesComercial";
 import ConfiguracoesOrcamentos from "./pages/ConfiguracoesOrcamentos";
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               <Route path="/configuracoes/geral" element={<ProtectedRoute><ConfiguracoesGeral /></ProtectedRoute>} />
+              <Route path="/configuracoes/contexto" element={<ProtectedRoute><ConfiguracoesContexto /></ProtectedRoute>} />
               <Route path="/configuracoes/usuarios" element={<ProtectedRoute><ConfiguracoesUsuarios /></ProtectedRoute>} />
               <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
               <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ConfiguracoesPermissoes /></ProtectedRoute>} />
