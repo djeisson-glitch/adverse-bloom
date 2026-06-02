@@ -47,9 +47,10 @@ interface MetricCardProps {
   icon: React.ElementType;
   onClick?: () => void;
   loading?: boolean;
+  insight?: string;
 }
 
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading }: MetricCardProps) {
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight }: MetricCardProps) {
   return (
     <Card
       className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
@@ -68,6 +69,7 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
           <>
             <p className={`text-lg sm:text-xl font-heading font-bold truncate ${valueColor || "text-foreground"}`}>{value}</p>
             {sub && <p className={`text-xs mt-0.5 truncate ${subColor || "text-muted-foreground"}`}>{sub}</p>}
+            {insight && <p className="text-[11px] mt-1.5 text-muted-foreground/80 leading-snug">💡 {insight}</p>}
           </>
         )}
       </CardContent>
@@ -90,6 +92,14 @@ export default function Home() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { period, setPeriod } = usePeriod();
+  const { data: contexto } = useQuery({
+    queryKey: ["empresa_contexto"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("empresa_contexto").select("meta_margem_liquida, meta_faturamento_mensal").eq("id", 1).maybeSingle();
+      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null } | null;
+    },
+  });
+  const metaMargem = contexto?.meta_margem_liquida ?? null;
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
   const { deals } = useDeals();
   const { allTasks } = useTasks("__all__");
@@ -198,6 +208,18 @@ export default function Home() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [payItems, monthPeriod.from, monthPeriod.to]);
   const marginColor = (pct: number) => (pct >= 20 ? "text-green-400" : pct >= 0 ? "text-amber-400" : "text-destructive");
+
+  // Mini-insights por card (regras simples sobre os dados do período)
+  const fixPctReceita = faturamentoMes > 0 ? (custosFixos / faturamentoMes) * 100 : 0;
+  const insightCustosFixos = faturamentoMes > 0 ? `${fixPctReceita.toFixed(0)}% do faturamento` : undefined;
+  const insightMargemLiq = metaMargem != null
+    ? `${margemLiquida.pct - metaMargem >= 0 ? "+" : ""}${(margemLiquida.pct - metaMargem).toFixed(0)} pts vs meta de ${metaMargem}%`
+    : (margemLiquida.pct < 0 ? "operação no vermelho" : undefined);
+  const insightRunway = runway === Infinity ? undefined : runway < 2 ? "crítico — caixa p/ < 2 meses" : runway < 4 ? "atenção — reforce o caixa" : "saudável";
+  const insightContrib = faturamentoMes > 0 ? `cobre ${margemContrib.pct.toFixed(0)}% além do custo variável` : undefined;
+  const insightFaturamento = metaMargem == null && contexto?.meta_faturamento_mensal
+    ? `meta: ${formatCurrency(contexto.meta_faturamento_mensal)}`
+    : undefined;
 
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
@@ -337,6 +359,7 @@ export default function Home() {
             icon={Receipt}
             onClick={() => navigate("/financeiro/custos")}
             loading={financialLoading}
+            insight={insightCustosFixos}
           />
           <MetricCard
             label="Custos variáveis"
@@ -353,6 +376,7 @@ export default function Home() {
             icon={Percent}
             onClick={() => navigate("/financeiro/resultados")}
             loading={financialLoading}
+            insight={insightContrib}
           />
           <MetricCard
             label="Margem bruta"
@@ -371,6 +395,7 @@ export default function Home() {
             icon={Target}
             onClick={() => navigate("/financeiro/resultados")}
             loading={financialLoading}
+            insight={insightMargemLiq}
           />
           <MetricCard
             label="Ticket médio"
@@ -411,6 +436,7 @@ export default function Home() {
             icon={Clock}
             onClick={() => navigate("/financeiro/runway")}
             loading={financialLoading}
+            insight={insightRunway}
           />
         </div>
 
