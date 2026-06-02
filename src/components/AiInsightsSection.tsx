@@ -218,18 +218,17 @@ export function AiInsightsSection({ financialData, categorias, hasData }: Props)
                   <h3 className="font-heading text-base font-semibold mb-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-warning" /> Alertas IA
                   </h3>
-                  <div className="space-y-2 overflow-y-auto max-h-[280px]">
+                  <div className="space-y-2">
                     {insights.alertas.map((a, i) => (
                       <div key={i} className={`p-3 rounded-lg text-sm border ${severidadeColor[a.severidade]}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{a.titulo}</p>
-                            <p className="mt-1 opacity-80 line-clamp-2">{a.descricao}</p>
-                          </div>
-                          <Badge variant={a.severidade === "alta" ? "destructive" : a.severidade === "media" ? "default" : "secondary"} className="shrink-0 text-xs">
-                            {a.impacto}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <p className="font-semibold">{a.titulo}</p>
+                          <Badge variant={a.severidade === "alta" ? "destructive" : a.severidade === "media" ? "default" : "secondary"} className="shrink-0 text-[10px] uppercase">
+                            {a.severidade}
                           </Badge>
                         </div>
+                        <p className="mt-1 opacity-90">{a.descricao}</p>
+                        {a.impacto && <p className="mt-1.5 text-xs font-semibold">Impacto: {a.impacto}</p>}
                       </div>
                     ))}
                   </div>
@@ -242,16 +241,12 @@ export function AiInsightsSection({ financialData, categorias, hasData }: Props)
                   <h3 className="font-heading text-base font-semibold mb-3 flex items-center gap-2">
                     <Lightbulb className="h-4 w-4 text-success" /> Oportunidades IA
                   </h3>
-                  <div className="space-y-2 overflow-y-auto max-h-[280px]">
+                  <div className="space-y-2">
                     {insights.oportunidades.map((o, i) => (
                       <div key={i} className="p-3 rounded-lg text-sm bg-success/10 border border-success/30 text-success">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{o.titulo}</p>
-                            <p className="mt-1 opacity-80 line-clamp-2">{o.descricao}</p>
-                          </div>
-                          <Badge className="shrink-0 bg-success/20 text-success border-success/30 text-xs">{o.potencial}</Badge>
-                        </div>
+                        <p className="font-semibold">{o.titulo}</p>
+                        <p className="mt-1 opacity-90">{o.descricao}</p>
+                        {o.potencial && <p className="mt-1.5 text-xs font-semibold">Potencial: {o.potencial}</p>}
                       </div>
                     ))}
                   </div>

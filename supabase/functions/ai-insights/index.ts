@@ -44,9 +44,11 @@ serve(async (req) => {
         ].filter(Boolean).join("\n")
       : "";
 
+    const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
     const prompt = `Você é o CFO de uma produtora audiovisual. Analise os números REAIS abaixo e produza recomendações ESPECÍFICAS, citando categorias e valores concretos — nada de conselhos genéricos.
 
-PERÍODO: ${financialData.periodo ?? financialData.mesAtual ?? "atual"}
+HOJE É ${hoje}. NÃO invente datas, meses nem anos, e NÃO assuma que o período/ano já terminou — use somente os números fornecidos.
+PERÍODO ANALISADO: ${financialData.periodo ?? financialData.mesAtual ?? "atual"}
 
 INDICADORES:
 - Faturamento: ${fmt(financialData.receitaTotal)}
@@ -69,6 +71,8 @@ INSTRUÇÕES:
 - Compare margens com a meta (se houver) e diga o gap.
 - Cada ação deve ser concreta e executável ("renegociar X", "cortar Y", "subir ticket de Z para W").
 - Seja direto e quantitativo.
+- Os campos "impacto" e "potencial" devem ser MUITO CURTOS (só o número, ex.: "R$ 145 mil" ou "+8%"). Toda a explicação vai em "descricao".
+- Não invente datas. Não escreva frases como "encerrou o ano" ou meses específicos que não estão nos dados.
 
 Retorne APENAS JSON válido (sem markdown):
 {
