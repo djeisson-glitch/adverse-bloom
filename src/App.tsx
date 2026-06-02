@@ -86,17 +86,9 @@ const App = () => (
               <Route path="/financeiro/contas" element={<ProtectedRoute><ModuleGuard module="financeiro"><ContasAPagar /></ModuleGuard></ProtectedRoute>} />
               <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
-              <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/comercial" element={<ProtectedRoute><ModuleGuard module="crm"><Comercial /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="producao"><Projetos /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/agenda" element={<ProtectedRoute><ModuleGuard module="agenda"><Agenda /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/mapa-operacional" element={<ProtectedRoute><MapaOperacional /></ProtectedRoute>} />
-              <Route path="/assistente" element={<ProtectedRoute><Assistente /></ProtectedRoute>} />
               <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               <Route path="/configuracoes/geral" element={<ProtectedRoute><ConfiguracoesGeral /></ProtectedRoute>} />
               <Route path="/configuracoes/usuarios" element={<ProtectedRoute><ConfiguracoesUsuarios /></ProtectedRoute>} />
-              <Route path="/configuracoes/comercial" element={<ProtectedRoute><ConfiguracoesComercial /></ProtectedRoute>} />
-              <Route path="/configuracoes/orcamentos" element={<ProtectedRoute><ConfiguracoesOrcamentos /></ProtectedRoute>} />
               <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
               <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ConfiguracoesPermissoes /></ProtectedRoute>} />
               <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />

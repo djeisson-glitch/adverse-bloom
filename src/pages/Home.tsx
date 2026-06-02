@@ -2,14 +2,22 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePeriod } from "@/contexts/PeriodContext";
+import { PeriodFilter } from "@/components/PeriodFilter";
 import { useDeals } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
-import { useAllContaAzulCache, extractItems, useSyncSheets } from "@/hooks/useContaAzulCache";
+import { useAllContaAzulCache, extractItems, useSyncContaAzul } from "@/hooks/useContaAzulCache";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
-import { type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, getCat } from "@/lib/financial";
+import {
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
+  calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
+  calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
+  calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
+  calcMargemBruta, displayCat, getCat,
+} from "@/lib/financial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox, Briefcase, Clapperboard,
+  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,6 +88,7 @@ export default function Home() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { period, setPeriod } = usePeriod();
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
   const { deals } = useDeals();
   const { allTasks } = useTasks("__all__");
@@ -140,10 +149,8 @@ export default function Home() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const monthPeriod = {
-    from: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
-    to: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${lastDay}`,
-  };
+  // Todas as métricas financeiras respeitam o período do seletor no topo.
+  const monthPeriod = period;
   const faturamentoMes = useMemo(
     () => calcReceitaTotal(recItems, monthPeriod),
     [recItems, monthPeriod.from, monthPeriod.to],
@@ -163,6 +170,30 @@ export default function Home() {
   }, [recItems, today]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
+
+  // KPIs financeiros (mês atual) — reusam src/lib/financial.ts
+  const recebidoMes = useMemo(() => calcReceitaRecebida(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const custosFixos = useMemo(() => calcCustosFixos(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const margemContrib = useMemo(() => calcMargemContribuicao(faturamentoMes, custosVariaveis), [faturamentoMes, custosVariaveis]);
+  const impostosVenda = useMemo(() => calcImpostosSobreVenda(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const custosProjeto = useMemo(() => calcCustosDoProjeto(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  // Margem bruta = venda − impostos sobre venda − custos do projeto (definição do dono)
+  const margemBruta = useMemo(() => calcMargemBruta(faturamentoMes, impostosVenda, custosProjeto), [faturamentoMes, impostosVenda, custosProjeto]);
+  const margemLiquida = useMemo(() => calcLucroLiquidoFinal(faturamentoMes, payItems, monthPeriod), [faturamentoMes, payItems, monthPeriod.from, monthPeriod.to]);
+  const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
+  const topCategoriasCusto = useMemo(() => {
+    const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
+    const vari = calcCustosVariaveisPorCategoria(payItems, monthPeriod);
+    // Unifica categorias exibidas (ex.: Pró-labore + Distribuição → "Salário")
+    const map = new Map<string, number>();
+    for (const [cat, val] of [...fix, ...vari]) {
+      const name = displayCat(cat);
+      map.set(name, (map.get(name) ?? 0) + val);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [payItems, monthPeriod.from, monthPeriod.to]);
+  const marginColor = (pct: number) => (pct >= 20 ? "text-green-400" : pct >= 0 ? "text-amber-400" : "text-destructive");
 
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
@@ -204,12 +235,12 @@ export default function Home() {
 
   const recentBudgets = budgets.slice(0, 3);
 
-  const syncSheets = useSyncSheets();
+  const syncContaAzul = useSyncContaAzul();
 
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await syncSheets();
+      await syncContaAzul();
       toast({ title: "Dados sincronizados com sucesso" });
     } catch (err: any) {
       toast({ title: "Erro ao sincronizar", description: err?.message || "Tente novamente.", variant: "destructive" });
@@ -232,10 +263,13 @@ export default function Home() {
             {now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="self-start sm:self-auto">
-          <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Sincronizando..." : "Sincronizar"}
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <PeriodFilter value={period} onChange={setPeriod} />
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Sincronizar"}
+          </Button>
+        </div>
       </motion.div>
 
       {/* FINANCEIRO */}
@@ -285,6 +319,64 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            label="Recebido (realizado)"
+            value={formatCurrency(recebidoMes)}
+            sub="recebido no mês"
+            subColor="text-green-400"
+            icon={CircleDollarSign}
+            onClick={() => navigate("/financeiro/fluxo")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Custos fixos"
+            value={formatCurrency(custosFixos)}
+            icon={Receipt}
+            onClick={() => navigate("/financeiro/custos")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Custos variáveis"
+            value={formatCurrency(custosVariaveis)}
+            icon={TrendingDown}
+            onClick={() => navigate("/financeiro/custos")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Margem de contribuição"
+            value={formatPercent(margemContrib.pct)}
+            sub={formatCurrency(margemContrib.valor)}
+            valueColor={marginColor(margemContrib.pct)}
+            icon={Percent}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Margem bruta"
+            value={formatPercent(margemBruta.pct)}
+            sub={formatCurrency(margemBruta.valor)}
+            valueColor={marginColor(margemBruta.pct)}
+            icon={TrendingUp}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Margem líquida"
+            value={formatPercent(margemLiquida.pct)}
+            sub={formatCurrency(margemLiquida.valor)}
+            valueColor={marginColor(margemLiquida.pct)}
+            icon={Target}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Ticket médio"
+            value={formatCurrency(ticketMedio.valor)}
+            sub={`${ticketMedio.qtde} faturas no mês`}
+            icon={TrendingUp}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
             label="Runway"
             value={runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
             valueColor={runwayColor}
@@ -293,215 +385,29 @@ export default function Home() {
             loading={financialLoading}
           />
         </div>
-      </section>
 
-      {/* COMERCIAL */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
-            <Handshake className="h-5 w-5 text-primary" /> Comercial
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/comercial")}
-            className="text-xs text-muted-foreground"
-          >
-            Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            label="Deals abertos"
-            value={String(openDeals.length)}
-            sub={formatCurrency(pipelineValue)}
-            subColor="text-primary"
-            icon={Handshake}
-            onClick={() => navigate("/comercial")}
-          />
-          <MetricCard
-            label="Ganhos no mês"
-            value={String(wonThisMonth.length)}
-            sub={formatCurrency(wonThisMonth.reduce((s, d) => s + (d.approved_value ?? 0), 0))}
-            subColor="text-green-400"
-            icon={Trophy}
-            onClick={() => navigate("/comercial")}
-          />
-          <MetricCard
-            label="Taxa de conversão"
-            value={formatPercent(conversionRate)}
-            valueColor={
-              conversionRate >= 30
-                ? "text-green-400"
-                : conversionRate >= 15
-                  ? "text-amber-400"
-                  : "text-muted-foreground"
-            }
-            icon={Target}
-            onClick={() => navigate("/comercial")}
-          />
-          <Card
-            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
-            onClick={() => navigate("/comercial")}
-          >
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" /> Próximos fechamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {nextClosing.length === 0 ? (
-                <EmptyState icon={CalendarDays} message="Nenhum deal com data prevista" />
-              ) : (
-                nextClosing.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between text-xs gap-2">
-                    <span className="truncate min-w-0 font-medium">{d.title}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`font-semibold ${d.approved_value ? "text-primary" : "text-muted-foreground"}`}>{d.approved_value ? formatCurrency(d.approved_value) : "sem orçamento"}</span>
-                      <span className="text-muted-foreground">{formatDate(d.expected_close_date)}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* PRODUÇÃO */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
-            <Clapperboard className="h-5 w-5 text-primary" /> Produção Ativa
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/projetos")}
-            className="text-xs text-muted-foreground"
-          >
-            Ver pipeline <ArrowRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <MetricCard
-            label="Projetos em andamento"
-            value={String(productionMetrics.activeCount)}
-            icon={Briefcase}
-            onClick={() => navigate("/projetos")}
-          />
-          <MetricCard
-            label="Receita a faturar"
-            value={formatCurrency(productionMetrics.receitaAberto)}
-            icon={DollarSign}
-            onClick={() => navigate("/projetos")}
-          />
-          <MetricCard
-            label="Ticket médio (90d)"
-            value={formatCurrency(productionMetrics.ticketMedio)}
-            icon={TrendingUp}
-            onClick={() => navigate("/projetos")}
-          />
-        </div>
-      </section>
-
-      {/* OPERACIONAL */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" /> Operacional
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Tarefas vencidas */}
-          <Card className="bg-card border-border/50">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-400" /> Tarefas vencidas / vencendo hoje
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {overdueTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 py-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Tudo em dia!
-                </p>
-              ) : (
-                overdueTasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-xs gap-2">
-                    <span className="truncate min-w-0">{t.title}</span>
-                    <span className="text-destructive shrink-0">{formatDate(t.due_date)}</span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Orçamentos aguardando */}
-          <Card
-            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
-            onClick={() => navigate("/orcamentos")}
-          >
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-400" /> Aguardando aprovação ({staleDrafts.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {staleDrafts.length === 0 ? (
-                <EmptyState icon={Inbox} message="Nenhum rascunho pendente" />
-              ) : (
-                staleDrafts.slice(0, 3).map((b) => (
-                  <div key={b.id} className="flex items-center justify-between text-xs gap-2">
-                    <span className="truncate min-w-0 font-medium">
-                      #{b.budget_number} — {b.client_name}
-                    </span>
-                    <span className="text-primary font-semibold shrink-0">{formatCurrency(b.total_value || 0)}</span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Últimos orçamentos */}
-          <Card
-            className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
-            onClick={() => navigate("/orcamentos")}
-          >
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5" /> Últimos orçamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 space-y-2">
-              {budgetsQuery.isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
+        {/* Principais categorias de custo (mês) */}
+        <Card className="bg-card border-border/50">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+              <PieChart className="h-3.5 w-3.5" /> Principais categorias de custo (mês)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            {topCategoriasCusto.length === 0 ? (
+              <EmptyState icon={PieChart} message="Sem custos no período" />
+            ) : (
+              topCategoriasCusto.map(([cat, valor]) => (
+                <div key={cat} className="flex items-center justify-between text-xs gap-2">
+                  <span className="truncate min-w-0">{cat}</span>
+                  <span className="font-semibold text-primary shrink-0">{formatCurrency(valor)}</span>
                 </div>
-              ) : recentBudgets.length === 0 ? (
-                <EmptyState icon={FileText} message="Nenhum orçamento ainda" />
-              ) : (
-                recentBudgets.map((b) => (
-                  <div key={b.id} className="flex items-center justify-between text-xs gap-2">
-                    <span className="truncate min-w-0 font-medium">
-                      #{b.budget_number} — {b.client_name}
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-semibold">{formatCurrency(b.total_value || 0)}</span>
-                      <Badge
-                        variant={b.status === "approved" ? "default" : "outline"}
-                        className="text-[10px] px-1.5 h-4"
-                      >
-                        {b.status === "approved" ? "Aprovado" : "Rascunho"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
       </section>
+
     </div>
   );
 }
