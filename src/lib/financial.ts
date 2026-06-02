@@ -17,7 +17,7 @@ export interface CAItem {
 export const SALDO_INICIAL = 16307.73;
 export const SALDO_INICIAL_DATA = "2025-01-07";
 
-export const EXCLUDED_FROM_MARGIN = ["Empréstimos de Bancos", "Compra de equipamentos"];
+export const EXCLUDED_FROM_MARGIN = ["Empréstimos de Bancos", "Compra de equipamentos", "Juros pagos", "Empréstimos de Outras Instituições"];
 
 export const FIXED_COSTS = [
   "Distribuição de Lucros",
@@ -38,7 +38,6 @@ export const FIXED_COSTS = [
   "Tarifas DOC / TED",
   "Tarifa de boleto",
   "Tarifas de Cartões de Crédito",
-  "Simples Nacional - DAS",
   "Reformas e manutenções do escritório",
   "Manutenção escritório",
   "Manutenção de equipamentos",
@@ -78,7 +77,29 @@ export const VARIABLE_COSTS = [
   "Multas de Trânsito",
   "Ancine",
   "Aquisição de bens de pequeno valor - cenografia",
+  "Freela - Edição",
+  "Pedágios",
+  "4.11 Outras Despesas",
+  "Multas pagas",
 ];
+
+// Impostos DIRETOS sobre a venda (entram na MARGEM BRUTA). INSS/IRRF são encargos
+// independentes da venda e NÃO entram aqui (decisão do dono).
+export const IMPOSTOS_SOBRE_VENDA = ["Simples Nacional - DAS", "ISS", "ISS Retido"];
+
+// Custos DIRETOS do projeto/job (entram na MARGEM BRUTA).
+export const CUSTOS_DO_PROJETO = [
+  "Editor / Assistente - Variável", "Freela - Edição", "Verba de produção",
+  "Atores", "Locutor", "Freela - Operador de câmeras", "Aluguel de equipamento",
+  "Aluguel de carro", "Drone", "Locação", "Combustíveis / Estacionamento",
+  "Alimentação", "Hospedagens", "Passagem aérea", "Transporte Urbano (táxi, Uber)", "Pedágios",
+];
+
+// Pró-labore + Distribuição de Lucros são exibidos unificados como "Salário".
+export const SALARIO_CATEGORIES = ["Pró-labore", "Distribuição de Lucros"];
+export function displayCat(cat: string): string {
+  return SALARIO_CATEGORIES.includes(cat) ? "Salário" : cat;
+}
 
 export function getCat(item: CAItem): string {
   return item.categorias?.[0]?.nome || "Sem categoria";
@@ -128,6 +149,27 @@ export function calcCustosVariaveis(payItems: CAItem[], period: PeriodRange): nu
   return payItems
     .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// 5b. Impostos diretos sobre a venda (para a margem bruta)
+export function calcImpostosSobreVenda(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((r) => IMPOSTOS_SOBRE_VENDA.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// 5c. Custos diretos do projeto (para a margem bruta)
+export function calcCustosDoProjeto(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((r) => CUSTOS_DO_PROJETO.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// 5d. Margem Bruta = Receita − Impostos sobre venda − Custos do projeto (definição do dono)
+export function calcMargemBruta(receitaTotal: number, impostosVenda: number, custosProjeto: number) {
+  const valor = receitaTotal - impostosVenda - custosProjeto;
+  const pct = receitaTotal > 0 ? (valor / receitaTotal) * 100 : 0;
+  return { valor, pct };
 }
 
 // 6. Margem de Contribuição
