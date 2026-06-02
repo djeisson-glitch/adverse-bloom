@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +33,17 @@ export default function FluxoDeCaixa() {
 
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
-  const saldoAtual = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const { data: contexto } = useQuery({
+    queryKey: ["empresa_contexto"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("empresa_contexto").select("saldo_inicial, saldo_inicial_data").eq("id", 1).maybeSingle();
+      return data as { saldo_inicial: number | null; saldo_inicial_data: string | null } | null;
+    },
+  });
+  const saldoAtual = useMemo(
+    () => calcSaldoEmConta(recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data),
+    [recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data],
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 
