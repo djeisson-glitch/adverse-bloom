@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,23 @@ export default function FluxoDeCaixa() {
     () => calcSaldoEmConta(recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data),
     [recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data],
   );
+
+  const qc = useQueryClient();
+  const [editandoSaldo, setEditandoSaldo] = useState(false);
+  const [saldoInput, setSaldoInput] = useState("");
+  const diasAncora = contexto?.saldo_inicial_data
+    ? Math.floor((Date.now() - new Date(contexto.saldo_inicial_data).getTime()) / 86400000)
+    : null;
+  const salvarSaldo = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("empresa_contexto").upsert({
+        id: 1, saldo_inicial: Number(saldoInput), saldo_inicial_data: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["empresa_contexto"] }); setEditandoSaldo(false); toast({ title: "Saldo atualizado" }); },
+    onError: (e: any) => toast({ title: "Erro ao salvar saldo", description: e.message, variant: "destructive" }),
+  });
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -127,6 +145,28 @@ export default function FluxoDeCaixa() {
           </div>
         </motion.div>
       )}
+
+      {/* Âncora de saldo (use o saldo do Conta Azul) */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-card/50 p-3 text-sm flex-wrap">
+        <div>
+          <span className="text-muted-foreground">Saldo ancorado (Conta Azul): </span>
+          <span className="font-semibold">{contexto?.saldo_inicial != null ? formatCurrency(contexto.saldo_inicial) : "não definido"}</span>
+          {diasAncora != null && (
+            <span className={`ml-2 text-xs ${diasAncora > 30 ? "text-warning" : "text-muted-foreground"}`}>
+              (há {diasAncora} dias{diasAncora > 30 ? " — confira no CA" : ""})
+            </span>
+          )}
+        </div>
+        {editandoSaldo ? (
+          <div className="flex items-center gap-2">
+            <Input type="number" value={saldoInput} onChange={(e) => setSaldoInput(e.target.value)} placeholder="Saldo de hoje" className="h-8 w-36" />
+            <Button size="sm" onClick={() => salvarSaldo.mutate()} disabled={salvarSaldo.isPending}>Salvar</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditandoSaldo(false)}>Cancelar</Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => { setSaldoInput(String(contexto?.saldo_inicial ?? "")); setEditandoSaldo(true); }}>Atualizar saldo</Button>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Saldo atual" value={formatCurrency(saldoAtual)} icon={Wallet} delay={0} />
