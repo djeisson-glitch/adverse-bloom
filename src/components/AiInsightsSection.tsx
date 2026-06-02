@@ -50,10 +50,16 @@ export interface FinancialDataForAi {
   receitaAcumulada: number;
   mesAtual: string;
   periodoLabel: string;
+  impostosVenda?: number;
+  custosProjeto?: number;
+  margemBruta?: number;
+  margemBrutaValor?: number;
+  periodo?: string;
 }
 
 interface Props {
   financialData: FinancialDataForAi;
+  categorias?: Array<{ nome: string; valor: number; tipo?: string }>;
   hasData: boolean;
 }
 
@@ -87,7 +93,7 @@ const impactoColor: Record<string, string> = {
   baixo: "secondary",
 };
 
-export function AiInsightsSection({ financialData, hasData }: Props) {
+export function AiInsightsSection({ financialData, categorias, hasData }: Props) {
   const [insights, setInsights] = useState<AiInsightsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
@@ -101,7 +107,7 @@ export function AiInsightsSection({ financialData, hasData }: Props) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-insights", {
-        body: { financialData },
+        body: { financialData, categorias },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
