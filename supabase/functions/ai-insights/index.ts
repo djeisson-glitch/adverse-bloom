@@ -13,7 +13,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { financialData = {}, categorias = [] } = await req.json();
+    const { financialData = {}, categorias = [], fluxoData = null } = await req.json();
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
@@ -45,7 +45,25 @@ serve(async (req) => {
       : "";
 
     const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-    const prompt = `Você é o CFO de uma produtora audiovisual. Analise os números REAIS abaixo e produza recomendações ESPECÍFICAS, citando categorias e valores concretos — nada de conselhos genéricos.
+
+    const fluxoPrompt = fluxoData ? `Você é o CFO de uma produtora audiovisual analisando o FLUXO DE CAIXA. HOJE É ${hoje}.
+
+Saldo atual em conta: ${fmt(fluxoData.saldoAtual)}
+A receber (próx. 90 dias): ${fmt(fluxoData.aReceber90)}
+A pagar (próx. 90 dias): ${fmt(fluxoData.aPagar90)}
+
+Projeção mês a mês (recebimentos previstos − pagamentos previstos, por vencimento):
+${(fluxoData.meses || []).map((m: any) => `  - ${m.mes}: a receber ${fmt(m.receber)}, a pagar ${fmt(m.pagar)}, saldo projetado ${fmt(m.saldoProjetado)}`).join("\n")}
+
+${contextoTxt ? `CONTEXTO DA EMPRESA:\n${contextoTxt}\n` : ""}
+INSTRUÇÕES (foco em CAIXA, não em DRE):
+- Diga em QUAL mês o caixa fica negativo (se ficar) e o tamanho do buraco em R$.
+- Recomende ações concretas: antecipar recebíveis (quanto), adiar/renegociar pagamentos, cortar gasto, captar. Sempre com valor e prazo.
+- "impacto"/"potencial" CURTOS (só o número). Não invente datas fora dos dados.
+
+Retorne APENAS JSON: {"resumo":"2 linhas sobre a saúde do caixa","alertas":[{"titulo","descricao","severidade","impacto"}],"oportunidades":[{"titulo","descricao","potencial"}],"acoes":[{"acao","prazo","impacto"}]}` : null;
+
+    const prompt = fluxoPrompt ?? `Você é o CFO de uma produtora audiovisual. Analise os números REAIS abaixo e produza recomendações ESPECÍFICAS, citando categorias e valores concretos — nada de conselhos genéricos.
 
 HOJE É ${hoje}. NÃO invente datas, meses nem anos, e NÃO assuma que o período/ano já terminou — use somente os números fornecidos.
 PERÍODO ANALISADO: ${financialData.periodo ?? financialData.mesAtual ?? "atual"}
