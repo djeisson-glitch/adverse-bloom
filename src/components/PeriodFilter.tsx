@@ -69,25 +69,17 @@ interface Props {
 }
 
 export function PeriodFilter({ value, onChange, defaultPreset = "mes_atual" }: Props) {
-  const [preset, setPreset] = useState<Preset>(defaultPreset);
+  const [preset, setPreset] = useState<string>(defaultPreset);
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
-  const [mes, setMes] = useState(new Date().getMonth());
-  const [ano, setAno] = useState(new Date().getFullYear());
   const anoAtual = new Date().getFullYear();
-  const anos = [anoAtual + 1, anoAtual, anoAtual - 1, anoAtual - 2, anoAtual - 3];
 
-  const handlePreset = (p: Preset) => {
-    setPreset(p);
-    if (p === "mes_especifico") { onChange(monthRange(ano, mes)); return; }
-    const range = getPresetRange(p);
+  const handlePreset = (v: string) => {
+    setPreset(v);
+    const m = v.match(/^m(\d+)$/);
+    if (m) { onChange(monthRange(anoAtual, Number(m[1]))); return; }
+    const range = getPresetRange(v as Preset);
     if (range) onChange(range);
-  };
-
-  const applyMes = (y: number, m: number) => {
-    setAno(y);
-    setMes(m);
-    onChange(monthRange(y, m));
   };
 
   const handleCustomFrom = (d: Date | undefined) => {
@@ -102,7 +94,7 @@ export function PeriodFilter({ value, onChange, defaultPreset = "mes_atual" }: P
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={preset} onValueChange={(v) => handlePreset(v as Preset)}>
+      <Select value={preset} onValueChange={handlePreset}>
         <SelectTrigger className="w-[180px] h-9 text-sm">
           <SelectValue />
         </SelectTrigger>
@@ -111,31 +103,12 @@ export function PeriodFilter({ value, onChange, defaultPreset = "mes_atual" }: P
           <SelectItem value="mes_anterior">Mês anterior</SelectItem>
           <SelectItem value="trimestre_atual">Trimestre atual</SelectItem>
           <SelectItem value="ano_atual">Ano atual</SelectItem>
-          <SelectItem value="mes_especifico">Mês específico</SelectItem>
+          {MESES.map((nome, i) => (
+            <SelectItem key={i} value={`m${i}`}>{nome}/{anoAtual}</SelectItem>
+          ))}
           <SelectItem value="personalizado">Personalizado</SelectItem>
         </SelectContent>
       </Select>
-
-      {preset === "mes_especifico" && (
-        <div className="flex items-center gap-2">
-          <Select value={String(mes)} onValueChange={(v) => applyMes(ano, Number(v))}>
-            <SelectTrigger className="w-[140px] h-9 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {MESES.map((nome, i) => (
-                <SelectItem key={i} value={String(i)}>{nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={String(ano)} onValueChange={(v) => applyMes(Number(v), mes)}>
-            <SelectTrigger className="w-[90px] h-9 text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {anos.map((y) => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       {preset === "personalizado" && (
         <div className="flex items-center gap-2">
