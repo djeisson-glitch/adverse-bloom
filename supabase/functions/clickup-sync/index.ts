@@ -6,17 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Space "FINALIZADOS" do workspace da Adverse (cada lista = 1 projeto entregue).
-const SPACE_FINALIZADOS = "901313834989";
+// Lista "Produção & Pós": cada card (tarefa top-level) = 1 projeto.
+// Subtarefas = entregas, ignoradas. Configurável por env.
+const LIST_PRODUCAO = Deno.env.get("CLICKUP_LIST_PRODUCAO") || "901320356772";
 
-async function fetchLists(spaceId: string, token: string, archived: boolean) {
-  const res = await fetch(`https://api.clickup.com/api/v2/space/${spaceId}/list?archived=${archived}`, {
-    headers: { Authorization: token },
-  });
-  if (!res.ok) throw new Error(`ClickUp ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return (data.lists ?? []) as Array<{ id: string; name: string; date_created?: string }>;
+interface CUTask {
+  id: string;
+  name: string;
+  status?: { status?: string; type?: string };
+  date_closed?: string | null;
+  due_date?: string | null;
+  date_created?: string | null;
+  parent?: string | null;
 }
+
+const toISO = (ms?: string | null) => (ms ? new Date(Number(ms)).toISOString().slice(0, 10) : null);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -29,21 +33,29 @@ serve(async (req) => {
       });
     }
 
-    const lists = [
-      ...(await fetchLists(SPACE_FINALIZADOS, token, false)),
-      ...(await fetchLists(SPACE_FINALIZADOS, token, true)),
-    ];
+    // Pagina todas as tarefas (inclui concluídas), sem subtarefas.
+    const tasks: CUTask[] = [];
+    for (let page = 0; page < 30; page++) {
+      const url = `https://api.clickup.com/api/v2/list/${LIST_PRODUCAO}/task?include_closed=true&subtasks=false&page=${page}`;
+      const res = await fetch(url, { headers: { Authorization: token } });
+      if (!res.ok) throw new Error(`ClickUp ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      const batch = (data.tasks ?? []) as CUTask[];
+      tasks.push(...batch);
+      if (batch.length < 100) break; // última página
+    }
 
-    // Cada lista é um projeto entregue. Data: do nome (#AAAAMMDD_...) ou date_created.
-    const projetos = lists.map((l) => {
-      const m = l.name.match(/#?(\d{4})(\d{2})(\d{2})/);
-      const data = m
-        ? `${m[1]}-${m[2]}-${m[3]}`
-        : l.date_created
-          ? new Date(Number(l.date_created)).toISOString().slice(0, 10)
-          : null;
-      return { id: l.id, nome: l.name, data };
-    });
+    // Só cards de projeto (sem subtarefas). Cada um vira um "projeto".
+    const projetos = tasks
+      .filter((t) => !t.parent)
+      .map((t) => ({
+        id: t.id,
+        nome: t.name,
+        concluido: t.status?.type === "closed" || t.status?.type === "done",
+        status: t.status?.status ?? null,
+        // data do projeto: conclusão se houver, senão vencimento, senão criação
+        data: toISO(t.date_closed) || toISO(t.due_date) || toISO(t.date_created),
+      }));
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await admin.from("clickup_cache").upsert(
@@ -51,9 +63,11 @@ serve(async (req) => {
       { onConflict: "data_type" },
     );
 
-    return new Response(JSON.stringify({ ok: true, total: projetos.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({
+      ok: true,
+      total: projetos.length,
+      concluidos: projetos.filter((p) => p.concluido).length,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("clickup-sync error:", e);
     return new Response(JSON.stringify({ error: String(e) }), {

@@ -104,7 +104,7 @@ export default function Home() {
     queryKey: ["clickup_projetos"],
     queryFn: async () => {
       const { data } = await (supabase as any).from("clickup_cache").select("payload").eq("data_type", "projetos_finalizados").maybeSingle();
-      return (data?.payload?.itens ?? []) as Array<{ data: string | null }>;
+      return (data?.payload?.itens ?? []) as Array<{ data: string | null; concluido: boolean }>;
     },
   });
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
@@ -205,7 +205,7 @@ export default function Home() {
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
   const projetosRealizados = useMemo(
-    () => (clickupProjetos ?? []).filter((p) => p.data && p.data >= monthPeriod.from && p.data <= monthPeriod.to).length,
+    () => (clickupProjetos ?? []).filter((p) => p.concluido && p.data && p.data >= monthPeriod.from && p.data <= monthPeriod.to).length,
     [clickupProjetos, monthPeriod.from, monthPeriod.to],
   );
   const ticketMedioValor = projetosRealizados > 0 ? faturamentoMes / projetosRealizados : ticketMedio.valor;
