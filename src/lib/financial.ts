@@ -226,14 +226,21 @@ export function calcBurnRate(payItems: CAItem[]): number {
 }
 
 // 12. Saldo em Conta
-export function calcSaldoEmConta(recItems: CAItem[], payItems: CAItem[]): number {
+export function calcSaldoEmConta(
+  recItems: CAItem[],
+  payItems: CAItem[],
+  saldoInicial?: number | null,
+  saldoInicialData?: string | null,
+): number {
+  const base = saldoInicial ?? SALDO_INICIAL;
+  const dataBase = saldoInicialData || SALDO_INICIAL_DATA;
   const recebido = recItems
-    .filter((r) => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+    .filter((r) => r?.data_vencimento && r.data_vencimento >= dataBase)
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
   const pago = payItems
-    .filter((r) => r?.data_vencimento && r.data_vencimento >= SALDO_INICIAL_DATA)
+    .filter((r) => r?.data_vencimento && r.data_vencimento >= dataBase)
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
-  return SALDO_INICIAL + recebido - pago;
+  return base + recebido - pago;
 }
 
 // Custos Fixos grouped by category

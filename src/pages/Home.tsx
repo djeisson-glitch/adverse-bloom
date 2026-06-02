@@ -95,8 +95,8 @@ export default function Home() {
   const { data: contexto } = useQuery({
     queryKey: ["empresa_contexto"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("empresa_contexto").select("meta_margem_liquida, meta_faturamento_mensal").eq("id", 1).maybeSingle();
-      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null } | null;
+      const { data } = await (supabase as any).from("empresa_contexto").select("meta_margem_liquida, meta_faturamento_mensal, saldo_inicial, saldo_inicial_data").eq("id", 1).maybeSingle();
+      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null; saldo_inicial: number | null; saldo_inicial_data: string | null } | null;
     },
   });
   const metaMargem = contexto?.meta_margem_liquida ?? null;
@@ -159,7 +159,7 @@ export default function Home() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  const saldoConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const saldoConta = useMemo(() => calcSaldoEmConta(recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data), [recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
   const runway = burnRate > 0 ? saldoConta / burnRate : Infinity;
   const runwayColor = runway > 4 ? "text-green-400" : runway >= 2 ? "text-amber-400" : "text-destructive";

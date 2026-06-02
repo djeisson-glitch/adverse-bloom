@@ -18,6 +18,8 @@ interface Contexto {
   sazonalidade: string | null;
   prioridades: string | null;
   observacoes: string | null;
+  saldo_inicial: number | null;
+  saldo_inicial_data: string | null;
 }
 
 const EMPTY: Contexto = {
@@ -28,6 +30,8 @@ const EMPTY: Contexto = {
   sazonalidade: "",
   prioridades: "",
   observacoes: "",
+  saldo_inicial: null,
+  saldo_inicial_data: null,
 };
 
 export default function ConfiguracoesContexto() {
@@ -97,6 +101,25 @@ export default function ConfiguracoesContexto() {
             <Label>Headcount (pessoas)</Label>
             <Input type="number" value={form.headcount ?? ""} onChange={(e) => set("headcount", num(e.target.value))} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Saldo em conta (âncora do fluxo de caixa)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Saldo real em conta (R$)</Label>
+            <Input type="number" value={form.saldo_inicial ?? ""} onChange={(e) => set("saldo_inicial", num(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Na data</Label>
+            <Input type="date" value={form.saldo_inicial_data ?? ""} onChange={(e) => set("saldo_inicial_data", e.target.value || null)} />
+          </div>
+          <p className="text-xs text-muted-foreground md:col-span-2">
+            Some o saldo das suas contas no Conta Azul nessa data. O sistema calcula o saldo atual a partir daqui (recebido − pago), e o fluxo de caixa se ancora nele.
+          </p>
         </CardContent>
       </Card>
 
