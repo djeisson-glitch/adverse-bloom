@@ -23,6 +23,10 @@ import {
   monthKey,
   monthlyReceitaTotal,
   monthlyDespesasOp,
+  calcImpostosSobreVenda,
+  calcCustosDoProjeto,
+  calcMargemBruta,
+  displayCat,
 } from "@/lib/financial";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
 import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
@@ -62,6 +66,27 @@ export default function Insights() {
 
   const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
+
+  // Dados ricos para a IA: margem bruta (fórmula do dono) + categorias de custo
+  const impostosVenda = useMemo(() => calcImpostosSobreVenda(payItems, period), [payItems, period]);
+  const custosProjeto = useMemo(() => calcCustosDoProjeto(payItems, period), [payItems, period]);
+  const { valor: margemBrutaValor, pct: margemBruta } = calcMargemBruta(receitaTotal, impostosVenda, custosProjeto);
+  const categoriasAi = useMemo(() => {
+    const map = new Map<string, { valor: number; tipo: string }>();
+    for (const [cat, val] of fixosPorCat) {
+      const n = displayCat(cat);
+      map.set(n, { valor: (map.get(n)?.valor ?? 0) + val, tipo: "fixo" });
+    }
+    for (const [cat, val] of variaveisPorCat) {
+      const n = displayCat(cat);
+      const prev = map.get(n);
+      map.set(n, { valor: (prev?.valor ?? 0) + val, tipo: prev?.tipo ?? "variável" });
+    }
+    return [...map.entries()]
+      .map(([nome, v]) => ({ nome, valor: v.valor, tipo: v.tipo }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 15);
+  }, [fixosPorCat, variaveisPorCat]);
   const runway = burnRate > 0 ? saldoEmConta / burnRate : 0;
 
   const periodLabel = (() => {
@@ -227,7 +252,13 @@ export default function Insights() {
               receitaAcumulada: receitaTotal,
               mesAtual: periodLabel,
               periodoLabel: periodLabel,
+              periodo: periodLabel,
+              impostosVenda,
+              custosProjeto,
+              margemBruta,
+              margemBrutaValor,
             }}
+            categorias={categoriasAi}
             hasData={hasData}
           />
 
