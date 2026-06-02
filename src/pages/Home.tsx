@@ -100,6 +100,13 @@ export default function Home() {
     },
   });
   const metaMargem = contexto?.meta_margem_liquida ?? null;
+  const { data: clickupProjetos } = useQuery({
+    queryKey: ["clickup_projetos"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("clickup_cache").select("payload").eq("data_type", "projetos_finalizados").maybeSingle();
+      return (data?.payload?.itens ?? []) as Array<{ data: string | null }>;
+    },
+  });
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
   const { deals } = useDeals();
   const { allTasks } = useTasks("__all__");
@@ -196,6 +203,12 @@ export default function Home() {
   // Margem líquida operacional = receita − despesas operacionais (exclui empréstimos, compra de equipamentos e juros). Tudo por competência.
   const margemLiquida = useMemo(() => calcLucroLiquido(faturamentoMes, despesasOp), [faturamentoMes, despesasOp]);
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
+  // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
+  const projetosRealizados = useMemo(
+    () => (clickupProjetos ?? []).filter((p) => p.data && p.data >= monthPeriod.from && p.data <= monthPeriod.to).length,
+    [clickupProjetos, monthPeriod.from, monthPeriod.to],
+  );
+  const ticketMedioValor = projetosRealizados > 0 ? faturamentoMes / projetosRealizados : ticketMedio.valor;
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
     const vari = calcCustosVariaveisPorCategoria(payItems, monthPeriod);
@@ -398,9 +411,17 @@ export default function Home() {
             insight={insightMargemLiq}
           />
           <MetricCard
+            label="Projetos realizados"
+            value={String(projetosRealizados)}
+            sub="no período (ClickUp)"
+            icon={Briefcase}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
             label="Ticket médio"
-            value={formatCurrency(ticketMedio.valor)}
-            sub={`${ticketMedio.qtde} faturas no mês`}
+            value={formatCurrency(ticketMedioValor)}
+            sub={projetosRealizados > 0 ? `${projetosRealizados} projetos` : `${ticketMedio.qtde} faturas`}
             icon={TrendingUp}
             onClick={() => navigate("/financeiro/resultados")}
             loading={financialLoading}
