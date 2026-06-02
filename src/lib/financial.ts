@@ -133,35 +133,35 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter((r) => !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter((r) => !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 4. Custos Fixos - FIXED_COSTS includes cat && !isExcluded, data_vencimento in period, field total
 export function calcCustosFixos(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5. Custos Variáveis - VARIABLE_COSTS includes cat, data_vencimento in period, field total
 export function calcCustosVariaveis(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5b. Impostos diretos sobre a venda (para a margem bruta)
 export function calcImpostosSobreVenda(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter((r) => IMPOSTOS_SOBRE_VENDA.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter((r) => IMPOSTOS_SOBRE_VENDA.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5c. Custos diretos do projeto (para a margem bruta)
 export function calcCustosDoProjeto(payItems: CAItem[], period: PeriodRange): number {
   return payItems
-    .filter((r) => CUSTOS_DO_PROJETO.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter((r) => CUSTOS_DO_PROJETO.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
@@ -240,7 +240,7 @@ export function calcSaldoEmConta(recItems: CAItem[], payItems: CAItem[]): number
 export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_vencimento, period))
+    .filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
     .forEach((item) => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
@@ -252,7 +252,7 @@ export function calcCustosFixosPorCategoria(payItems: CAItem[], period: PeriodRa
 export function calcCustosVariaveisPorCategoria(payItems: CAItem[], period: PeriodRange): [string, number][] {
   const byCategory: Record<string, number> = {};
   payItems
-    .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
+    .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
     .forEach((item) => {
       const cat = getCat(item);
       byCategory[cat] = (byCategory[cat] || 0) + (item?.total ?? 0);
@@ -274,6 +274,6 @@ export function monthlyReceitaTotal(recItems: CAItem[], key: string): number {
 // Monthly despesas operacionais for a given month key
 export function monthlyDespesasOp(payItems: CAItem[], key: string): number {
   return payItems
-    .filter((r) => !isExcluded(r) && r?.data_vencimento?.startsWith(key))
+    .filter((r) => !isExcluded(r) && r?.data_competencia?.startsWith(key))
     .reduce((s, r) => s + (r?.total ?? 0), 0);
 }

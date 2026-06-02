@@ -58,7 +58,7 @@ export default function Insights() {
   const custosVariaveis = useMemo(() => calcCustosVariaveis(payItems, period), [payItems, period]);
 
   const { pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
-  const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquidoFinal(receitaTotal, payItems, period);
+  const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
   const { valor: ticketMedio } = calcTicketMedio(recItems, period, receitaTotal);
 
   const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, period), [payItems, period]);

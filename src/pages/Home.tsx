@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
+  calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
   calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
@@ -178,9 +179,12 @@ export default function Home() {
   const margemContrib = useMemo(() => calcMargemContribuicao(faturamentoMes, custosVariaveis), [faturamentoMes, custosVariaveis]);
   const impostosVenda = useMemo(() => calcImpostosSobreVenda(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
   const custosProjeto = useMemo(() => calcCustosDoProjeto(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const receitaLiquida = faturamentoMes - impostosVenda;
   // Margem bruta = venda − impostos sobre venda − custos do projeto (definição do dono)
   const margemBruta = useMemo(() => calcMargemBruta(faturamentoMes, impostosVenda, custosProjeto), [faturamentoMes, impostosVenda, custosProjeto]);
-  const margemLiquida = useMemo(() => calcLucroLiquidoFinal(faturamentoMes, payItems, monthPeriod), [faturamentoMes, payItems, monthPeriod.from, monthPeriod.to]);
+  const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  // Margem líquida operacional = receita − despesas operacionais (exclui empréstimos, compra de equipamentos e juros). Tudo por competência.
+  const margemLiquida = useMemo(() => calcLucroLiquido(faturamentoMes, despesasOp), [faturamentoMes, despesasOp]);
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
@@ -373,6 +377,30 @@ export default function Home() {
             value={formatCurrency(ticketMedio.valor)}
             sub={`${ticketMedio.qtde} faturas no mês`}
             icon={TrendingUp}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Receita líquida"
+            value={formatCurrency(receitaLiquida)}
+            sub="receita − impostos"
+            icon={CircleDollarSign}
+            onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Impostos sobre venda"
+            value={formatCurrency(impostosVenda)}
+            icon={Receipt}
+            onClick={() => navigate("/financeiro/custos")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Resultado do período"
+            value={formatCurrency(margemLiquida.valor)}
+            valueColor={margemLiquida.valor >= 0 ? "text-green-400" : "text-destructive"}
+            sub={margemLiquida.valor >= 0 ? "lucro" : "prejuízo"}
+            icon={Target}
             onClick={() => navigate("/financeiro/resultados")}
             loading={financialLoading}
           />
