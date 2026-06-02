@@ -23,13 +23,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const financeiroItems = [
-  { title: "Visão Geral", url: "/financeiro", icon: LayoutDashboard },
   { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUp },
-  { title: "Custos", url: "/financeiro/custos", icon: Receipt },
-  { title: "Resultados & Metas", url: "/financeiro/resultados", icon: Target },
-  { title: "Caixa & Runway", url: "/financeiro/runway", icon: Vault },
   { title: "Insights", url: "/financeiro/insights", icon: Lightbulb },
-  { title: "Projeções 2026", url: "/financeiro/projecoes", icon: LineChart },
   { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard },
 ];
 
