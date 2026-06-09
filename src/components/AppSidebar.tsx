@@ -25,7 +25,6 @@ import {
 const financeiroItems = [
   { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUp },
   { title: "Insights", url: "/financeiro/insights", icon: Lightbulb },
-  { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard },
 ];
 
 export function AppSidebar() {
@@ -114,27 +113,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {/* 10. Configurações */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/configuracoes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                    <Settings className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>Configurações</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* 11. Permissões — admin only */}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/configuracoes/permissoes" className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
-                      <Shield className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Permissões</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
