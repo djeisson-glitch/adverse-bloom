@@ -225,6 +225,25 @@ export default function Home() {
     ? `meta: ${formatCurrency(contexto.meta_faturamento_mensal)}`
     : undefined;
 
+  // Faturamento por cliente (Conta Azul) no período
+  const topClientes = useMemo(() => {
+    const map = new Map<string, { fat: number; n: number }>();
+    for (const r of recItems as any[]) {
+      if (getCat(r) === "Empréstimos de Bancos") continue;
+      const dc = r.data_competencia;
+      if (!dc || dc < monthPeriod.from || dc > monthPeriod.to) continue;
+      const nome = (r.cliente?.nome || "").trim();
+      if (!nome) continue;
+      const e = map.get(nome) ?? { fat: 0, n: 0 };
+      map.set(nome, { fat: e.fat + (r.total ?? 0), n: e.n + 1 });
+    }
+    const total = [...map.values()].reduce((s, e) => s + e.fat, 0);
+    const lista = [...map.entries()].sort((a, b) => b[1].fat - a[1].fat).slice(0, 7)
+      .map(([nome, e]) => ({ nome, fat: e.fat, pct: total > 0 ? (e.fat / total) * 100 : 0 }));
+    const top3 = lista.slice(0, 3).reduce((s, c) => s + c.fat, 0);
+    return { lista, qtde: map.size, concentracao: total > 0 ? (top3 / total) * 100 : 0 };
+  }, [recItems, monthPeriod.from, monthPeriod.to]);
+
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
   const pipelineValue = openDeals.reduce((s, d) => s + (d.approved_value ?? 0), 0);
@@ -418,6 +437,15 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            label="Nº de clientes"
+            value={String(topClientes.qtde)}
+            sub="faturando no período"
+            icon={Handshake}
+            onClick={() => navigate("/clientes")}
+            loading={financialLoading}
+            insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined}
+          />
+          <MetricCard
             label="Receita líquida"
             value={formatCurrency(receitaLiquida)}
             sub="receita − impostos"
@@ -467,6 +495,33 @@ export default function Home() {
                 <div key={cat} className="flex items-center justify-between text-xs gap-2">
                   <span className="truncate min-w-0">{cat}</span>
                   <span className="font-semibold text-primary shrink-0">{formatCurrency(valor)}</span>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Faturamento por cliente */}
+        <Card className="bg-card border-border/50">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+              <Handshake className="h-3.5 w-3.5" /> Faturamento por cliente (período)
+              {topClientes.qtde > 0 && (
+                <span className="ml-auto text-[11px] text-muted-foreground/80">{topClientes.qtde} clientes · top 3 = {topClientes.concentracao.toFixed(0)}%</span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            {topClientes.lista.length === 0 ? (
+              <EmptyState icon={Handshake} message="Sem faturamento no período" />
+            ) : (
+              topClientes.lista.map((c) => (
+                <div key={c.nome} className="flex items-center justify-between text-xs gap-2">
+                  <span className="truncate min-w-0">{c.nome}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted-foreground">{c.pct.toFixed(0)}%</span>
+                    <span className="font-semibold text-primary">{formatCurrency(c.fat)}</span>
+                  </div>
                 </div>
               ))
             )}
