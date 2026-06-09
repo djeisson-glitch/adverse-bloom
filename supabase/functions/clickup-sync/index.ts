@@ -10,6 +10,12 @@ const corsHeaders = {
 // Subtarefas = entregas, ignoradas. Configurável por env.
 const LIST_PRODUCAO = Deno.env.get("CLICKUP_LIST_PRODUCAO") || "901320356772";
 
+interface CUField {
+  name: string;
+  type: string;
+  value?: any;
+  type_config?: { options?: Array<{ id: string; orderindex: number; name: string }> };
+}
 interface CUTask {
   id: string;
   name: string;
@@ -18,9 +24,22 @@ interface CUTask {
   due_date?: string | null;
   date_created?: string | null;
   parent?: string | null;
+  custom_fields?: CUField[];
 }
 
 const toISO = (ms?: string | null) => (ms ? new Date(Number(ms)).toISOString().slice(0, 10) : null);
+
+function getField(t: CUTask, name: string): CUField | undefined {
+  return t.custom_fields?.find((f) => f.name === name);
+}
+// dropdown: o value é o orderindex (ou id) da opção; resolve pro nome
+function resolveDropdown(f?: CUField): string | null {
+  if (!f || f.value == null) return null;
+  const opt = (f.type_config?.options || []).find(
+    (o) => String(o.orderindex) === String(f.value) || o.id === f.value,
+  );
+  return opt?.name ?? null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -48,14 +67,21 @@ serve(async (req) => {
     // Só cards de projeto (sem subtarefas). Cada um vira um "projeto".
     const projetos = tasks
       .filter((t) => !t.parent)
-      .map((t) => ({
-        id: t.id,
-        nome: t.name,
-        concluido: t.status?.type === "closed" || t.status?.type === "done",
-        status: t.status?.status ?? null,
-        // data do projeto: conclusão se houver, senão vencimento, senão criação
-        data: toISO(t.date_closed) || toISO(t.due_date) || toISO(t.date_created),
-      }));
+      .map((t) => {
+        const valorF = getField(t, "Valor");
+        const faturadoF = getField(t, "Faturado?");
+        return {
+          id: t.id,
+          nome: t.name,
+          concluido: t.status?.type === "closed" || t.status?.type === "done",
+          status: t.status?.status ?? null,
+          // data do projeto: conclusão se houver, senão vencimento, senão criação
+          data: toISO(t.date_closed) || toISO(t.due_date) || toISO(t.date_created),
+          cliente: resolveDropdown(getField(t, "Cliente")),
+          valor: valorF?.value != null ? Number(valorF.value) : null,
+          faturado: faturadoF?.value === true || faturadoF?.value === "true",
+        };
+      });
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await admin.from("clickup_cache").upsert(

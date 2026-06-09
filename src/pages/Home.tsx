@@ -225,24 +225,42 @@ export default function Home() {
     ? `meta: ${formatCurrency(contexto.meta_faturamento_mensal)}`
     : undefined;
 
-  // Faturamento por cliente (Conta Azul) no período
+  // Projetos por cliente (ClickUp) × faturamento (Conta Azul) × ticket médio
+  const { data: projetosRaw } = useQuery({
+    queryKey: ["clickup_projetos"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("clickup_cache").select("payload").eq("data_type", "projetos_finalizados").maybeSingle();
+      return (data?.payload?.itens ?? []) as Array<{ cliente: string | null; data: string | null; concluido: boolean }>;
+    },
+  });
   const topClientes = useMemo(() => {
-    const map = new Map<string, { fat: number; n: number }>();
+    const norm = (s: string) => (s || "").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    const STOP = new Set(["DA", "DE", "DO", "DOS", "DAS", "E", "LTDA", "SA", "ME", "EPP", "SEDE", "RS", "MG", "SC", "COOPERATIVA", "CREDITO", "POUPANCA", "INVESTIMENTO"]);
+    const toks = (s: string) => norm(s).split(" ").filter((t) => t.length >= 3 && !STOP.has(t));
+    const projByCli = new Map<string, number>();
+    for (const p of projetosRaw ?? []) {
+      if (!p.concluido || !p.cliente || !p.data || p.data < monthPeriod.from || p.data > monthPeriod.to) continue;
+      projByCli.set(p.cliente, (projByCli.get(p.cliente) ?? 0) + 1);
+    }
+    const cliToks = [...projByCli.keys()].map((k) => ({ k, t: toks(k) }));
+    const fatByCli = new Map<string, number>();
+    let total = 0;
     for (const r of recItems as any[]) {
       if (getCat(r) === "Empréstimos de Bancos") continue;
       const dc = r.data_competencia;
       if (!dc || dc < monthPeriod.from || dc > monthPeriod.to) continue;
-      const nome = (r.cliente?.nome || "").trim();
-      if (!nome) continue;
-      const e = map.get(nome) ?? { fat: 0, n: 0 };
-      map.set(nome, { fat: e.fat + (r.total ?? 0), n: e.n + 1 });
+      const v = r.total ?? 0; total += v;
+      const ct = toks(r.cliente?.nome || "");
+      let best: string | null = null, bestN = 0;
+      for (const c of cliToks) { const n = c.t.filter((t) => ct.includes(t)).length; if (n > bestN) { bestN = n; best = c.k; } }
+      if (best && bestN >= 1) fatByCli.set(best, (fatByCli.get(best) ?? 0) + v);
     }
-    const total = [...map.values()].reduce((s, e) => s + e.fat, 0);
-    const lista = [...map.entries()].sort((a, b) => b[1].fat - a[1].fat).slice(0, 7)
-      .map(([nome, e]) => ({ nome, fat: e.fat, pct: total > 0 ? (e.fat / total) * 100 : 0 }));
-    const top3 = lista.slice(0, 3).reduce((s, c) => s + c.fat, 0);
-    return { lista, qtde: map.size, concentracao: total > 0 ? (top3 / total) * 100 : 0 };
-  }, [recItems, monthPeriod.from, monthPeriod.to]);
+    const lista = [...projByCli.entries()]
+      .map(([nome, proj]) => { const fat = fatByCli.get(nome) ?? 0; return { nome, proj, fat, ticket: proj > 0 ? fat / proj : 0 }; })
+      .sort((a, b) => b.proj - a.proj).slice(0, 8);
+    const top3 = [...fatByCli.values()].sort((a, b) => b - a).slice(0, 3).reduce((s, v) => s + v, 0);
+    return { lista, qtde: projByCli.size, concentracao: total > 0 ? (top3 / total) * 100 : 0 };
+  }, [recItems, projetosRaw, monthPeriod.from, monthPeriod.to]);
 
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
@@ -501,29 +519,40 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Faturamento por cliente */}
+        {/* Clientes: projetos × faturamento × ticket */}
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-              <Handshake className="h-3.5 w-3.5" /> Faturamento por cliente (período)
+              <Handshake className="h-3.5 w-3.5" /> Clientes — projetos × faturamento × ticket (período)
               {topClientes.qtde > 0 && (
-                <span className="ml-auto text-[11px] text-muted-foreground/80">{topClientes.qtde} clientes · top 3 = {topClientes.concentracao.toFixed(0)}%</span>
+                <span className="ml-auto text-[11px] text-muted-foreground/80">{topClientes.qtde} clientes</span>
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
+          <CardContent className="px-4 pb-4">
             {topClientes.lista.length === 0 ? (
-              <EmptyState icon={Handshake} message="Sem faturamento no período" />
+              <EmptyState icon={Handshake} message="Sem projetos no período" />
             ) : (
-              topClientes.lista.map((c) => (
-                <div key={c.nome} className="flex items-center justify-between text-xs gap-2">
-                  <span className="truncate min-w-0">{c.nome}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-muted-foreground">{c.pct.toFixed(0)}%</span>
-                    <span className="font-semibold text-primary">{formatCurrency(c.fat)}</span>
-                  </div>
-                </div>
-              ))
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground text-left">
+                    <th className="font-medium pb-1">Cliente</th>
+                    <th className="font-medium pb-1 text-right">Projetos</th>
+                    <th className="font-medium pb-1 text-right">Faturamento</th>
+                    <th className="font-medium pb-1 text-right">Ticket médio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topClientes.lista.map((c) => (
+                    <tr key={c.nome} className="border-t border-border/30">
+                      <td className="py-1.5 truncate max-w-[150px]">{c.nome}</td>
+                      <td className="py-1.5 text-right">{c.proj}</td>
+                      <td className="py-1.5 text-right text-primary font-semibold">{formatCurrency(c.fat)}</td>
+                      <td className="py-1.5 text-right">{c.ticket > 0 ? formatCurrency(c.ticket) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </CardContent>
         </Card>
