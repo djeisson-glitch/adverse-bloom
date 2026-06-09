@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Settings, ChevronRight, Building2, Users, Brain, Plug } from "lucide-react";
+import { Settings, ChevronRight, Building2, Users, Brain, Plug, Repeat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -7,6 +7,7 @@ const sections = [
   { title: "Geral", description: "Nome da empresa, logo e fuso horário", icon: Building2, path: "/configuracoes/geral" },
   { title: "Usuários", description: "Gerenciar usuários, roles e permissões", icon: Users, path: "/configuracoes/usuarios" },
   { title: "Contexto da Empresa", description: "Estrutura, metas e contexto que alimentam os insights da IA", icon: Brain, path: "/configuracoes/contexto" },
+  { title: "Contratos (MRR)", description: "Valor mensal dos contratos recorrentes para o MRR", icon: Repeat, path: "/configuracoes/contratos" },
   { title: "Integrações", description: "Conta Azul e sincronização automática", icon: Plug, path: "/configuracoes/integracoes" },
 ];
 

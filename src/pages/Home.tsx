@@ -9,6 +9,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems, useSyncContaAzul } from "@/hooks/useContaAzulCache";
 import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
+import { useMRR } from "@/hooks/useContratos";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
@@ -93,6 +94,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { period, setPeriod } = usePeriod();
+  const { mrr, contratos: nContratos } = useMRR();
   const { data: contexto } = useQuery({
     queryKey: ["empresa_contexto"],
     queryFn: async () => {
@@ -384,6 +386,14 @@ export default function Home() {
             icon={DollarSign}
             onClick={() => navigate("/financeiro/runway")}
             loading={financialLoading}
+          />
+          <MetricCard
+            label="MRR (receita recorrente)"
+            value={formatCurrency(mrr)}
+            sub={`${nContratos} contratos ativos`}
+            icon={Wallet}
+            onClick={() => navigate("/configuracoes/contratos")}
+            loading={false}
           />
           <MetricCard
             label="Recebido (realizado)"
