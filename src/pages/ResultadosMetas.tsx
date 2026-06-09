@@ -6,6 +6,7 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { PeriodFilter } from "@/components/PeriodFilter";
 import { usePeriod } from "@/contexts/PeriodContext";
+import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
@@ -105,14 +106,17 @@ export default function ResultadosMetas() {
 
   // Detail item sets for clickable cards
   const receitaItems = useMemo(() => recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period)), [recItems, period]);
-  const despesasItems = useMemo(() => payItems.filter(r => isInRange(r?.data_vencimento, period)), [payItems, period]);
-  const custosFixosItems = useMemo(() => payItems.filter(r => FIXED_COSTS.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
-  const custosVariaveisItems = useMemo(() => payItems.filter(r => !FIXED_COSTS.includes(getCat(r)) && !EXCLUDED_FROM_MARGIN.includes(getCat(r)) && isInRange(r?.data_vencimento, period)), [payItems, period]);
+  const despesasItems = useMemo(() => payItems.filter(r => isInRange(r?.data_competencia, period)), [payItems, period]);
+  const custosFixosItems = useMemo(() => payItems.filter(r => FIXED_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period)), [payItems, period]);
+  const custosVariaveisItems = useMemo(() => payItems.filter(r => !FIXED_COSTS.includes(getCat(r)) && !EXCLUDED_FROM_MARGIN.includes(getCat(r)) && isInRange(r?.data_competencia, period)), [payItems, period]);
 
   const { valor: margemContribValor, pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
   const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
   const pontoEquilibrio = calcPontoEquilibrio(custosFixos, margemContribuicao);
-  const { valor: ticketMedio, qtde: qtdeProjetos } = calcTicketMedio(recItems, period, receitaTotal);
+  const ticketFaturas = calcTicketMedio(recItems, period, receitaTotal);
+  const projetosRealizados = useProjetosRealizados(period);
+  const ticketMedio = projetosRealizados > 0 ? receitaTotal / projetosRealizados : ticketFaturas.valor;
+  const qtdeProjetos = projetosRealizados > 0 ? projetosRealizados : ticketFaturas.qtde;
 
   const monthlyData = useMemo(() => {
     const now = new Date();
