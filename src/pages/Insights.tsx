@@ -28,6 +28,8 @@ import {
   calcMargemBruta,
   displayCat,
 } from "@/lib/financial";
+import { useEmpresaContexto } from "@/hooks/useEmpresaContexto";
+import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
 import { AiInsightsSection } from "@/components/AiInsightsSection";
 import { DiagnosticoResultado } from "@/components/DiagnosticoResultado";
 import { PeriodFilter, type PeriodRange } from "@/components/PeriodFilter";
@@ -59,12 +61,14 @@ export default function Insights() {
 
   const { pct: margemContribuicao } = calcMargemContribuicao(receitaTotal, custosVariaveis);
   const { valor: lucroLiquido, pct: margemLiquida } = calcLucroLiquido(receitaTotal, despesasOp);
-  const { valor: ticketMedio } = calcTicketMedio(recItems, period, receitaTotal);
+  const projetosRealizados = useProjetosRealizados(period);
+  const ticketMedio = projetosRealizados > 0 ? receitaTotal / projetosRealizados : calcTicketMedio(recItems, period, receitaTotal).valor;
 
   const fixosPorCat = useMemo(() => calcCustosFixosPorCategoria(payItems, period), [payItems, period]);
   const variaveisPorCat = useMemo(() => calcCustosVariaveisPorCategoria(payItems, period), [payItems, period]);
 
-  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const { data: ctxSaldo } = useEmpresaContexto();
+  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data), [recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
 
   // Dados ricos para a IA: margem bruta (fórmula do dono) + categorias de custo

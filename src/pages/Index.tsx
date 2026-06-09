@@ -7,6 +7,7 @@ import {
   type CAItem, isInRange, calcReceitaTotal, calcReceitaRecebida,
   calcDespesasOperacionais, calcSaldoEmConta, getCat,
 } from "@/lib/financial";
+import { useEmpresaContexto } from "@/hooks/useEmpresaContexto";
 import { motion } from "framer-motion";
 import {
   ChartContainer,
@@ -65,7 +66,8 @@ export default function Index() {
     [payItems, period]);
 
   // KPI 6: Saldo em Conta
-  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const { data: ctxSaldo } = useEmpresaContexto();
+  const saldoEmConta = useMemo(() => calcSaldoEmConta(recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data), [recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data]);
 
   // Fluxo chart: always last 6 months
   const fluxoChart = useMemo(() => {

@@ -8,6 +8,7 @@ import { useDeals } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems, useSyncContaAzul } from "@/hooks/useContaAzulCache";
+import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
@@ -100,13 +101,6 @@ export default function Home() {
     },
   });
   const metaMargem = contexto?.meta_margem_liquida ?? null;
-  const { data: clickupProjetos } = useQuery({
-    queryKey: ["clickup_projetos"],
-    queryFn: async () => {
-      const { data } = await (supabase as any).from("clickup_cache").select("payload").eq("data_type", "projetos_finalizados").maybeSingle();
-      return (data?.payload?.itens ?? []) as Array<{ data: string | null; concluido: boolean }>;
-    },
-  });
   const firstName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "usuário";
   const { deals } = useDeals();
   const { allTasks } = useTasks("__all__");
@@ -204,10 +198,7 @@ export default function Home() {
   const margemLiquida = useMemo(() => calcLucroLiquido(faturamentoMes, despesasOp), [faturamentoMes, despesasOp]);
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
-  const projetosRealizados = useMemo(
-    () => (clickupProjetos ?? []).filter((p) => p.concluido && p.data && p.data >= monthPeriod.from && p.data <= monthPeriod.to).length,
-    [clickupProjetos, monthPeriod.from, monthPeriod.to],
-  );
+  const projetosRealizados = useProjetosRealizados(monthPeriod);
   const ticketMedioValor = projetosRealizados > 0 ? faturamentoMes / projetosRealizados : ticketMedio.valor;
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);

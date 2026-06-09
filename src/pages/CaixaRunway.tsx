@@ -16,6 +16,7 @@ import {
   type CAItem,
   calcSaldoEmConta, calcBurnRate,
 } from "@/lib/financial";
+import { useEmpresaContexto } from "@/hooks/useEmpresaContexto";
 import { CashIndicators } from "@/components/caixa/CashIndicators";
 import { AccountsDetail } from "@/components/caixa/AccountsDetail";
 import { CashAlerts } from "@/components/caixa/CashAlerts";
@@ -30,7 +31,8 @@ export default function CaixaRunway() {
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
 
-  const saldoAtual = useMemo(() => calcSaldoEmConta(recItems, payItems), [recItems, payItems]);
+  const { data: ctxSaldo } = useEmpresaContexto();
+  const saldoAtual = useMemo(() => calcSaldoEmConta(recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data), [recItems, payItems, ctxSaldo?.saldo_inicial, ctxSaldo?.saldo_inicial_data]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
   const runway = burnRate > 0 ? saldoAtual / burnRate : Infinity;
 
