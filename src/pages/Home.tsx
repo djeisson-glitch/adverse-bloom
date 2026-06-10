@@ -54,9 +54,10 @@ interface MetricCardProps {
   onClick?: () => void;
   loading?: boolean;
   insight?: string;
+  regime?: "competência" | "caixa";
 }
 
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight }: MetricCardProps) {
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime }: MetricCardProps) {
   return (
     <Card
       className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
@@ -67,7 +68,15 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
             <Icon className="h-4 w-4 text-primary" />
           </div>
-          <span className="text-xs text-muted-foreground truncate">{label}</span>
+          <span className="text-xs text-muted-foreground truncate min-w-0">{label}</span>
+          {regime && (
+            <span
+              className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${regime === "competência" ? "bg-emerald-500/10 text-emerald-400" : "bg-sky-500/10 text-sky-400"}`}
+              title={regime === "competência" ? "Regime de competência: conta no mês em que o fato aconteceu (base das margens)." : "Regime de caixa: conta no mês em que vence/paga (fluxo financeiro)."}
+            >
+              {regime}
+            </span>
+          )}
         </div>
         {loading ? (
           <Skeleton className="h-7 w-24 mt-1" />
@@ -391,6 +400,7 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             label="Faturamento do mês"
+            regime="competência"
             value={formatCurrency(faturamentoMes)}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
             subColor={
@@ -406,6 +416,7 @@ export default function Home() {
           />
           <MetricCard
             label="A receber no mês"
+            regime="caixa"
             value={formatCurrency(aReceberMes)}
             sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"}
             subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined}
@@ -415,6 +426,7 @@ export default function Home() {
           />
           <MetricCard
             label="Total a pagar no mês"
+            regime="caixa"
             value={formatCurrency(aPagarMes)}
             sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"}
             subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"}
@@ -424,6 +436,7 @@ export default function Home() {
           />
           <MetricCard
             label="Saldo em conta"
+            regime="caixa"
             value={formatCurrency(saldoConta)}
             icon={DollarSign}
             onClick={() => navigate("/financeiro/runway")}
@@ -439,6 +452,7 @@ export default function Home() {
           />
           <MetricCard
             label="Recebido (realizado)"
+            regime="caixa"
             value={formatCurrency(recebidoMes)}
             sub="recebido no mês"
             subColor="text-green-400"
@@ -448,6 +462,7 @@ export default function Home() {
           />
           <MetricCard
             label="Custos fixos"
+            regime="competência"
             value={formatCurrency(custosFixos)}
             sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"}
             subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"}
@@ -458,6 +473,7 @@ export default function Home() {
           />
           <MetricCard
             label="Custos variáveis"
+            regime="competência"
             value={formatCurrency(custosVariaveis)}
             sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"}
             subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"}
@@ -467,6 +483,7 @@ export default function Home() {
           />
           <MetricCard
             label="Margem de contribuição"
+            regime="competência"
             value={formatPercent(margemContrib.pct)}
             sub={formatCurrency(margemContrib.valor)}
             valueColor={marginColor(margemContrib.pct)}
@@ -477,6 +494,7 @@ export default function Home() {
           />
           <MetricCard
             label="Margem bruta"
+            regime="competência"
             value={formatPercent(margemBruta.pct)}
             sub={formatCurrency(margemBruta.valor)}
             valueColor={marginColor(margemBruta.pct)}
@@ -486,6 +504,7 @@ export default function Home() {
           />
           <MetricCard
             label="Margem líquida"
+            regime="competência"
             value={formatPercent(margemLiquida.pct)}
             sub={formatCurrency(margemLiquida.valor)}
             valueColor={marginColor(margemLiquida.pct)}
@@ -521,6 +540,7 @@ export default function Home() {
           />
           <MetricCard
             label="Receita líquida"
+            regime="competência"
             value={formatCurrency(receitaLiquida)}
             sub="receita − impostos"
             icon={CircleDollarSign}
@@ -529,6 +549,7 @@ export default function Home() {
           />
           <MetricCard
             label="Impostos sobre venda"
+            regime="competência"
             value={formatCurrency(impostosVenda)}
             sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"}
             subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"}
@@ -538,6 +559,7 @@ export default function Home() {
           />
           <MetricCard
             label="Resultado do período"
+            regime="competência"
             value={formatCurrency(margemLiquida.valor)}
             valueColor={margemLiquida.valor >= 0 ? "text-green-400" : "text-destructive"}
             sub={margemLiquida.valor >= 0 ? "lucro" : "prejuízo"}
