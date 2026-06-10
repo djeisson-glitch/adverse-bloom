@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
-import { type CAItem, getCat } from "@/lib/financial";
+import { type CAItem, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 
 interface Props {
   recItems: CAItem[];
@@ -27,10 +27,10 @@ export function CashAlerts({ recItems, payItems, saldoAtual, burnRate, runway }:
   const alerts = useMemo(() => {
     const list: Alert[] = [];
 
-    // Inadimplência: only past-due, not received, excluding loans, outstanding amount
+    // Inadimplência: vencidas, em aberto (nao_pago), exceto perdidas/canceladas e empréstimos
     const inadimplencia = recItems
-      .filter(r => r?.data_vencimento && r.data_vencimento < today && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-      .reduce((s, r) => s + Math.max(0, (r?.total ?? 0) - (r?.pago ?? 0)), 0);
+      .filter(r => r?.data_vencimento && r.data_vencimento < today && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") && getCat(r) !== "Empréstimos de Bancos")
+      .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 
     // 1. Runway < 2 meses
     if (runway < 2 && runway !== Infinity) {
@@ -46,10 +46,10 @@ export function CashAlerts({ recItems, payItems, saldoAtual, burnRate, runway }:
     }
 
     // 2. Contas a pagar > receber (7 dias)
-    const aPagar7 = payItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && r?.status !== "PAID")
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-    const aReceber7 = recItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
+    const aPagar7 = payItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_PAGAVEL.includes(r?.status ?? ""))
+      .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+    const aReceber7 = recItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") && getCat(r) !== "Empréstimos de Bancos")
+      .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
     if (aPagar7 > aReceber7 && aPagar7 > 0) {
       list.push({
         level: "warning",

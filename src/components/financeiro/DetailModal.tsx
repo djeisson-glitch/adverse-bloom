@@ -1,18 +1,20 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { CAItem } from "@/lib/financial";
+import { type CAItem, displayCat } from "@/lib/financial";
 
 interface DetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   items: CAItem[];
-  valueField?: "total" | "pago";
+  valueField?: "total" | "pago" | "nao_pago";
 }
 
 export function DetailModal({ open, onOpenChange, title, items, valueField = "total" }: DetailModalProps) {
-  const total = items.reduce((s, r) => s + (r?.[valueField] ?? r?.total ?? 0), 0);
+  const val = (r: CAItem) => r?.[valueField] ?? r?.total ?? 0;
+  const sorted = [...items].sort((a, b) => val(b) - val(a));
+  const total = sorted.reduce((s, r) => s + val(r), 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -34,23 +36,23 @@ export function DetailModal({ open, onOpenChange, title, items, valueField = "to
               </tr>
             </thead>
             <tbody>
-              {items.map((item, i) => (
+              {sorted.map((item, i) => (
                 <tr key={item?.id || i} className="border-b border-border/30 hover:bg-muted/20">
                   <td className="py-2 max-w-[200px] truncate">
                     {item?.descricao || item?.cliente?.nome || item?.fornecedor?.nome || "—"}
                   </td>
                   <td className="py-2 text-muted-foreground text-xs">
-                    {item?.categorias?.[0]?.nome || "—"}
+                    {displayCat(item?.categorias?.[0]?.nome || "—")}
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">
                     {item?.data_vencimento || item?.data_competencia || "—"}
                   </td>
                   <td className="py-2 text-right font-medium">
-                    {formatCurrency(item?.[valueField] ?? item?.total ?? 0)}
+                    {formatCurrency(val(item))}
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
+              {sorted.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-muted-foreground">
                     Nenhum lançamento encontrado.

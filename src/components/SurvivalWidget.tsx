@@ -1,7 +1,7 @@
 import { AlertTriangle, ShieldAlert, CheckCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { motion } from "framer-motion";
-import type { CAItem } from "@/lib/financial";
+import { type CAItem, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 
 interface SurvivalWidgetProps {
   burnRate: number;
@@ -16,12 +16,12 @@ export function SurvivalWidget({ burnRate, saldoAtual, recItems, payItems }: Sur
   const diasAteFinsMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
 
   const receberEsteMes = recItems
-    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && r?.status !== "RECEIVED")
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? ""))
+    .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 
   const pagarEsteMes = payItems
-    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && r?.status !== "PAID")
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+    .filter((r) => r?.data_vencimento?.startsWith(mesAtual) && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_PAGAVEL.includes(r?.status ?? ""))
+    .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 
   const queimaMedia = burnRate > 0 ? burnRate : 20000;
   const runway = queimaMedia > 0 ? saldoAtual / queimaMedia : 0;

@@ -5,7 +5,7 @@ import {
   Target, Timer, CreditCard, Banknote,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
-import { type CAItem, getCat } from "@/lib/financial";
+import { type CAItem, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -69,9 +69,10 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
     recItems.filter(r =>
       r?.data_vencimento &&
       r.data_vencimento < today &&
-      r?.status !== "RECEIVED" &&
+      (r?.nao_pago ?? 0) > 0 &&
+      !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
       getCat(r) !== "Empréstimos de Bancos"
-    ).reduce((s, r) => s + Math.max(0, (r?.total ?? 0) - (r?.pago ?? 0)), 0),
+    ).reduce((s, r) => s + (r?.nao_pago ?? 0), 0),
     [recItems, today]);
   const inadLevel = inadimplencia === 0 ? "green" : inadimplencia < 10000 ? "orange" : "red";
 
@@ -170,14 +171,14 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
 
   // 7. Contas a Pagar 7 dias
   const aPagar7 = useMemo(() =>
-    payItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && r?.status !== "PAID")
-      .reduce((s, r) => s + (r?.total ?? 0), 0),
+    payItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_PAGAVEL.includes(r?.status ?? ""))
+      .reduce((s, r) => s + (r?.nao_pago ?? 0), 0),
     [payItems, today, in7]);
 
   // 8. Contas a Receber 7 dias
   const aReceber7 = useMemo(() =>
-    recItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && r?.status !== "RECEIVED" && getCat(r) !== "Empréstimos de Bancos")
-      .reduce((s, r) => s + (r?.total ?? 0), 0),
+    recItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in7 && (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") && getCat(r) !== "Empréstimos de Bancos")
+      .reduce((s, r) => s + (r?.nao_pago ?? 0), 0),
     [recItems, today, in7]);
   const pagar7Level = aPagar7 > aReceber7 ? "red" : aPagar7 > aReceber7 * 0.8 ? "orange" : "green";
   const receber7Level = aReceber7 >= aPagar7 ? "green" : aReceber7 >= aPagar7 * 0.5 ? "orange" : "red";
