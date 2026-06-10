@@ -222,6 +222,18 @@ export function calcAReceberVencidoNoMes(recItems: CAItem[], period: PeriodRange
     .filter((r) => !!r?.data_vencimento && r.data_vencimento < hoje)
     .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 }
+// Entradas PREVISTAS no mês (caixa projetado) — valor cheio de tudo que vence no período
+// e ainda pode entrar (exclui perdidas/canceladas e empréstimos). Inclui o já recebido.
+export function calcEntradasPrevistasNoMes(recItems: CAItem[], period: PeriodRange): number {
+  return recItems
+    .filter(
+      (r) =>
+        isInRange(r?.data_vencimento, period) &&
+        !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
+        getCat(r) !== "Empréstimos de Bancos",
+    )
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
 
 // 2c. A Pagar (em aberto) — total de tudo que ainda falta pagar, AGORA (saldo, não fluxo do mês).
 // Soma `nao_pago` de todas as contas a pagar com saldo em aberto, exceto CANCELADAS.
