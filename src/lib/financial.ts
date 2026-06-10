@@ -151,6 +151,47 @@ export function calcPagoRealizado(payItems: CAItem[], period: PeriodRange): numb
     .reduce((s, p) => s + (p?.pago ?? 0), 0);
 }
 
+// Chaves YYYY-MM dos N meses COMPLETOS antes do mês selecionado (evita o mês parcial corrente).
+export function trailingMonthKeys(period: PeriodRange, n: number): string[] {
+  const [y, m] = period.from.split("-").map(Number);
+  const keys: string[] = [];
+  for (let i = n; i >= 1; i--) {
+    let yy = y;
+    let mm = m - i;
+    while (mm <= 0) { mm += 12; yy -= 1; }
+    keys.push(`${yy}-${String(mm).padStart(2, "0")}`);
+  }
+  return keys;
+}
+
+// Tendência dos N meses fechados antes do mês selecionado — margens líquida e de caixa
+// no MESMO critério, sem o ruído do mês parcial.
+export interface TrailingResumo {
+  meses: string[];
+  margemLiquidaPct: number; // (receita − despesas op.) / receita, por competência
+  margemCaixaPct: number;   // (recebido − pago) / recebido, por vencimento
+  geracaoCaixaMedia: number; // (recebido − pago) / nº meses
+  resultado: number;
+  receita: number;
+}
+export function calcTrailing(recItems: CAItem[], payItems: CAItem[], period: PeriodRange, n = 3): TrailingResumo {
+  const keys = trailingMonthKeys(period, n);
+  const inComp = (d?: string) => !!d && keys.some((k) => d.startsWith(k));
+  const receita = recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && inComp(r?.data_competencia)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  const despesasOp = payItems.filter((r) => !isExcluded(r) && inComp(r?.data_competencia)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  // Caixa OPERACIONAL (exclui empréstimos, juros e compra de equipamentos), pra ser comparável à margem líquida.
+  const recebido = recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && inComp(r?.data_vencimento)).reduce((s, r) => s + (r?.pago ?? 0), 0);
+  const pago = payItems.filter((r) => !isExcluded(r) && inComp(r?.data_vencimento)).reduce((s, r) => s + (r?.pago ?? 0), 0);
+  return {
+    meses: keys,
+    margemLiquidaPct: receita > 0 ? ((receita - despesasOp) / receita) * 100 : 0,
+    margemCaixaPct: recebido > 0 ? ((recebido - pago) / recebido) * 100 : 0,
+    geracaoCaixaMedia: (recebido - pago) / n,
+    resultado: receita - despesasOp,
+    receita,
+  };
+}
+
 // 2b. A Receber (em aberto) — saldo de tudo que ainda falta receber, AGORA (não é fluxo do mês).
 // Soma `nao_pago` de todas as contas a receber com saldo em aberto, EXCETO:
 //  - status LOST (perdidas/incobráveis) e CANCELED (canceladas)
