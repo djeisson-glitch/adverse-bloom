@@ -18,7 +18,7 @@ import {
   calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
-  calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria, calcPontoEquilibrio, calcPagoRealizado,
+  calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria, calcPontoEquilibrio, calcPagoRealizado, calcTrailing,
   calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto, calcRetiradaSocios,
   calcMargemBruta, displayCat, getCat,
   receitaTotalItems, recebidoItems, aReceberNoMesItems,
@@ -231,6 +231,13 @@ export default function Home() {
   // Geração de caixa do mês (caixa): o que de fato entrou − o que de fato saiu.
   const pagoMes = useMemo(() => calcPagoRealizado(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
   const geracaoCaixa = recebidoMes - pagoMes;
+
+  // Tendência: 3 meses fechados antes do mês selecionado (margens estáveis, sem o mês parcial).
+  const trailing = useMemo(() => calcTrailing(recItems, payItems, monthPeriod), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
+  const MESES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const trailingLabel = trailing.meses.length
+    ? `${MESES_CURTO[+trailing.meses[0].slice(5) - 1]}–${MESES_CURTO[+trailing.meses[trailing.meses.length - 1].slice(5) - 1]}/${trailing.meses[0].slice(2, 4)}`
+    : "";
 
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
@@ -664,6 +671,36 @@ export default function Home() {
                 </tbody>
               </table>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="bg-card border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" /> Tendência — 3 meses fechados {trailingLabel && <span className="text-xs font-normal text-muted-foreground">({trailingLabel})</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Médias dos 3 meses completos antes do mês selecionado — sem o ruído do mês parcial. Ambas <strong>operacionais</strong>
+              (excluem empréstimos e compra de equipamentos), então a diferença entre elas é só o <strong>timing</strong> (competência × caixa).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+                <p className="text-xs text-muted-foreground">Margem líquida (3m) <span className="text-[9px] uppercase text-emerald-400">comp.</span></p>
+                <p className={`text-lg font-heading font-bold ${marginColor(trailing.margemLiquidaPct)}`}>{formatPercent(trailing.margemLiquidaPct)}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+                <p className="text-xs text-muted-foreground">Margem de caixa (3m) <span className="text-[9px] uppercase text-sky-400">caixa</span></p>
+                <p className={`text-lg font-heading font-bold ${trailing.margemCaixaPct >= 0 ? "text-green-400" : "text-destructive"}`}>{formatPercent(trailing.margemCaixaPct)}</p>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+                <p className="text-xs text-muted-foreground">Geração de caixa média/mês <span className="text-[9px] uppercase text-sky-400">caixa</span></p>
+                <p className={`text-lg font-heading font-bold ${trailing.geracaoCaixaMedia >= 0 ? "text-green-400" : "text-destructive"}`}>{formatCurrency(trailing.geracaoCaixaMedia)}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>
