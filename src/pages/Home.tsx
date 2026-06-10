@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
-  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems, calcEntradasPrevistasNoMes,
+  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems, calcEntradasPrevistasNoMes, calcRecebidoTotal,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria, calcPontoEquilibrio, calcPagoRealizado, calcTrailing,
@@ -61,7 +61,7 @@ interface MetricCardProps {
 function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime }: MetricCardProps) {
   return (
     <Card
-      className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+      className={`bg-card border-border/50 transition-colors ${onClick ? "cursor-pointer hover:border-primary/30" : ""}`}
       onClick={onClick}
     >
       <CardContent className="p-4">
@@ -229,12 +229,17 @@ export default function Home() {
   const pontoEquilibrio = useMemo(() => calcPontoEquilibrio(custosFixos, mcRealPct), [custosFixos, mcRealPct]);
   const faltaPraLucro = pontoEquilibrio - faturamentoMes;
 
-  // Geração de caixa do mês (caixa): o que de fato entrou − o que de fato saiu.
+  // Geração de caixa do mês (caixa TOTAL, simétrica ao saldo): tudo que entrou − tudo que saiu,
+  // incl. empréstimos dos dois lados (entrada de empréstimo conta; amortização também).
   const pagoMes = useMemo(() => calcPagoRealizado(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
-  const geracaoCaixa = recebidoMes - pagoMes;
-  // Projetado: se tudo que vence no mês entrar/sair. entradas previstas − total a pagar do mês.
+  const recebidoTotalMes = useMemo(() => calcRecebidoTotal(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const geracaoCaixa = recebidoTotalMes - pagoMes;
+  // Projetado: o mês completo, se tudo que vence se concretizar. Identidade:
+  // projetado = realizado + (ainda a entrar) − (ainda a sair).
   const entradasPrevistas = useMemo(() => calcEntradasPrevistasNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
   const geracaoProjetada = entradasPrevistas - aPagarMes;
+  const aindaEntrar = entradasPrevistas - recebidoTotalMes;
+  const aindaSair = aPagarMes - pagoMes;
 
   // Tendência: 3 meses fechados antes do mês selecionado (margens estáveis, sem o mês parcial).
   const trailing = useMemo(() => calcTrailing(recItems, payItems, monthPeriod), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
@@ -498,12 +503,14 @@ export default function Home() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Caixa</h3>
           <span className="text-[10px] uppercase tracking-wide text-sky-400/70">vencimento</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricCard label="A receber no mês" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
-          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no mês", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no mês" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`se o mês fechar: entram ${formatCurrency(entradasPrevistas)} · saem ${formatCurrency(aPagarMes)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`mês completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
         </div>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">

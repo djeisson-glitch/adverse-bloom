@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type CAItem, displayCat } from "@/lib/financial";
 
@@ -46,10 +46,10 @@ export function DetailModal({ open, onOpenChange, title, items, valueField = "to
                     {displayCat(item?.categorias?.[0]?.nome || "—")}
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">
-                    {item?.data_competencia || "—"}
+                    {formatDate(item?.data_competencia || null)}
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">
-                    {item?.data_vencimento || "—"}
+                    {formatDate(item?.data_vencimento || null)}
                   </td>
                   <td className="py-2 text-right font-medium">
                     {formatCurrency(val(item))}
