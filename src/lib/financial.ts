@@ -42,6 +42,10 @@ export const FIXED_COSTS = [
   "Reformas e manutenções do escritório",
   "Manutenção escritório",
   "Manutenção de equipamentos",
+  // Reclassificados de variável → fixo (auditoria 2026-06-10): capacitação/estrutura, não variam com projetos.
+  "Treinamentos",
+  "Cursos de edição / direção",
+  "Materiais de Escritório",
 ];
 
 export const VARIABLE_COSTS = [
@@ -61,9 +65,6 @@ export const VARIABLE_COSTS = [
   "Passagem aérea",
   "Transporte Urbano (táxi, Uber)",
   "Marketing e Publicidade",
-  "Treinamentos",
-  "Cursos de edição / direção",
-  "Materiais de Escritório",
   "Copa e Cozinha",
   "Uniformes",
   "Brindes para Clientes",
