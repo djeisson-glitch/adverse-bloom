@@ -191,6 +191,11 @@ export default function Home() {
     custosVariaveis: custosVariaveisItems(payItems, monthPeriod),
     impostos: impostosSobreVendaItems(payItems, monthPeriod),
   }), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
+  // Parcela ainda em aberto (nao_pago) de cada bloco de custo — mesmo modelo do "Total a pagar".
+  const emAberto = (items: CAItem[]) => items.reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+  const abertoFixos = useMemo(() => emAberto(detItens.custosFixos), [detItens]);
+  const abertoVariaveis = useMemo(() => emAberto(detItens.custosVariaveis), [detItens]);
+  const abertoImpostos = useMemo(() => emAberto(detItens.impostos), [detItens]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -426,6 +431,8 @@ export default function Home() {
           <MetricCard
             label="Custos fixos"
             value={formatCurrency(custosFixos)}
+            sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"}
+            subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"}
             icon={Receipt}
             onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })}
             loading={financialLoading}
@@ -434,6 +441,8 @@ export default function Home() {
           <MetricCard
             label="Custos variáveis"
             value={formatCurrency(custosVariaveis)}
+            sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"}
+            subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"}
             icon={TrendingDown}
             onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })}
             loading={financialLoading}
@@ -503,6 +512,8 @@ export default function Home() {
           <MetricCard
             label="Impostos sobre venda"
             value={formatCurrency(impostosVenda)}
+            sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"}
+            subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"}
             icon={Receipt}
             onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })}
             loading={financialLoading}
