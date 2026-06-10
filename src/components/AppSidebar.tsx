@@ -1,6 +1,6 @@
 import {
   Home, DollarSign, Handshake, Calculator, FolderKanban, Map, Settings, LogOut, ChevronDown,
-  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot, Shield, CalendarDays,
+  LayoutDashboard, TrendingUp, Receipt, Target, Vault, Lightbulb, LineChart, CreditCard, Users, Bot, Shield, CalendarDays, FileText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const financeiroItems = [
+  { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText },
   { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUp },
   { title: "Insights", url: "/financeiro/insights", icon: Lightbulb },
 ];

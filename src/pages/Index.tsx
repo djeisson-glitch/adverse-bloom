@@ -5,7 +5,7 @@ import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { formatCurrency } from "@/lib/format";
 import {
   type CAItem, isInRange, calcReceitaTotal, calcReceitaRecebida,
-  calcDespesasOperacionais, calcSaldoEmConta, getCat,
+  calcDespesasOperacionais, calcSaldoEmConta, getCat, calcAReceber, STATUS_NAO_RECEBIVEL,
 } from "@/lib/financial";
 import { useEmpresaContexto } from "@/hooks/useEmpresaContexto";
 import { motion } from "framer-motion";
@@ -45,11 +45,11 @@ export default function Index() {
     recItems.filter(r => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period)),
     [recItems, period]);
 
-  // KPI 3: A Receber - PENDING, no period filter
-  const aReceber = useMemo(() =>
-    recItems.filter(r => r?.status === "PENDING").reduce((s, r) => s + (r?.total ?? 0), 0),
+  // KPI 3: A Receber - tudo em aberto (inclui vencidos), exceto perdidas/canceladas/empréstimos. Sem filtro de período.
+  const aReceber = useMemo(() => calcAReceber(recItems), [recItems]);
+  const aReceberItems = useMemo(
+    () => recItems.filter(r => (r?.nao_pago ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") && getCat(r) !== "Empréstimos de Bancos"),
     [recItems]);
-  const aReceberItems = useMemo(() => recItems.filter(r => r?.status === "PENDING"), [recItems]);
 
   // KPI 4: Despesas Operacionais do Período
   const despesasPeriodo = useMemo(() => calcDespesasOperacionais(payItems, period), [payItems, period]);
@@ -128,7 +128,7 @@ export default function Index() {
         <StatCard title="Recebido" value={formatCurrency(recebidoPeriodo)} icon={CheckCircle} delay={0.05}
           onClick={() => setDetailModal({ title: "Recebido no Período", items: recebidoItems, valueField: "pago" })} />
         <StatCard title="A Receber" value={formatCurrency(aReceber)} icon={ArrowDownLeft} delay={0.1}
-          onClick={() => setDetailModal({ title: "A Receber (Pendentes)", items: aReceberItems, valueField: "total" })} />
+          onClick={() => setDetailModal({ title: "A Receber (em aberto)", items: aReceberItems, valueField: "nao_pago" })} />
         <StatCard title="Despesas do Período" value={formatCurrency(despesasPeriodo)} icon={Wallet} delay={0.15}
           onClick={() => setDetailModal({ title: "Despesas do Período", items: despesasItems, valueField: "total" })} />
         <StatCard title="Pago no Período" value={formatCurrency(pagoPeriodo)} icon={CreditCard} delay={0.2}

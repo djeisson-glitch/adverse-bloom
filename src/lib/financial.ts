@@ -3,6 +3,7 @@ import type { PeriodRange } from "@/components/PeriodFilter";
 export interface CAItem {
   total?: number;
   pago?: number;
+  nao_pago?: number;
   status?: string;
   status_traduzido?: string;
   data_vencimento?: string;
@@ -130,6 +131,24 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
+// 2b. A Receber (em aberto) — saldo de tudo que ainda falta receber, AGORA (não é fluxo do mês).
+// Soma `nao_pago` de todas as contas a receber com saldo em aberto, EXCETO:
+//  - status LOST (perdidas/incobráveis) e CANCELED (canceladas)
+//  - empréstimos ("Empréstimos de Bancos")
+// Inclui propositalmente as VENCIDAS (OVERDUE) — continuam sendo dinheiro a receber.
+// ACQUITTED (quitadas) têm nao_pago = 0, então saem naturalmente.
+export const STATUS_NAO_RECEBIVEL = ["LOST", "CANCELED", "CANCELLED"];
+export function calcAReceber(recItems: CAItem[]): number {
+  return recItems
+    .filter(
+      (r) =>
+        (r?.nao_pago ?? 0) > 0 &&
+        !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
+        getCat(r) !== "Empréstimos de Bancos",
+    )
+    .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+}
+
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
@@ -196,6 +215,52 @@ export function calcLucroLiquidoFinal(receitaTotal: number, payItems: CAItem[], 
   const valor = receitaTotal - todasDespesas;
   const pct = receitaTotal > 0 ? (valor / receitaTotal) * 100 : 0;
   return { valor, pct };
+}
+
+// 7c. Não operacional (empréstimos, juros, compra de equipamentos) — por competência.
+export function calcNaoOperacional(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((r) => isExcluded(r) && isInRange(r?.data_competencia, period))
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// DRE Gerencial — cascata por competência. Fecha exatamente com a margem líquida:
+// Receita Bruta − Impostos = Receita Líquida; − Custos do Projeto = Margem Bruta;
+// − Custos Fixos − Outras Variáveis = Resultado Operacional (margem líquida);
+// − Não Operacional = Resultado Líquido Final.
+export interface DRERow {
+  label: string;
+  valor: number;
+  /** "receita"=entrada | "deducao"=saída | "subtotal" | "resultado" */
+  tipo: "receita" | "deducao" | "subtotal" | "resultado";
+  /** % sobre a receita bruta */
+  pct: number;
+}
+export function calcDRE(recItems: CAItem[], payItems: CAItem[], period: PeriodRange): DRERow[] {
+  const receitaBruta = calcReceitaTotal(recItems, period);
+  const impostos = calcImpostosSobreVenda(payItems, period);
+  const receitaLiquida = receitaBruta - impostos;
+  const custosProjeto = calcCustosDoProjeto(payItems, period);
+  const margemBruta = receitaLiquida - custosProjeto;
+  const custosFixos = calcCustosFixos(payItems, period);
+  const custosVariaveis = calcCustosVariaveis(payItems, period);
+  const outrasVariaveis = custosVariaveis - custosProjeto; // variáveis que não são custo direto do projeto
+  const resultadoOperacional = receitaBruta - calcDespesasOperacionais(payItems, period);
+  const naoOperacional = calcNaoOperacional(payItems, period);
+  const resultadoFinal = resultadoOperacional - naoOperacional;
+  const pct = (v: number) => (receitaBruta > 0 ? (v / receitaBruta) * 100 : 0);
+  return [
+    { label: "Receita Bruta", valor: receitaBruta, tipo: "receita", pct: 100 },
+    { label: "(−) Impostos sobre venda", valor: -impostos, tipo: "deducao", pct: pct(-impostos) },
+    { label: "(=) Receita Líquida", valor: receitaLiquida, tipo: "subtotal", pct: pct(receitaLiquida) },
+    { label: "(−) Custos diretos do projeto", valor: -custosProjeto, tipo: "deducao", pct: pct(-custosProjeto) },
+    { label: "(=) Margem Bruta", valor: margemBruta, tipo: "subtotal", pct: pct(margemBruta) },
+    { label: "(−) Custos Fixos", valor: -custosFixos, tipo: "deducao", pct: pct(-custosFixos) },
+    { label: "(−) Outras despesas variáveis", valor: -outrasVariaveis, tipo: "deducao", pct: pct(-outrasVariaveis) },
+    { label: "(=) Resultado Operacional", valor: resultadoOperacional, tipo: "subtotal", pct: pct(resultadoOperacional) },
+    { label: "(−) Não operacional (empréstimos, juros, equip.)", valor: -naoOperacional, tipo: "deducao", pct: pct(-naoOperacional) },
+    { label: "(=) Resultado Líquido Final", valor: resultadoFinal, tipo: "resultado", pct: pct(resultadoFinal) },
+  ];
 }
 
 // 8. Ponto de Equilíbrio

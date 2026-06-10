@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
-  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
@@ -171,17 +171,7 @@ export default function Home() {
   );
 
   const today = now.toISOString().slice(0, 10);
-  const aReceber = useMemo(() => {
-    return recItems
-      .filter(
-        (r) =>
-          r?.data_vencimento &&
-          r.data_vencimento >= today &&
-          r?.status !== "RECEIVED" &&
-          getCat(r) !== "Empréstimos de Bancos",
-      )
-      .reduce((s, r) => s + (r?.total ?? 0), 0);
-  }, [recItems, today]);
+  const aReceber = useMemo(() => calcAReceber(recItems), [recItems]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -375,7 +365,7 @@ export default function Home() {
           <MetricCard
             label="A receber"
             value={formatCurrency(aReceber)}
-            sub="vencimentos futuros"
+            sub="em aberto (inclui vencidos)"
             icon={Wallet}
             onClick={() => navigate("/financeiro/fluxo")}
             loading={financialLoading}
