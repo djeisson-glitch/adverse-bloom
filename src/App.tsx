@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
 import ClienteDetalhe from "./pages/ClienteDetalhe";
 import FluxoDeCaixa from "./pages/FluxoDeCaixa";
+import DREGerencial from "./pages/DREGerencial";
 import Custos from "./pages/Custos";
 import ResultadosMetas from "./pages/ResultadosMetas";
 import CaixaRunway from "./pages/CaixaRunway";
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/financeiro" element={<ProtectedRoute><ModuleGuard module="financeiro"><Index /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/fluxo" element={<ProtectedRoute><ModuleGuard module="financeiro"><FluxoDeCaixa /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/dre" element={<ProtectedRoute><ModuleGuard module="financeiro"><DREGerencial /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/custos" element={<ProtectedRoute><ModuleGuard module="financeiro"><Custos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/resultados" element={<ProtectedRoute><ModuleGuard module="financeiro"><ResultadosMetas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/runway" element={<ProtectedRoute><ModuleGuard module="financeiro"><CaixaRunway /></ModuleGuard></ProtectedRoute>} />

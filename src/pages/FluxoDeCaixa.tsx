@@ -102,6 +102,28 @@ export default function FluxoDeCaixa() {
 
   const primeiroNegativo = projecao.find((r) => r.negativo);
 
+  // Realizado mês a mês (últimos 6 meses) — fluxo de caixa efetivo (campo `pago`, por vencimento).
+  // Saldo acumulado reconstruído a partir do saldo atual (fecha com a âncora), então é consistente
+  // mesmo sem saber o saldo histórico antes da âncora.
+  const realizado = useMemo(() => {
+    const now = new Date();
+    const rows: { mes: string; recebimentos: number; pagamentos: number; geracao: number; saldoAnterior: number; saldoFim: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const recebimentos = recItems.filter((r) => r.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r.pago ?? 0), 0);
+      const pagamentos = payItems.filter((p) => p.data_vencimento?.startsWith(key)).reduce((s, p) => s + (p.pago ?? 0), 0);
+      rows.push({ mes: `${MESES[d.getMonth()]}/${d.getFullYear()}`, recebimentos, pagamentos, geracao: recebimentos - pagamentos, saldoAnterior: 0, saldoFim: 0 });
+    }
+    // Reconstrói saldo acumulado: fim do mês corrente = saldo atual; volta no tempo descontando a geração.
+    if (rows.length) {
+      rows[rows.length - 1].saldoFim = saldoAtual;
+      for (let k = rows.length - 2; k >= 0; k--) rows[k].saldoFim = rows[k + 1].saldoFim - rows[k + 1].geracao;
+      rows.forEach((r) => { r.saldoAnterior = r.saldoFim - r.geracao; });
+    }
+    return rows;
+  }, [recItems, payItems, saldoAtual]);
+
   const analisar = async () => {
     setLoadingAi(true);
     try {
@@ -173,6 +195,38 @@ export default function FluxoDeCaixa() {
         <StatCard title="A receber (90d)" value={formatCurrency(aReceber90)} icon={TrendingUp} delay={0.1} changeType="positive" />
         <StatCard title="A pagar (90d)" value={formatCurrency(aPagar90)} icon={TrendingDown} delay={0.2} changeType="negative" />
         <StatCard title="Saldo projetado (90d)" value={formatCurrency(projecao[2]?.saldoProjetado ?? saldoAtual)} icon={Wallet} delay={0.3} changeType={(projecao[2]?.saldoProjetado ?? 0) >= 0 ? "positive" : "negative"} />
+      </div>
+
+      {/* Realizado mês a mês */}
+      <div className="glass-card p-5">
+        <h2 className="font-heading text-lg font-semibold mb-1">Realizado — últimos 6 meses</h2>
+        <p className="text-xs text-muted-foreground mb-3">Caixa efetivo (valores pagos), por mês de vencimento. Saldo acumulado reconstruído a partir do saldo atual.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                <th className="pb-2 font-medium">Mês</th>
+                <th className="pb-2 font-medium text-right">Saldo mês anterior</th>
+                <th className="pb-2 font-medium text-right">Recebimentos</th>
+                <th className="pb-2 font-medium text-right">Pagamentos</th>
+                <th className="pb-2 font-medium text-right">Geração de caixa</th>
+                <th className="pb-2 font-medium text-right">Saldo final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {realizado.map((r) => (
+                <tr key={r.mes} className="border-b border-border/40">
+                  <td className="py-2.5">{r.mes}</td>
+                  <td className="py-2.5 text-right text-muted-foreground">{formatCurrency(r.saldoAnterior)}</td>
+                  <td className="py-2.5 text-right text-green-400">{formatCurrency(r.recebimentos)}</td>
+                  <td className="py-2.5 text-right text-destructive">{formatCurrency(r.pagamentos)}</td>
+                  <td className={`py-2.5 text-right font-medium ${r.geracao >= 0 ? "text-green-400" : "text-destructive"}`}>{formatCurrency(r.geracao)}</td>
+                  <td className={`py-2.5 text-right font-semibold ${r.saldoFim < 0 ? "text-destructive" : "text-foreground"}`}>{formatCurrency(r.saldoFim)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Projeção mês a mês */}

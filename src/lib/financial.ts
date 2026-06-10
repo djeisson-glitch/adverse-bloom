@@ -217,6 +217,52 @@ export function calcLucroLiquidoFinal(receitaTotal: number, payItems: CAItem[], 
   return { valor, pct };
 }
 
+// 7c. Não operacional (empréstimos, juros, compra de equipamentos) — por competência.
+export function calcNaoOperacional(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((r) => isExcluded(r) && isInRange(r?.data_competencia, period))
+    .reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// DRE Gerencial — cascata por competência. Fecha exatamente com a margem líquida:
+// Receita Bruta − Impostos = Receita Líquida; − Custos do Projeto = Margem Bruta;
+// − Custos Fixos − Outras Variáveis = Resultado Operacional (margem líquida);
+// − Não Operacional = Resultado Líquido Final.
+export interface DRERow {
+  label: string;
+  valor: number;
+  /** "receita"=entrada | "deducao"=saída | "subtotal" | "resultado" */
+  tipo: "receita" | "deducao" | "subtotal" | "resultado";
+  /** % sobre a receita bruta */
+  pct: number;
+}
+export function calcDRE(recItems: CAItem[], payItems: CAItem[], period: PeriodRange): DRERow[] {
+  const receitaBruta = calcReceitaTotal(recItems, period);
+  const impostos = calcImpostosSobreVenda(payItems, period);
+  const receitaLiquida = receitaBruta - impostos;
+  const custosProjeto = calcCustosDoProjeto(payItems, period);
+  const margemBruta = receitaLiquida - custosProjeto;
+  const custosFixos = calcCustosFixos(payItems, period);
+  const custosVariaveis = calcCustosVariaveis(payItems, period);
+  const outrasVariaveis = custosVariaveis - custosProjeto; // variáveis que não são custo direto do projeto
+  const resultadoOperacional = receitaBruta - calcDespesasOperacionais(payItems, period);
+  const naoOperacional = calcNaoOperacional(payItems, period);
+  const resultadoFinal = resultadoOperacional - naoOperacional;
+  const pct = (v: number) => (receitaBruta > 0 ? (v / receitaBruta) * 100 : 0);
+  return [
+    { label: "Receita Bruta", valor: receitaBruta, tipo: "receita", pct: 100 },
+    { label: "(−) Impostos sobre venda", valor: -impostos, tipo: "deducao", pct: pct(-impostos) },
+    { label: "(=) Receita Líquida", valor: receitaLiquida, tipo: "subtotal", pct: pct(receitaLiquida) },
+    { label: "(−) Custos diretos do projeto", valor: -custosProjeto, tipo: "deducao", pct: pct(-custosProjeto) },
+    { label: "(=) Margem Bruta", valor: margemBruta, tipo: "subtotal", pct: pct(margemBruta) },
+    { label: "(−) Custos Fixos", valor: -custosFixos, tipo: "deducao", pct: pct(-custosFixos) },
+    { label: "(−) Outras despesas variáveis", valor: -outrasVariaveis, tipo: "deducao", pct: pct(-outrasVariaveis) },
+    { label: "(=) Resultado Operacional", valor: resultadoOperacional, tipo: "subtotal", pct: pct(resultadoOperacional) },
+    { label: "(−) Não operacional (empréstimos, juros, equip.)", valor: -naoOperacional, tipo: "deducao", pct: pct(-naoOperacional) },
+    { label: "(=) Resultado Líquido Final", valor: resultadoFinal, tipo: "resultado", pct: pct(resultadoFinal) },
+  ];
+}
+
 // 8. Ponto de Equilíbrio
 export function calcPontoEquilibrio(custosFixos: number, margemContribuicaoPct: number): number {
   return margemContribuicaoPct > 0 ? custosFixos / (margemContribuicaoPct / 100) : 0;
