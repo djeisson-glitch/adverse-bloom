@@ -98,6 +98,13 @@ export const CUSTOS_DO_PROJETO = [
 
 // Pró-labore + Distribuição de Lucros são exibidos unificados como "Salário".
 export const SALARIO_CATEGORIES = ["Pró-labore", "Distribuição de Lucros"];
+// Retirada total dos sócios (pró-labore + distribuição de lucros) no período, por competência.
+// É a remuneração fixa dos sócios — dividida em 2 rubricas só por questão fiscal.
+export function calcRetiradaSocios(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((p) => SALARIO_CATEGORIES.includes(getCat(p)) && isInRange(p?.data_competencia, period))
+    .reduce((s, p) => s + (p?.total ?? 0), 0);
+}
 export function displayCat(cat: string): string {
   return SALARIO_CATEGORIES.includes(cat) ? "Salário" : cat;
 }
@@ -200,6 +207,17 @@ export function aPagarNoMesItems(payItems: CAItem[], period: PeriodRange): CAIte
 }
 export function calcAPagarNoMes(payItems: CAItem[], period: PeriodRange): number {
   return aPagarNoMesItems(payItems, period).reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+}
+
+// TOTAL a pagar do mês — TODOS os lançamentos com vencimento no período (pagos + a vencer + vencidos),
+// pelo valor cheio (total), exceto cancelados (anulados). É o volume total do mês, independente do status.
+export function pagamentosDoMesItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter(
+    (p) => !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") && isInRange(p?.data_vencimento, period),
+  );
+}
+export function calcPagamentosDoMes(payItems: CAItem[], period: PeriodRange): number {
+  return pagamentosDoMesItems(payItems, period).reduce((s, p) => s + (p?.total ?? 0), 0);
 }
 // Parcela já vencida (venc < hoje) dentro do período — para destaque no card.
 export function calcAPagarVencidoNoMes(payItems: CAItem[], period: PeriodRange, hoje: string): number {

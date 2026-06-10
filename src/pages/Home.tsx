@@ -15,13 +15,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
-  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcAPagarVencidoNoMes,
+  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
-  calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
+  calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto, calcRetiradaSocios,
   calcMargemBruta, displayCat, getCat,
-  receitaTotalItems, recebidoItems, aReceberNoMesItems, aPagarNoMesItems,
+  receitaTotalItems, recebidoItems, aReceberNoMesItems,
   custosFixosItems, custosVariaveisItems, impostosSobreVendaItems,
 } from "@/lib/financial";
 import { DetailModal } from "@/components/financeiro/DetailModal";
@@ -177,20 +177,25 @@ export default function Home() {
   const today = now.toISOString().slice(0, 10);
   const aReceberMes = useMemo(() => calcAReceberNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
   const aReceberMesVencido = useMemo(() => calcAReceberVencidoNoMes(recItems, monthPeriod, today), [recItems, monthPeriod.from, monthPeriod.to, today]);
-  const aPagarMes = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
-  const aPagarMesVencido = useMemo(() => calcAPagarVencidoNoMes(payItems, monthPeriod, today), [payItems, monthPeriod.from, monthPeriod.to, today]);
+  const aPagarMes = useMemo(() => calcPagamentosDoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const aPagarMesAberto = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
 
   // Drill-down: lançamentos do Conta Azul que somam cada card (lista = exatamente o que o número soma).
   const [detalhe, setDetalhe] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" | "nao_pago" } | null>(null);
   const detItens = useMemo(() => ({
     faturamento: receitaTotalItems(recItems, monthPeriod),
     aReceber: aReceberNoMesItems(recItems, monthPeriod),
-    aPagar: aPagarNoMesItems(payItems, monthPeriod),
+    aPagar: pagamentosDoMesItems(payItems, monthPeriod),
     recebido: recebidoItems(recItems, monthPeriod),
     custosFixos: custosFixosItems(payItems, monthPeriod),
     custosVariaveis: custosVariaveisItems(payItems, monthPeriod),
     impostos: impostosSobreVendaItems(payItems, monthPeriod),
   }), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
+  // Parcela ainda em aberto (nao_pago) de cada bloco de custo — mesmo modelo do "Total a pagar".
+  const emAberto = (items: CAItem[]) => items.reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+  const abertoFixos = useMemo(() => emAberto(detItens.custosFixos), [detItens]);
+  const abertoVariaveis = useMemo(() => emAberto(detItens.custosVariaveis), [detItens]);
+  const abertoImpostos = useMemo(() => emAberto(detItens.impostos), [detItens]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -211,6 +216,24 @@ export default function Home() {
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
   const projetosRealizados = useProjetosRealizados(monthPeriod);
   const ticketMedioValor = projetosRealizados > 0 ? faturamentoMes / projetosRealizados : ticketMedio.valor;
+
+  // Portal do mês — campos prontos pra copiar. Pró-labore = retirada total dos sócios
+  // (pró-labore + distribuição); Custo fixo = custos fixos − essa retirada (só operacional).
+  const retiradaSocios = useMemo(() => calcRetiradaSocios(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const custoFixoOperacional = custosFixos - retiradaSocios;
+  const portalCampos = [
+    { label: "Faturamento bruto", valor: formatCurrency(faturamentoMes) },
+    { label: "Custo fixo", valor: formatCurrency(custoFixoOperacional) },
+    { label: "Pró-labore", valor: formatCurrency(retiradaSocios) },
+    { label: "Margem líquida", valor: formatPercent(margemLiquida.pct) },
+    { label: "Caixa de reserva", valor: formatCurrency(saldoConta) },
+    { label: "Nº de projetos fechados", valor: String(projetosRealizados) },
+  ];
+  const copiarPortal = () => {
+    const txt = portalCampos.map((c) => `${c.label}: ${c.valor}`).join("\n");
+    navigator.clipboard?.writeText(txt);
+    toast({ title: "Copiado", description: "Cole no portal os 6 campos do mês." });
+  };
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
     const vari = calcCustosVariaveisPorCategoria(payItems, monthPeriod);
@@ -391,10 +414,10 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
-            label="A pagar no mês"
+            label="Total a pagar no mês"
             value={formatCurrency(aPagarMes)}
-            sub={aPagarMesVencido > 0 ? `${formatCurrency(aPagarMesVencido)} vencido` : "a vencer no mês"}
-            subColor={aPagarMesVencido > 0 ? "text-destructive" : undefined}
+            sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"}
+            subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"}
             icon={CreditCard}
             onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })}
             loading={financialLoading}
@@ -426,6 +449,8 @@ export default function Home() {
           <MetricCard
             label="Custos fixos"
             value={formatCurrency(custosFixos)}
+            sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"}
+            subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"}
             icon={Receipt}
             onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })}
             loading={financialLoading}
@@ -434,6 +459,8 @@ export default function Home() {
           <MetricCard
             label="Custos variáveis"
             value={formatCurrency(custosVariaveis)}
+            sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"}
+            subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"}
             icon={TrendingDown}
             onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })}
             loading={financialLoading}
@@ -503,6 +530,8 @@ export default function Home() {
           <MetricCard
             label="Impostos sobre venda"
             value={formatCurrency(impostosVenda)}
+            sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"}
+            subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"}
             icon={Receipt}
             onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })}
             loading={financialLoading}
@@ -583,6 +612,31 @@ export default function Home() {
                 </tbody>
               </table>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="bg-card border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" /> Portal do mês
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Números prontos pra alimentar o portal externo (mês selecionado no topo). Pró-labore = retirada total dos sócios
+              (pró-labore + distribuição); custo fixo = só operacional (sem a retirada).
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {portalCampos.map((c) => (
+                <div key={c.label} className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+                  <p className="text-xs text-muted-foreground truncate">{c.label}</p>
+                  <p className="text-lg font-heading font-bold">{c.valor}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </section>
