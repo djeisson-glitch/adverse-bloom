@@ -3,6 +3,7 @@ import type { PeriodRange } from "@/components/PeriodFilter";
 export interface CAItem {
   total?: number;
   pago?: number;
+  nao_pago?: number;
   status?: string;
   status_traduzido?: string;
   data_vencimento?: string;
@@ -128,6 +129,24 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
   return recItems
     .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period))
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
+}
+
+// 2b. A Receber (em aberto) — saldo de tudo que ainda falta receber, AGORA (não é fluxo do mês).
+// Soma `nao_pago` de todas as contas a receber com saldo em aberto, EXCETO:
+//  - status LOST (perdidas/incobráveis) e CANCELED (canceladas)
+//  - empréstimos ("Empréstimos de Bancos")
+// Inclui propositalmente as VENCIDAS (OVERDUE) — continuam sendo dinheiro a receber.
+// ACQUITTED (quitadas) têm nao_pago = 0, então saem naturalmente.
+export const STATUS_NAO_RECEBIVEL = ["LOST", "CANCELED", "CANCELLED"];
+export function calcAReceber(recItems: CAItem[]): number {
+  return recItems
+    .filter(
+      (r) =>
+        (r?.nao_pago ?? 0) > 0 &&
+        !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
+        getCat(r) !== "Empréstimos de Bancos",
+    )
+    .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 }
 
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
