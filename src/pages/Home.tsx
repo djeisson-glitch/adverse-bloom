@@ -35,6 +35,7 @@ import {
   Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard, Scale, Banknote,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BarChart, Bar, XAxis, Cell, ReferenceLine, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -239,6 +240,21 @@ export default function Home() {
     ? `${MESES_CURTO[+trailing.meses[0].slice(5) - 1]}–${MESES_CURTO[+trailing.meses[trailing.meses.length - 1].slice(5) - 1]}/${trailing.meses[0].slice(2, 4)}`
     : "";
 
+  // Geração de caixa mês a mês (6 meses até o selecionado) — recebido − pago, por vencimento.
+  const geracaoMensal = useMemo(() => {
+    const [y, m] = monthPeriod.from.split("-").map(Number);
+    const rows: { mes: string; geracao: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      let yy = y, mm = m - i;
+      while (mm <= 0) { mm += 12; yy -= 1; }
+      const key = `${yy}-${String(mm).padStart(2, "0")}`;
+      const receb = recItems.filter((r) => r.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r.pago ?? 0), 0);
+      const pag = payItems.filter((p) => p.data_vencimento?.startsWith(key)).reduce((s, p) => s + (p.pago ?? 0), 0);
+      rows.push({ mes: MESES_CURTO[mm - 1], geracao: Math.round(receb - pag) });
+    }
+    return rows;
+  }, [recItems, payItems, monthPeriod.from]);
+
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
   const projetosRealizados = useProjetosRealizados(monthPeriod);
@@ -415,174 +431,16 @@ export default function Home() {
             Ver detalhes <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Resumo — os números-chave */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard
             label="Faturamento do mês"
             regime="competência"
             value={formatCurrency(faturamentoMes)}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
-            subColor={
-              faturamentoVsMeta >= 100
-                ? "text-green-400"
-                : faturamentoVsMeta >= 60
-                  ? "text-amber-400"
-                  : "text-destructive"
-            }
+            subColor={faturamentoVsMeta >= 100 ? "text-green-400" : faturamentoVsMeta >= 60 ? "text-amber-400" : "text-destructive"}
             icon={TrendingUp}
             onClick={() => setDetalhe({ title: "Faturamento do mês (NFs emitidas)", items: detItens.faturamento, valueField: "total" })}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="A receber no mês"
-            regime="caixa"
-            value={formatCurrency(aReceberMes)}
-            sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"}
-            subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined}
-            icon={Wallet}
-            onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Total a pagar no mês"
-            regime="caixa"
-            value={formatCurrency(aPagarMes)}
-            sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"}
-            subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"}
-            icon={CreditCard}
-            onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Saldo em conta"
-            regime="caixa"
-            value={formatCurrency(saldoConta)}
-            icon={DollarSign}
-            onClick={() => navigate("/financeiro/runway")}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="MRR (receita recorrente)"
-            value={formatCurrency(mrr)}
-            sub={`${nContratos} contratos ativos`}
-            icon={Wallet}
-            onClick={() => navigate("/configuracoes/contratos")}
-            loading={false}
-          />
-          <MetricCard
-            label="Recebido (realizado)"
-            regime="caixa"
-            value={formatCurrency(recebidoMes)}
-            sub="recebido no mês"
-            subColor="text-green-400"
-            icon={CircleDollarSign}
-            onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Geração de caixa (mês)"
-            regime="caixa"
-            value={formatCurrency(geracaoCaixa)}
-            valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"}
-            sub={`entrou ${formatCurrency(recebidoMes)} · saiu ${formatCurrency(pagoMes)}`}
-            subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"}
-            icon={Banknote}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Custos fixos"
-            regime="competência"
-            value={formatCurrency(custosFixos)}
-            sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"}
-            subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"}
-            icon={Receipt}
-            onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })}
-            loading={financialLoading}
-            insight={insightCustosFixos}
-          />
-          <MetricCard
-            label="Custos variáveis"
-            regime="competência"
-            value={formatCurrency(custosVariaveis)}
-            sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"}
-            subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"}
-            icon={TrendingDown}
-            onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Margem de contribuição"
-            regime="competência"
-            value={formatPercent(margemContrib.pct)}
-            sub={formatCurrency(margemContrib.valor)}
-            valueColor={marginColor(margemContrib.pct)}
-            icon={Percent}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-            insight={insightContrib}
-          />
-          <MetricCard
-            label="Margem bruta"
-            regime="competência"
-            value={formatPercent(margemBruta.pct)}
-            sub={formatCurrency(margemBruta.valor)}
-            valueColor={marginColor(margemBruta.pct)}
-            icon={TrendingUp}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Margem líquida"
-            regime="competência"
-            value={formatPercent(margemLiquida.pct)}
-            sub={formatCurrency(margemLiquida.valor)}
-            valueColor={marginColor(margemLiquida.pct)}
-            icon={Target}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-            insight={insightMargemLiq}
-          />
-          <MetricCard
-            label="Projetos realizados"
-            value={String(projetosRealizados)}
-            sub="no período (ClickUp)"
-            icon={Briefcase}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Ticket médio"
-            value={formatCurrency(ticketMedioValor)}
-            sub={projetosRealizados > 0 ? `${projetosRealizados} projetos` : `${ticketMedio.qtde} faturas`}
-            icon={TrendingUp}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Nº de clientes"
-            value={String(topClientes.qtde)}
-            sub="faturando no período"
-            icon={Handshake}
-            onClick={() => navigate("/clientes")}
-            loading={financialLoading}
-            insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined}
-          />
-          <MetricCard
-            label="Receita líquida"
-            regime="competência"
-            value={formatCurrency(receitaLiquida)}
-            sub="receita − impostos"
-            icon={CircleDollarSign}
-            onClick={() => navigate("/financeiro/resultados")}
-            loading={financialLoading}
-          />
-          <MetricCard
-            label="Impostos sobre venda"
-            regime="competência"
-            value={formatCurrency(impostosVenda)}
-            sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"}
-            subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"}
-            icon={Receipt}
-            onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -596,12 +454,11 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
-            label="Ponto de equilíbrio"
-            regime="competência"
-            value={formatCurrency(pontoEquilibrio)}
-            sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`}
-            subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"}
-            icon={Scale}
+            label="Saldo em conta"
+            regime="caixa"
+            value={formatCurrency(saldoConta)}
+            icon={DollarSign}
+            onClick={() => navigate("/financeiro/runway")}
             loading={financialLoading}
           />
           <MetricCard
@@ -613,6 +470,73 @@ export default function Home() {
             loading={financialLoading}
             insight={insightRunway}
           />
+        </div>
+
+        {/* Resultado econômico (competência) */}
+        <div className="flex items-center gap-2 pt-3">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado econômico</h3>
+          <span className="text-[10px] uppercase tracking-wide text-emerald-400/70">competência</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
+          <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
+          <MetricCard label="Margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
+          <MetricCard label="Ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
+        </div>
+
+        {/* Caixa (vencimento) */}
+        <div className="flex items-center gap-2 pt-3">
+          <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Caixa</h3>
+          <span className="text-[10px] uppercase tracking-wide text-sky-400/70">vencimento</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="A receber no mês" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no mês" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (mês)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
+        </div>
+        <Card className="bg-card border-border/50">
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+              <Banknote className="h-3.5 w-3.5" /> Geração de caixa — mês a mês (recebido − pago)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 pb-3">
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={geracaoMensal} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                <RTooltip
+                  cursor={{ fill: "hsl(var(--secondary))", opacity: 0.3 }}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: any) => [formatCurrency(Number(v)), "Geração"]}
+                />
+                <Bar dataKey="geracao" radius={[4, 4, 0, 0]}>
+                  {geracaoMensal.map((d, i) => (
+                    <Cell key={i} fill={d.geracao >= 0 ? "hsl(142 71% 45%)" : "hsl(0 72% 51%)"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Comercial & operação */}
+        <div className="flex items-center gap-2 pt-3">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comercial &amp; operação</h3>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="MRR (receita recorrente)" value={formatCurrency(mrr)} sub={`${nContratos} contratos ativos`} icon={Wallet} onClick={() => navigate("/configuracoes/contratos")} loading={false} />
+          <MetricCard label="Projetos realizados" value={String(projetosRealizados)} sub="no período (ClickUp)" icon={Briefcase} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Ticket médio" value={formatCurrency(ticketMedioValor)} sub={projetosRealizados > 0 ? `${projetosRealizados} projetos` : `${ticketMedio.qtde} faturas`} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Nº de clientes" value={String(topClientes.qtde)} sub="faturando no período" icon={Handshake} onClick={() => navigate("/clientes")} loading={financialLoading} insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined} />
         </div>
 
         {/* Principais categorias de custo (mês) */}
