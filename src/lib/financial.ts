@@ -117,14 +117,18 @@ export function isInRange(dateStr: string | undefined, range: PeriodRange): bool
 
 // 1. Receita Total (competência) - data_competencia in period, all statuses, field total
 // Excludes loans ("Empréstimos de Bancos")
+export function receitaTotalItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
+  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period));
+}
 export function calcReceitaTotal(recItems: CAItem[], period: PeriodRange): number {
-  return recItems
-    .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period))
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+  return receitaTotalItems(recItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 2. Receita Recebida (caixa) - data_vencimento in period, field pago
 // Excludes loans ("Empréstimos de Bancos")
+export function recebidoItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
+  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period) && (r?.pago ?? 0) > 0);
+}
 export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): number {
   return recItems
     .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period))
@@ -138,14 +142,27 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
 // Inclui propositalmente as VENCIDAS (OVERDUE) — continuam sendo dinheiro a receber.
 // ACQUITTED (quitadas) têm nao_pago = 0, então saem naturalmente.
 export const STATUS_NAO_RECEBIVEL = ["LOST", "CANCELED", "CANCELLED"];
+export function aReceberItems(recItems: CAItem[]): CAItem[] {
+  return recItems.filter(
+    (r) =>
+      (r?.nao_pago ?? 0) > 0 &&
+      !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
+      getCat(r) !== "Empréstimos de Bancos",
+  );
+}
 export function calcAReceber(recItems: CAItem[]): number {
-  return recItems
-    .filter(
-      (r) =>
-        (r?.nao_pago ?? 0) > 0 &&
-        !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
-        getCat(r) !== "Empréstimos de Bancos",
-    )
+  return aReceberItems(recItems).reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+}
+// A Receber NO PERÍODO — em aberto, por vencimento no período (segue o seletor de mês).
+export function aReceberNoMesItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
+  return aReceberItems(recItems).filter((r) => isInRange(r?.data_vencimento, period));
+}
+export function calcAReceberNoMes(recItems: CAItem[], period: PeriodRange): number {
+  return aReceberNoMesItems(recItems, period).reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
+}
+export function calcAReceberVencidoNoMes(recItems: CAItem[], period: PeriodRange, hoje: string): number {
+  return aReceberNoMesItems(recItems, period)
+    .filter((r) => !!r?.data_vencimento && r.data_vencimento < hoje)
     .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 }
 
@@ -173,15 +190,16 @@ export function calcAPagarVencido(payItems: CAItem[], hoje: string): number {
 }
 
 // 2d. A Pagar NO PERÍODO — em aberto, por vencimento no período selecionado (segue o seletor de mês).
+export function aPagarNoMesItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter(
+    (p) =>
+      (p?.nao_pago ?? 0) > 0 &&
+      !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") &&
+      isInRange(p?.data_vencimento, period),
+  );
+}
 export function calcAPagarNoMes(payItems: CAItem[], period: PeriodRange): number {
-  return payItems
-    .filter(
-      (p) =>
-        (p?.nao_pago ?? 0) > 0 &&
-        !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") &&
-        isInRange(p?.data_vencimento, period),
-    )
-    .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+  return aPagarNoMesItems(payItems, period).reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
 }
 // Parcela já vencida (venc < hoje) dentro do período — para destaque no card.
 export function calcAPagarVencidoNoMes(payItems: CAItem[], period: PeriodRange, hoje: string): number {
@@ -205,24 +223,27 @@ export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange
 }
 
 // 4. Custos Fixos - FIXED_COSTS includes cat && !isExcluded, data_vencimento in period, field total
+export function custosFixosItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period));
+}
 export function calcCustosFixos(payItems: CAItem[], period: PeriodRange): number {
-  return payItems
-    .filter((r) => FIXED_COSTS.includes(getCat(r)) && !isExcluded(r) && isInRange(r?.data_competencia, period))
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+  return custosFixosItems(payItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5. Custos Variáveis - VARIABLE_COSTS includes cat, data_vencimento in period, field total
+export function custosVariaveisItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period));
+}
 export function calcCustosVariaveis(payItems: CAItem[], period: PeriodRange): number {
-  return payItems
-    .filter((r) => VARIABLE_COSTS.includes(getCat(r)) && isInRange(r?.data_competencia, period))
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+  return custosVariaveisItems(payItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5b. Impostos diretos sobre a venda (para a margem bruta)
+export function impostosSobreVendaItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter((r) => IMPOSTOS_SOBRE_VENDA.includes(getCat(r)) && isInRange(r?.data_competencia, period));
+}
 export function calcImpostosSobreVenda(payItems: CAItem[], period: PeriodRange): number {
-  return payItems
-    .filter((r) => IMPOSTOS_SOBRE_VENDA.includes(getCat(r)) && isInRange(r?.data_competencia, period))
-    .reduce((s, r) => s + (r?.total ?? 0), 0);
+  return impostosSobreVendaItems(payItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // 5c. Custos diretos do projeto (para a margem bruta)

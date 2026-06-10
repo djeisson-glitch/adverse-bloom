@@ -14,13 +14,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
-  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber, calcAPagarNoMes, calcAPagarVencidoNoMes,
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
+  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcAPagarVencidoNoMes,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
   calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
   calcMargemBruta, displayCat, getCat,
+  receitaTotalItems, recebidoItems, aReceberNoMesItems, aPagarNoMesItems,
+  custosFixosItems, custosVariaveisItems, impostosSobreVendaItems,
 } from "@/lib/financial";
+import { DetailModal } from "@/components/financeiro/DetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -171,9 +175,22 @@ export default function Home() {
   );
 
   const today = now.toISOString().slice(0, 10);
-  const aReceber = useMemo(() => calcAReceber(recItems), [recItems]);
+  const aReceberMes = useMemo(() => calcAReceberNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const aReceberMesVencido = useMemo(() => calcAReceberVencidoNoMes(recItems, monthPeriod, today), [recItems, monthPeriod.from, monthPeriod.to, today]);
   const aPagarMes = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
   const aPagarMesVencido = useMemo(() => calcAPagarVencidoNoMes(payItems, monthPeriod, today), [payItems, monthPeriod.from, monthPeriod.to, today]);
+
+  // Drill-down: lançamentos do Conta Azul que somam cada card (lista = exatamente o que o número soma).
+  const [detalhe, setDetalhe] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" | "nao_pago" } | null>(null);
+  const detItens = useMemo(() => ({
+    faturamento: receitaTotalItems(recItems, monthPeriod),
+    aReceber: aReceberNoMesItems(recItems, monthPeriod),
+    aPagar: aPagarNoMesItems(payItems, monthPeriod),
+    recebido: recebidoItems(recItems, monthPeriod),
+    custosFixos: custosFixosItems(payItems, monthPeriod),
+    custosVariaveis: custosVariaveisItems(payItems, monthPeriod),
+    impostos: impostosSobreVendaItems(payItems, monthPeriod),
+  }), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -361,15 +378,16 @@ export default function Home() {
                   : "text-destructive"
             }
             icon={TrendingUp}
-            onClick={() => navigate("/financeiro")}
+            onClick={() => setDetalhe({ title: "Faturamento do mês (NFs emitidas)", items: detItens.faturamento, valueField: "total" })}
             loading={financialLoading}
           />
           <MetricCard
-            label="A receber"
-            value={formatCurrency(aReceber)}
-            sub="em aberto (inclui vencidos)"
+            label="A receber no mês"
+            value={formatCurrency(aReceberMes)}
+            sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"}
+            subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined}
             icon={Wallet}
-            onClick={() => navigate("/financeiro/fluxo")}
+            onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -378,7 +396,7 @@ export default function Home() {
             sub={aPagarMesVencido > 0 ? `${formatCurrency(aPagarMesVencido)} vencido` : "a vencer no mês"}
             subColor={aPagarMesVencido > 0 ? "text-destructive" : undefined}
             icon={CreditCard}
-            onClick={() => navigate("/financeiro/fluxo")}
+            onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -402,14 +420,14 @@ export default function Home() {
             sub="recebido no mês"
             subColor="text-green-400"
             icon={CircleDollarSign}
-            onClick={() => navigate("/financeiro/fluxo")}
+            onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })}
             loading={financialLoading}
           />
           <MetricCard
             label="Custos fixos"
             value={formatCurrency(custosFixos)}
             icon={Receipt}
-            onClick={() => navigate("/financeiro/custos")}
+            onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })}
             loading={financialLoading}
             insight={insightCustosFixos}
           />
@@ -417,7 +435,7 @@ export default function Home() {
             label="Custos variáveis"
             value={formatCurrency(custosVariaveis)}
             icon={TrendingDown}
-            onClick={() => navigate("/financeiro/custos")}
+            onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -486,7 +504,7 @@ export default function Home() {
             label="Impostos sobre venda"
             value={formatCurrency(impostosVenda)}
             icon={Receipt}
-            onClick={() => navigate("/financeiro/custos")}
+            onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -569,6 +587,15 @@ export default function Home() {
         </Card>
       </section>
 
+      {detalhe && (
+        <DetailModal
+          open={!!detalhe}
+          onOpenChange={(o) => !o && setDetalhe(null)}
+          title={detalhe.title}
+          items={detalhe.items}
+          valueField={detalhe.valueField}
+        />
+      )}
     </div>
   );
 }
