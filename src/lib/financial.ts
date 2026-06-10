@@ -98,6 +98,13 @@ export const CUSTOS_DO_PROJETO = [
 
 // Pró-labore + Distribuição de Lucros são exibidos unificados como "Salário".
 export const SALARIO_CATEGORIES = ["Pró-labore", "Distribuição de Lucros"];
+// Retirada total dos sócios (pró-labore + distribuição de lucros) no período, por competência.
+// É a remuneração fixa dos sócios — dividida em 2 rubricas só por questão fiscal.
+export function calcRetiradaSocios(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((p) => SALARIO_CATEGORIES.includes(getCat(p)) && isInRange(p?.data_competencia, period))
+    .reduce((s, p) => s + (p?.total ?? 0), 0);
+}
 export function displayCat(cat: string): string {
   return SALARIO_CATEGORIES.includes(cat) ? "Salário" : cat;
 }

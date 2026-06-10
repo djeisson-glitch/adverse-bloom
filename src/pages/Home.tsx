@@ -19,7 +19,7 @@ import {
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
-  calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
+  calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto, calcRetiradaSocios,
   calcMargemBruta, displayCat, getCat,
   receitaTotalItems, recebidoItems, aReceberNoMesItems,
   custosFixosItems, custosVariaveisItems, impostosSobreVendaItems,
@@ -216,6 +216,24 @@ export default function Home() {
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
   const projetosRealizados = useProjetosRealizados(monthPeriod);
   const ticketMedioValor = projetosRealizados > 0 ? faturamentoMes / projetosRealizados : ticketMedio.valor;
+
+  // Portal do mês — campos prontos pra copiar. Pró-labore = retirada total dos sócios
+  // (pró-labore + distribuição); Custo fixo = custos fixos − essa retirada (só operacional).
+  const retiradaSocios = useMemo(() => calcRetiradaSocios(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const custoFixoOperacional = custosFixos - retiradaSocios;
+  const portalCampos = [
+    { label: "Faturamento bruto", valor: formatCurrency(faturamentoMes) },
+    { label: "Custo fixo", valor: formatCurrency(custoFixoOperacional) },
+    { label: "Pró-labore", valor: formatCurrency(retiradaSocios) },
+    { label: "Margem líquida", valor: formatPercent(margemLiquida.pct) },
+    { label: "Caixa de reserva", valor: formatCurrency(saldoConta) },
+    { label: "Nº de projetos fechados", valor: String(projetosRealizados) },
+  ];
+  const copiarPortal = () => {
+    const txt = portalCampos.map((c) => `${c.label}: ${c.valor}`).join("\n");
+    navigator.clipboard?.writeText(txt);
+    toast({ title: "Copiado", description: "Cole no portal os 6 campos do mês." });
+  };
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
     const vari = calcCustosVariaveisPorCategoria(payItems, monthPeriod);
@@ -594,6 +612,31 @@ export default function Home() {
                 </tbody>
               </table>
             )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="bg-card border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" /> Portal do mês
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-3">
+              Números prontos pra alimentar o portal externo (mês selecionado no topo). Pró-labore = retirada total dos sócios
+              (pró-labore + distribuição); custo fixo = só operacional (sem a retirada).
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {portalCampos.map((c) => (
+                <div key={c.label} className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+                  <p className="text-xs text-muted-foreground truncate">{c.label}</p>
+                  <p className="text-lg font-heading font-bold">{c.valor}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </section>
