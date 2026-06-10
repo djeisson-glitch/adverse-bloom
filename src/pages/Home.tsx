@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
-  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber, calcAPagar, calcAPagarVencido,
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber, calcAPagarNoMes, calcAPagarVencidoNoMes,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
@@ -172,8 +172,8 @@ export default function Home() {
 
   const today = now.toISOString().slice(0, 10);
   const aReceber = useMemo(() => calcAReceber(recItems), [recItems]);
-  const aPagar = useMemo(() => calcAPagar(payItems), [payItems]);
-  const aPagarVencido = useMemo(() => calcAPagarVencido(payItems, today), [payItems, today]);
+  const aPagarMes = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const aPagarMesVencido = useMemo(() => calcAPagarVencidoNoMes(payItems, monthPeriod, today), [payItems, monthPeriod.from, monthPeriod.to, today]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -373,10 +373,10 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
-            label="Total a pagar"
-            value={formatCurrency(aPagar)}
-            sub={aPagarVencido > 0 ? `${formatCurrency(aPagarVencido)} vencido` : "em aberto"}
-            subColor={aPagarVencido > 0 ? "text-destructive" : undefined}
+            label="A pagar no mês"
+            value={formatCurrency(aPagarMes)}
+            sub={aPagarMesVencido > 0 ? `${formatCurrency(aPagarMesVencido)} vencido` : "a vencer no mês"}
+            subColor={aPagarMesVencido > 0 ? "text-destructive" : undefined}
             icon={CreditCard}
             onClick={() => navigate("/financeiro/fluxo")}
             loading={financialLoading}

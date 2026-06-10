@@ -172,6 +172,31 @@ export function calcAPagarVencido(payItems: CAItem[], hoje: string): number {
     .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
 }
 
+// 2d. A Pagar NO PERÍODO — em aberto, por vencimento no período selecionado (segue o seletor de mês).
+export function calcAPagarNoMes(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter(
+      (p) =>
+        (p?.nao_pago ?? 0) > 0 &&
+        !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") &&
+        isInRange(p?.data_vencimento, period),
+    )
+    .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+}
+// Parcela já vencida (venc < hoje) dentro do período — para destaque no card.
+export function calcAPagarVencidoNoMes(payItems: CAItem[], period: PeriodRange, hoje: string): number {
+  return payItems
+    .filter(
+      (p) =>
+        (p?.nao_pago ?? 0) > 0 &&
+        !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") &&
+        isInRange(p?.data_vencimento, period) &&
+        !!p?.data_vencimento &&
+        p.data_vencimento < hoje,
+    )
+    .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+}
+
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
