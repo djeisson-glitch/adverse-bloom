@@ -15,13 +15,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
-  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcAPagarVencidoNoMes,
+  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
   calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto,
   calcMargemBruta, displayCat, getCat,
-  receitaTotalItems, recebidoItems, aReceberNoMesItems, aPagarNoMesItems,
+  receitaTotalItems, recebidoItems, aReceberNoMesItems,
   custosFixosItems, custosVariaveisItems, impostosSobreVendaItems,
 } from "@/lib/financial";
 import { DetailModal } from "@/components/financeiro/DetailModal";
@@ -177,15 +177,15 @@ export default function Home() {
   const today = now.toISOString().slice(0, 10);
   const aReceberMes = useMemo(() => calcAReceberNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
   const aReceberMesVencido = useMemo(() => calcAReceberVencidoNoMes(recItems, monthPeriod, today), [recItems, monthPeriod.from, monthPeriod.to, today]);
-  const aPagarMes = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
-  const aPagarMesVencido = useMemo(() => calcAPagarVencidoNoMes(payItems, monthPeriod, today), [payItems, monthPeriod.from, monthPeriod.to, today]);
+  const aPagarMes = useMemo(() => calcPagamentosDoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const aPagarMesAberto = useMemo(() => calcAPagarNoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
 
   // Drill-down: lançamentos do Conta Azul que somam cada card (lista = exatamente o que o número soma).
   const [detalhe, setDetalhe] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" | "nao_pago" } | null>(null);
   const detItens = useMemo(() => ({
     faturamento: receitaTotalItems(recItems, monthPeriod),
     aReceber: aReceberNoMesItems(recItems, monthPeriod),
-    aPagar: aPagarNoMesItems(payItems, monthPeriod),
+    aPagar: pagamentosDoMesItems(payItems, monthPeriod),
     recebido: recebidoItems(recItems, monthPeriod),
     custosFixos: custosFixosItems(payItems, monthPeriod),
     custosVariaveis: custosVariaveisItems(payItems, monthPeriod),
@@ -391,10 +391,10 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
-            label="A pagar no mês"
+            label="Total a pagar no mês"
             value={formatCurrency(aPagarMes)}
-            sub={aPagarMesVencido > 0 ? `${formatCurrency(aPagarMesVencido)} vencido` : "a vencer no mês"}
-            subColor={aPagarMesVencido > 0 ? "text-destructive" : undefined}
+            sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"}
+            subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"}
             icon={CreditCard}
             onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })}
             loading={financialLoading}

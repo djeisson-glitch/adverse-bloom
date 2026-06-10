@@ -201,6 +201,17 @@ export function aPagarNoMesItems(payItems: CAItem[], period: PeriodRange): CAIte
 export function calcAPagarNoMes(payItems: CAItem[], period: PeriodRange): number {
   return aPagarNoMesItems(payItems, period).reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
 }
+
+// TOTAL a pagar do mês — TODOS os lançamentos com vencimento no período (pagos + a vencer + vencidos),
+// pelo valor cheio (total), exceto cancelados (anulados). É o volume total do mês, independente do status.
+export function pagamentosDoMesItems(payItems: CAItem[], period: PeriodRange): CAItem[] {
+  return payItems.filter(
+    (p) => !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") && isInRange(p?.data_vencimento, period),
+  );
+}
+export function calcPagamentosDoMes(payItems: CAItem[], period: PeriodRange): number {
+  return pagamentosDoMesItems(payItems, period).reduce((s, p) => s + (p?.total ?? 0), 0);
+}
 // Parcela já vencida (venc < hoje) dentro do período — para destaque no card.
 export function calcAPagarVencidoNoMes(payItems: CAItem[], period: PeriodRange, hoje: string): number {
   return payItems
