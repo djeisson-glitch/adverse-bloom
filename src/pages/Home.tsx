@@ -18,7 +18,7 @@ import {
   calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
-  calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
+  calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria, calcPontoEquilibrio, calcPagoRealizado,
   calcCustosVariaveisPorCategoria, calcImpostosSobreVenda, calcCustosDoProjeto, calcRetiradaSocios,
   calcMargemBruta, displayCat, getCat,
   receitaTotalItems, recebidoItems, aReceberNoMesItems,
@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard,
+  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard, Scale, Banknote,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -221,6 +221,17 @@ export default function Home() {
   const despesasOp = useMemo(() => calcDespesasOperacionais(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
   // Margem líquida operacional = receita − despesas operacionais (exclui empréstimos, compra de equipamentos e juros). Tudo por competência.
   const margemLiquida = useMemo(() => calcLucroLiquido(faturamentoMes, despesasOp), [faturamentoMes, despesasOp]);
+
+  // Ponto de equilíbrio (competência): quanto precisa faturar pra zerar.
+  // Margem de contribuição REAL = receita − impostos − custos variáveis (impostos escalam com a venda).
+  const mcRealPct = faturamentoMes > 0 ? ((faturamentoMes - impostosVenda - custosVariaveis) / faturamentoMes) * 100 : 0;
+  const pontoEquilibrio = useMemo(() => calcPontoEquilibrio(custosFixos, mcRealPct), [custosFixos, mcRealPct]);
+  const faltaPraLucro = pontoEquilibrio - faturamentoMes;
+
+  // Geração de caixa do mês (caixa): o que de fato entrou − o que de fato saiu.
+  const pagoMes = useMemo(() => calcPagoRealizado(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
+  const geracaoCaixa = recebidoMes - pagoMes;
+
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
   const projetosRealizados = useProjetosRealizados(monthPeriod);
@@ -461,6 +472,16 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            label="Geração de caixa (mês)"
+            regime="caixa"
+            value={formatCurrency(geracaoCaixa)}
+            valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"}
+            sub={`entrou ${formatCurrency(recebidoMes)} · saiu ${formatCurrency(pagoMes)}`}
+            subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"}
+            icon={Banknote}
+            loading={financialLoading}
+          />
+          <MetricCard
             label="Custos fixos"
             regime="competência"
             value={formatCurrency(custosFixos)}
@@ -565,6 +586,15 @@ export default function Home() {
             sub={margemLiquida.valor >= 0 ? "lucro" : "prejuízo"}
             icon={Target}
             onClick={() => navigate("/financeiro/resultados")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Ponto de equilíbrio"
+            regime="competência"
+            value={formatCurrency(pontoEquilibrio)}
+            sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`}
+            subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"}
+            icon={Scale}
             loading={financialLoading}
           />
           <MetricCard
