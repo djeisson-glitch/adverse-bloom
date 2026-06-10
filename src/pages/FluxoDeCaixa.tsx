@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
-import { type CAItem, calcSaldoEmConta, getCat, STATUS_NAO_RECEBIVEL } from "@/lib/financial";
+import { type CAItem, calcSaldoEmConta, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,7 +71,7 @@ export default function FluxoDeCaixa() {
     [recItems, today],
   );
   const futurosPay = useMemo(
-    () => payItems.filter((p: any) => p?.data_vencimento && p.data_vencimento >= today && (p?.nao_pago ?? p?.total ?? 0) > 0),
+    () => payItems.filter((p: any) => p?.data_vencimento && p.data_vencimento >= today && (p?.nao_pago ?? p?.total ?? 0) > 0 && !STATUS_NAO_PAGAVEL.includes(p?.status ?? "")),
     [payItems, today],
   );
 
@@ -80,7 +80,7 @@ export default function FluxoDeCaixa() {
     d.setDate(d.getDate() + n);
     return d.toISOString().slice(0, 10);
   };
-  const sumIn = (items: any[], to: string) => items.filter((i) => i.data_vencimento <= to).reduce((s, i) => s + (i.total ?? 0), 0);
+  const sumIn = (items: any[], to: string) => items.filter((i) => i.data_vencimento <= to).reduce((s, i) => s + (i.nao_pago ?? i.total ?? 0), 0);
   const aReceber90 = sumIn(futurosRec, inDays(90));
   const aPagar90 = sumIn(futurosPay, inDays(90));
 
@@ -92,8 +92,8 @@ export default function FluxoDeCaixa() {
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const receber = futurosRec.filter((r) => r.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r.total ?? 0), 0);
-      const pagar = futurosPay.filter((p) => p.data_vencimento?.startsWith(key)).reduce((s, p) => s + (p.total ?? 0), 0);
+      const receber = futurosRec.filter((r) => r.data_vencimento?.startsWith(key)).reduce((s, r) => s + (r.nao_pago ?? r.total ?? 0), 0);
+      const pagar = futurosPay.filter((p) => p.data_vencimento?.startsWith(key)).reduce((s, p) => s + (p.nao_pago ?? p.total ?? 0), 0);
       saldo = saldo + receber - pagar;
       rows.push({ mes: `${MESES[d.getMonth()]}/${d.getFullYear()}`, receber, pagar, saldoProjetado: saldo, negativo: saldo < 0 });
     }

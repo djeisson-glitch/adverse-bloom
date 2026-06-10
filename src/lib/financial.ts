@@ -149,6 +149,29 @@ export function calcAReceber(recItems: CAItem[]): number {
     .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 }
 
+// 2c. A Pagar (em aberto) — total de tudo que ainda falta pagar, AGORA (saldo, não fluxo do mês).
+// Soma `nao_pago` de todas as contas a pagar com saldo em aberto, exceto CANCELADAS.
+// Inclui financiamentos/empréstimos/juros (é o total real devido) e as VENCIDAS.
+// ACQUITTED (quitadas) têm nao_pago = 0 e saem naturalmente.
+export const STATUS_NAO_PAGAVEL = ["CANCELED", "CANCELLED"];
+export function calcAPagar(payItems: CAItem[]): number {
+  return payItems
+    .filter((p) => (p?.nao_pago ?? 0) > 0 && !STATUS_NAO_PAGAVEL.includes(p?.status ?? ""))
+    .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+}
+// Parcela vencida (atrasada) do "a pagar" — para destaque no card.
+export function calcAPagarVencido(payItems: CAItem[], hoje: string): number {
+  return payItems
+    .filter(
+      (p) =>
+        (p?.nao_pago ?? 0) > 0 &&
+        !STATUS_NAO_PAGAVEL.includes(p?.status ?? "") &&
+        !!p?.data_vencimento &&
+        p.data_vencimento < hoje,
+    )
+    .reduce((s, p) => s + (p?.nao_pago ?? 0), 0);
+}
+
 // 3. Despesas Operacionais - !isExcluded, data_vencimento in period, field total
 export function calcDespesasOperacionais(payItems: CAItem[], period: PeriodRange): number {
   return payItems
@@ -257,7 +280,7 @@ export function calcDRE(recItems: CAItem[], payItems: CAItem[], period: PeriodRa
     { label: "(=) Margem Bruta", valor: margemBruta, tipo: "subtotal", pct: pct(margemBruta) },
     { label: "(−) Custos Fixos", valor: -custosFixos, tipo: "deducao", pct: pct(-custosFixos) },
     { label: "(−) Outras despesas variáveis", valor: -outrasVariaveis, tipo: "deducao", pct: pct(-outrasVariaveis) },
-    { label: "(=) Resultado Operacional", valor: resultadoOperacional, tipo: "subtotal", pct: pct(resultadoOperacional) },
+    { label: "(=) Resultado Operacional (Margem Líquida)", valor: resultadoOperacional, tipo: "subtotal", pct: pct(resultadoOperacional) },
     { label: "(−) Não operacional (empréstimos, juros, equip.)", valor: -naoOperacional, tipo: "deducao", pct: pct(-naoOperacional) },
     { label: "(=) Resultado Líquido Final", valor: resultadoFinal, tipo: "resultado", pct: pct(resultadoFinal) },
   ];

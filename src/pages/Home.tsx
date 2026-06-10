@@ -14,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
-  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber,
+  type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida, calcAReceber, calcAPagar, calcAPagarVencido,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria,
@@ -28,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign,
+  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -172,6 +172,8 @@ export default function Home() {
 
   const today = now.toISOString().slice(0, 10);
   const aReceber = useMemo(() => calcAReceber(recItems), [recItems]);
+  const aPagar = useMemo(() => calcAPagar(payItems), [payItems]);
+  const aPagarVencido = useMemo(() => calcAPagarVencido(payItems, today), [payItems, today]);
 
   const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
 
@@ -367,6 +369,15 @@ export default function Home() {
             value={formatCurrency(aReceber)}
             sub="em aberto (inclui vencidos)"
             icon={Wallet}
+            onClick={() => navigate("/financeiro/fluxo")}
+            loading={financialLoading}
+          />
+          <MetricCard
+            label="Total a pagar"
+            value={formatCurrency(aPagar)}
+            sub={aPagarVencido > 0 ? `${formatCurrency(aPagarVencido)} vencido` : "em aberto"}
+            subColor={aPagarVencido > 0 ? "text-destructive" : undefined}
+            icon={CreditCard}
             onClick={() => navigate("/financeiro/fluxo")}
             loading={financialLoading}
           />

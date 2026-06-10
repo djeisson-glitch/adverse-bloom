@@ -78,7 +78,7 @@ export default function Index() {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
       const recebido = recItems
-        .filter(r => r?.data_vencimento?.startsWith(key) && r?.status === "ACQUITTED")
+        .filter(r => r?.data_vencimento?.startsWith(key))
         .reduce((s, r) => s + (r?.pago ?? 0), 0);
       const faturado = recItems
         .filter(r => r?.data_competencia?.startsWith(key))
