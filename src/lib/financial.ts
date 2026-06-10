@@ -143,6 +143,14 @@ export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): nu
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
+// Pago realizado no período (caixa) — soma do `pago` das contas a pagar com vencimento no período.
+// Contrapartida de saída da geração de caixa do mês.
+export function calcPagoRealizado(payItems: CAItem[], period: PeriodRange): number {
+  return payItems
+    .filter((p) => isInRange(p?.data_vencimento, period))
+    .reduce((s, p) => s + (p?.pago ?? 0), 0);
+}
+
 // 2b. A Receber (em aberto) — saldo de tudo que ainda falta receber, AGORA (não é fluxo do mês).
 // Soma `nao_pago` de todas as contas a receber com saldo em aberto, EXCETO:
 //  - status LOST (perdidas/incobráveis) e CANCELED (canceladas)
