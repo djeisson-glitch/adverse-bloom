@@ -14,6 +14,7 @@ interface Contexto {
   meta_faturamento_mensal: number | null;
   meta_margem_liquida: number | null;
   headcount: number | null;
+  horas_produtivas_mes: number | null;
   estrutura: string | null;
   sazonalidade: string | null;
   prioridades: string | null;
@@ -26,6 +27,7 @@ const EMPTY: Contexto = {
   meta_faturamento_mensal: null,
   meta_margem_liquida: null,
   headcount: null,
+  horas_produtivas_mes: null,
   estrutura: "",
   sazonalidade: "",
   prioridades: "",
@@ -100,6 +102,13 @@ export default function ConfiguracoesContexto() {
           <div className="space-y-2">
             <Label>Headcount (pessoas)</Label>
             <Input type="number" value={form.headcount ?? ""} onChange={(e) => set("headcount", num(e.target.value))} />
+          </div>
+          <div className="space-y-2 md:col-span-3">
+            <Label>Horas produtivas/mês (equipe toda)</Label>
+            <Input type="number" placeholder="Ex.: 4 pessoas × 160h × 70% produtivo ≈ 450" value={form.horas_produtivas_mes ?? ""} onChange={(e) => set("horas_produtivas_mes", num(e.target.value))} />
+            <p className="text-xs text-muted-foreground">
+              Usado pra calcular o <strong>custo hora</strong> na Home: custos fixos do mês ÷ estas horas. Conta só horas vendáveis/produtivas (desconta gestão, comercial, ociosidade).
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -112,8 +112,10 @@ export default function Home() {
   const { data: contexto } = useQuery({
     queryKey: ["empresa_contexto"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("empresa_contexto").select("meta_margem_liquida, meta_faturamento_mensal, saldo_inicial, saldo_inicial_data").eq("id", 1).maybeSingle();
-      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null; saldo_inicial: number | null; saldo_inicial_data: string | null } | null;
+      // select("*") de propósito: resiliente a colunas novas ainda não migradas (coluna ausente vira undefined,
+      // em vez de derrubar a query inteira e perder a âncora do saldo).
+      const { data } = await (supabase as any).from("empresa_contexto").select("*").eq("id", 1).maybeSingle();
+      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null; saldo_inicial: number | null; saldo_inicial_data: string | null; horas_produtivas_mes?: number | null } | null;
     },
   });
   const metaMargem = contexto?.meta_margem_liquida ?? null;
@@ -228,6 +230,12 @@ export default function Home() {
   const mcRealPct = faturamentoMes > 0 ? ((faturamentoMes - impostosVenda - custosVariaveis) / faturamentoMes) * 100 : 0;
   const pontoEquilibrio = useMemo(() => calcPontoEquilibrio(custosFixos, mcRealPct), [custosFixos, mcRealPct]);
   const faltaPraLucro = pontoEquilibrio - faturamentoMes;
+
+  // Custo hora (automático): custos fixos do mês ÷ horas produtivas configuradas no Contexto.
+  // "Cheio" = todas as despesas operacionais ÷ horas (referência de teto pra precificação).
+  const horasMes = contexto?.horas_produtivas_mes ?? null;
+  const custoHora = horasMes && horasMes > 0 ? custosFixos / horasMes : null;
+  const custoHoraCheio = horasMes && horasMes > 0 ? despesasOp / horasMes : null;
 
   // Geração de caixa do mês (caixa TOTAL, simétrica ao saldo): tudo que entrou − tudo que saiu,
   // incl. empréstimos dos dois lados (entrada de empréstimo conta; amortização também).
@@ -486,7 +494,7 @@ export default function Home() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado econômico</h3>
           <span className="text-[10px] uppercase tracking-wide text-emerald-400/70">competência</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
@@ -495,6 +503,16 @@ export default function Home() {
           <MetricCard label="Margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
           <MetricCard label="Margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
           <MetricCard label="Ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
+          <MetricCard
+            label="Custo hora (estrutura)"
+            value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
+            sub={custoHora != null ? `${formatCurrency(custosFixos)} fixos ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
+            subColor={custoHora != null ? undefined : "text-amber-400"}
+            icon={Clock}
+            onClick={custoHora == null ? () => navigate("/configuracoes/contexto") : undefined}
+            loading={financialLoading}
+            insight={custoHoraCheio != null ? `cheio (todas as despesas op.): ${formatCurrency(custoHoraCheio)}/h` : undefined}
+          />
         </div>
 
         {/* Caixa (vencimento) */}
