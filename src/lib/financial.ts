@@ -222,6 +222,27 @@ export function calcAReceberVencidoNoMes(recItems: CAItem[], period: PeriodRange
     .filter((r) => !!r?.data_vencimento && r.data_vencimento < hoje)
     .reduce((s, r) => s + (r?.nao_pago ?? 0), 0);
 }
+// Entradas PREVISTAS no mês (caixa projetado) — valor cheio de tudo que vence no período
+// e ainda pode entrar (exclui só perdidas/canceladas). Inclui o já recebido e empréstimos:
+// visão de caixa TOTAL, simétrica a calcPagamentosDoMes (que inclui amortizações/juros/capex)
+// e coerente com o movimento do saldo em conta.
+export function entradasPrevistasNoMesItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
+  return recItems.filter(
+    (r) => isInRange(r?.data_vencimento, period) && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? ""),
+  );
+}
+export function calcEntradasPrevistasNoMes(recItems: CAItem[], period: PeriodRange): number {
+  return entradasPrevistasNoMesItems(recItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
+}
+
+// Recebido TOTAL no período (caixa) — soma do `pago` de TODAS as contas a receber com
+// vencimento no período, incl. empréstimos. Contrapartida de entrada da geração de caixa,
+// simétrica a calcPagoRealizado (que também não exclui nada).
+export function calcRecebidoTotal(recItems: CAItem[], period: PeriodRange): number {
+  return recItems
+    .filter((r) => isInRange(r?.data_vencimento, period))
+    .reduce((s, r) => s + (r?.pago ?? 0), 0);
+}
 
 // 2c. A Pagar (em aberto) — total de tudo que ainda falta pagar, AGORA (saldo, não fluxo do mês).
 // Soma `nao_pago` de todas as contas a pagar com saldo em aberto, exceto CANCELADAS.

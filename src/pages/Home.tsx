@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
-  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems,
+  calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems, calcEntradasPrevistasNoMes, calcRecebidoTotal,
   calcDespesasOperacionais,
   calcCustosFixos, calcCustosVariaveis, calcMargemContribuicao, calcLucroLiquido,
   calcLucroLiquidoFinal, calcTicketMedio, calcCustosFixosPorCategoria, calcPontoEquilibrio, calcPagoRealizado, calcTrailing,
@@ -61,7 +61,7 @@ interface MetricCardProps {
 function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime }: MetricCardProps) {
   return (
     <Card
-      className="bg-card border-border/50 cursor-pointer hover:border-primary/30 transition-colors"
+      className={`bg-card border-border/50 transition-colors ${onClick ? "cursor-pointer hover:border-primary/30" : ""}`}
       onClick={onClick}
     >
       <CardContent className="p-4">
@@ -112,8 +112,10 @@ export default function Home() {
   const { data: contexto } = useQuery({
     queryKey: ["empresa_contexto"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("empresa_contexto").select("meta_margem_liquida, meta_faturamento_mensal, saldo_inicial, saldo_inicial_data").eq("id", 1).maybeSingle();
-      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null; saldo_inicial: number | null; saldo_inicial_data: string | null } | null;
+      // select("*") de propósito: resiliente a colunas novas ainda não migradas (coluna ausente vira undefined,
+      // em vez de derrubar a query inteira e perder a âncora do saldo).
+      const { data } = await (supabase as any).from("empresa_contexto").select("*").eq("id", 1).maybeSingle();
+      return data as { meta_margem_liquida: number | null; meta_faturamento_mensal: number | null; saldo_inicial: number | null; saldo_inicial_data: string | null; horas_produtivas_mes?: number | null } | null;
     },
   });
   const metaMargem = contexto?.meta_margem_liquida ?? null;
@@ -229,9 +231,23 @@ export default function Home() {
   const pontoEquilibrio = useMemo(() => calcPontoEquilibrio(custosFixos, mcRealPct), [custosFixos, mcRealPct]);
   const faltaPraLucro = pontoEquilibrio - faturamentoMes;
 
-  // Geração de caixa do mês (caixa): o que de fato entrou − o que de fato saiu.
+  // Custo hora (automático): custos fixos do mês ÷ horas produtivas configuradas no Contexto.
+  // "Cheio" = todas as despesas operacionais ÷ horas (referência de teto pra precificação).
+  const horasMes = contexto?.horas_produtivas_mes ?? null;
+  const custoHora = horasMes && horasMes > 0 ? custosFixos / horasMes : null;
+  const custoHoraCheio = horasMes && horasMes > 0 ? despesasOp / horasMes : null;
+
+  // Geração de caixa do mês (caixa TOTAL, simétrica ao saldo): tudo que entrou − tudo que saiu,
+  // incl. empréstimos dos dois lados (entrada de empréstimo conta; amortização também).
   const pagoMes = useMemo(() => calcPagoRealizado(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
-  const geracaoCaixa = recebidoMes - pagoMes;
+  const recebidoTotalMes = useMemo(() => calcRecebidoTotal(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const geracaoCaixa = recebidoTotalMes - pagoMes;
+  // Projetado: o mês completo, se tudo que vence se concretizar. Identidade:
+  // projetado = realizado + (ainda a entrar) − (ainda a sair).
+  const entradasPrevistas = useMemo(() => calcEntradasPrevistasNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
+  const geracaoProjetada = entradasPrevistas - aPagarMes;
+  const aindaEntrar = entradasPrevistas - recebidoTotalMes;
+  const aindaSair = aPagarMes - pagoMes;
 
   // Tendência: 3 meses fechados antes do mês selecionado (margens estáveis, sem o mês parcial).
   const trailing = useMemo(() => calcTrailing(recItems, payItems, monthPeriod), [recItems, payItems, monthPeriod.from, monthPeriod.to]);
@@ -478,7 +494,7 @@ export default function Home() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado econômico</h3>
           <span className="text-[10px] uppercase tracking-wide text-emerald-400/70">competência</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
@@ -487,6 +503,16 @@ export default function Home() {
           <MetricCard label="Margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
           <MetricCard label="Margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
           <MetricCard label="Ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
+          <MetricCard
+            label="Custo hora (estrutura)"
+            value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
+            sub={custoHora != null ? `${formatCurrency(custosFixos)} fixos ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
+            subColor={custoHora != null ? undefined : "text-amber-400"}
+            icon={Clock}
+            onClick={custoHora == null ? () => navigate("/configuracoes/contexto") : undefined}
+            loading={financialLoading}
+            insight={custoHoraCheio != null ? `cheio (todas as despesas op.): ${formatCurrency(custoHoraCheio)}/h` : undefined}
+          />
         </div>
 
         {/* Caixa (vencimento) */}
@@ -495,11 +521,14 @@ export default function Home() {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Caixa</h3>
           <span className="text-[10px] uppercase tracking-wide text-sky-400/70">vencimento</span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricCard label="A receber no mês" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
-          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "A pagar no mês", items: detItens.aPagar, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no mês", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no mês" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (mês)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`mês completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
         </div>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">

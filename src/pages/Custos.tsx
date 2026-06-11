@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Loader2, Wallet, CreditCard } from "lucide-react";
@@ -111,7 +111,7 @@ export default function Custos() {
                 <tbody>
                   {filtered.slice(0, 100).map((item, idx) => (
                     <tr key={item.id || idx} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                      <td className="p-4 whitespace-nowrap">{item.data_vencimento ?? "—"}</td>
+                      <td className="p-4 whitespace-nowrap">{formatDate(item.data_vencimento ?? null)}</td>
                       <td className="p-4 max-w-[300px] truncate">{item.descricao ?? "—"}</td>
                       <td className="p-4 whitespace-nowrap">{item.categorias?.[0]?.nome ?? "—"}</td>
                       <td className="p-4 text-right font-heading whitespace-nowrap">{formatCurrency(item.total ?? 0)}</td>

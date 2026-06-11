@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
-import { type CAItem, calcSaldoEmConta, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
+import { type CAItem, calcSaldoEmConta, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,8 @@ export default function FluxoDeCaixa() {
 
   // Recebíveis/pagáveis FUTUROS (em aberto, por vencimento)
   const futurosRec = useMemo(
-    () => recItems.filter((r: any) => r?.data_vencimento && r.data_vencimento >= today && (r?.nao_pago ?? r?.total ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") && getCat(r) !== "Empréstimos de Bancos"),
+    // Caixa TOTAL: inclui entradas de empréstimo (simétrico a futurosPay, que inclui amortizações).
+    () => recItems.filter((r: any) => r?.data_vencimento && r.data_vencimento >= today && (r?.nao_pago ?? r?.total ?? 0) > 0 && !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "")),
     [recItems, today],
   );
   const futurosPay = useMemo(

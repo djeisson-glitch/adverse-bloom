@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type CAItem, displayCat } from "@/lib/financial";
 
@@ -31,21 +31,25 @@ export function DetailModal({ open, onOpenChange, title, items, valueField = "to
               <tr className="border-b border-border text-left text-muted-foreground">
                 <th className="pb-2 font-medium">Descrição</th>
                 <th className="pb-2 font-medium">Categoria</th>
-                <th className="pb-2 font-medium">Data</th>
+                <th className="pb-2 font-medium" title="Mês em que o fato aconteceu (base das margens)">Competência</th>
+                <th className="pb-2 font-medium" title="Mês em que vence/paga (como aparece no Conta Azul)">Vencimento</th>
                 <th className="pb-2 font-medium text-right">Valor</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((item, i) => (
                 <tr key={item?.id || i} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="py-2 max-w-[200px] truncate">
+                  <td className="py-2 max-w-[180px] truncate">
                     {item?.descricao || item?.cliente?.nome || item?.fornecedor?.nome || "—"}
                   </td>
                   <td className="py-2 text-muted-foreground text-xs">
                     {displayCat(item?.categorias?.[0]?.nome || "—")}
                   </td>
                   <td className="py-2 text-xs text-muted-foreground">
-                    {item?.data_vencimento || item?.data_competencia || "—"}
+                    {formatDate(item?.data_competencia || null)}
+                  </td>
+                  <td className="py-2 text-xs text-muted-foreground">
+                    {formatDate(item?.data_vencimento || null)}
                   </td>
                   <td className="py-2 text-right font-medium">
                     {formatCurrency(val(item))}
@@ -54,7 +58,7 @@ export function DetailModal({ open, onOpenChange, title, items, valueField = "to
               ))}
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
                     Nenhum lançamento encontrado.
                   </td>
                 </tr>
