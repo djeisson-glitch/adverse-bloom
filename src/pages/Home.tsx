@@ -256,11 +256,12 @@ export default function Home() {
     ? `${MESES_CURTO[+trailing.meses[0].slice(5) - 1]}–${MESES_CURTO[+trailing.meses[trailing.meses.length - 1].slice(5) - 1]}/${trailing.meses[0].slice(2, 4)}`
     : "";
 
-  // Geração de caixa mês a mês (6 meses até o selecionado) — recebido − pago, por vencimento.
+  // Geração de caixa mês a mês — FIXO: os 6 meses FECHADOS antes do mês corrente (ancorado em HOJE,
+  // NÃO no seletor de período). É histórico: a geração de um mês passado não muda conforme o que se olha.
   const geracaoMensal = useMemo(() => {
-    const [y, m] = monthPeriod.from.split("-").map(Number);
+    const y = now.getFullYear(), m = now.getMonth() + 1; // mês corrente (parcial, excluído)
     const rows: { mes: string; geracao: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 6; i >= 1; i--) {
       let yy = y, mm = m - i;
       while (mm <= 0) { mm += 12; yy -= 1; }
       const key = `${yy}-${String(mm).padStart(2, "0")}`;
@@ -269,7 +270,8 @@ export default function Home() {
       rows.push({ mes: MESES_CURTO[mm - 1], geracao: Math.round(receb - pag) });
     }
     return rows;
-  }, [recItems, payItems, monthPeriod.from]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recItems, payItems, now.getFullYear(), now.getMonth()]);
 
   const ticketMedio = useMemo(() => calcTicketMedio(recItems, monthPeriod, faturamentoMes), [recItems, monthPeriod.from, monthPeriod.to, faturamentoMes]);
   // Projetos realizados (ClickUp) no período → ticket médio = faturamento ÷ projetos.
@@ -533,7 +535,7 @@ export default function Home() {
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">
             <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-              <Banknote className="h-3.5 w-3.5" /> Geração de caixa — mês a mês (recebido − pago)
+              <Banknote className="h-3.5 w-3.5" /> Geração de caixa — últimos 6 meses fechados (fixo, não segue o seletor)
             </CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-3">
