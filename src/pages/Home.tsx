@@ -223,7 +223,14 @@ export default function Home() {
   const abertoVariaveis = useMemo(() => emAberto(detItens.custosVariaveis), [detItens]);
   const abertoImpostos = useMemo(() => emAberto(detItens.impostos), [detItens]);
 
-  const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / monthlyTarget) * 100 : 0;
+  // Nº de meses cobertos pelo período (1 p/ mês, 6 p/ semestre, 12 p/ ano...) — usado pra escalar
+  // métricas mensais (meta, custo hora) quando o período tem mais de um mês.
+  const nMesesPeriodo = useMemo(() => {
+    const [fy, fm] = monthPeriod.from.split("-").map(Number);
+    const [ty, tm] = monthPeriod.to.split("-").map(Number);
+    return Math.max(1, (ty - fy) * 12 + (tm - fm) + 1);
+  }, [monthPeriod.from, monthPeriod.to]);
+  const faturamentoVsMeta = monthlyTarget > 0 ? (faturamentoMes / (monthlyTarget * nMesesPeriodo)) * 100 : 0;
 
   // KPIs financeiros (mês atual) — reusam src/lib/financial.ts
   const recebidoMes = useMemo(() => calcReceitaRecebida(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
@@ -248,8 +255,9 @@ export default function Home() {
   // Custo hora (automático): custos fixos do mês ÷ horas produtivas configuradas no Contexto.
   // "Cheio" = todas as despesas operacionais ÷ horas (referência de teto pra precificação).
   const horasMes = contexto?.horas_produtivas_mes ?? null;
-  const custoHora = horasMes && horasMes > 0 ? custosFixos / horasMes : null;
-  const custoHoraCheio = horasMes && horasMes > 0 ? despesasOp / horasMes : null;
+  // Custo hora é por MÊS: usa custo fixo médio mensal do período ÷ horas mensais.
+  const custoHora = horasMes && horasMes > 0 ? (custosFixos / nMesesPeriodo) / horasMes : null;
+  const custoHoraCheio = horasMes && horasMes > 0 ? (despesasOp / nMesesPeriodo) / horasMes : null;
 
   // Geração de caixa do mês (caixa TOTAL, simétrica ao saldo): tudo que entrou − tudo que saiu,
   // incl. empréstimos dos dois lados (entrada de empréstimo conta; amortização também).
@@ -270,24 +278,26 @@ export default function Home() {
     ? `${MESES_CURTO[+trailing.meses[0].slice(5) - 1]}–${MESES_CURTO[+trailing.meses[trailing.meses.length - 1].slice(5) - 1]}/${trailing.meses[0].slice(2, 4)}`
     : "";
 
-  // Status de saúde — baseado na margem líquida da TENDÊNCIA (3 meses fechados, estável,
-  // sem o ruído do mês parcial) + runway. Caixa crítico (runway < 2m) nunca deixa parecer saudável.
+  // Status de saúde — segue o PERÍODO selecionado (margem líquida do período) + runway.
+  // Caixa crítico (runway < 2m) nunca deixa um resultado positivo parecer 100% tranquilo.
   const statusSaude = useMemo(() => {
-    const m = trailing.margemLiquidaPct;
+    const m = margemLiquida.pct;
+    const caixaCurto = runway !== Infinity && runway < 2;
     let key: "saudavel" | "zero" | "atencao" | "prejuizo";
     if (m >= 8) key = "saudavel";
     else if (m >= -3) key = "zero";
     else if (m >= -15) key = "atencao";
     else key = "prejuizo";
-    if (runway !== Infinity && runway < 2 && (key === "saudavel" || key === "zero")) key = "atencao";
+    if (caixaCurto && (key === "saudavel" || key === "zero")) key = "atencao";
+    const runwayTxt = runway === Infinity ? "∞" : `${runway.toFixed(1)}m`;
     const cfg = {
-      saudavel: { label: "Lucrando e saudável", nota: "operação dá lucro e o caixa cobre o ritmo", icon: Trophy, cls: "border-green-500/40 bg-green-500/10", color: "text-green-400" },
-      zero: { label: "No zero a zero", nota: "operação se paga, mas sem folga — margem ~0%", icon: Scale, cls: "border-amber-400/40 bg-amber-400/10", color: "text-amber-300" },
-      atencao: { label: "Merece atenção", nota: runway < 2 ? "margem fraca + caixa curto: priorize cobrança e custo" : "margem negativa leve: ajuste preço/custo antes que aperte", icon: AlertTriangle, cls: "border-orange-500/40 bg-orange-500/10", color: "text-orange-400" },
-      prejuizo: { label: "No prejuízo", nota: "gastando mais do que entra — corrija estrutura ou preço", icon: TrendingDown, cls: "border-destructive/40 bg-destructive/10", color: "text-destructive" },
+      saudavel: { label: "Lucrando e saudável", nota: "resultado positivo no período e caixa cobre o ritmo", icon: Trophy, cls: "border-green-500/40 bg-green-500/10", color: "text-green-400" },
+      zero: { label: "No zero a zero", nota: "operação se paga no período, mas sem folga — margem ~0%", icon: Scale, cls: "border-amber-400/40 bg-amber-400/10", color: "text-amber-300" },
+      atencao: { label: "Merece atenção", nota: m >= 0 ? `resultado positivo no período, mas caixa curto (runway ${runwayTxt}) — priorize cobrança` : "margem negativa leve no período: ajuste preço/custo antes que aperte", icon: AlertTriangle, cls: "border-orange-500/40 bg-orange-500/10", color: "text-orange-400" },
+      prejuizo: { label: "No prejuízo", nota: "gastou mais do que entrou no período — corrija estrutura ou preço", icon: TrendingDown, cls: "border-destructive/40 bg-destructive/10", color: "text-destructive" },
     }[key];
     return { key, ...cfg };
-  }, [trailing.margemLiquidaPct, runway]);
+  }, [margemLiquida.pct, runway]);
 
   // Geração de caixa mês a mês — FIXO: os 6 meses FECHADOS antes do mês corrente (ancorado em HOJE,
   // NÃO no seletor de período). É histórico: a geração de um mês passado não muda conforme o que se olha.
@@ -326,7 +336,7 @@ export default function Home() {
   const copiarPortal = () => {
     const txt = portalCampos.map((c) => `${c.label}: ${c.valor}`).join("\n");
     navigator.clipboard?.writeText(txt);
-    toast({ title: "Copiado", description: "Cole no portal os 6 campos do mês." });
+    toast({ title: "Copiado", description: "Cole no portal os 6 campos do período." });
   };
   const topCategoriasCusto = useMemo(() => {
     const fix = calcCustosFixosPorCategoria(payItems, monthPeriod);
@@ -491,8 +501,8 @@ export default function Home() {
           <div className="min-w-0 flex-1">
             <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`}>{statusSaude.label}</p>
             <p className="text-xs text-muted-foreground">
-              {statusSaude.nota} · margem líquida (3m) {formatPercent(trailing.margemLiquidaPct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
-              {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento/mês pra zerar` : ""}
+              {statusSaude.nota} · margem líquida do período {formatPercent(margemLiquida.pct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
+              {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento pra zerar` : ""}
             </p>
           </div>
         </div>
@@ -500,13 +510,13 @@ export default function Home() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             hero
-            label="Faturamento do mês"
+            label="Faturamento"
             regime="competência"
             value={formatCurrency(faturamentoMes)}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
             subColor={faturamentoVsMeta >= 100 ? "text-green-400" : faturamentoVsMeta >= 60 ? "text-amber-400" : "text-destructive"}
             icon={TrendingUp}
-            onClick={() => setDetalhe({ title: "Faturamento do mês (NFs emitidas)", items: detItens.faturamento, valueField: "total" })}
+            onClick={() => setDetalhe({ title: "Faturamento (NFs emitidas)", items: detItens.faturamento, valueField: "total" })}
             loading={financialLoading}
           />
           <MetricCard
@@ -547,9 +557,9 @@ export default function Home() {
           {aberto.has("resultado") && (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
           <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
-          <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
-          <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis do mês", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
+          <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
           <MetricCard label="Margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
@@ -557,7 +567,7 @@ export default function Home() {
           <MetricCard
             label="Custo hora (estrutura)"
             value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
-            sub={custoHora != null ? `${formatCurrency(custosFixos)} fixos ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
+            sub={custoHora != null ? `${formatCurrency(custosFixos / nMesesPeriodo)}/mês ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
             subColor={custoHora != null ? undefined : "text-amber-400"}
             icon={Clock}
             onClick={custoHora == null ? () => navigate("/configuracoes/contexto") : undefined}
@@ -574,13 +584,13 @@ export default function Home() {
           {aberto.has("caixa") && (
           <div className="space-y-3 mt-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <MetricCard label="A receber no mês" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
-          <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no mês", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no mês" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
+          <MetricCard label="A receber" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no período"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no período", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no período", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no período" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no período (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`mês completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`período completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
         </div>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">
@@ -704,14 +714,14 @@ export default function Home() {
       </section>
 
       <section>
-        <SecHeader open={aberto.has("portal")} onToggle={() => toggleSec("portal")} dot="bg-primary" title="Portal do mês" hint="6 campos pra copiar" />
+        <SecHeader open={aberto.has("portal")} onToggle={() => toggleSec("portal")} dot="bg-primary" title="Portal do período" hint="6 campos pra copiar" />
         {aberto.has("portal") && (
           <div className="mt-2">
             <div className="mb-2 flex justify-end">
               <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
-              Números prontos pra alimentar o portal externo (mês selecionado no topo). Pró-labore = retirada total dos sócios
+              Números prontos pra alimentar o portal externo (período selecionado no topo). Pró-labore = retirada total dos sócios
               (pró-labore + distribuição); custo fixo = só operacional (sem a retirada).
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
