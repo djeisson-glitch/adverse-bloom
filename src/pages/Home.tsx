@@ -256,6 +256,25 @@ export default function Home() {
     ? `${MESES_CURTO[+trailing.meses[0].slice(5) - 1]}–${MESES_CURTO[+trailing.meses[trailing.meses.length - 1].slice(5) - 1]}/${trailing.meses[0].slice(2, 4)}`
     : "";
 
+  // Status de saúde — baseado na margem líquida da TENDÊNCIA (3 meses fechados, estável,
+  // sem o ruído do mês parcial) + runway. Caixa crítico (runway < 2m) nunca deixa parecer saudável.
+  const statusSaude = useMemo(() => {
+    const m = trailing.margemLiquidaPct;
+    let key: "saudavel" | "zero" | "atencao" | "prejuizo";
+    if (m >= 8) key = "saudavel";
+    else if (m >= -3) key = "zero";
+    else if (m >= -15) key = "atencao";
+    else key = "prejuizo";
+    if (runway !== Infinity && runway < 2 && (key === "saudavel" || key === "zero")) key = "atencao";
+    const cfg = {
+      saudavel: { label: "Lucrando e saudável", nota: "operação dá lucro e o caixa cobre o ritmo", icon: Trophy, cls: "border-green-500/40 bg-green-500/10", color: "text-green-400" },
+      zero: { label: "No zero a zero", nota: "operação se paga, mas sem folga — margem ~0%", icon: Scale, cls: "border-amber-400/40 bg-amber-400/10", color: "text-amber-300" },
+      atencao: { label: "Merece atenção", nota: runway < 2 ? "margem fraca + caixa curto: priorize cobrança e custo" : "margem negativa leve: ajuste preço/custo antes que aperte", icon: AlertTriangle, cls: "border-orange-500/40 bg-orange-500/10", color: "text-orange-400" },
+      prejuizo: { label: "No prejuízo", nota: "gastando mais do que entra — corrija estrutura ou preço", icon: TrendingDown, cls: "border-destructive/40 bg-destructive/10", color: "text-destructive" },
+    }[key];
+    return { key, ...cfg };
+  }, [trailing.margemLiquidaPct, runway]);
+
   // Geração de caixa mês a mês — FIXO: os 6 meses FECHADOS antes do mês corrente (ancorado em HOJE,
   // NÃO no seletor de período). É histórico: a geração de um mês passado não muda conforme o que se olha.
   const geracaoMensal = useMemo(() => {
@@ -448,6 +467,20 @@ export default function Home() {
           >
             Ver detalhes <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
+        </div>
+
+        {/* Status de saúde (tendência 3 meses fechados + runway) */}
+        <div className={`flex items-center gap-3 rounded-xl border p-4 ${statusSaude.cls}`}>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/40 ${statusSaude.color}`}>
+            <statusSaude.icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`}>{statusSaude.label}</p>
+            <p className="text-xs text-muted-foreground">
+              {statusSaude.nota} · margem líquida (3m) {formatPercent(trailing.margemLiquidaPct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
+              {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento/mês pra zerar` : ""}
+            </p>
+          </div>
         </div>
         {/* Resumo — os números-chave */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
