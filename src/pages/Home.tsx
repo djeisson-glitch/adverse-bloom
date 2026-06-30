@@ -25,6 +25,8 @@ import {
   custosFixosItems, custosVariaveisItems, impostosSobreVendaItems,
 } from "@/lib/financial";
 import { DetailModal } from "@/components/financeiro/DetailModal";
+import { PainelSinais } from "@/components/financeiro/PainelSinais";
+import { gerarSinais, type SinalAcao } from "@/lib/sinais";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,9 +59,11 @@ interface MetricCardProps {
   insight?: string;
   regime?: "competência" | "caixa";
   hero?: boolean;
+  termo?: string; // termo técnico em cinza sob o rótulo amigável
+  delta?: { texto: string; bom: boolean } | null; // variação vs período anterior
 }
 
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime, hero }: MetricCardProps) {
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime, hero, termo, delta }: MetricCardProps) {
   return (
     <Card
       className={`border-border/50 transition-colors ${hero ? "bg-card/80" : "bg-card"} ${onClick ? "cursor-pointer hover:border-primary/40" : ""}`}
@@ -78,11 +82,17 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
             </span>
           )}
         </div>
+        {termo && <p className="-mt-1 mb-1 text-[10px] text-muted-foreground/60 truncate">{termo}</p>}
         {loading ? (
           <Skeleton className={hero ? "h-9 w-32" : "h-6 w-24"} />
         ) : (
           <>
-            <p className={`font-heading font-bold truncate ${hero ? "text-2xl sm:text-3xl" : "text-lg"} ${valueColor || "text-foreground"}`}>{value}</p>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <p className={`font-heading font-bold truncate ${hero ? "text-2xl sm:text-3xl" : "text-lg"} ${valueColor || "text-foreground"}`}>{value}</p>
+              {delta && (
+                <span className={`shrink-0 text-[11px] font-medium ${delta.bom ? "text-green-400" : "text-destructive"}`}>{delta.texto}</span>
+              )}
+            </div>
             {sub && <p className={`mt-0.5 truncate ${hero ? "text-xs" : "text-[11px]"} ${subColor || "text-muted-foreground"}`}>{sub}</p>}
             {insight && <p className="text-[11px] mt-1.5 text-muted-foreground/70 leading-snug">{insight}</p>}
           </>
@@ -400,6 +410,89 @@ export default function Home() {
     return { lista, qtde: projByCli.size, concentracao: total > 0 ? (top3 / total) * 100 : 0 };
   }, [recItems, projetosRaw, monthPeriod.from, monthPeriod.to]);
 
+  // ── Entradas previstas nos próximos 30 dias (janela à frente, p/ o sinal de oportunidade) ──
+  const em30dias = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+  const entradas30d = useMemo(() => {
+    const itens = (recItems as any[]).filter((r) => {
+      const dv = r.data_vencimento;
+      return dv && dv >= today && dv <= em30dias && (r.nao_pago ?? 0) > 0 && getCat(r) !== "Empréstimos de Bancos";
+    });
+    const total = itens.reduce((s, r) => s + (r.nao_pago ?? 0), 0);
+    const top = itens.slice().sort((a, b) => (b.nao_pago ?? 0) - (a.nao_pago ?? 0))[0];
+    return { total, top: top ? { cliente: top.cliente?.nome || "cliente", valor: top.nao_pago ?? 0 } : null, itens: itens as CAItem[] };
+  }, [recItems, today, em30dias]);
+  // Itens vencidos do "A receber" do período — mesma base do card, p/ o drill-down do sinal.
+  const aReceberVencidoItems = useMemo(
+    () => detItens.aReceber.filter((r) => r.data_vencimento && r.data_vencimento < today && (r.nao_pago ?? 0) > 0),
+    [detItens, today],
+  );
+
+  // ── Variação vs período anterior (mesmo nº de meses, imediatamente antes) ──
+  const periodoAnterior = useMemo(() => {
+    const [fy, fm] = monthPeriod.from.split("-").map(Number);
+    const baseIdx = fy * 12 + (fm - 1);
+    const startIdx = baseIdx - nMesesPeriodo;
+    const endIdx = baseIdx - 1;
+    const sY = Math.floor(startIdx / 12), sM = ((startIdx % 12) + 12) % 12;
+    const eY = Math.floor(endIdx / 12), eM = ((endIdx % 12) + 12) % 12;
+    const lastDay = new Date(eY, eM + 1, 0).getDate();
+    return { from: `${sY}-${String(sM + 1).padStart(2, "0")}-01`, to: `${eY}-${String(eM + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}` };
+  }, [monthPeriod.from, nMesesPeriodo]);
+  const fatAnterior = useMemo(() => calcReceitaTotal(recItems, periodoAnterior), [recItems, periodoAnterior.from, periodoAnterior.to]);
+  const resultadoAnterior = useMemo(() => calcLucroLiquido(fatAnterior, calcDespesasOperacionais(payItems, periodoAnterior)).valor, [payItems, fatAnterior, periodoAnterior.from, periodoAnterior.to]);
+  const compactBRL = (n: number) => {
+    const a = Math.abs(n);
+    return a >= 1000 ? `R$ ${(n / 1000).toFixed(a >= 10000 ? 0 : 1).replace(".", ",")}k` : formatCurrency(n);
+  };
+  const deltaFaturamento = fatAnterior > 0
+    ? { texto: `${faturamentoMes >= fatAnterior ? "▲" : "▼"} ${Math.abs(((faturamentoMes - fatAnterior) / fatAnterior) * 100).toFixed(0)}%`, bom: faturamentoMes >= fatAnterior }
+    : null;
+  const deltaResultadoVal = margemLiquida.valor - resultadoAnterior;
+  const deltaResultado = (fatAnterior > 0 || resultadoAnterior !== 0)
+    ? { texto: `${deltaResultadoVal >= 0 ? "▲" : "▼"} ${compactBRL(Math.abs(deltaResultadoVal))}`, bom: deltaResultadoVal >= 0 }
+    : null;
+
+  // ── Motor de sinais: recebe os valores JÁ auditados (nunca recalcula) ──
+  const sinais = useMemo(() => gerarSinais({
+    fmtMoeda: formatCurrency,
+    fmtPct: formatPercent,
+    margemLiquidaPct: margemLiquida.pct,
+    margemLiquidaValor: margemLiquida.valor,
+    metaMargem,
+    faturamentoMes,
+    faturamentoVsMeta,
+    monthlyTarget,
+    runway,
+    burnRate,
+    saldoConta,
+    aReceberMes,
+    aReceberMesVencido,
+    aPagarMesAberto,
+    abertoImpostos,
+    fixPctReceita,
+    custosFixos,
+    geracaoCaixa,
+    geracaoMensalValores: geracaoMensal.map((g) => g.geracao),
+    trailingMargemLiquidaPct: trailing.margemLiquidaPct,
+    trailingMargemCaixaPct: trailing.margemCaixaPct,
+    faltaPraLucro,
+    mrr,
+    retiradaSocios,
+    concentracaoTop3: topClientes.concentracao,
+    entradas30dTotal: entradas30d.total,
+    entradas30dTop: entradas30d.top,
+    clientes: topClientes.lista,
+    ticketMedio: ticketMedioValor,
+  }), [margemLiquida.pct, margemLiquida.valor, metaMargem, faturamentoMes, faturamentoVsMeta, monthlyTarget, runway, burnRate, saldoConta, aReceberMes, aReceberMesVencido, aPagarMesAberto, abertoImpostos, fixPctReceita, custosFixos, geracaoCaixa, geracaoMensal, trailing, faltaPraLucro, mrr, retiradaSocios, topClientes, entradas30d, ticketMedioValor]);
+
+  const handleSinalAcao = (a: SinalAcao) => {
+    if (a.modal === "vencido") setDetalhe({ title: "A receber vencido", items: aReceberVencidoItems, valueField: "nao_pago" });
+    else if (a.modal === "impostos") setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" });
+    else if (a.modal === "custosFixos") setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" });
+    else if (a.modal === "entradas30d") setDetalhe({ title: "A entrar nos próximos 30 dias", items: entradas30d.itens, valueField: "nao_pago" });
+    else if (a.rota) navigate(a.rota);
+  };
+
   // ===== COMERCIAL =====
   const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
   const pipelineValue = openDeals.reduce((s, d) => s + (d.approved_value ?? 0), 0);
@@ -506,6 +599,9 @@ export default function Home() {
             </p>
           </div>
         </div>
+        {/* O que olhar agora — o protagonista da tela (sinais auditados, seguem o período) */}
+        <PainelSinais sinais={sinais} onAcao={handleSinalAcao} loading={financialLoading} />
+
         {/* Resumo — os números-chave */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
@@ -513,6 +609,7 @@ export default function Home() {
             label="Faturamento"
             regime="competência"
             value={formatCurrency(faturamentoMes)}
+            delta={deltaFaturamento}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
             subColor={faturamentoVsMeta >= 100 ? "text-green-400" : faturamentoVsMeta >= 60 ? "text-amber-400" : "text-destructive"}
             icon={TrendingUp}
@@ -525,6 +622,7 @@ export default function Home() {
             regime="competência"
             value={formatCurrency(margemLiquida.valor)}
             valueColor={margemLiquida.valor >= 0 ? "text-green-400" : "text-destructive"}
+            delta={deltaResultado}
             sub={margemLiquida.valor >= 0 ? "lucro" : "prejuízo"}
             icon={Target}
             onClick={() => navigate("/financeiro/resultados")}
@@ -560,12 +658,13 @@ export default function Home() {
           <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
           <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
-          <MetricCard label="Margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
-          <MetricCard label="Margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
-          <MetricCard label="Ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
+          <MetricCard label="Sobra após custos diretos" termo="margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Sobra após variáveis" termo="margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
+          <MetricCard label="Sobra no fim" termo="margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
+          <MetricCard label="Faturamento pra empatar" termo="ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
           <MetricCard
-            label="Custo hora (estrutura)"
+            label="Custo da sua hora"
+            termo="custo hora · estrutura"
             value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
             sub={custoHora != null ? `${formatCurrency(custosFixos / nMesesPeriodo)}/mês ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
             subColor={custoHora != null ? undefined : "text-amber-400"}
