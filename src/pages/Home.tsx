@@ -56,23 +56,22 @@ interface MetricCardProps {
   loading?: boolean;
   insight?: string;
   regime?: "competência" | "caixa";
+  hero?: boolean;
 }
 
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime }: MetricCardProps) {
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime, hero }: MetricCardProps) {
   return (
     <Card
-      className={`bg-card border-border/50 transition-colors ${onClick ? "cursor-pointer hover:border-primary/30" : ""}`}
+      className={`border-border/50 transition-colors ${hero ? "bg-card/80" : "bg-card"} ${onClick ? "cursor-pointer hover:border-primary/40" : ""}`}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
-            <Icon className="h-4 w-4 text-primary" />
-          </div>
-          <span className="text-xs text-muted-foreground truncate min-w-0">{label}</span>
+      <CardContent className={hero ? "p-5" : "p-4"}>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Icon className={`shrink-0 text-muted-foreground/60 ${hero ? "h-4 w-4" : "h-3.5 w-3.5"}`} />
+          <span className={`text-muted-foreground truncate min-w-0 ${hero ? "text-xs" : "text-[11px]"}`}>{label}</span>
           {regime && (
             <span
-              className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ${regime === "competência" ? "bg-emerald-500/10 text-emerald-400" : "bg-sky-500/10 text-sky-400"}`}
+              className={`ml-auto shrink-0 text-[9px] font-medium uppercase tracking-wider ${regime === "competência" ? "text-emerald-400/70" : "text-sky-400/70"}`}
               title={regime === "competência" ? "Regime de competência: conta no mês em que o fato aconteceu (base das margens)." : "Regime de caixa: conta no mês em que vence/paga (fluxo financeiro)."}
             >
               {regime}
@@ -80,12 +79,12 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
           )}
         </div>
         {loading ? (
-          <Skeleton className="h-7 w-24 mt-1" />
+          <Skeleton className={hero ? "h-9 w-32" : "h-6 w-24"} />
         ) : (
           <>
-            <p className={`text-lg sm:text-xl font-heading font-bold truncate ${valueColor || "text-foreground"}`}>{value}</p>
-            {sub && <p className={`text-xs mt-0.5 truncate ${subColor || "text-muted-foreground"}`}>{sub}</p>}
-            {insight && <p className="text-[11px] mt-1.5 text-muted-foreground/80 leading-snug">💡 {insight}</p>}
+            <p className={`font-heading font-bold truncate ${hero ? "text-2xl sm:text-3xl" : "text-lg"} ${valueColor || "text-foreground"}`}>{value}</p>
+            {sub && <p className={`mt-0.5 truncate ${hero ? "text-xs" : "text-[11px]"} ${subColor || "text-muted-foreground"}`}>{sub}</p>}
+            {insight && <p className="text-[11px] mt-1.5 text-muted-foreground/70 leading-snug">{insight}</p>}
           </>
         )}
       </CardContent>
@@ -454,7 +453,7 @@ export default function Home() {
       </motion.div>
 
       {/* FINANCEIRO */}
-      <section className="space-y-3">
+      <section className="space-y-5">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" /> Financeiro
@@ -483,8 +482,9 @@ export default function Home() {
           </div>
         </div>
         {/* Resumo — os números-chave */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
+            hero
             label="Faturamento do mês"
             regime="competência"
             value={formatCurrency(faturamentoMes)}
@@ -495,6 +495,7 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            hero
             label="Resultado do período"
             regime="competência"
             value={formatCurrency(margemLiquida.valor)}
@@ -505,6 +506,7 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            hero
             label="Saldo em conta"
             regime="caixa"
             value={formatCurrency(saldoConta)}
@@ -513,6 +515,7 @@ export default function Home() {
             loading={financialLoading}
           />
           <MetricCard
+            hero
             label="Runway"
             value={runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
             valueColor={runwayColor}
