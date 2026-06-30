@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign, TrendingUp, Wallet, Clock, Handshake, Trophy, Target,
   CalendarDays, AlertTriangle, FileText, RefreshCw, ArrowRight, CheckCircle2,
-  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard, Scale, Banknote,
+  Inbox, Briefcase, Clapperboard, Receipt, Percent, PieChart, TrendingDown, CircleDollarSign, CreditCard, Scale, Banknote, ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, Cell, ReferenceLine, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
@@ -89,6 +89,18 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/* ─── Section header (recolhível) ─── */
+function SecHeader({ open, onToggle, dot, title, hint }: { open: boolean; onToggle: () => void; dot: string; title: string; hint?: string }) {
+  return (
+    <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 py-1.5 text-left hover:opacity-80 transition-opacity">
+      <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform ${open ? "rotate-90" : ""}`} />
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      {hint && <span className="ml-auto truncate text-[11px] text-muted-foreground/60">{hint}</span>}
+    </button>
   );
 }
 
@@ -193,6 +205,9 @@ export default function Home() {
 
   // Drill-down: lançamentos do Conta Azul que somam cada card (lista = exatamente o que o número soma).
   const [detalhe, setDetalhe] = useState<{ title: string; items: CAItem[]; valueField: "total" | "pago" | "nao_pago" } | null>(null);
+  // Seções recolhíveis — tudo fechado por padrão (só status + 4 números no topo).
+  const [aberto, setAberto] = useState<Set<string>>(new Set());
+  const toggleSec = (k: string) => setAberto((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const detItens = useMemo(() => ({
     faturamento: receitaTotalItems(recItems, monthPeriod),
     aReceber: aReceberNoMesItems(recItems, monthPeriod),
@@ -527,12 +542,10 @@ export default function Home() {
         </div>
 
         {/* Resultado econômico (competência) */}
-        <div className="flex items-center gap-2 pt-3">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado econômico</h3>
-          <span className="text-[10px] uppercase tracking-wide text-emerald-400/70">competência</span>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div>
+          <SecHeader open={aberto.has("resultado")} onToggle={() => toggleSec("resultado")} dot="bg-emerald-400" title="Resultado econômico · competência" hint={`margem líquida ${formatPercent(margemLiquida.pct)}`} />
+          {aberto.has("resultado") && (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
           <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda (mês)", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos do mês", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
@@ -551,15 +564,16 @@ export default function Home() {
             loading={financialLoading}
             insight={custoHoraCheio != null ? `cheio (todas as despesas op.): ${formatCurrency(custoHoraCheio)}/h` : undefined}
           />
+          </div>
+          )}
         </div>
 
         {/* Caixa (vencimento) */}
-        <div className="flex items-center gap-2 pt-3">
-          <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Caixa</h3>
-          <span className="text-[10px] uppercase tracking-wide text-sky-400/70">vencimento</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <SecHeader open={aberto.has("caixa")} onToggle={() => toggleSec("caixa")} dot="bg-sky-400" title="Caixa · vencimento" hint={`geração ${formatCurrency(geracaoCaixa)}`} />
+          {aberto.has("caixa") && (
+          <div className="space-y-3 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricCard label="A receber no mês" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no mês"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no mês", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
           <MetricCard label="Total a pagar no mês" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no mês", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no mês" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no mês (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
@@ -593,27 +607,28 @@ export default function Home() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+          </div>
+          )}
+        </div>
 
         {/* Comercial & operação */}
-        <div className="flex items-center gap-2 pt-3">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comercial &amp; operação</h3>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div>
+          <SecHeader open={aberto.has("comercial")} onToggle={() => toggleSec("comercial")} dot="bg-primary" title="Comercial & operação" hint={`${topClientes.qtde} clientes · ${projetosRealizados} projetos`} />
+          {aberto.has("comercial") && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           <MetricCard label="MRR (receita recorrente)" value={formatCurrency(mrr)} sub={`${nContratos} contratos ativos`} icon={Wallet} onClick={() => navigate("/configuracoes/contratos")} loading={false} />
           <MetricCard label="Projetos realizados" value={String(projetosRealizados)} sub="no período (ClickUp)" icon={Briefcase} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Ticket médio" value={formatCurrency(ticketMedioValor)} sub={projetosRealizados > 0 ? `${projetosRealizados} projetos` : `${ticketMedio.qtde} faturas`} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Nº de clientes" value={String(topClientes.qtde)} sub="faturando no período" icon={Handshake} onClick={() => navigate("/clientes")} loading={financialLoading} insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined} />
+          </div>
+          )}
         </div>
 
         {/* Principais categorias de custo (mês) */}
-        <Card className="bg-card border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-              <PieChart className="h-3.5 w-3.5" /> Principais categorias de custo (mês)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
+        <div>
+          <SecHeader open={aberto.has("categorias")} onToggle={() => toggleSec("categorias")} dot="bg-amber-400" title="Principais categorias de custo" hint={topCategoriasCusto.length ? `${topCategoriasCusto.length} categorias` : ""} />
+          {aberto.has("categorias") && (
+          <div className="space-y-2 mt-2 px-1">
             {topCategoriasCusto.length === 0 ? (
               <EmptyState icon={PieChart} message="Sem custos no período" />
             ) : (
@@ -624,20 +639,15 @@ export default function Home() {
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+          )}
+        </div>
 
         {/* Clientes: projetos × faturamento × ticket */}
-        <Card className="bg-card border-border/50">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-              <Handshake className="h-3.5 w-3.5" /> Clientes — projetos × faturamento × ticket (período)
-              {topClientes.qtde > 0 && (
-                <span className="ml-auto text-[11px] text-muted-foreground/80">{topClientes.qtde} clientes</span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
+        <div>
+          <SecHeader open={aberto.has("clientes")} onToggle={() => toggleSec("clientes")} dot="bg-primary" title="Clientes — projetos × faturamento × ticket" hint={topClientes.qtde > 0 ? `${topClientes.qtde} clientes` : ""} />
+          {aberto.has("clientes") && (
+          <div className="mt-2 px-1">
             {topClientes.lista.length === 0 ? (
               <EmptyState icon={Handshake} message="Sem projetos no período" />
             ) : (
@@ -662,18 +672,15 @@ export default function Home() {
                 </tbody>
               </table>
             )}
-          </CardContent>
-        </Card>
+          </div>
+          )}
+        </div>
       </section>
 
       <section>
-        <Card className="bg-card border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" /> Tendência — 3 meses fechados {trailingLabel && <span className="text-xs font-normal text-muted-foreground">({trailingLabel})</span>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <SecHeader open={aberto.has("tendencia")} onToggle={() => toggleSec("tendencia")} dot="bg-violet-400" title={`Tendência — 3 meses fechados${trailingLabel ? ` (${trailingLabel})` : ""}`} hint={`líquida ${formatPercent(trailing.margemLiquidaPct)}`} />
+        {aberto.has("tendencia") && (
+          <div className="mt-2">
             <p className="text-xs text-muted-foreground mb-3">
               Médias dos 3 meses completos antes do mês selecionado — sem o ruído do mês parcial. Ambas <strong>operacionais</strong>
               (excluem empréstimos e compra de equipamentos), então a diferença entre elas é só o <strong>timing</strong> (competência × caixa).
@@ -692,19 +699,17 @@ export default function Home() {
                 <p className={`text-lg font-heading font-bold ${trailing.geracaoCaixaMedia >= 0 ? "text-green-400" : "text-destructive"}`}>{formatCurrency(trailing.geracaoCaixaMedia)}</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </section>
 
       <section>
-        <Card className="bg-card border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-primary" /> Portal do mês
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
-          </CardHeader>
-          <CardContent>
+        <SecHeader open={aberto.has("portal")} onToggle={() => toggleSec("portal")} dot="bg-primary" title="Portal do mês" hint="6 campos pra copiar" />
+        {aberto.has("portal") && (
+          <div className="mt-2">
+            <div className="mb-2 flex justify-end">
+              <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
+            </div>
             <p className="text-xs text-muted-foreground mb-3">
               Números prontos pra alimentar o portal externo (mês selecionado no topo). Pró-labore = retirada total dos sócios
               (pró-labore + distribuição); custo fixo = só operacional (sem a retirada).
@@ -717,8 +722,8 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </section>
 
       {detalhe && (
