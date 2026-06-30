@@ -19,7 +19,7 @@ export interface PeriodRange {
   to: string;   // YYYY-MM-DD
 }
 
-export type Preset = "mes_atual" | "mes_anterior" | "trimestre_atual" | "ano_atual" | "personalizado";
+export type Preset = "mes_atual" | "mes_anterior" | "ultimos_3_meses" | "trimestre_atual" | "semestre_1" | "semestre_2" | "ano_atual" | "personalizado";
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -39,6 +39,13 @@ function getPresetRange(preset: Preset): PeriodRange | null {
       return monthRange(y, m);
     case "mes_anterior":
       return m === 0 ? monthRange(y - 1, 11) : monthRange(y, m - 1);
+    case "ultimos_3_meses":
+      // Rolling: do 1º dia de 2 meses atrás até o fim do mês corrente.
+      return { from: toDateStr(new Date(y, m - 2, 1)), to: monthRange(y, m).to };
+    case "semestre_1":
+      return { from: `${y}-01-01`, to: `${y}-06-30` };
+    case "semestre_2":
+      return { from: `${y}-07-01`, to: `${y}-12-31` };
     case "trimestre_atual": {
       const qStart = Math.floor(m / 3) * 3;
       const qEnd = qStart + 2;
@@ -124,7 +131,10 @@ export function PeriodFilter({ onChange }: Props) {
         <SelectContent>
           <SelectItem value="mes_atual">Mês atual</SelectItem>
           <SelectItem value="mes_anterior">Mês anterior</SelectItem>
+          <SelectItem value="ultimos_3_meses">Últimos 3 meses</SelectItem>
           <SelectItem value="trimestre_atual">Trimestre atual</SelectItem>
+          <SelectItem value="semestre_1">1º semestre (jan–jun)</SelectItem>
+          <SelectItem value="semestre_2">2º semestre (jul–dez)</SelectItem>
           <SelectItem value="ano_atual">Ano atual</SelectItem>
           <SelectItem value="personalizado">Personalizado</SelectItem>
         </SelectContent>
