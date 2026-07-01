@@ -7,6 +7,7 @@ type Sessao = {
   project_id: string;
   project_name: string;
   task_id?: string | null;
+  task_title?: string;
   description?: string;
   start_at: string;
 };

@@ -19,12 +19,13 @@ function TimerButton() {
         <button
           onClick={stop}
           className="flex items-center gap-2 rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90"
-          title={`Rodando em ${sessao.project_name} — clique pra parar e lançar`}
+          title={`Rodando em ${sessao.project_name}${sessao.task_title ? ` · ${sessao.task_title}` : ""} — clique pra parar e lançar`}
         >
           <Square className="h-3.5 w-3.5 fill-current" />
           <span className="tabular-nums">{formatElapsed(elapsedSec)}</span>
-          <span className="hidden max-w-[120px] truncate text-[10px] opacity-80 md:inline">
+          <span className="hidden max-w-[180px] truncate text-[10px] opacity-80 md:inline">
             · {sessao.project_name}
+            {sessao.task_title ? ` · ${sessao.task_title}` : ""}
           </span>
         </button>
         <button
