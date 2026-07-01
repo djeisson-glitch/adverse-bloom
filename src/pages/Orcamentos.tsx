@@ -162,10 +162,7 @@ export default function Orcamentos() {
           <Button
             size="sm"
             className="bg-primary text-primary-foreground"
-            onClick={() => {
-              setEditingDeal(null);
-              setFormOpen(true);
-            }}
+            onClick={() => navigate("/orcamentos/novo")}
           >
             <Plus className="mr-1 h-4 w-4" />
             Novo
@@ -177,18 +174,12 @@ export default function Orcamentos() {
         <KanbanBoard
           deals={openDeals}
           onMoveDeal={handleMoveDeal}
-          onEditDeal={(d) => {
-            setEditingDeal(d);
-            setFormOpen(true);
-          }}
+          onEditDeal={(d) => navigate(`/orcamentos/${d.id}`)}
         />
       ) : (
         <ListaOrcamentos
           deals={openDeals}
-          onEdit={(d) => {
-            setEditingDeal(d);
-            setFormOpen(true);
-          }}
+          onEdit={(d) => navigate(`/orcamentos/${d.id}`)}
           onOpenClient={(clientId) => clientId && navigate(`/clientes/${clientId}`)}
         />
       )}

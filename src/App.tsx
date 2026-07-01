@@ -22,6 +22,8 @@ import Insights from "./pages/Insights";
 import Projecoes2026 from "./pages/Projecoes2026";
 import Orcamentos from "./pages/Orcamentos";
 import OrcamentosLegado from "./pages/OrcamentosLegado";
+import NovoOrcamento from "./pages/NovoOrcamento";
+import OrcamentoEditor from "./pages/OrcamentoEditor";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import ProjetosLegado from "./pages/ProjetosLegado";
 import ContasAPagar from "./pages/ContasAPagar";
@@ -121,6 +123,8 @@ const App = () => (
 
               {/* Onda 0 — Produção */}
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
+              <Route path="/orcamentos/novo" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
+              <Route path="/orcamentos/:id" element={<ProtectedRoute><OrcamentoEditor /></ProtectedRoute>} />
               <Route path="/orcamentos-legado" element={<ProtectedRoute><OrcamentosLegado /></ProtectedRoute>} />
               <Route path="/projetos" element={<ProtectedRoute><Projetos /></ProtectedRoute>} />
               <Route path="/projetos/:id" element={<ProtectedRoute><ProjetoDetalhe /></ProtectedRoute>} />
