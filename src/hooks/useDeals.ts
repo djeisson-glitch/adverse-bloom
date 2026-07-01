@@ -8,12 +8,18 @@ export type Deal = Tables<"deals"> & {
   approved_value?: number | null;
 };
 
+/**
+ * Stages Catalunya OS — funil comercial do Adverse OS Produtora.
+ * Ordem: lead → elaboracao → proposta → negociacao → aceite. 'perdido' é ramo lateral.
+ * A probability associada é usada na Previsão ponderada.
+ */
 export const STAGES = [
-  { id: "diagnostico", label: "Diagnóstico" },
-  { id: "orcamento", label: "Orçamento em elaboração" },
-  { id: "proposta", label: "Proposta enviada" },
-  { id: "fechamento", label: "Fechamento" },
-  { id: "perdido", label: "Perdido" },
+  { id: "lead",       label: "Lead / Pedido Recebido", color: "#22c55e", probability: 10, emoji: "🟢" },
+  { id: "elaboracao", label: "Em Elaboração",          color: "#f59e0b", probability: 40, emoji: "✍️" },
+  { id: "proposta",   label: "Proposta Enviada",       color: "#3b82f6", probability: 60, emoji: "📬" },
+  { id: "negociacao", label: "Negociação",             color: "#a855f7", probability: 80, emoji: "🤝" },
+  { id: "aceite",     label: "Aceite",                 color: "#10b981", probability: 100, emoji: "✅" },
+  { id: "perdido",    label: "Perdido",                color: "#ef4444", probability: 0,  emoji: "❌" },
 ] as const;
 
 export type Stage = (typeof STAGES)[number]["id"];
