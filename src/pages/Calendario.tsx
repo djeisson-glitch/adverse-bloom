@@ -1,0 +1,195 @@
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+type Marker =
+  | { tipo: "entregavel"; label: string; projectId: string; id: string; color: string }
+  | { tipo: "tarefa"; label: string; projectId: string | null; id: string; color: string }
+  | { tipo: "prazo"; label: string; projectId: string; id: string; color: string };
+
+function iso(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+export default function Calendario() {
+  const [cursor, setCursor] = useState(() => new Date());
+  const y = cursor.getFullYear();
+  const m = cursor.getMonth();
+  const from = iso(new Date(y, m, 1));
+  const to = iso(new Date(y, m + 1, 0));
+
+  const { data: tarefas = [] } = useQuery({
+    queryKey: ["cal-tasks", from, to],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("tasks")
+        .select("id, title, due_date, project_id, project:projects(id, name)")
+        .not("due_date", "is", null)
+        .gte("due_date", from)
+        .lte("due_date", to);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: entregaveis = [] } = useQuery({
+    queryKey: ["cal-entregaveis", from, to],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables")
+        .select("id, titulo, data_entrega, project_id, project:projects(id, name)")
+        .not("data_entrega", "is", null)
+        .gte("data_entrega", from)
+        .lte("data_entrega", to);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: prazos = [] } = useQuery({
+    queryKey: ["cal-prazos", from, to],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("projects")
+        .select("id, name, delivery_date")
+        .not("delivery_date", "is", null)
+        .gte("delivery_date", from)
+        .lte("delivery_date", to);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const byDate = useMemo(() => {
+    const map = new Map<string, Marker[]>();
+    tarefas.forEach((t) => {
+      const key = t.due_date.slice(0, 10);
+      map.set(key, [
+        ...(map.get(key) || []),
+        { tipo: "tarefa", label: t.title, projectId: t.project_id, id: t.id, color: "#e5e7eb" },
+      ]);
+    });
+    entregaveis.forEach((e) => {
+      const key = e.data_entrega.slice(0, 10);
+      map.set(key, [
+        ...(map.get(key) || []),
+        { tipo: "entregavel", label: e.titulo, projectId: e.project_id, id: e.id, color: "#22c55e" },
+      ]);
+    });
+    prazos.forEach((p) => {
+      const key = p.delivery_date.slice(0, 10);
+      map.set(key, [
+        ...(map.get(key) || []),
+        { tipo: "prazo", label: `🎯 ${p.name}`, projectId: p.id, id: p.id, color: "#ef4444" },
+      ]);
+    });
+    return map;
+  }, [tarefas, entregaveis, prazos]);
+
+  const firstDow = new Date(y, m, 1).getDay();
+  const dim = new Date(y, m + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= dim; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const today = iso(new Date());
+  const totalMarcadores = tarefas.length + entregaveis.length + prazos.length;
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 py-6">
+      <div className="flex items-center gap-3">
+        <CalendarDays className="h-6 w-6 text-primary" />
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Calendário de entregas</h1>
+          <p className="text-sm text-muted-foreground">
+            {totalMarcadores} datas marcadas · tarefas e prazos dos projetos
+          </p>
+        </div>
+      </div>
+
+      <Card className="glass-card">
+        <CardContent className="space-y-3 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-success" />
+                Entregável
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-white/70" />
+                Tarefa
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-destructive" />
+                Prazo do projeto
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium capitalize text-foreground">
+                {cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => setCursor(new Date(y, m - 1, 1))}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>
+                Hoje
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setCursor(new Date(y, m + 1, 1))}>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {["dom", "seg", "ter", "qua", "qui", "sex", "sáb"].map((d) => (
+              <div key={d} className="px-2 py-1">
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((d, i) => {
+              if (d == null) return <div key={i} className="h-24 rounded-md" />;
+              const key = iso(new Date(y, m, d));
+              const dayMarkers = byDate.get(key) || [];
+              const isToday = key === today;
+              return (
+                <div
+                  key={i}
+                  className={`flex h-24 flex-col justify-between rounded-md border p-1.5 text-xs ${
+                    isToday ? "border-primary/40 bg-primary/5" : "border-border/40 bg-muted/10"
+                  }`}
+                >
+                  <span className={`${isToday ? "text-primary" : "text-muted-foreground"} text-[11px]`}>
+                    {d}
+                  </span>
+                  <div className="space-y-0.5">
+                    {dayMarkers.slice(0, 3).map((mk) => (
+                      <Link
+                        key={mk.id}
+                        to={mk.projectId ? `/projetos/${mk.projectId}` : "#"}
+                        className="block truncate rounded px-1 py-0.5 text-[9px]"
+                        style={{ background: `${mk.color}22`, color: mk.color }}
+                        title={mk.label}
+                      >
+                        {mk.label}
+                      </Link>
+                    ))}
+                    {dayMarkers.length > 3 && (
+                      <span className="block text-[9px] text-muted-foreground">+{dayMarkers.length - 3}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
