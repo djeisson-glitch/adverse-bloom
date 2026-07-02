@@ -31,7 +31,8 @@ type BudgetItem = {
   descricao: string | null;
   quantity: number | null;
   diaria: number | null;
-  unit_price: number | null;
+  client_unit_price: number | null;
+  client_price: number | null;
   tira_taxa: boolean;
   observacoes: string | null;
   ordem: number;
@@ -487,8 +488,10 @@ function PlanilhaSection({
     return m;
   }, [itens]);
 
+  // Valor da linha = qtd × diária × valor unitário.
+  // diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
   const valorItem = (i: BudgetItem) =>
-    Number(i.quantity || 0) * Number(i.diaria || 1) * Number(i.unit_price || 0);
+    Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0);
 
   const totaisPorCategoria = useMemo(() => {
     const m = new Map<string, number>();
@@ -707,6 +710,7 @@ function PlanilhaSection({
                     budgetId={budget.id}
                     categoriaId={cat.id}
                     codigo={cat.codigo}
+                    catNome={cat.nome}
                     itens={itensCat}
                     onChanged={onChanged}
                   />
@@ -748,11 +752,12 @@ function PctInput({
 }
 
 function CategoriaItens({
-  budgetId, categoriaId, codigo, itens, onChanged,
+  budgetId, categoriaId, codigo, catNome, itens, onChanged,
 }: {
   budgetId: string;
   categoriaId: string;
   codigo: string;
+  catNome: string;
   itens: BudgetItem[];
   onChanged: () => void;
 }) {
@@ -764,11 +769,13 @@ function CategoriaItens({
       const { error } = await (supabase as any).from("budget_items").insert({
         budget_id: budgetId,
         categoria_id: categoriaId,
+        category: catNome,     // legado NOT NULL
         descricao: novaDesc,
-        item_name: novaDesc,   // legado
+        item_name: novaDesc,   // legado NOT NULL
         quantity: 1,
-        diaria: 0,
-        unit_price: 0,
+        diaria: 1,
+        client_unit_price: 0,
+        client_price: 0,
         tira_taxa: false,
         ordem: itens.length + 1,
       });
@@ -824,13 +831,13 @@ function BudgetItemRow({
 }) {
   const [row, setRow] = useState({
     descricao: item.descricao || (item as any).item_name || "",
-    quantity: item.quantity || 1,
-    diaria: item.diaria || 0,
-    unit_price: item.unit_price || 0,
+    quantity: item.quantity ?? 1,
+    diaria: item.diaria ?? 1,
+    client_unit_price: item.client_unit_price ?? 0,
     tira_taxa: item.tira_taxa,
     observacoes: item.observacoes || "",
   });
-  const valor = row.quantity * (row.diaria || 1) * row.unit_price;
+  const valor = row.quantity * row.diaria * row.client_unit_price;
 
   const salvar = useMutation({
     mutationFn: async () => {
@@ -841,7 +848,8 @@ function BudgetItemRow({
           item_name: row.descricao,
           quantity: row.quantity,
           diaria: row.diaria,
-          unit_price: row.unit_price,
+          client_unit_price: row.client_unit_price,
+          client_price: valor,   // total da linha — lido por Fechamento/Proposta
           tira_taxa: row.tira_taxa,
           observacoes: row.observacoes,
         })
@@ -886,8 +894,8 @@ function BudgetItemRow({
       />
       <Input
         type="number"
-        value={row.unit_price}
-        onChange={(e) => setRow({ ...row, unit_price: Number(e.target.value) })}
+        value={row.client_unit_price}
+        onChange={(e) => setRow({ ...row, client_unit_price: Number(e.target.value) })}
         onBlur={() => salvar.mutate()}
         className="h-7 text-xs"
       />
