@@ -7,7 +7,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, Table2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink,
+  FileText, Link2, ExternalLink, MessageSquare,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ const TIPOS_CUSTO = [
   { id: "outro", label: "Outro" },
 ] as const;
 
-type ProjetoTab = "tarefas" | "briefing" | "entregaveis" | "fechamento" | "comentarios";
+type ProjetoTab = "entregaveis" | "tarefas" | "briefing" | "fechamento";
 
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -58,7 +58,7 @@ export default function ProjetoDetalhe() {
   const qc = useQueryClient();
   const { canSeeMoney } = usePermissions();
   const { start } = useTimer();
-  const [tab, setTab] = useState<ProjetoTab>("tarefas");
+  const [tab, setTab] = useState<ProjetoTab>("entregaveis");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["projeto", id],
@@ -110,7 +110,7 @@ export default function ProjetoDetalhe() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 py-6">
+    <div className="mx-auto max-w-[1400px] space-y-5 py-6">
       <button
         onClick={() => navigate("/projetos")}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -168,54 +168,61 @@ export default function ProjetoDetalhe() {
         </CardContent>
       </Card>
 
-      {/* ---------- Navegação por seções ---------- */}
-      <div className="flex gap-1 overflow-x-auto border-b border-border/60">
-        {(
-          [
-            { id: "tarefas", label: "Tarefas" },
-            { id: "briefing", label: "Briefing & Docs" },
-            { id: "entregaveis", label: "Entregáveis" },
-            ...(canSeeMoney ? [{ id: "fechamento", label: "Fechamento" }] : []),
-            { id: "comentarios", label: "Comentários" },
-          ] as { id: ProjetoTab; label: string }[]
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm transition-colors ${
-              tab === t.id
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* ---------- Conteúdo (tabs) + painel lateral de comentários ---------- */}
+      <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
+        <div className="min-w-0 space-y-5">
+          {/* Navegação por seções */}
+          <div className="flex gap-1 overflow-x-auto border-b border-border/60">
+            {(
+              [
+                { id: "entregaveis", label: "Entregáveis" },
+                { id: "tarefas", label: "Tarefas" },
+                { id: "briefing", label: "Briefing & Docs" },
+                ...(canSeeMoney ? [{ id: "fechamento", label: "Fechamento" }] : []),
+              ] as { id: ProjetoTab; label: string }[]
+            ).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm transition-colors ${
+                  tab === t.id
+                    ? "border-primary font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === "entregaveis" && <EntregaveisSection projectId={project.id} profiles={profiles} />}
+
+          {tab === "tarefas" && (
+            <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
+          )}
+
+          {tab === "briefing" && (
+            <>
+              <BriefingProjetoSection project={project} onChanged={invalidate} />
+              <DocumentosSection projectId={project.id} />
+            </>
+          )}
+
+          {tab === "fechamento" && canSeeMoney && (
+            <>
+              <FechamentoSection project={project} onChanged={invalidate} />
+              <FaturamentoSection project={project} />
+            </>
+          )}
+        </div>
+
+        {/* Painel de comentários sempre aberto — contexto por projeto/tarefa */}
+        <ComentariosPainel
+          projectId={project.id}
+          projectName={project.name}
+          profiles={profiles}
+        />
       </div>
-
-      {tab === "tarefas" && (
-        <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
-      )}
-
-      {tab === "briefing" && (
-        <>
-          <BriefingProjetoSection project={project} onChanged={invalidate} />
-          <DocumentosSection projectId={project.id} />
-        </>
-      )}
-
-      {tab === "entregaveis" && <EntregaveisSection projectId={project.id} profiles={profiles} />}
-
-      {tab === "fechamento" && canSeeMoney && (
-        <>
-          <FechamentoSection project={project} onChanged={invalidate} />
-          <FaturamentoSection project={project} />
-        </>
-      )}
-
-      {tab === "comentarios" && (
-        <ComentariosSection entityType="project" entityId={project.id} profiles={profiles} />
-      )}
     </div>
   );
 }
@@ -1281,14 +1288,17 @@ function FaturamentoSection({ project }: { project: any }) {
 
 /* --------------------------------------------------------- Comentários */
 
+type CommentEntity = "project" | "deal" | "task";
+
 export function ComentariosSection({
-  entityType, entityId, profiles, titulo = "Comentários", vazio,
+  entityType, entityId, profiles, titulo = "Comentários", vazio, compact,
 }: {
-  entityType: "project" | "deal";
+  entityType: CommentEntity;
   entityId: string;
   profiles: any[];
   titulo?: string;
   vazio?: string;
+  compact?: boolean;
 }) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -1334,54 +1344,139 @@ export function ComentariosSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
+  const lista = (
+    <>
+      {comments.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
+        </p>
+      ) : (
+        <div className={`space-y-3 ${compact ? "max-h-[45vh] overflow-y-auto pr-1" : ""}`}>
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-2">
+              <Avatar className="h-7 w-7 shrink-0">
+                <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
+                  {(c.author?.full_name || c.author?.email || "?").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {c.author?.full_name || c.author?.email}
+                  </span>{" "}
+                  · {new Date(c.created_at).toLocaleString("pt-BR")}
+                </p>
+                <p className="whitespace-pre-wrap text-sm text-foreground">{c.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Textarea
+          rows={2}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Escreva uma mensagem…  use @nome para mencionar"
+          className="flex-1"
+        />
+        <Button
+          onClick={() => enviar.mutate()}
+          disabled={enviar.isPending}
+          className="self-end bg-primary text-primary-foreground"
+        >
+          <Send className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </>
+  );
+
+  // Modo compacto: só o conteúdo (o painel lateral fornece o card e o header)
+  if (compact) return <div className="space-y-3">{lista}</div>;
+
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
         <p className="text-sm font-semibold text-foreground">
           {titulo} ({comments.length})
         </p>
-        {comments.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {comments.map((c) => (
-              <div key={c.id} className="flex gap-2">
-                <Avatar className="h-7 w-7 shrink-0">
-                  <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
-                    {(c.author?.full_name || c.author?.email || "?").slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {c.author?.full_name || c.author?.email}
-                    </span>{" "}
-                    · {new Date(c.created_at).toLocaleString("pt-BR")}
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{c.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <Textarea
-            rows={2}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Escreva uma mensagem…  use @nome para mencionar"
-            className="flex-1"
-          />
-          <Button
-            onClick={() => enviar.mutate()}
-            disabled={enviar.isPending}
-            className="self-end bg-primary text-primary-foreground"
-          >
-            <Send className="h-3.5 w-3.5" />
-          </Button>
+        {lista}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------------------------------- Painel lateral de comentários (projeto/tarefa) */
+
+function ComentariosPainel({
+  projectId, projectName, profiles,
+}: {
+  projectId: string;
+  projectName: string;
+  profiles: any[];
+}) {
+  // Contexto: "project" (geral) ou o id de uma tarefa
+  const [contexto, setContexto] = useState<string>("project");
+
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["projeto-tasks", projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("tasks")
+        .select("id, title, status")
+        .eq("project_id", projectId)
+        .order("ordem")
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const isProjeto = contexto === "project";
+  const tarefaSel = tasks.find((t) => t.id === contexto);
+
+  return (
+    <Card className="glass-card lg:sticky lg:top-20">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-primary" />
+          <p className="text-sm font-semibold text-foreground">Comentários</p>
         </div>
+
+        {/* Seletor de contexto — separa a conversa do projeto de cada tarefa */}
+        <Select value={contexto} onValueChange={setContexto}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="project">📁 Projeto (geral)</SelectItem>
+            {tasks.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                ↳ {t.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <p className="text-[10px] text-muted-foreground">
+          {isProjeto
+            ? "Conversa geral do projeto."
+            : `Comentários da tarefa "${tarefaSel?.title || "—"}".`}
+        </p>
+
+        {/* Uma instância por contexto — key força remount ao trocar */}
+        <ComentariosSection
+          key={contexto}
+          entityType={isProjeto ? "project" : "task"}
+          entityId={isProjeto ? projectId : contexto}
+          profiles={profiles}
+          compact
+          vazio={
+            isProjeto
+              ? "Sem mensagens no projeto ainda. Use @nome para mencionar."
+              : "Sem mensagens nesta tarefa ainda."
+          }
+        />
       </CardContent>
     </Card>
   );
