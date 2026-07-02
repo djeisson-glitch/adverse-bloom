@@ -730,6 +730,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
 
 function EntregaveisSection({ projectId, profiles }: { projectId: string; profiles: any[] }) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [novo, setNovo] = useState({
     titulo: "",
     formato: "",
@@ -811,9 +812,10 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
         {items.map((d) => (
           <div
             key={d.id}
-            className="grid grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm"
+            onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
+            className="grid cursor-pointer grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
           >
-            <span className="truncate text-foreground">{d.titulo}</span>
+            <span className="truncate font-medium text-foreground">{d.titulo}</span>
             <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
             <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
             <span className="truncate text-xs text-muted-foreground">{nomeDe(d.responsavel_id)}</span>
@@ -825,6 +827,7 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
                 href={d.arquivo_url}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="truncate text-xs text-primary hover:underline"
               >
                 {d.arquivo_url}
@@ -835,7 +838,13 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
             <span className="rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground">
               {d.status}
             </span>
-            <button onClick={() => excluir.mutate(d.id)} className="text-muted-foreground hover:text-destructive">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                excluir.mutate(d.id);
+              }}
+              className="text-muted-foreground hover:text-destructive"
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -1288,7 +1297,7 @@ function FaturamentoSection({ project }: { project: any }) {
 
 /* --------------------------------------------------------- Comentários */
 
-type CommentEntity = "project" | "deal" | "task";
+type CommentEntity = "project" | "deal" | "task" | "deliverable";
 
 export function ComentariosSection({
   entityType, entityId, profiles, titulo = "Comentários", vazio, compact,
