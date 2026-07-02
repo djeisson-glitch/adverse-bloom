@@ -7,6 +7,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, Table2, BarChart3, Send, Save, X,
+  FileText, Link2, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,11 +165,17 @@ export default function ProjetoDetalhe() {
         </CardContent>
       </Card>
 
+      {/* ---------- Briefing (visão macro) ---------- */}
+      <BriefingProjetoSection project={project} onChanged={invalidate} />
+
+      {/* ---------- Documentos (links) ---------- */}
+      <DocumentosSection projectId={project.id} />
+
       {/* ---------- Tarefas ---------- */}
       <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
 
       {/* ---------- Entregáveis ---------- */}
-      <EntregaveisSection projectId={project.id} />
+      <EntregaveisSection projectId={project.id} profiles={profiles} />
 
       {/* ---------- Fechamento Orçado × Realizado ---------- */}
       {canSeeMoney && <FechamentoSection project={project} onChanged={invalidate} />}
@@ -484,11 +491,221 @@ function TaskRow({
   );
 }
 
+/* ----------------------------------------------- Briefing (visão macro) */
+
+const BRIEFING_CAMPOS = [
+  {
+    key: "briefing_consolidado",
+    label: "Briefing consolidado",
+    placeholder: "Contexto do job, referências e direcionamento geral",
+    full: true,
+  },
+  {
+    key: "escopo_vendido",
+    label: "Escopo vendido",
+    placeholder: "Entregáveis contratados, formatos e quantidades",
+    full: true,
+  },
+  {
+    key: "objetivos",
+    label: "Objetivos",
+    placeholder: "Objetivos da peça/campanha",
+    full: false,
+  },
+  {
+    key: "restricoes",
+    label: "Restrições",
+    placeholder: "Restrições de execução, compliance, prazo ou formato",
+    full: false,
+  },
+  {
+    key: "observacoes_cliente",
+    label: "Observações do cliente",
+    placeholder: "Observações relevantes trazidas pelo atendimento",
+    full: true,
+  },
+] as const;
+
+function BriefingProjetoSection({ project, onChanged }: { project: any; onChanged: () => void }) {
+  const [form, setForm] = useState<Record<string, string>>(() =>
+    Object.fromEntries(BRIEFING_CAMPOS.map((c) => [c.key, project[c.key] || ""])),
+  );
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("projects").update(form).eq("id", project.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChanged();
+      toast.success("Briefing salvo");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="space-y-4 p-6">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Briefing</p>
+            <p className="text-xs text-muted-foreground">
+              Consolide o contexto, escopo e direcionamento geral do projeto
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+            <Save className="mr-1 h-3.5 w-3.5" />
+            Salvar
+          </Button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {BRIEFING_CAMPOS.map((c) => (
+            <div key={c.key} className={c.full ? "md:col-span-2" : ""}>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                {c.label}
+              </p>
+              <Textarea
+                rows={c.full ? 3 : 3}
+                value={form[c.key]}
+                onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
+                placeholder={c.placeholder}
+              />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------- Documentos (links) */
+
+function DocumentosSection({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [novo, setNovo] = useState({ titulo: "", url: "" });
+
+  const { data: docs = [] } = useQuery({
+    queryKey: ["project-documents", projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("project_documents")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const criar = useMutation({
+    mutationFn: async () => {
+      if (!novo.titulo.trim() || !novo.url.trim()) throw new Error("Informe título e link");
+      const url = novo.url.startsWith("http") ? novo.url : `https://${novo.url}`;
+      const { error } = await (supabase as any).from("project_documents").insert({
+        project_id: projectId,
+        titulo: novo.titulo.trim(),
+        url,
+        created_by: user?.id || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNovo({ titulo: "", url: "" });
+      qc.invalidateQueries({ queryKey: ["project-documents", projectId] });
+      toast.success("Documento adicionado");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  const excluir = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("project_documents").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project-documents", projectId] }),
+  });
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="space-y-3 p-6">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Documentos</p>
+          <p className="text-xs text-muted-foreground">
+            Links de Docs, Drive, Notion e referências do projeto
+          </p>
+        </div>
+
+        {docs.map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2"
+          >
+            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span className="text-sm font-medium text-foreground">{d.titulo}</span>
+            <a
+              href={d.url}
+              target="_blank"
+              rel="noreferrer"
+              className="min-w-0 flex-1 truncate text-xs text-muted-foreground hover:text-primary"
+            >
+              {d.url}
+            </a>
+            <a href={d.url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <button
+              onClick={() => excluir.mutate(d.id)}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Título (ex.: Roteiro no Docs)"
+            value={novo.titulo}
+            onChange={(e) => setNovo({ ...novo, titulo: e.target.value })}
+            className="h-9 w-56"
+          />
+          <Input
+            placeholder="https://docs.google.com/…"
+            value={novo.url}
+            onChange={(e) => setNovo({ ...novo, url: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && criar.mutate()}
+            className="h-9 flex-1"
+          />
+          <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Adicionar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* --------------------------------------------------------- Entregáveis */
 
-function EntregaveisSection({ projectId }: { projectId: string }) {
+function EntregaveisSection({ projectId, profiles }: { projectId: string; profiles: any[] }) {
   const qc = useQueryClient();
-  const [novo, setNovo] = useState({ titulo: "", formato: "", duracao: "", arquivo_url: "" });
+  const [novo, setNovo] = useState({
+    titulo: "",
+    formato: "",
+    duracao: "",
+    arquivo_url: "",
+    responsavel_id: "",
+    data_entrega: "",
+  });
+
+  const nomeDe = (uid: string | null) => {
+    if (!uid) return "—";
+    const p = profiles.find((x) => x.id === uid);
+    return p?.full_name || p?.email || "—";
+  };
 
   const { data: items = [] } = useQuery({
     queryKey: ["deliverables", projectId],
@@ -512,12 +729,14 @@ function EntregaveisSection({ projectId }: { projectId: string }) {
         formato: novo.formato || null,
         duracao: novo.duracao || null,
         arquivo_url: novo.arquivo_url || null,
+        responsavel_id: novo.responsavel_id || null,
+        data_entrega: novo.data_entrega || null,
         ordem: items.length + 1,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovo({ titulo: "", formato: "", duracao: "", arquivo_url: "" });
+      setNovo({ titulo: "", formato: "", duracao: "", arquivo_url: "", responsavel_id: "", data_entrega: "" });
       qc.invalidateQueries({ queryKey: ["deliverables", projectId] });
       toast.success("Entregável criado");
     },
@@ -539,14 +758,30 @@ function EntregaveisSection({ projectId }: { projectId: string }) {
           Entregáveis
         </p>
 
+        {items.length > 0 && (
+          <div className="grid grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Entregável</span>
+            <span>Formato</span>
+            <span>Duração</span>
+            <span>Responsável</span>
+            <span>Entrega</span>
+            <span>Link</span>
+            <span>Status</span>
+            <span />
+          </div>
+        )}
         {items.map((d) => (
           <div
             key={d.id}
-            className="grid grid-cols-[1fr_100px_80px_1fr_100px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm"
+            className="grid grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm"
           >
             <span className="truncate text-foreground">{d.titulo}</span>
             <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
             <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
+            <span className="truncate text-xs text-muted-foreground">{nomeDe(d.responsavel_id)}</span>
+            <span className="text-xs text-muted-foreground">
+              {d.data_entrega ? new Date(d.data_entrega).toLocaleDateString("pt-BR") : "—"}
+            </span>
             {d.arquivo_url ? (
               <a
                 href={d.arquivo_url}
@@ -574,6 +809,7 @@ function EntregaveisSection({ projectId }: { projectId: string }) {
               placeholder="Nome do entregável"
               value={novo.titulo}
               onChange={(e) => setNovo({ ...novo, titulo: e.target.value })}
+              className="md:col-span-2"
             />
             <Input
               placeholder='Formato (16x9)'
@@ -585,10 +821,33 @@ function EntregaveisSection({ projectId }: { projectId: string }) {
               value={novo.duracao}
               onChange={(e) => setNovo({ ...novo, duracao: e.target.value })}
             />
+            <Select
+              value={novo.responsavel_id}
+              onValueChange={(v) => setNovo({ ...novo, responsavel_id: v === "__none__" ? "" : v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— sem responsável —</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.full_name || p.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              title="Data de entrega"
+              value={novo.data_entrega}
+              onChange={(e) => setNovo({ ...novo, data_entrega: e.target.value })}
+            />
             <Input
               placeholder="Link Frame.io"
               value={novo.arquivo_url}
               onChange={(e) => setNovo({ ...novo, arquivo_url: e.target.value })}
+              className="md:col-span-2"
             />
           </div>
           <Button
