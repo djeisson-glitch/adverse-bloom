@@ -57,7 +57,6 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { canSeeMoney } = usePermissions();
-  const { start } = useTimer();
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
 
   const { data: project, isLoading } = useQuery({
@@ -93,6 +92,20 @@ export default function ProjetoDetalhe() {
         .eq("project_id", id!);
       if (error) throw error;
       return data as any[];
+    },
+  });
+
+  const { data: horasProjeto } = useQuery({
+    queryKey: ["projeto-horas-total", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("v_horas_projeto_total")
+        .select("horas_total, horas_em_entregaveis")
+        .eq("project_id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
     },
   });
 
@@ -142,26 +155,17 @@ export default function ProjetoDetalhe() {
                   Horas por pessoa/tarefa
                 </Button>
               </Link>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => start({ project_id: project.id, project_name: project.name })}
-                title="Iniciar timer neste projeto"
-              >
-                <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-                Apontar no projeto
-              </Button>
             </div>
           </div>
 
           <div className="grid gap-3 text-sm md:grid-cols-4">
+            <HeaderInfo label="Cliente" value={project.client_name || "—"} />
             <HeaderInfo label="Status" value={project.status || "—"} />
             <HeaderInfo label="Valor" value={canSeeMoney ? formatCurrency(project.sold_value || 0) : "—"} />
             <HeaderInfo
-              label="Custo/hora"
-              value={project.custo_hora_padrao ? formatCurrency(project.custo_hora_padrao) : "—"}
+              label="Horas rastreadas"
+              value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
             />
-            <HeaderInfo label="Diretor" value={project.diretor || "—"} />
           </div>
 
           <EquipeAvatars members={members} profiles={profiles} projectId={project.id} onChanged={invalidate} />

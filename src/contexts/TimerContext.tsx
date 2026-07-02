@@ -9,6 +9,9 @@ type Sessao = {
   project_name: string;
   task_id?: string | null;
   task_title?: string;
+  // Onda 6A — apontamento no nível do entregável / alteração do cliente
+  deliverable_id?: string | null;
+  alteracao_id?: string | null;
   description?: string;
   start_at: string;
 };
@@ -71,6 +74,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         user_id: user.id,
         project_id: sessao.project_id || null,
         task_id: sessao.task_id || null,
+        deliverable_id: sessao.deliverable_id || null,
+        alteracao_id: sessao.alteracao_id || null,
         start_at: sessao.start_at,
         duration_min,
         description: sessao.description || null,
