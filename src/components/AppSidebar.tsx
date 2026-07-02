@@ -65,6 +65,7 @@ const producaoItems: NavItem[] = [
   { title: "Início", url: "/", icon: Home },
   { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList },
   { title: "Projetos", url: "/projetos", icon: LayoutGrid },
+  { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard },
   { title: "Fechamento", url: "/fechamento", icon: Scale },
   { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard },
   { title: "Pauta", url: "/pauta", icon: ListChecks },

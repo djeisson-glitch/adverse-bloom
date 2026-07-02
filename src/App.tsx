@@ -64,10 +64,12 @@ import TimePage from "./pages/Time";
 import AdminPage from "./pages/Admin";
 import AdminRateCard from "./pages/AdminRateCard";
 import AdminWorkflows from "./pages/AdminWorkflows";
+import AdminAprovacoes from "./pages/AdminAprovacoes";
 import PortalCliente from "./pages/PortalCliente";
 import PortalPublico from "./pages/PortalPublico";
 import ContasFees from "./pages/ContasFees";
 import Guia from "./pages/Guia";
+import MinhaMesa from "./pages/MinhaMesa";
 import PreviewOnda0 from "./pages/PreviewOnda0";
 import NotFound from "./pages/NotFound";
 import { Loader2, ShieldAlert } from "lucide-react";
@@ -138,6 +140,7 @@ const App = () => (
               <Route path="/fechamento" element={<ProtectedRoute><Fechamento /></ProtectedRoute>} />
               <Route path="/pos-producao" element={<ProtectedRoute><PosProducao /></ProtectedRoute>} />
               <Route path="/pauta" element={<ProtectedRoute><Pauta /></ProtectedRoute>} />
+              <Route path="/minha-mesa" element={<ProtectedRoute><MinhaMesa /></ProtectedRoute>} />
               <Route path="/calendario" element={<ProtectedRoute><Calendario /></ProtectedRoute>} />
               <Route path="/horas" element={<ProtectedRoute><Horas /></ProtectedRoute>} />
               <Route path="/timesheet" element={<ProtectedRoute><TimesheetPage /></ProtectedRoute>} />
@@ -155,6 +158,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
               <Route path="/admin/rate-card" element={<ProtectedRoute><AdminRateCard /></ProtectedRoute>} />
               <Route path="/admin/workflows" element={<ProtectedRoute><AdminWorkflows /></ProtectedRoute>} />
+              <Route path="/admin/aprovacoes" element={<ProtectedRoute><AdminAprovacoes /></ProtectedRoute>} />
 
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><PortalCliente /></ProtectedRoute>} />

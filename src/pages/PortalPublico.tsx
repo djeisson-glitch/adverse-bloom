@@ -2,11 +2,38 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, XCircle, Loader2, Send, ExternalLink } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Send, ExternalLink, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+
+// Etapas do projeto, em linguagem de cliente
+const ETAPA_LABEL: Record<string, string> = {
+  aguardando: "Aguardando início",
+  briefing: "Briefing",
+  "pre-producao": "Pré-produção",
+  pre_producao: "Pré-produção",
+  producao: "Produção",
+  pos: "Pós-produção",
+  "pos-producao": "Pós-produção",
+  revisao: "Revisão",
+  entregue: "Entregue",
+  faturado: "Concluído",
+};
+
+// Situação do entregável, em linguagem de cliente
+const ENTREGA_LABEL: Record<string, string> = {
+  pendente: "Em preparação",
+  em_edicao: "Em edição",
+  revisao_n1: "Em revisão interna",
+  revisao_n2: "Em revisão interna",
+  com_cliente: "Aguardando você",
+  ajuste_solicitado: "Ajuste em andamento",
+  aprovado: "Aprovado",
+  entregue: "Entregue",
+};
 
 type PortalData = {
   client?: { id: string; name: string };
@@ -47,21 +74,46 @@ export default function PortalPublico() {
     },
   });
 
-  const review = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: "aprovado" | "reprovado" }) => {
+  const [ajusteDe, setAjusteDe] = useState<string | null>(null);
+  const [ajusteTexto, setAjusteTexto] = useState("");
+
+  const aprovar = useMutation({
+    mutationFn: async (id: string) => {
       if (!aprovador) throw new Error("Informe seu nome");
-      const { data, error } = await (supabase as any).rpc("portal_deliverable_review", {
+      const { data, error } = await (supabase as any).rpc("portal_deliverable_aprovar", {
         _token: token,
         _deliverable_id: id,
-        _status: status,
         _aprovador: aprovador,
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
     },
-    onSuccess: (_res, vars) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portal-data", token] });
-      toast.success(vars.status === "aprovado" ? "Aprovado" : "Reprovado — vamos revisar");
+      toast.success("Entregável aprovado — obrigado!");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  const pedirAjuste = useMutation({
+    mutationFn: async (id: string) => {
+      if (!aprovador) throw new Error("Informe seu nome");
+      if (!ajusteTexto.trim()) throw new Error("Descreva o ajuste");
+      const { data, error } = await (supabase as any).rpc("portal_deliverable_alteracao", {
+        _token: token,
+        _deliverable_id: id,
+        _titulo: ajusteTexto.trim().slice(0, 80),
+        _descricao: ajusteTexto.trim(),
+        _solicitante: aprovador,
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+    },
+    onSuccess: () => {
+      setAjusteDe(null);
+      setAjusteTexto("");
+      qc.invalidateQueries({ queryKey: ["portal-data", token] });
+      toast.success("Ajuste enviado — a equipe já vai olhar");
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -92,8 +144,8 @@ export default function PortalPublico() {
   const client = data.client!;
   const projects = data.projects || [];
   const deliverables = data.deliverables || [];
-  const pendentes = deliverables.filter((d) => d.status === "pendente" || d.status === "em_revisao");
-  const aprovados = deliverables.filter((d) => d.status === "aprovado");
+  const pendentes = deliverables.filter((d) => d.status === "com_cliente");
+  const aprovados = deliverables.filter((d) => d.status === "aprovado" || d.status === "entregue");
 
   const groupedByProject = new Map<string, typeof deliverables>();
   deliverables.forEach((d) => {
@@ -137,7 +189,7 @@ export default function PortalPublico() {
               <CardContent className="space-y-4 p-5">
                 <div>
                   <p className="font-mono text-xs text-muted-foreground">
-                    {p.numero || "—"} · {p.status}
+                    {p.numero || "—"} · <span className="text-primary">{ETAPA_LABEL[p.status] || p.status}</span>
                   </p>
                   <h2 className="text-lg font-semibold text-foreground">{p.name}</h2>
                   <div className="mt-2 flex items-center gap-3">
@@ -194,30 +246,48 @@ export default function PortalPublico() {
                             </a>
                           )}
                         </div>
-                        {(d.status === "pendente" || d.status === "em_revisao") && (
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <Input
-                              placeholder="Seu nome"
-                              value={aprovador}
-                              onChange={(e) => setAprovador(e.target.value)}
-                              className="max-w-[180px]"
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => review.mutate({ id: d.id, status: "reprovado" })}
-                            >
-                              <XCircle className="mr-1 h-3.5 w-3.5" />
-                              Preciso revisar
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-success text-white hover:bg-success/90"
-                              onClick={() => review.mutate({ id: d.id, status: "aprovado" })}
-                            >
-                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                              Aprovar
-                            </Button>
+                        {d.status === "com_cliente" && (
+                          <div className="mt-3 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Input
+                                placeholder="Seu nome"
+                                value={aprovador}
+                                onChange={(e) => setAprovador(e.target.value)}
+                                className="max-w-[180px]"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAjusteDe(ajusteDe === d.id ? null : d.id)}
+                              >
+                                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                                Pedir ajuste
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-success text-white hover:bg-success/90"
+                                onClick={() => aprovar.mutate(d.id)}
+                                disabled={aprovar.isPending}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                Aprovar
+                              </Button>
+                            </div>
+                            {ajusteDe === d.id && (
+                              <div className="space-y-2 rounded-md border border-border/40 bg-background/50 p-2">
+                                <Textarea
+                                  rows={2}
+                                  value={ajusteTexto}
+                                  onChange={(e) => setAjusteTexto(e.target.value)}
+                                  placeholder="O que precisa ajustar?"
+                                />
+                                <div className="flex justify-end">
+                                  <Button size="sm" onClick={() => pedirAjuste.mutate(d.id)} disabled={pedirAjuste.isPending}>
+                                    Enviar ajuste
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -252,12 +322,16 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function statusChip(status: string) {
   const map: Record<string, string> = {
     pendente: "bg-muted text-muted-foreground",
-    em_revisao: "bg-warning/15 text-warning",
+    em_edicao: "bg-primary/15 text-primary",
+    revisao_n1: "bg-warning/15 text-warning",
+    revisao_n2: "bg-warning/15 text-warning",
+    com_cliente: "bg-primary/15 text-primary",
+    ajuste_solicitado: "bg-destructive/15 text-destructive",
     aprovado: "bg-success/15 text-success",
-    reprovado: "bg-destructive/15 text-destructive",
+    entregue: "bg-success/15 text-success",
   };
-  return `rounded-md px-1.5 py-0.5 text-[10px] font-medium ${map[status] || "bg-muted"}`;
+  return `rounded-md px-1.5 py-0.5 text-[10px] font-medium ${map[status] || "bg-muted text-muted-foreground"}`;
 }
 function prettyStatus(s: string) {
-  return s.replace("_", " ");
+  return ENTREGA_LABEL[s] || s.replace("_", " ");
 }

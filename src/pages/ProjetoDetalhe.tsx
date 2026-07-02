@@ -209,6 +209,7 @@ export default function ProjetoDetalhe() {
             <>
               <BriefingProjetoSection project={project} onChanged={invalidate} />
               <DocumentosSection projectId={project.id} />
+              <AprovacaoProjetoCard project={project} profiles={profiles} onChanged={invalidate} />
             </>
           )}
 
@@ -621,6 +622,97 @@ function BriefingProjetoSection({ project, onChanged }: { project: any; onChange
 }
 
 /* ------------------------------------------------- Documentos (links) */
+
+/* ------------------------------- Override de aprovação por projeto (6D) */
+
+function AprovacaoProjetoCard({
+  project, profiles, onChanged,
+}: {
+  project: any;
+  profiles: any[];
+  onChanged: () => void;
+}) {
+  const [n1, setN1] = useState<string>(project.aprovador_n1_id || "__herdar__");
+  const [n2, setN2] = useState<string>(project.aprovador_n2_id || "__herdar__");
+  const [cli, setCli] = useState<string>(
+    project.cliente_aprova === null || project.cliente_aprova === undefined
+      ? "__herdar__"
+      : project.cliente_aprova
+        ? "sim"
+        : "nao",
+  );
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from("projects")
+        .update({
+          aprovador_n1_id: n1 === "__herdar__" ? null : n1,
+          aprovador_n2_id: n2 === "__herdar__" ? null : n2,
+          cliente_aprova: cli === "__herdar__" ? null : cli === "sim",
+        })
+        .eq("id", project.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChanged();
+      toast.success("Aprovação do projeto salva");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="space-y-3 p-6">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Aprovação deste projeto</p>
+          <p className="text-xs text-muted-foreground">
+            Sobrescreve os aprovadores padrão só neste projeto. "Herdar do global" usa o que está em
+            Admin → Aprovações.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div>
+            <Label>Nível 1</Label>
+            <Select value={n1} onValueChange={setN1}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__herdar__">Herdar do global</SelectItem>
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Nível 2</Label>
+            <Select value={n2} onValueChange={setN2}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__herdar__">Herdar do global</SelectItem>
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Cliente aprova?</Label>
+            <Select value={cli} onValueChange={setCli}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__herdar__">Herdar do global</SelectItem>
+                <SelectItem value="sim">Sim</SelectItem>
+                <SelectItem value="nao">Não (só visualiza)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+            <Save className="mr-1 h-3.5 w-3.5" /> Salvar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function DocumentosSection({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
