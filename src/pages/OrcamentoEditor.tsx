@@ -7,8 +7,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
-  ChevronDown, Calculator, Table, Clock, Info, Save,
+  ChevronDown, Calculator, Table, Clock, Info, Save, ExternalLink, CalendarRange, Upload,
 } from "lucide-react";
+import { ComentariosSection } from "./ProjetoDetalhe";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +172,50 @@ export default function OrcamentoEditor() {
     },
   });
 
+  // Job gerado a partir deste orçamento (quando ganho)
+  const { data: jobGerado } = useQuery({
+    queryKey: ["orcamento-job", id],
+    enabled: !!deal && deal.stage === "aceite",
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("projects")
+        .select("id, numero, name")
+        .eq("deal_id", deal.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  // Follow-ups agendados deste orçamento
+  const { data: followUps = [] } = useQuery({
+    queryKey: ["orcamento-followups", id],
+    enabled: !!deal,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("follow_ups")
+        .select("id, data_prevista, tipo, status, descricao")
+        .eq("deal_id", deal.id)
+        .order("data_prevista");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["orcamento-profiles"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, email")
+        .neq("ativo", false);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   if (isLoading || !deal || !budget) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -211,12 +256,31 @@ export default function OrcamentoEditor() {
             </span>
           </div>
 
-          <AcaoBotoes deal={deal} navigate={navigate} qc={qc} />
+          {jobGerado && (
+            <Link
+              to={`/projetos/${jobGerado.id}`}
+              className="flex w-fit items-center gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-1.5 text-sm font-medium text-success hover:bg-success/15"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Job #{jobGerado.numero} gerado a partir deste orçamento
+            </Link>
+          )}
+
+          <AcaoBotoes deal={deal} jobGerado={jobGerado} navigate={navigate} qc={qc} />
           <p className="text-xs text-muted-foreground">
             Ganhar/Perder geram automaticamente um <strong>follow-up para +60 dias</strong> na agenda.
           </p>
         </CardContent>
       </Card>
+
+      {/* Discussão do orçamento */}
+      <ComentariosSection
+        entityType="deal"
+        entityId={deal.id}
+        profiles={profiles}
+        titulo="💬 Discussão do orçamento"
+        vazio="Nenhuma mensagem ainda. Tire dúvidas, alinhe valores e anexe documentos aqui."
+      />
 
       {/* Composição por horas */}
       {canSeeMoney && (
@@ -245,6 +309,32 @@ export default function OrcamentoEditor() {
         />
       )}
 
+      {/* Follow-ups agendados */}
+      {followUps.length > 0 && (
+        <Card className="glass-card">
+          <CardContent className="space-y-2 p-6">
+            <p className="text-sm font-semibold text-foreground">Follow-ups agendados</p>
+            {followUps.map((f: any) => (
+              <div key={f.id} className="flex items-center gap-2 text-sm">
+                <CalendarRange className="h-3.5 w-3.5 text-primary" />
+                <span className="font-medium text-foreground">
+                  {new Date(f.data_prevista).toLocaleDateString("pt-BR")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  · {f.tipo === "pos_ganho" ? "pós-ganho" : f.tipo === "pos_perda" ? "pós-perda" : f.tipo} —{" "}
+                  {f.descricao}
+                </span>
+                {f.status !== "pendente" && (
+                  <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {f.status}
+                  </span>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Briefing */}
       <BriefingSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
     </div>
@@ -253,7 +343,14 @@ export default function OrcamentoEditor() {
 
 /* ------------------------------------------ Ações principais (3 botões) */
 
-function AcaoBotoes({ deal, navigate, qc }: { deal: any; navigate: any; qc: any }) {
+function AcaoBotoes({
+  deal, jobGerado, navigate, qc,
+}: {
+  deal: any;
+  jobGerado?: any;
+  navigate: any;
+  qc: any;
+}) {
   const [confirmarPerder, setConfirmarPerder] = useState(false);
 
   const ganhar = useMutation({
@@ -296,32 +393,41 @@ function AcaoBotoes({ deal, navigate, qc }: { deal: any; navigate: any; qc: any 
     });
   };
 
-  const fechado = deal.stage === "aceite" || deal.stage === "perdido";
-  if (fechado) {
+  if (deal.stage === "perdido") {
     return (
       <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
         <Info className="h-3.5 w-3.5" />
-        {deal.stage === "aceite"
-          ? "Orçamento já foi ganho — veja o projeto vinculado."
-          : "Orçamento foi marcado como perdido."}
+        Orçamento foi marcado como perdido.
       </div>
     );
   }
 
+  const ganho = deal.stage === "aceite";
+
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={enviarProposta}>
+      <Button variant="outline" onClick={enviarProposta} disabled={ganho}>
         <Send className="mr-1.5 h-3.5 w-3.5" />
         Enviar proposta
       </Button>
-      <Button
-        onClick={() => ganhar.mutate()}
-        disabled={ganhar.isPending}
-        className="bg-success text-white hover:bg-success/90"
-      >
-        <Trophy className="mr-1.5 h-3.5 w-3.5" />
-        Ganhar → gerar Job
-      </Button>
+      {ganho ? (
+        <Button
+          onClick={() => jobGerado && navigate(`/projetos/${jobGerado.id}`)}
+          className="bg-success text-white hover:bg-success/90"
+        >
+          <Trophy className="mr-1.5 h-3.5 w-3.5" />
+          {jobGerado ? `Job #${jobGerado.numero} gerado` : "Orçamento ganho"}
+        </Button>
+      ) : (
+        <Button
+          onClick={() => ganhar.mutate()}
+          disabled={ganhar.isPending}
+          className="bg-success text-white hover:bg-success/90"
+        >
+          <Trophy className="mr-1.5 h-3.5 w-3.5" />
+          Ganhar → gerar Job
+        </Button>
+      )}
       {confirmarPerder ? (
         <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1 text-xs">
           <span>Marcar como perdido?</span>
@@ -427,16 +533,41 @@ function PlanilhaSection({
     },
   });
 
+  // "Usar como proposta" — leva o valor total da planilha pro deal
+  const usarComoProposta = useMutation({
+    mutationFn: async () => {
+      await salvarPercentuais.mutateAsync();
+      const { error } = await (supabase as any)
+        .from("deals")
+        .update({ valor_proposta: valorTotal, value: valorTotal })
+        .eq("id", budget.deal_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChanged();
+      toast.success(`Proposta definida: ${formatCurrency(valorTotal)}`, {
+        description: "Valor total da planilha copiado pro orçamento.",
+      });
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
   return (
     <Card className="glass-card">
       <CardContent className="space-y-4 p-6">
         <div className="flex items-center gap-2">
           <Table className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold text-foreground">Planilha de produção</h2>
-          <Button size="sm" variant="outline" className="ml-auto" onClick={() => salvarPercentuais.mutate()}>
-            <Save className="mr-1 h-3.5 w-3.5" />
-            Salvar
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" onClick={() => salvarPercentuais.mutate()} className="bg-primary text-primary-foreground">
+              <Save className="mr-1 h-3.5 w-3.5" />
+              Salvar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => usarComoProposta.mutate()} disabled={usarComoProposta.isPending}>
+              <Upload className="mr-1 h-3.5 w-3.5" />
+              Usar como proposta
+            </Button>
+          </div>
         </div>
 
         {/* Cabeçalho percentuais + total */}
@@ -919,7 +1050,8 @@ function ResumoBox({
 /* -------------------------------------------------------- Briefing */
 
 function BriefingSection({ deal, onChanged }: { deal: any; onChanged: () => void }) {
-  const [aberto, setAberto] = useState(false);
+  // Aberto por padrão — no Catalunya o briefing fica visível na página
+  const [aberto, setAberto] = useState(true);
   const [form, setForm] = useState({
     title: deal.title,
     canal_entrada: deal.canal_entrada || "",

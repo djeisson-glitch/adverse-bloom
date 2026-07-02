@@ -992,11 +992,13 @@ function FaturamentoSection({ project }: { project: any }) {
 /* --------------------------------------------------------- Comentários */
 
 export function ComentariosSection({
-  entityType, entityId, profiles,
+  entityType, entityId, profiles, titulo = "Comentários", vazio,
 }: {
   entityType: "project" | "deal";
   entityId: string;
   profiles: any[];
+  titulo?: string;
+  vazio?: string;
 }) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -1045,10 +1047,12 @@ export function ComentariosSection({
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <p className="text-sm font-semibold text-foreground">Comentários ({comments.length})</p>
+        <p className="text-sm font-semibold text-foreground">
+          {titulo} ({comments.length})
+        </p>
         {comments.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Nenhum comentário ainda. Use @nome para mencionar alguém.
+            {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
           </p>
         ) : (
           <div className="space-y-3">

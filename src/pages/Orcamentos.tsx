@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 import { ClipboardList, Plus } from "lucide-react";
-import { useDeals, useClients, useProfiles, STAGES, type Deal, type Stage } from "@/hooks/useDeals";
+import { useDeals, useProfiles, STAGES, type Deal, type Stage } from "@/hooks/useDeals";
 import { useCommercialSettings } from "@/hooks/useCommercialSettings";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { DealFormModal } from "@/components/comercial/DealFormModal";
 import { LostReasonModal } from "@/components/comercial/LostReasonModal";
 import { WonDealModal } from "@/components/comercial/WonDealModal";
 import { KanbanBoard } from "@/components/comercial/KanbanBoard";
@@ -14,24 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * Onda 2 — Funil comercial no estilo Catalunya OS.
- * Reaproveita KanbanBoard, DealFormModal, LostReasonModal e WonDealModal do
- * módulo /comercial legado. O editor de budget (planilha) fica em
- * /orcamentos-legado até o refactor completo da Onda 3.
+ * Funil comercial no estilo Catalunya OS.
+ * Criar/editar orçamento acontece nas páginas /orcamentos/novo e
+ * /orcamentos/:id (OrcamentoEditor) — clicar num card navega pra lá.
+ * Os modais Lost/Won ficam só pro drag-and-drop entre colunas.
  */
 export default function Orcamentos() {
-  const { deals, createDeal, updateDeal } = useDeals();
-  const { clients, createClient } = useClients();
+  const { deals, updateDeal } = useDeals();
   const { data: profiles } = useProfiles();
   const { settings } = useCommercialSettings();
-  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const [vista, setVista] = useState<"board" | "lista">("board");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
-  const [saving, setSaving] = useState(false);
   const [pendingMove, setPendingMove] = useState<{ dealId: string; stage: Stage } | null>(null);
   const [lostOpen, setLostOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);
@@ -110,23 +103,6 @@ export default function Orcamentos() {
     );
   };
 
-  const handleSave = async (data: any) => {
-    setSaving(true);
-    try {
-      if (editingDeal) {
-        await updateDeal.mutateAsync({ id: editingDeal.id, updates: data });
-      } else {
-        await createDeal.mutateAsync({ ...data, created_by: user?.id });
-      }
-      setFormOpen(false);
-      setEditingDeal(null);
-    } catch (e: any) {
-      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -192,17 +168,6 @@ export default function Orcamentos() {
           Editor de planilha de orçamento (legado) →
         </a>
       </div>
-
-      <DealFormModal
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        deal={editingDeal}
-        clients={clients}
-        profiles={profiles || []}
-        onSave={handleSave}
-        onCreateClient={async (n) => (await createClient.mutateAsync({ name: n })).id}
-        saving={saving}
-      />
 
       <LostReasonModal
         open={lostOpen}
