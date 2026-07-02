@@ -60,10 +60,10 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
   const tarefa = useMemo(() => minhasTasks.find((t) => t.id === taskId), [minhasTasks, taskId]);
 
   const iniciar = () => {
-    if (!projeto) return toast.error("Escolha um projeto");
+    // Projeto é opcional — sem projeto = "atribuir depois" (padrão Catalunya)
     start({
-      project_id: projeto.id,
-      project_name: projeto.name,
+      project_id: projeto?.id || null,
+      project_name: projeto?.name || "sem projeto",
       task_id: tarefa?.id || null,
       task_title: tarefa?.title,
       description,
@@ -93,14 +93,15 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
             <Select
               value={projectId}
               onValueChange={(v) => {
-                setProjectId(v);
+                setProjectId(v === "__none__" ? "" : v);
                 setTaskId("");
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="— selecione —" />
+                <SelectValue placeholder="— sem projeto (atribuir depois) —" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__none__">— sem projeto (atribuir depois) —</SelectItem>
                 {projects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name} · {p.client_name || "—"}
@@ -173,7 +174,7 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
           <Button variant="outline" onClick={close}>
             Cancelar
           </Button>
-          <Button onClick={iniciar} disabled={!projectId} className="bg-primary text-primary-foreground">
+          <Button onClick={iniciar} className="bg-primary text-primary-foreground">
             <Play className="mr-1 h-3.5 w-3.5 fill-current" />
             Iniciar
           </Button>
