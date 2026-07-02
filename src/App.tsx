@@ -64,6 +64,7 @@ import TimePage from "./pages/Time";
 import AdminPage from "./pages/Admin";
 import AdminRateCard from "./pages/AdminRateCard";
 import AdminWorkflows from "./pages/AdminWorkflows";
+import AdminAprovacoes from "./pages/AdminAprovacoes";
 import PortalCliente from "./pages/PortalCliente";
 import PortalPublico from "./pages/PortalPublico";
 import ContasFees from "./pages/ContasFees";
@@ -155,6 +156,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
               <Route path="/admin/rate-card" element={<ProtectedRoute><AdminRateCard /></ProtectedRoute>} />
               <Route path="/admin/workflows" element={<ProtectedRoute><AdminWorkflows /></ProtectedRoute>} />
+              <Route path="/admin/aprovacoes" element={<ProtectedRoute><AdminAprovacoes /></ProtectedRoute>} />
 
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><PortalCliente /></ProtectedRoute>} />

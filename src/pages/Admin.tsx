@@ -1,4 +1,4 @@
-import { Users, GitBranch, Coins, Settings2 } from "lucide-react";
+import { Users, GitBranch, Coins, Settings2, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -54,6 +54,12 @@ export default function Admin() {
       title: "Workflows e status",
       icon: GitBranch,
       count: () => `${workflows} workflows · status customizáveis`,
+    },
+    {
+      href: "/admin/aprovacoes",
+      title: "Aprovações",
+      icon: ShieldCheck,
+      count: () => "N1 / N2 dos entregáveis + cliente",
     },
     {
       href: "/admin/rate-card",
