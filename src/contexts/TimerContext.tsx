@@ -4,9 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 type Sessao = {
-  project_id: string;
+  // project_id null = "sem projeto (atribuir depois)" — padrão Catalunya
+  project_id: string | null;
   project_name: string;
   task_id?: string | null;
+  task_title?: string;
   description?: string;
   start_at: string;
 };
@@ -67,7 +69,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await (supabase as any).from("time_entries").insert({
         user_id: user.id,
-        project_id: sessao.project_id,
+        project_id: sessao.project_id || null,
         task_id: sessao.task_id || null,
         start_at: sessao.start_at,
         duration_min,
