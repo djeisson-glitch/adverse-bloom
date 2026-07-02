@@ -69,6 +69,7 @@ import PortalCliente from "./pages/PortalCliente";
 import PortalPublico from "./pages/PortalPublico";
 import ContasFees from "./pages/ContasFees";
 import Guia from "./pages/Guia";
+import MinhaMesa from "./pages/MinhaMesa";
 import PreviewOnda0 from "./pages/PreviewOnda0";
 import NotFound from "./pages/NotFound";
 import { Loader2, ShieldAlert } from "lucide-react";
@@ -139,6 +140,7 @@ const App = () => (
               <Route path="/fechamento" element={<ProtectedRoute><Fechamento /></ProtectedRoute>} />
               <Route path="/pos-producao" element={<ProtectedRoute><PosProducao /></ProtectedRoute>} />
               <Route path="/pauta" element={<ProtectedRoute><Pauta /></ProtectedRoute>} />
+              <Route path="/minha-mesa" element={<ProtectedRoute><MinhaMesa /></ProtectedRoute>} />
               <Route path="/calendario" element={<ProtectedRoute><Calendario /></ProtectedRoute>} />
               <Route path="/horas" element={<ProtectedRoute><Horas /></ProtectedRoute>} />
               <Route path="/timesheet" element={<ProtectedRoute><TimesheetPage /></ProtectedRoute>} />
