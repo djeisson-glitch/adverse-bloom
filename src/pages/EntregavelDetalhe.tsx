@@ -60,7 +60,7 @@ export default function EntregavelDetalhe() {
   const { user } = useAuth();
   const { start } = useTimer();
 
-  const { data: entregavel, isLoading } = useQuery({
+  const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
     enabled: !!did,
     queryFn: async () => {
@@ -183,6 +183,30 @@ export default function EntregavelDetalhe() {
     });
     return { total: total / 60, pura: pura / 60, alt: alt / 60, porAlteracao };
   }, [entries]);
+
+  // Erro na query (ex.: coluna/relação faltando, RLS, id inválido) → mostra o
+  // motivo em vez de girar pra sempre.
+  if (isError || (!isLoading && !entregavel)) {
+    return (
+      <div className="mx-auto max-w-lg py-16">
+        <button
+          onClick={() => navigate(`/projetos/${projectId}`)}
+          className="mb-4 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar ao projeto
+        </button>
+        <Card className="glass-card border-destructive/30">
+          <CardContent className="space-y-2 p-6 text-center">
+            <p className="text-sm font-medium text-foreground">Não consegui abrir este entregável</p>
+            <p className="text-xs text-muted-foreground">
+              {(error as any)?.message || "Entregável não encontrado ou sem acesso."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading || !entregavel || !form) {
     return (
