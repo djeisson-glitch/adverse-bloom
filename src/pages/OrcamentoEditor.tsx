@@ -101,6 +101,10 @@ export default function OrcamentoEditor() {
         .select("*")
         .single();
       if (e2) throw e2;
+
+      // Planilha nasce populada com os itens padrão de produtora (Onda 5D)
+      await (supabase as any).rpc("seed_budget_items", { _budget_id: created.id });
+
       return created;
     },
   });
@@ -533,6 +537,26 @@ function PlanilhaSection({
     },
   });
 
+  // Planilha vazia → popular com os itens padrão de produtora
+  const carregarPadrao = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase as any).rpc("seed_budget_items", {
+        _budget_id: budget.id,
+      });
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (n) => {
+      onChanged();
+      toast.success(`${n} itens padrão carregados`);
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  // Rentabilidade ao vivo — o que sobra pra produtora enquanto orça
+  const rentabilidade = valorTotal - custoProducao - imposto; // = margem + direção
+  const margemPercent = valorTotal > 0 ? (rentabilidade / valorTotal) * 100 : 0;
+
   // "Usar como proposta" — leva o valor total da planilha pro deal
   const usarComoProposta = useMutation({
     mutationFn: async () => {
@@ -603,6 +627,58 @@ function PlanilhaSection({
             <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotal)}</p>
           </div>
         </div>
+
+        {/* Rentabilidade do job — ao vivo enquanto orça */}
+        <div className="grid gap-3 rounded-lg border border-success/30 bg-success/5 p-4 md:grid-cols-[1fr_1fr_1fr_1.4fr]">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total cobrado</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(valorTotal)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">− Custos previstos</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">− Impostos</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(imposto)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Rentabilidade</p>
+            <p className={`text-lg font-semibold ${rentabilidade >= 0 ? "text-success" : "text-destructive"}`}>
+              {formatCurrency(rentabilidade)}
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/40">
+                <div
+                  className={`h-full rounded-full ${rentabilidade >= 0 ? "bg-success" : "bg-destructive"}`}
+                  style={{ width: `${Math.min(100, Math.max(0, margemPercent))}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                margem {margemPercent.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Planilha vazia → carregar itens padrão */}
+        {itens.length === 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
+            <p className="text-xs text-muted-foreground">
+              Planilha vazia — carregue os itens padrão de produtora (Pré-Produção, Produção,
+              Transporte, Elenco, Equipe Técnica…) e preencha só o que o job usa.
+            </p>
+            <Button
+              size="sm"
+              onClick={() => carregarPadrao.mutate()}
+              disabled={carregarPadrao.isPending}
+              className="shrink-0 bg-primary text-primary-foreground"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Carregar itens padrão
+            </Button>
+          </div>
+        )}
 
         {/* Categorias */}
         <div className="space-y-2">
