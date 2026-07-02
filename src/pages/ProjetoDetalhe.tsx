@@ -50,12 +50,15 @@ const TIPOS_CUSTO = [
   { id: "outro", label: "Outro" },
 ] as const;
 
+type ProjetoTab = "tarefas" | "briefing" | "entregaveis" | "fechamento" | "comentarios";
+
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { canSeeMoney } = usePermissions();
   const { start } = useTimer();
+  const [tab, setTab] = useState<ProjetoTab>("tarefas");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["projeto", id],
@@ -165,26 +168,54 @@ export default function ProjetoDetalhe() {
         </CardContent>
       </Card>
 
-      {/* ---------- Briefing (visão macro) ---------- */}
-      <BriefingProjetoSection project={project} onChanged={invalidate} />
+      {/* ---------- Navegação por seções ---------- */}
+      <div className="flex gap-1 overflow-x-auto border-b border-border/60">
+        {(
+          [
+            { id: "tarefas", label: "Tarefas" },
+            { id: "briefing", label: "Briefing & Docs" },
+            { id: "entregaveis", label: "Entregáveis" },
+            ...(canSeeMoney ? [{ id: "fechamento", label: "Fechamento" }] : []),
+            { id: "comentarios", label: "Comentários" },
+          ] as { id: ProjetoTab; label: string }[]
+        ).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm transition-colors ${
+              tab === t.id
+                ? "border-primary font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {/* ---------- Documentos (links) ---------- */}
-      <DocumentosSection projectId={project.id} />
+      {tab === "tarefas" && (
+        <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
+      )}
 
-      {/* ---------- Tarefas ---------- */}
-      <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
+      {tab === "briefing" && (
+        <>
+          <BriefingProjetoSection project={project} onChanged={invalidate} />
+          <DocumentosSection projectId={project.id} />
+        </>
+      )}
 
-      {/* ---------- Entregáveis ---------- */}
-      <EntregaveisSection projectId={project.id} profiles={profiles} />
+      {tab === "entregaveis" && <EntregaveisSection projectId={project.id} profiles={profiles} />}
 
-      {/* ---------- Fechamento Orçado × Realizado ---------- */}
-      {canSeeMoney && <FechamentoSection project={project} onChanged={invalidate} />}
+      {tab === "fechamento" && canSeeMoney && (
+        <>
+          <FechamentoSection project={project} onChanged={invalidate} />
+          <FaturamentoSection project={project} />
+        </>
+      )}
 
-      {/* ---------- Faturamento ---------- */}
-      {canSeeMoney && <FaturamentoSection project={project} />}
-
-      {/* ---------- Comentários ---------- */}
-      <ComentariosSection entityType="project" entityId={project.id} profiles={profiles} />
+      {tab === "comentarios" && (
+        <ComentariosSection entityType="project" entityId={project.id} profiles={profiles} />
+      )}
     </div>
   );
 }
