@@ -283,6 +283,20 @@ export default function EntregavelDetalhe() {
                 <Save className="mr-1.5 h-3.5 w-3.5" />
                 Salvar
               </Button>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                title="Excluir entregável"
+                onClick={async () => {
+                  if (!window.confirm("Excluir este entregável? Remove o timesheet e as alterações ligadas a ele.")) return;
+                  const { error } = await (supabase as any).from("deliverables").delete().eq("id", did);
+                  if (error) return toast.error("Não excluiu", { description: error.message });
+                  toast.success("Entregável excluído");
+                  navigate(`/projetos/${projectId}`);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
