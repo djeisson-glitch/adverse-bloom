@@ -256,6 +256,9 @@ export default function EntregavelDetalhe() {
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Film className="h-3 w-3" /> Entregável
                 </span>
+                {entregavel.codigo && (
+                  <span className="font-mono text-[10px] text-primary">{entregavel.codigo}</span>
+                )}
               </div>
               <Input
                 value={form.titulo}
