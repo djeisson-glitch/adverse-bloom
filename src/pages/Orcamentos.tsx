@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ClipboardList, Plus } from "lucide-react";
-import { useDeals, useProfiles, STAGES, type Deal, type Stage } from "@/hooks/useDeals";
+import { useDeals, useProfiles, STAGES, isWonStage, type Deal, type Stage } from "@/hooks/useDeals";
 import { useCommercialSettings } from "@/hooks/useCommercialSettings";
 import { useToast } from "@/hooks/use-toast";
 import { LostReasonModal } from "@/components/comercial/LostReasonModal";
@@ -33,7 +33,7 @@ export default function Orcamentos() {
 
   const openDeals = useMemo(() => deals.filter((d) => d.stage !== "perdido"), [deals]);
   const activeDeals = useMemo(
-    () => openDeals.filter((d) => d.stage !== "aceite"),
+    () => openDeals.filter((d) => !isWonStage(d.stage)),
     [openDeals],
   );
   const pipelineValue = useMemo(

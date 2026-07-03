@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeals, STAGES } from "@/hooks/useDeals";
+import { useDeals, STAGES, isWonStage } from "@/hooks/useDeals";
 import { usePermissions } from "@/hooks/usePermissions";
 import { TrendingUp, Coins, Clock, Gauge, Radar, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export default function Previsao() {
   });
 
   const porEstagio = useMemo(() => {
-    return STAGES.filter((s) => s.id !== "perdido" && s.id !== "aceite").map((s) => {
+    return STAGES.filter((s) => s.id !== "perdido" && !isWonStage(s.id)).map((s) => {
       const deals_ = deals.filter((d) => d.stage === s.id);
       const valor = deals_.reduce((acc, d) => acc + ((d as any).approved_value ?? d.value ?? 0), 0);
       const ponderado = valor * (s.probability / 100);

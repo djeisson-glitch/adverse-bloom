@@ -10,19 +10,26 @@ export type Deal = Tables<"deals"> & {
 
 /**
  * Stages Catalunya OS — funil comercial do Adverse OS Produtora.
- * Ordem: lead → elaboracao → proposta → negociacao → aceite. 'perdido' é ramo lateral.
- * A probability associada é usada na Previsão ponderada.
+ * Ordem: lead → elaboracao → proposta → negociacao → aceite → fechado_ganho.
+ * 'perdido' é ramo lateral. A probability é usada na Previsão ponderada.
+ * Aceite = cliente aceitou (ganho). Fechado – Ganho = negócio fechado/encerrado.
  */
 export const STAGES = [
-  { id: "lead",       label: "Lead / Pedido Recebido", color: "#22c55e", probability: 10, emoji: "🟢" },
-  { id: "elaboracao", label: "Em Elaboração",          color: "#f59e0b", probability: 40, emoji: "✍️" },
-  { id: "proposta",   label: "Proposta Enviada",       color: "#3b82f6", probability: 60, emoji: "📬" },
-  { id: "negociacao", label: "Negociação",             color: "#a855f7", probability: 80, emoji: "🤝" },
-  { id: "aceite",     label: "Aceite",                 color: "#10b981", probability: 100, emoji: "✅" },
-  { id: "perdido",    label: "Perdido",                color: "#ef4444", probability: 0,  emoji: "❌" },
+  { id: "lead",          label: "Lead / Pedido Recebido", color: "#22c55e", probability: 10,  emoji: "🟢" },
+  { id: "elaboracao",    label: "Em Elaboração",          color: "#f59e0b", probability: 40,  emoji: "✍️" },
+  { id: "proposta",      label: "Proposta Enviada",       color: "#3b82f6", probability: 60,  emoji: "📤" },
+  { id: "negociacao",    label: "Negociação",             color: "#a855f7", probability: 80,  emoji: "🤝" },
+  { id: "aceite",        label: "Aceite",                 color: "#10b981", probability: 100, emoji: "☑️" },
+  { id: "fechado_ganho", label: "Fechado – Ganho",        color: "#16a34a", probability: 100, emoji: "🏆" },
+  { id: "perdido",       label: "Perdido",                color: "#ef4444", probability: 0,   emoji: "❌" },
 ] as const;
 
 export type Stage = (typeof STAGES)[number]["id"];
+
+/** Estágios "ganhos" (fora do funil aberto): aceite e fechado – ganho. */
+export function isWonStage(stage: string | null | undefined): boolean {
+  return stage === "aceite" || stage === "fechado_ganho";
+}
 
 export function useDeals() {
   const qc = useQueryClient();
