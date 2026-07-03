@@ -475,8 +475,16 @@ function PlanilhaSection({
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
   const [percentuais, setPercentuais] = useState({
     margem: budget.margem_produtora_percent || 0,
-    direcao: budget.direcao_cena_percent || 0,
     imposto: budget.imposto_percent || 0,
+  });
+  const [comissoes, setComissoes] = useState<{ nome: string; tipo: "%" | "R$"; valor: number }[]>(
+    Array.isArray(budget.comissoes) ? budget.comissoes : [],
+  );
+  const [comissaoBase, setComissaoBase] = useState<string>(budget.comissao_base || "subtotal2");
+  const [novaCom, setNovaCom] = useState<{ nome: string; tipo: "%" | "R$"; valor: string }>({
+    nome: "",
+    tipo: "%",
+    valor: "",
   });
 
   const itensPorCategoria = useMemo(() => {
@@ -511,9 +519,21 @@ function PlanilhaSection({
     [itens],
   );
   const margemValor = baseSemTaxa * (Number(percentuais.margem) / 100);
-  const direcaoValor = custoProducao * (Number(percentuais.direcao) / 100);
-  const imposto = (custoProducao + margemValor + direcaoValor) * (Number(percentuais.imposto) / 100);
-  const valorTotal = custoProducao + margemValor + direcaoValor + imposto;
+  const subTotal2 = custoProducao + margemValor;
+  const baseComissao = comissaoBase === "subtotal1" ? custoProducao : subTotal2;
+  const comissaoTotal = comissoes.reduce(
+    (s, c) => s + (c.tipo === "%" ? baseComissao * (Number(c.valor) / 100) : Number(c.valor)),
+    0,
+  );
+  const imposto = (subTotal2 + comissaoTotal) * (Number(percentuais.imposto) / 100);
+  const valorTotal = subTotal2 + comissaoTotal + imposto;
+
+  const addComissao = () => {
+    if (!novaCom.nome.trim() || !novaCom.valor) return;
+    setComissoes([...comissoes, { nome: novaCom.nome.trim(), tipo: novaCom.tipo, valor: Number(novaCom.valor) }]);
+    setNovaCom({ nome: "", tipo: "%", valor: "" });
+  };
+  const removeComissao = (idx: number) => setComissoes(comissoes.filter((_, i) => i !== idx));
 
   const toggleCat = (id: string) => {
     const s = new Set(expandidas);
@@ -523,21 +543,27 @@ function PlanilhaSection({
 
   const salvarPercentuais = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const base = {
+        margem_produtora_percent: percentuais.margem,
+        imposto_percent: percentuais.imposto,
+        total_value: valorTotal,
+      };
+      // Tenta salvar com as comissões; se a coluna ainda não existe (migration
+      // não aplicada), salva só o resto pra não travar o Salvar.
+      let { error } = await (supabase as any)
         .from("budgets")
-        .update({
-          margem_produtora_percent: percentuais.margem,
-          direcao_cena_percent: percentuais.direcao,
-          imposto_percent: percentuais.imposto,
-          total_value: valorTotal,
-        })
+        .update({ ...base, comissoes, comissao_base: comissaoBase })
         .eq("id", budget.id);
+      if (error && /comiss/i.test(error.message || "")) {
+        ({ error } = await (supabase as any).from("budgets").update(base).eq("id", budget.id));
+      }
       if (error) throw error;
     },
     onSuccess: () => {
       onChanged();
       toast.success("Salvo");
     },
+    onError: (e: any) => toast.error("Erro ao salvar", { description: e.message }),
   });
 
   // Planilha vazia → popular com os itens padrão de produtora
@@ -556,8 +582,8 @@ function PlanilhaSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
-  // Rentabilidade ao vivo — o que sobra pra produtora enquanto orça
-  const rentabilidade = valorTotal - custoProducao - imposto; // = margem + direção
+  // Rentabilidade ao vivo — o que sobra pra produtora (margem, fora custo/imposto/comissão)
+  const rentabilidade = valorTotal - custoProducao - imposto - comissaoTotal;
   const margemPercent = valorTotal > 0 ? (rentabilidade / valorTotal) * 100 : 0;
 
   // "Usar como proposta" — leva o valor total da planilha pro deal
@@ -598,7 +624,7 @@ function PlanilhaSection({
         </div>
 
         {/* Cabeçalho percentuais + total */}
-        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
+        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr]">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo de produção</p>
             <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
@@ -612,23 +638,92 @@ function PlanilhaSection({
             hint="sobre base sem taxa"
           />
           <PctInput
-            label="Direção de cena"
-            value={percentuais.direcao}
-            onChange={(v) => setPercentuais({ ...percentuais, direcao: v })}
-            valorCalc={direcaoValor}
-            hint="sobre custo de produção"
-          />
-          <PctInput
             label="Imposto"
             value={percentuais.imposto}
             onChange={(v) => setPercentuais({ ...percentuais, imposto: v })}
             valorCalc={imposto}
-            hint="sobre custos + margem + direção"
+            hint="sobre sub-total 2 + comissões"
           />
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
             <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotal)}</p>
           </div>
+        </div>
+
+        {/* Comissões por pessoa (entram no valor total) */}
+        <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Comissões por pessoa</p>
+              <p className="text-[10px] text-muted-foreground">Entram automaticamente no valor total.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Comissão sobre</span>
+              <select
+                value={comissaoBase}
+                onChange={(e) => setComissaoBase(e.target.value)}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              >
+                <option value="subtotal1">Sub-Total 1 (custo)</option>
+                <option value="subtotal2">Sub-Total 2 (custo + margem)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={novaCom.nome}
+              onChange={(e) => setNovaCom({ ...novaCom, nome: e.target.value })}
+              placeholder="Nome da pessoa"
+              className="h-8 min-w-[140px] flex-1"
+            />
+            <select
+              value={novaCom.tipo}
+              onChange={(e) => setNovaCom({ ...novaCom, tipo: e.target.value as "%" | "R$" })}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+            >
+              <option value="%">%</option>
+              <option value="R$">R$</option>
+            </select>
+            <Input
+              type="number"
+              value={novaCom.valor}
+              onChange={(e) => setNovaCom({ ...novaCom, valor: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && addComissao()}
+              placeholder="Valor"
+              className="h-8 w-24"
+            />
+            <Button size="sm" onClick={addComissao}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {comissoes.length > 0 && (
+            <div className="space-y-1">
+              {comissoes.map((c, i) => {
+                const v = c.tipo === "%" ? baseComissao * (Number(c.valor) / 100) : Number(c.valor);
+                return (
+                  <div key={i} className="grid grid-cols-[1fr_70px_110px_32px] items-center gap-2 text-xs">
+                    <span className="truncate text-foreground">{c.nome || "—"}</span>
+                    <span className="text-right text-muted-foreground">
+                      {c.tipo === "%" ? `${c.valor}%` : formatCurrency(Number(c.valor))}
+                    </span>
+                    <span className="text-right font-medium text-foreground">{formatCurrency(v)}</span>
+                    <button
+                      onClick={() => removeComissao(i)}
+                      className="justify-self-end text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between border-t border-border/40 pt-1 text-xs">
+                <span className="text-muted-foreground">Total de comissões</span>
+                <span className="font-semibold text-foreground">{formatCurrency(comissaoTotal)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Rentabilidade do job — ao vivo enquanto orça */}
