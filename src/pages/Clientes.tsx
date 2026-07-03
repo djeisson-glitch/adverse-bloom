@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/clientes/ClientAvatar";
 import { NewClientModal } from "@/components/clientes/NewClientModal";
 import { ImportClientsModal } from "@/components/clientes/ImportClientsModal";
-import { Users, Plus, Search, Loader2, ExternalLink, Upload } from "lucide-react";
+import { Users, Plus, Search, Loader2, ExternalLink, Upload, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -244,7 +244,25 @@ export default function Clientes() {
                 <span className="text-xs text-muted-foreground">
                   {c.lastContact ? new Date(c.lastContact).toLocaleDateString("pt-BR") : "—"}
                 </span>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                <button
+                  title="Excluir cliente"
+                  className="justify-self-end text-muted-foreground hover:text-destructive"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (Number(c.numProjetos) > 0 || Number(c.numOrcamentos) > 0) {
+                      return toast.error("Cliente tem projetos/orçamentos", {
+                        description: "Exclua ou mova eles antes de remover o cliente.",
+                      });
+                    }
+                    if (!window.confirm(`Excluir o cliente "${(c as any).trade_name || c.name}"?`)) return;
+                    const { error } = await (supabase as any).from("clients").delete().eq("id", c.id);
+                    if (error) return toast.error("Não excluiu", { description: error.message });
+                    toast.success("Cliente excluído");
+                    qc.invalidateQueries();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             ))
           )}
