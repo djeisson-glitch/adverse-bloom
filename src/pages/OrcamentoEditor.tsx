@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
-  ChevronDown, Calculator, Table, Clock, Info, Save, ExternalLink, CalendarRange, Upload,
+  ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
 } from "lucide-react";
 import { ComentariosSection } from "./ProjetoDetalhe";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,23 +35,6 @@ type BudgetItem = {
   client_price: number | null;
   tira_taxa: boolean;
   observacoes: string | null;
-  ordem: number;
-};
-type ComposicaoHora = {
-  id: string;
-  budget_id: string;
-  funcao_id: string | null;
-  funcao_nome: string;
-  horas: number;
-  preco_hora: number;
-  custo_hora: number;
-  ordem: number;
-};
-type CustoDireto = {
-  id: string;
-  budget_id: string;
-  descricao: string;
-  valor: number;
   ordem: number;
 };
 
@@ -133,47 +116,6 @@ export default function OrcamentoEditor() {
         .order("ordem");
       if (error) throw error;
       return data as BudgetItem[];
-    },
-  });
-
-  const { data: composicao = [] } = useQuery({
-    queryKey: ["orcamento-composicao", budget?.id],
-    enabled: !!budget?.id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("budget_composicao_horas")
-        .select("*")
-        .eq("budget_id", budget.id)
-        .order("ordem");
-      if (error) throw error;
-      return data as ComposicaoHora[];
-    },
-  });
-
-  const { data: custos = [] } = useQuery({
-    queryKey: ["orcamento-custos", budget?.id],
-    enabled: !!budget?.id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("budget_custos_diretos")
-        .select("*")
-        .eq("budget_id", budget.id)
-        .order("ordem");
-      if (error) throw error;
-      return data as CustoDireto[];
-    },
-  });
-
-  const { data: rateCard = [] } = useQuery({
-    queryKey: ["rate-card-orcamento"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("rate_card")
-        .select("*")
-        .eq("ativo", true)
-        .order("ordem");
-      if (error) throw error;
-      return data as any[];
     },
   });
 
@@ -286,20 +228,6 @@ export default function OrcamentoEditor() {
         titulo="💬 Discussão do orçamento"
         vazio="Nenhuma mensagem ainda. Tire dúvidas, alinhe valores e anexe documentos aqui."
       />
-
-      {/* Composição por horas */}
-      {canSeeMoney && (
-        <ComposicaoHorasSection
-          budget={budget}
-          composicao={composicao}
-          rateCard={rateCard}
-          custos={custos}
-          onChanged={() => {
-            qc.invalidateQueries({ queryKey: ["orcamento-composicao"] });
-            qc.invalidateQueries({ queryKey: ["orcamento-custos"] });
-          }}
-        />
-      )}
 
       {/* Planilha de produção */}
       {canSeeMoney && (
@@ -1023,211 +951,6 @@ function BudgetItemRow({
   );
 }
 
-/* ---------------------------------- Composição por horas + custos diretos */
-
-function ComposicaoHorasSection({
-  budget, composicao, rateCard, custos, onChanged,
-}: {
-  budget: any;
-  composicao: ComposicaoHora[];
-  rateCard: any[];
-  custos: CustoDireto[];
-  onChanged: () => void;
-}) {
-  const [novaFuncao, setNovaFuncao] = useState("");
-  const [novaHoras, setNovaHoras] = useState("");
-  const [novoCusto, setNovoCusto] = useState({ descricao: "", valor: "" });
-
-  const totalHoras = composicao.reduce((s, c) => s + Number(c.horas), 0);
-  const totalReceita = composicao.reduce((s, c) => s + Number(c.horas) * Number(c.preco_hora), 0);
-  const totalCustoInterno = composicao.reduce((s, c) => s + Number(c.horas) * Number(c.custo_hora), 0);
-  const totalCustosDiretos = custos.reduce((s, c) => s + Number(c.valor), 0);
-  const custoEstimado = totalCustoInterno + totalCustosDiretos;
-  const margem = totalReceita - custoEstimado;
-
-  const addFuncao = useMutation({
-    mutationFn: async () => {
-      const f = rateCard.find((r) => r.id === novaFuncao);
-      if (!f || !novaHoras) throw new Error("Escolha função e horas");
-      const { error } = await (supabase as any).from("budget_composicao_horas").insert({
-        budget_id: budget.id,
-        funcao_id: f.id,
-        funcao_nome: f.funcao,
-        horas: Number(novaHoras),
-        preco_hora: f.preco_hora,
-        custo_hora: f.custo_hora,
-        ordem: composicao.length + 1,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setNovaFuncao("");
-      setNovaHoras("");
-      onChanged();
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
-
-  const addCusto = useMutation({
-    mutationFn: async () => {
-      if (!novoCusto.descricao || !novoCusto.valor) throw new Error("Descrição e valor");
-      const { error } = await (supabase as any).from("budget_custos_diretos").insert({
-        budget_id: budget.id,
-        descricao: novoCusto.descricao,
-        valor: Number(novoCusto.valor),
-        ordem: custos.length + 1,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setNovoCusto({ descricao: "", valor: "" });
-      onChanged();
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
-
-  const removerFuncao = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("budget_composicao_horas").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: onChanged,
-  });
-  const removerCusto = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("budget_custos_diretos").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: onChanged,
-  });
-
-  return (
-    <Card className="glass-card border-warning/30">
-      <CardContent className="space-y-4 p-6">
-        <div className="flex items-center gap-2">
-          <Calculator className="h-4 w-4 text-warning" />
-          <h2 className="text-base font-semibold text-foreground">Composição por horas</h2>
-        </div>
-
-        <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">
-          <Info className="mr-1 inline h-3 w-3 text-warning" />
-          Defina as funções e valores no <Link to="/admin/rate-card" className="text-primary hover:underline">Rate card</Link> para montar o orçamento por horas.
-        </div>
-
-        {/* Adicionar função + custo */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="flex gap-2">
-            <Select value={novaFuncao} onValueChange={setNovaFuncao}>
-              <SelectTrigger className="h-9 flex-1">
-                <SelectValue placeholder="+ função..." />
-              </SelectTrigger>
-              <SelectContent>
-                {rateCard.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.funcao} · R$ {f.preco_hora}/h
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="number"
-              value={novaHoras}
-              onChange={(e) => setNovaHoras(e.target.value)}
-              placeholder="horas"
-              className="h-9 w-20"
-            />
-            <Button size="sm" onClick={() => addFuncao.mutate()}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={novoCusto.descricao}
-              onChange={(e) => setNovoCusto({ ...novoCusto, descricao: e.target.value })}
-              placeholder="+ custo (locação, equip...)"
-              className="h-9 flex-1"
-            />
-            <Input
-              type="number"
-              value={novoCusto.valor}
-              onChange={(e) => setNovoCusto({ ...novoCusto, valor: e.target.value })}
-              placeholder="R$"
-              className="h-9 w-24"
-            />
-            <Button size="sm" onClick={() => addCusto.mutate()}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Linhas */}
-        {(composicao.length > 0 || custos.length > 0) && (
-          <div className="space-y-1 rounded-md border border-border/40 bg-muted/10 p-2">
-            {composicao.map((c) => (
-              <div key={c.id} className="grid grid-cols-[1fr_60px_100px_100px_40px] items-center gap-2 px-2 py-1 text-xs">
-                <span className="text-foreground">{c.funcao_nome}</span>
-                <span className="text-right">{c.horas}h</span>
-                <span className="text-right text-muted-foreground">R$ {c.preco_hora}/h</span>
-                <span className="text-right font-medium text-foreground">
-                  {formatCurrency(Number(c.horas) * Number(c.preco_hora))}
-                </span>
-                <button onClick={() => removerFuncao.mutate(c.id)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-            {custos.map((c) => (
-              <div key={c.id} className="grid grid-cols-[1fr_60px_100px_100px_40px] items-center gap-2 px-2 py-1 text-xs">
-                <span className="text-muted-foreground">↳ {c.descricao} (custo direto)</span>
-                <span />
-                <span />
-                <span className="text-right font-medium text-warning">
-                  {formatCurrency(c.valor)}
-                </span>
-                <button onClick={() => removerCusto.mutate(c.id)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Resumo */}
-        <div className="grid gap-3 rounded-md border border-border/40 bg-muted/10 p-3 md:grid-cols-4">
-          <ResumoBox label="Total de horas" value={`${totalHoras}h`} icon={Clock} />
-          <ResumoBox label="Preço (receita)" value={formatCurrency(totalReceita)} tone="primary" />
-          <ResumoBox label="Custo estimado" value={formatCurrency(custoEstimado)} tone="warning" />
-          <ResumoBox label="Margem prevista" value={formatCurrency(margem)} tone={margem >= 0 ? "success" : "destructive"} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ResumoBox({
-  label, value, tone, icon: Icon,
-}: {
-  label: string;
-  value: string;
-  tone?: "primary" | "success" | "warning" | "destructive";
-  icon?: React.ComponentType<{ className?: string }>;
-}) {
-  const cls =
-    tone === "success" ? "text-success"
-      : tone === "warning" ? "text-warning"
-      : tone === "destructive" ? "text-destructive"
-      : tone === "primary" ? "text-primary"
-      : "text-foreground";
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {Icon && <Icon className="mr-1 inline h-3 w-3" />}
-        {label}
-      </p>
-      <p className={`text-sm font-semibold ${cls}`}>{value}</p>
-    </div>
-  );
-}
 
 /* -------------------------------------------------------- Briefing */
 
