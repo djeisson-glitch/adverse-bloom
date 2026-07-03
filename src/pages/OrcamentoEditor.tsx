@@ -167,6 +167,24 @@ export default function OrcamentoEditor() {
     },
   });
 
+  const [confirmarExcluir, setConfirmarExcluir] = useState(false);
+  const excluir = useMutation({
+    mutationFn: async () => {
+      if (jobGerado) {
+        throw new Error(`Esse orçamento já virou o Job #${jobGerado.numero}. Exclua o projeto primeiro.`);
+      }
+      // apaga a planilha (itens/comissões caem por cascade) e o orçamento
+      await (supabase as any).from("budgets").delete().eq("deal_id", deal.id);
+      const { error } = await (supabase as any).from("deals").delete().eq("id", deal.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Orçamento excluído");
+      navigate("/orcamentos");
+    },
+    onError: (e: any) => toast.error("Não excluiu", { description: e.message }),
+  });
+
   if (isLoading || !deal || !budget) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -179,20 +197,49 @@ export default function OrcamentoEditor() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 py-6">
-      <button
-        onClick={() => navigate("/orcamentos")}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Voltar ao pipeline
-      </button>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate("/orcamentos")}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar ao pipeline
+        </button>
+        {confirmarExcluir ? (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Excluir este orçamento?</span>
+            <button onClick={() => setConfirmarExcluir(false)} className="text-muted-foreground hover:text-foreground">
+              Cancelar
+            </button>
+            <button
+              onClick={() => excluir.mutate()}
+              disabled={excluir.isPending}
+              className="font-medium text-destructive hover:underline"
+            >
+              Sim, excluir
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmarExcluir(true)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Excluir
+          </button>
+        )}
+      </div>
 
       {/* Header + ações */}
       <Card className="glass-card">
         <CardContent className="space-y-4 p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-muted-foreground">{deal.client?.name || "Sem cliente"}</p>
+              <p className="text-xs text-muted-foreground">
+                {deal.numero && <span className="font-mono text-primary">#{deal.numero}</span>}
+                {deal.numero && " · "}
+                {deal.client?.name || "Sem cliente"}
+              </p>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">{deal.title}</h1>
             </div>
             <span
