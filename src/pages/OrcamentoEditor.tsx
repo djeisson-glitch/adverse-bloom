@@ -242,6 +242,9 @@ export default function OrcamentoEditor() {
         />
       )}
 
+      {/* Entregas / escopo do job */}
+      <EntregasSection budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
+
       {/* Follow-ups agendados */}
       {followUps.length > 0 && (
         <Card className="glass-card">
@@ -271,6 +274,129 @@ export default function OrcamentoEditor() {
       {/* Briefing */}
       <BriefingSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
     </div>
+  );
+}
+
+/* ------------------------------------------ Entregas / escopo do job */
+
+type Entrega = { titulo: string; formato: string; duracao: string; quantidade: number; diarias: number };
+
+function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => void }) {
+  const [entregas, setEntregas] = useState<Entrega[]>(
+    Array.isArray(budget.entregas) ? budget.entregas : [],
+  );
+  const [nova, setNova] = useState({ titulo: "", formato: "", duracao: "", quantidade: "1", diarias: "0" });
+
+  const totalEntregas = entregas.reduce((s, e) => s + (Number(e.quantidade) || 0), 0);
+  const totalDiarias = entregas.reduce((s, e) => s + (Number(e.diarias) || 0), 0);
+
+  const add = () => {
+    if (!nova.titulo.trim()) return;
+    setEntregas([
+      ...entregas,
+      {
+        titulo: nova.titulo.trim(),
+        formato: nova.formato.trim(),
+        duracao: nova.duracao.trim(),
+        quantidade: Number(nova.quantidade) || 1,
+        diarias: Number(nova.diarias) || 0,
+      },
+    ]);
+    setNova({ titulo: "", formato: "", duracao: "", quantidade: "1", diarias: "0" });
+  };
+  const remove = (i: number) => setEntregas(entregas.filter((_, idx) => idx !== i));
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("budgets").update({ entregas }).eq("id", budget.id);
+      if (error) {
+        if (/entregas/i.test(error.message || "")) {
+          throw new Error("Rode 'supabase db push' pra habilitar o salvamento das entregas (coluna nova).");
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      onChanged();
+      toast.success("Entregas salvas");
+    },
+    onError: (e: any) => toast.error("Erro ao salvar", { description: e.message }),
+  });
+
+  const cols = "grid grid-cols-[1.6fr_80px_90px_56px_64px_32px] items-center gap-2";
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="space-y-4 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Entregas / escopo</h2>
+            <p className="text-[10px] text-muted-foreground">
+              O que está incluso — pra produção executiva, produtor e direção saberem.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => salvar.mutate()}
+            disabled={salvar.isPending}
+            className="bg-primary text-primary-foreground"
+          >
+            <Save className="mr-1 h-3.5 w-3.5" /> Salvar entregas
+          </Button>
+        </div>
+
+        {entregas.length > 0 && (
+          <div className="space-y-1">
+            <div className={`${cols} border-b border-border/40 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground`}>
+              <span>Entrega</span>
+              <span>Formato</span>
+              <span>Duração</span>
+              <span className="text-right">Qtd</span>
+              <span className="text-right">Diárias</span>
+              <span />
+            </div>
+            {entregas.map((e, i) => (
+              <div key={i} className={`${cols} px-1 text-xs`}>
+                <span className="truncate text-foreground">{e.titulo}</span>
+                <span className="text-muted-foreground">{e.formato || "—"}</span>
+                <span className="text-muted-foreground">{e.duracao || "—"}</span>
+                <span className="text-right">{e.quantidade}</span>
+                <span className="text-right">{e.diarias}</span>
+                <button
+                  onClick={() => remove(i)}
+                  className="justify-self-end text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <div className="flex justify-between border-t border-border/40 px-1 pt-1 text-xs">
+              <span className="text-muted-foreground">
+                {entregas.length} tipo(s) · {totalEntregas} entrega(s)
+              </span>
+              <span className="font-semibold text-foreground">{totalDiarias} diária(s)</span>
+            </div>
+          </div>
+        )}
+
+        <div className={cols}>
+          <Input
+            value={nova.titulo}
+            onChange={(e) => setNova({ ...nova, titulo: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder="Ex.: Filme principal"
+            className="h-8 text-xs"
+          />
+          <Input value={nova.formato} onChange={(e) => setNova({ ...nova, formato: e.target.value })} placeholder="16x9" className="h-8 text-xs" />
+          <Input value={nova.duracao} onChange={(e) => setNova({ ...nova, duracao: e.target.value })} placeholder={'60"'} className="h-8 text-xs" />
+          <Input type="number" value={nova.quantidade} onChange={(e) => setNova({ ...nova, quantidade: e.target.value })} className="h-8 text-xs" />
+          <Input type="number" value={nova.diarias} onChange={(e) => setNova({ ...nova, diarias: e.target.value })} className="h-8 text-xs" />
+          <Button size="sm" onClick={add}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
