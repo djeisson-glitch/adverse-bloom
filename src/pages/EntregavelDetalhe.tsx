@@ -3,10 +3,10 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTimer } from "@/contexts/TimerContext";
+import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Save, ExternalLink, Film, CalendarClock, CheckCircle2,
-  Play, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
+  Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,14 @@ function nomeDe(profiles: any[], uid: string | null | undefined) {
   if (!uid) return "—";
   const p = profiles.find((x) => x.id === uid);
   return p?.full_name || p?.email || "—";
+}
+
+// Rótulo do status deixando explícito QUEM revisa em cada nível.
+function labelStatus(status: string, n1Nome: string, n2Nome: string) {
+  const base = STATUS_ENTREGAVEL.find((s) => s.id === status)?.label || status;
+  if (status === "revisao_n1") return `${base} · ${n1Nome}`;
+  if (status === "revisao_n2") return `${base} · ${n2Nome}`;
+  return base;
 }
 
 export default function EntregavelDetalhe() {
@@ -222,6 +230,8 @@ export default function EntregavelDetalhe() {
   // Config efetiva de aprovação (override por projeto > global)
   const n1 = proj?.aprovador_n1_id ?? config?.nivel1_user_id ?? null;
   const n2 = proj?.aprovador_n2_id ?? config?.nivel2_user_id ?? null;
+  const n1Nome = nomeDe(profiles, n1);
+  const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
   return (
@@ -241,7 +251,7 @@ export default function EntregavelDetalhe() {
             <div className="flex-1">
               <div className="mb-1 flex items-center gap-2">
                 <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${statusTone(form.status)}`}>
-                  {STATUS_ENTREGAVEL.find((s) => s.id === form.status)?.label || form.status}
+                  {labelStatus(form.status, n1Nome, n2Nome)}
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Film className="h-3 w-3" /> Entregável
@@ -336,6 +346,7 @@ export default function EntregavelDetalhe() {
             onChanged={() => {
               qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
               qc.invalidateQueries({ queryKey: ["entregavel", did] });
+              qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
             }}
           />
 
@@ -407,9 +418,6 @@ function AprovacaoCard({
   entregavel: any; did: string; userId?: string; n1: string | null; n2: string | null;
   clienteAprova: boolean; profiles: any[]; onChanged: () => void;
 }) {
-  const [ajusteNota, setAjusteNota] = useState("");
-  const [mostrarAjuste, setMostrarAjuste] = useState(false);
-
   const patch = async (updates: any, msgOk: string) => {
     const { error } = await (supabase as any).from("deliverables").update(updates).eq("id", did);
     if (error) return toast.error("Erro", { description: error.message });
@@ -428,21 +436,14 @@ function AprovacaoCard({
       },
       clienteAprova ? "Aprovado no N2 → enviado ao cliente" : "Aprovado no N2",
     );
+  // Revisão interna: só registra (incrementa contador + volta pra edição).
+  // Não pede descrição — o detalhe do ajuste já está no ClickUp.
   const pedirAjuste = async () => {
-    // Revisão interna: incrementa contador + volta pra edição (NÃO cria alteração)
     const { error } = await (supabase as any)
       .from("deliverables")
       .update({ revisoes_internas: (entregavel.revisoes_internas || 0) + 1, status: "em_edicao" })
       .eq("id", did);
     if (error) return toast.error("Erro", { description: error.message });
-    if (ajusteNota.trim() && userId) {
-      await (supabase as any).from("comments").insert({
-        entity_type: "deliverable", entity_id: did, user_id: userId,
-        body: `🔧 Ajuste interno pedido: ${ajusteNota.trim()}`, mentions: [],
-      });
-    }
-    setAjusteNota("");
-    setMostrarAjuste(false);
     onChanged();
     toast.info("Revisão interna registrada — voltou pra edição");
   };
@@ -470,29 +471,38 @@ function AprovacaoCard({
           </div>
         </div>
 
+        {(entregavel.status === "revisao_n1" || entregavel.status === "revisao_n2") && (
+          <p className="text-xs">
+            <Clock className="mr-1 inline h-3.5 w-3.5 text-warning" />
+            Aguardando aprovação de{" "}
+            <strong className="text-foreground">
+              {entregavel.status === "revisao_n1" ? nomeDe(profiles, n1) : nomeDe(profiles, n2)}
+            </strong>{" "}
+            ({entregavel.status === "revisao_n1" ? "N1" : "N2"})
+          </p>
+        )}
+
         {podeAprovar ? (
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
-              {isN1 && !entregavel.aprovado_n1_em && (
-                <Button size="sm" onClick={aprovarN1} className="bg-success text-white hover:bg-success/90">
-                  <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N1
-                </Button>
-              )}
-              {isN2 && entregavel.aprovado_n1_em && !entregavel.aprovado_n2_em && (
-                <Button size="sm" onClick={aprovarN2} className="bg-success text-white hover:bg-success/90">
-                  <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N2
-                </Button>
-              )}
-              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setMostrarAjuste((v) => !v)}>
-                <RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste
+          <div className="flex flex-wrap gap-2">
+            {isN1 && !entregavel.aprovado_n1_em && (
+              <Button size="sm" onClick={aprovarN1} className="bg-success text-white hover:bg-success/90">
+                <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N1 · {nomeDe(profiles, n1)}
               </Button>
-            </div>
-            {mostrarAjuste && (
-              <div className="flex items-center gap-2">
-                <Input value={ajusteNota} onChange={(e) => setAjusteNota(e.target.value)} placeholder="O que precisa ajustar? (revisão interna)" className="h-8" />
-                <Button size="sm" onClick={pedirAjuste}>Registrar</Button>
-              </div>
             )}
+            {isN2 && entregavel.aprovado_n1_em && !entregavel.aprovado_n2_em && (
+              <Button size="sm" onClick={aprovarN2} className="bg-success text-white hover:bg-success/90">
+                <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N2 · {nomeDe(profiles, n2)}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={pedirAjuste}
+              title="Registra uma revisão interna e volta pra edição (o detalhe fica no ClickUp)"
+            >
+              <RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste interno
+            </Button>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
@@ -524,8 +534,20 @@ function TimesheetEntregavel({
   onStart: () => void; onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const { sessao, stop, elapsedSec } = useTimer();
   const [dur, setDur] = useState("");
   const [desc, setDesc] = useState("");
+
+  // Play/pause estilo ClickUp: rodando neste entregável (edição pura, sem alteração).
+  const rodando = !!sessao && sessao.deliverable_id === did && !sessao.alteracao_id;
+  const handlePlay = async () => {
+    if (sessao) await stop(); // fecha e lança o que estiver rodando antes
+    onStart();
+  };
+  const handlePause = async () => {
+    await stop();
+    onChanged();
+  };
 
   const lancar = useMutation({
     mutationFn: async () => {
@@ -567,9 +589,20 @@ function TimesheetEntregavel({
             <p className="text-sm font-semibold text-foreground">Timesheet do entregável</p>
             <p className="text-xs text-muted-foreground">Total rastreado: <strong>{horasTotal.toFixed(1)}h</strong></p>
           </div>
-          <Button size="sm" variant="outline" onClick={onStart} title="Iniciar timer neste entregável">
-            <Play className="mr-1 h-3.5 w-3.5 fill-current" /> Apontar
-          </Button>
+          {rodando ? (
+            <Button
+              size="sm"
+              onClick={handlePause}
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+              title="Pausar e lançar as horas"
+            >
+              <Pause className="mr-1 h-3.5 w-3.5 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={handlePlay} title="Dar play no timer deste entregável">
+              <Play className="mr-1 h-3.5 w-3.5 fill-current" /> Play
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -609,6 +642,7 @@ function AlteracoesSection({
   horasPorAlteracao: Record<string, number>; onStart: (alteracaoId: string) => void; onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const { sessao, stop, elapsedSec } = useTimer();
   const [nova, setNova] = useState({ titulo: "", descricao: "" });
   const [aberto, setAberto] = useState(false);
 
@@ -686,9 +720,26 @@ function AlteracoesSection({
               </div>
               {a.descricao && <p className="mt-1 text-xs text-muted-foreground">{a.descricao}</p>}
               <div className="mt-2 flex items-center gap-2">
-                <Button size="sm" variant="outline" className="h-7" onClick={() => onStart(a.id)}>
-                  <Play className="mr-1 h-3 w-3 fill-current" /> Apontar nesta alteração
-                </Button>
+                {sessao?.deliverable_id === did && sessao?.alteracao_id === a.id ? (
+                  <Button
+                    size="sm"
+                    className="h-7 bg-warning text-warning-foreground hover:bg-warning/90"
+                    onClick={async () => { await stop(); onChanged(); }}
+                    title="Pausar e lançar as horas desta alteração"
+                  >
+                    <Pause className="mr-1 h-3 w-3 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7"
+                    onClick={async () => { if (sessao) await stop(); onStart(a.id); }}
+                    title="Dar play no timer desta alteração"
+                  >
+                    <Play className="mr-1 h-3 w-3 fill-current" /> Play
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" className="h-7" onClick={() => resolver.mutate(a)}>
                   {a.status === "resolvida" ? "Reabrir" : "Marcar resolvida"}
                 </Button>

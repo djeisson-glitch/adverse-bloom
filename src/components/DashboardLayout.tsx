@@ -1,56 +1,43 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Play, Square, Search, Bell, LogOut, ShieldCheck, XCircle } from "lucide-react";
+import { Square, Search, Bell, LogOut, ShieldCheck, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
-import { StartTimerModal } from "@/components/timer/StartTimerModal";
 import { toast } from "sonner";
 
 function TimerButton() {
   const { sessao, stop, cancel, elapsedSec } = useTimer();
-  const [open, setOpen] = useState(false);
 
-  if (sessao) {
-    return (
-      <div className="flex items-center gap-1">
-        <button
-          onClick={stop}
-          className="flex items-center gap-2 rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90"
-          title={`Rodando em ${sessao.project_name}${sessao.task_title ? ` · ${sessao.task_title}` : ""} — clique pra parar e lançar`}
-        >
-          <Square className="h-3.5 w-3.5 fill-current" />
-          <span className="tabular-nums">{formatElapsed(elapsedSec)}</span>
-          <span className="hidden max-w-[180px] truncate text-[10px] opacity-80 md:inline">
-            · {sessao.project_name}
-            {sessao.task_title ? ` · ${sessao.task_title}` : ""}
-          </span>
-        </button>
-        <button
-          onClick={cancel}
-          className="text-muted-foreground hover:text-destructive"
-          title="Cancelar sem lançar"
-        >
-          <XCircle className="h-4 w-4" />
-        </button>
-      </div>
-    );
-  }
+  // Sem timer rodando → nada no topo. O apontamento começa no play/pause de
+  // cada tarefa/entregável (estilo ClickUp). Aqui só aparece o cronômetro ativo,
+  // pra dar pra parar de qualquer tela.
+  if (!sessao) return null;
 
   return (
-    <>
+    <div className="flex items-center gap-1">
       <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        title="Apontar horas em qualquer tela"
+        onClick={stop}
+        className="flex items-center gap-2 rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90"
+        title={`Rodando em ${sessao.project_name}${sessao.task_title ? ` · ${sessao.task_title}` : ""} — clique pra parar e lançar`}
       >
-        <Play className="h-3.5 w-3.5 fill-current" />
-        <span>Apontar</span>
+        <Square className="h-3.5 w-3.5 fill-current" />
+        <span className="tabular-nums">{formatElapsed(elapsedSec)}</span>
+        <span className="hidden max-w-[180px] truncate text-[10px] opacity-80 md:inline">
+          · {sessao.project_name}
+          {sessao.task_title ? ` · ${sessao.task_title}` : ""}
+        </span>
       </button>
-      <StartTimerModal open={open} onOpenChange={setOpen} />
-    </>
+      <button
+        onClick={cancel}
+        className="text-muted-foreground hover:text-destructive"
+        title="Cancelar sem lançar"
+      >
+        <XCircle className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 
