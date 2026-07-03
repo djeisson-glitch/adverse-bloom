@@ -763,6 +763,9 @@ function CategoriaItens({
 }) {
   const [novaDesc, setNovaDesc] = useState("");
 
+  // Pós-produção é orçada por HORA (não por diária) — muda só os rótulos das colunas.
+  const porHora = codigo === "011" || /p[óo]s\s*produ/i.test(catNome || "");
+
   const adicionar = useMutation({
     mutationFn: async () => {
       if (!novaDesc.trim()) throw new Error("Informe a descrição");
@@ -794,8 +797,8 @@ function CategoriaItens({
         <span />
         <span>Descrição</span>
         <span>QTD</span>
-        <span>Diária</span>
-        <span>Valor unit.</span>
+        <span>{porHora ? "Horas" : "Diária"}</span>
+        <span>{porHora ? "Valor/hora" : "Valor unit."}</span>
         <span className="text-right">Valor</span>
         <span>Observações</span>
         <span>T. taxa</span>
