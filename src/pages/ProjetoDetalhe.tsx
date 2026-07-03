@@ -155,6 +155,22 @@ export default function ProjetoDetalhe() {
                   Horas por pessoa/tarefa
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                title="Excluir projeto"
+                onClick={async () => {
+                  if (!window.confirm("Excluir este projeto? Isso remove entregáveis, tarefas e apontamentos ligados a ele. Não dá pra desfazer.")) return;
+                  const { error } = await (supabase as any).from("projects").delete().eq("id", project.id);
+                  if (error) return toast.error("Não excluiu", { description: error.message });
+                  toast.success("Projeto excluído");
+                  navigate("/projetos");
+                }}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Excluir
+              </Button>
             </div>
           </div>
 

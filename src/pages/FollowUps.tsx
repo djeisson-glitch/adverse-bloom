@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarRange, ChevronLeft, ChevronRight, Trophy, Frown, Check } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, Trophy, Frown, Check, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -240,6 +240,18 @@ export default function FollowUps() {
                     <Check className="mr-1 h-3.5 w-3.5" />
                     Concluir
                   </Button>
+                  <button
+                    title="Excluir follow-up"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={async () => {
+                      if (!window.confirm("Excluir este follow-up?")) return;
+                      const { error } = await (supabase as any).from("follow_ups").delete().eq("id", f.id);
+                      if (error) return toast.error("Não excluiu", { description: error.message });
+                      qc.invalidateQueries();
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               );
             })

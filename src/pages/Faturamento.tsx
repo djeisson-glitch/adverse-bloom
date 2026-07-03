@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { FileText, CheckCircle2, Clock, Wallet, AlertCircle } from "lucide-react";
+import { FileText, CheckCircle2, Clock, Wallet, AlertCircle, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -222,7 +222,17 @@ export default function Faturamento() {
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">Nenhuma fatura emitida ainda.</div>
           ) : (
             invoices.map((i) => (
-              <InvoiceRow key={i.id} invoice={i} onChangeStatus={(status) => mudarStatus.mutate({ id: i.id, status })} />
+              <InvoiceRow
+                key={i.id}
+                invoice={i}
+                onChangeStatus={(status) => mudarStatus.mutate({ id: i.id, status })}
+                onDelete={async () => {
+                  if (!window.confirm("Excluir esta fatura?")) return;
+                  const { error } = await (supabase as any).from("invoices").delete().eq("id", i.id);
+                  if (error) return toast.error("Não excluiu", { description: error.message });
+                  qc.invalidateQueries({ queryKey: ["invoices"] });
+                }}
+              />
             ))
           )}
         </CardContent>
@@ -236,7 +246,7 @@ export default function Faturamento() {
   );
 }
 
-function InvoiceRow({ invoice, onChangeStatus }: { invoice: Invoice; onChangeStatus: (status: string) => void }) {
+function InvoiceRow({ invoice, onChangeStatus, onDelete }: { invoice: Invoice; onChangeStatus: (status: string) => void; onDelete: () => void }) {
   const statusColor: Record<string, string> = {
     rascunho: "bg-muted text-muted-foreground",
     enviada: "bg-primary/15 text-primary",
@@ -266,7 +276,9 @@ function InvoiceRow({ invoice, onChangeStatus }: { invoice: Invoice; onChangeSta
         </SelectContent>
       </Select>
       <span className="text-right text-sm font-medium text-primary">{formatCurrency(invoice.valor)}</span>
-      <span />
+      <button onClick={onDelete} title="Excluir fatura" className="justify-self-end text-muted-foreground hover:text-destructive">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
