@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeals, STAGES } from "@/hooks/useDeals";
+import { useDeals, STAGES, isWonStage } from "@/hooks/useDeals";
 import { usePermissions } from "@/hooks/usePermissions";
 import { BarChart3, Coins, Trophy, Percent, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,10 +17,10 @@ export default function Relatorios() {
   const { canSeeMoney } = usePermissions();
 
   const abertos = useMemo(
-    () => deals.filter((d) => d.stage !== "aceite" && d.stage !== "perdido"),
+    () => deals.filter((d) => !isWonStage(d.stage) && d.stage !== "perdido"),
     [deals],
   );
-  const ganhos = useMemo(() => deals.filter((d) => d.stage === "aceite"), [deals]);
+  const ganhos = useMemo(() => deals.filter((d) => isWonStage(d.stage)), [deals]);
   const perdidos = useMemo(() => deals.filter((d) => d.stage === "perdido"), [deals]);
   const decididos = ganhos.length + perdidos.length;
   const taxaConversao = decididos > 0 ? Math.round((ganhos.length / decididos) * 100) : 0;

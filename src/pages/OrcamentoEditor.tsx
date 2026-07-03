@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { STAGES } from "@/hooks/useDeals";
+import { STAGES, isWonStage } from "@/hooks/useDeals";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -180,7 +180,7 @@ export default function OrcamentoEditor() {
   // Job gerado a partir deste orçamento (quando ganho)
   const { data: jobGerado } = useQuery({
     queryKey: ["orcamento-job", id],
-    enabled: !!deal && deal.stage === "aceite",
+    enabled: !!deal && isWonStage(deal.stage),
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("projects")
@@ -407,7 +407,7 @@ function AcaoBotoes({
     );
   }
 
-  const ganho = deal.stage === "aceite";
+  const ganho = isWonStage(deal.stage);
 
   return (
     <div className="flex flex-wrap gap-2">
