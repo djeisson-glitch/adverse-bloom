@@ -1,83 +1,86 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useTimer } from "@/contexts/TimerContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, ListChecks, Info } from "lucide-react";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Info } from "lucide-react";
 
-type Task = {
+type DeliverableOpt = {
   id: string;
-  title: string;
-  due_date: string | null;
-  priority: string | null;
+  titulo: string;
+  formato: string | null;
+  status: string | null;
+  project: { id: string; name: string; numero: string | null; client_name: string | null; status: string | null } | null;
 };
 
+/**
+ * Apontar horas — obriga escolher um ENTREGÁVEL (não o projeto, não "sem projeto").
+ * Assim toda hora lançada fica presa a uma peça específica.
+ */
 export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { user } = useAuth();
   const { start } = useTimer();
-  const [projectId, setProjectId] = useState("");
-  const [taskId, setTaskId] = useState<string>("");
+  const [deliverableId, setDeliverableId] = useState("");
   const [description, setDescription] = useState("");
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ["timer-projects"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id, name, client_name, status")
-        .neq("status", "faturado")
-        .order("name");
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
-  // Tarefas do projeto atribuídas ao próprio usuário — Djeisson pediu explícito
-  // "aparece apenas as dela" pra evitar poluição do seletor.
-  const { data: minhasTasks = [] } = useQuery({
-    queryKey: ["timer-my-tasks", projectId, user?.id],
-    enabled: !!projectId && !!user?.id,
+  const { data: deliverables = [], isLoading } = useQuery({
+    queryKey: ["timer-deliverables"],
+    enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("tasks")
-        .select("id, title, due_date, priority")
-        .eq("project_id", projectId)
-        .eq("assigned_user_id", user!.id)
-        .eq("completed", false)
-        .order("due_date", { nullsFirst: false });
+        .from("deliverables")
+        .select("id, titulo, formato, status, project:projects(id, name, numero, client_name, status)")
+        .order("titulo");
       if (error) throw error;
-      return data as Task[];
+      // Só entregáveis de projetos ativos e ainda não entregues/aprovados.
+      return (data as DeliverableOpt[]).filter(
+        (d) =>
+          d.project &&
+          d.project.status !== "faturado" &&
+          d.status !== "entregue" &&
+          d.status !== "aprovado",
+      );
     },
   });
 
-  const projeto = useMemo(() => projects.find((p) => p.id === projectId), [projects, projectId]);
-  const tarefa = useMemo(() => minhasTasks.find((t) => t.id === taskId), [minhasTasks, taskId]);
+  // Agrupa por projeto pra facilitar achar no seletor.
+  const grupos = useMemo(() => {
+    const m = new Map<string, { projeto: DeliverableOpt["project"]; itens: DeliverableOpt[] }>();
+    deliverables.forEach((d) => {
+      const key = d.project!.id;
+      if (!m.has(key)) m.set(key, { projeto: d.project, itens: [] });
+      m.get(key)!.itens.push(d);
+    });
+    return Array.from(m.values());
+  }, [deliverables]);
+
+  const entregavel = useMemo(
+    () => deliverables.find((d) => d.id === deliverableId),
+    [deliverables, deliverableId],
+  );
 
   const iniciar = () => {
-    // Projeto é opcional — sem projeto = "atribuir depois" (padrão Catalunya)
+    if (!entregavel) return;
     start({
-      project_id: projeto?.id || null,
-      project_name: projeto?.name || "sem projeto",
-      task_id: tarefa?.id || null,
-      task_title: tarefa?.title,
+      project_id: entregavel.project?.id || null,
+      project_name: entregavel.project?.name || "—",
+      deliverable_id: entregavel.id,
+      task_title: entregavel.titulo, // reaproveita o título no indicador do topo
       description,
     });
-    setProjectId("");
-    setTaskId("");
-    setDescription("");
+    reset();
     onOpenChange(false);
   };
 
-  const close = () => {
-    setProjectId("");
-    setTaskId("");
+  const reset = () => {
+    setDeliverableId("");
     setDescription("");
+  };
+  const close = () => {
+    reset();
     onOpenChange(false);
   };
 
@@ -89,77 +92,41 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>Projeto</Label>
-            <Select
-              value={projectId}
-              onValueChange={(v) => {
-                setProjectId(v === "__none__" ? "" : v);
-                setTaskId("");
-              }}
-            >
+            <Label>Entregável *</Label>
+            <Select value={deliverableId} onValueChange={setDeliverableId}>
               <SelectTrigger>
-                <SelectValue placeholder="— sem projeto (atribuir depois) —" />
+                <SelectValue placeholder="Escolha um entregável…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">— sem projeto (atribuir depois) —</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {p.client_name || "—"}
-                  </SelectItem>
-                ))}
+                {isLoading ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">Carregando…</div>
+                ) : deliverables.length === 0 ? (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Nenhum entregável ativo. Crie um entregável no projeto primeiro.
+                  </div>
+                ) : (
+                  grupos.map((g) => (
+                    <SelectGroup key={g.projeto!.id}>
+                      <SelectLabel>
+                        {g.projeto!.numero ? `${g.projeto!.numero} · ` : ""}
+                        {g.projeto!.name}
+                      </SelectLabel>
+                      {g.itens.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.titulo}
+                          {d.formato ? ` · ${d.formato}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Info className="h-3 w-3" />
+              A hora fica presa ao entregável — nada de apontamento solto no projeto.
+            </p>
           </div>
-
-          {projectId && (
-            <div>
-              <Label className="flex items-center gap-1">
-                <ListChecks className="h-3.5 w-3.5" />
-                Suas tarefas neste projeto
-              </Label>
-              {minhasTasks.length === 0 ? (
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Info className="h-3 w-3" />
-                  Nenhuma tarefa atribuída a você aqui — o timer segue só no projeto.
-                </p>
-              ) : (
-                <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded-md border border-border/50 bg-muted/20 p-1">
-                  {minhasTasks.map((t) => {
-                    const selected = t.id === taskId;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setTaskId(selected ? "" : t.id)}
-                        className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors ${
-                          selected
-                            ? "bg-primary/15 text-primary"
-                            : "text-foreground hover:bg-sidebar-accent/40"
-                        }`}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{t.title}</span>
-                        <span className="flex shrink-0 items-center gap-2">
-                          {t.due_date && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {new Date(t.due_date).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit",
-                              })}
-                            </span>
-                          )}
-                          {t.priority === "alta" && (
-                            <span className="rounded bg-destructive/15 px-1 text-[10px] text-destructive">
-                              alta
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
           <div>
             <Label>O que vai fazer? (opcional)</Label>
@@ -174,7 +141,11 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
           <Button variant="outline" onClick={close}>
             Cancelar
           </Button>
-          <Button onClick={iniciar} className="bg-primary text-primary-foreground">
+          <Button
+            onClick={iniciar}
+            disabled={!deliverableId}
+            className="bg-primary text-primary-foreground"
+          >
             <Play className="mr-1 h-3.5 w-3.5 fill-current" />
             Iniciar
           </Button>
