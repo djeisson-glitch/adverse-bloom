@@ -1,37 +1,38 @@
 /**
- * Constantes de briefing de orçamento no padrão Catalunya.
- * Fonte: prints do Djeisson (2026-07-01).
+ * Constantes de briefing de orçamento — opções exatas do Catalunya OS.
+ * Fonte: captura ao vivo do /orcamentos/novo (docs/catalunya-blueprint.md).
  */
 
 export const CANAIS_ENTRADA = [
+  { value: "email", label: "E-mail" },
   { value: "indicacao", label: "Indicação" },
-  { value: "inbound", label: "Inbound (site/formulário)" },
-  { value: "prospeccao", label: "Prospecção ativa" },
-  { value: "agencia", label: "Agência" },
-  { value: "cliente_recorrente", label: "Cliente recorrente" },
-  { value: "evento", label: "Evento / networking" },
+  { value: "site", label: "Site" },
+  { value: "redes_sociais", label: "Redes sociais" },
+  { value: "whatsapp", label: "Whatsapp" },
+  { value: "cliente_ativo", label: "Cliente ativo" },
+  { value: "prospeccao_bdr", label: "Prospecção BDR" },
   { value: "outro", label: "Outro" },
 ] as const;
 
 export const TIPOS_ORCAMENTO = [
   { value: "geral", label: "Geral" },
-  { value: "institucional", label: "Filme institucional" },
-  { value: "campanha", label: "Campanha publicitária" },
-  { value: "serie", label: "Websérie" },
-  { value: "reels", label: "Reels / conteúdo social" },
-  { value: "evento", label: "Cobertura de evento" },
-  { value: "produto", label: "Anúncio de produto" },
+  { value: "so_producao", label: "Só produção" },
+  { value: "so_pos_producao", label: "Só pós-produção" },
+  { value: "fotos", label: "Fotos" },
+  { value: "ia", label: "IA" },
 ] as const;
 
 export const PRECISA_ROTEIRO = [
+  { value: "ja_possui", label: "Já possui" },
   { value: "precisa", label: "Precisa de produção" },
   { value: "nao_precisa", label: "Não precisa" },
-  { value: "ja_tem", label: "Cliente já tem" },
+  { value: "em_construcao", label: "Em construção" },
 ] as const;
 
 export const PRECISA_ELENCO = [
-  { value: "nao", label: "Não" },
   { value: "sim", label: "Sim" },
+  { value: "nao", label: "Não" },
+  { value: "modelo_mao", label: "Modelo de mão" },
 ] as const;
 
 export const MOEDAS = [

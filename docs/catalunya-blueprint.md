@@ -33,7 +33,7 @@ Board com **7 colunas** (não 5!):
 3. 📤 **Proposta Enviada**
 4. 🤝 **Negociação**
 5. ☑️ **Aceite**
-6. 🏆 **Fechado – Ganho**  ← ⚠️ separado do Aceite (eu tinha juntado)
+6. 🏆 **Fechado – Ganho**  ← ✅ adicionado como estágio separado (helper `isWonStage`)
 7. **Perdido**
 
 Header: "N abertos · pipeline R$ X". Toggle **Board / Lista** (`?view=list`). Botão **Novo**.
@@ -53,7 +53,7 @@ Card mostra: cliente (linha pequena), título do orçamento, valor.
 - **Meio de veiculação** (checkboxes): Internet · Televisão · TV Fechada · Rádio · Mídia outdoor · Cinema · Festivais · PDV · Streaming (Spotify) · Eventos internos e externos · Todos os meios · full buyout
 - **Verba estimada** · botão **Criar orçamento**
 
-Diferenças vs adverse-bloom: ⚠️ minhas opções de canal/tipo/roteiro/elenco estavam diferentes — usar as exatas acima.
+Diferenças vs adverse-bloom: ✅ opções de canal/tipo/roteiro/elenco corrigidas em `src/lib/orcamento-constants.ts` pra bater exatamente com as de cima.
 
 ### 1b. Editor do orçamento (`/orcamentos/:id`)
 Blocos, de cima pra baixo:
@@ -69,7 +69,7 @@ Blocos, de cima pra baixo:
 - **Follow-ups agendados** — lista (data · tipo · descrição).
 - **BRIEFING** (mesmos campos do Novo) + **Verba estimada · Valor de proposta · Valor final aprovado** · Salvar alterações.
 
-Status adverse-bloom: ✅ estrutura próxima; ⚠️ estágios (falta "Fechado – Ganho"), 13 categorias, bug de save, falsy-zero.
+Status adverse-bloom: ✅ estrutura próxima; ✅ estágios (7, com "Fechado – Ganho"); ✅ bug de save e falsy-zero corrigidos (PR #38); ⚠️ ainda 11 categorias (faltam 012/013 — capturar nomes).
 
 ---
 
