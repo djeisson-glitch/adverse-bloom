@@ -8,7 +8,11 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
+  FileText, Link2, Pencil,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { ComentariosSection } from "./ProjetoDetalhe";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -444,12 +448,22 @@ function AcaoBotoes({
     },
   });
 
-  const enviarProposta = () => {
-    // Muda pra stage 'proposta' se ainda não estiver
+  const marcarProposta = () => {
     (supabase as any).from("deals").update({ stage: "proposta" }).eq("id", deal.id).then(() => {
       qc.invalidateQueries({ queryKey: ["orcamento-deal", deal.id] });
-      toast.success("Orçamento marcado como Proposta enviada");
     });
+  };
+  const enviarViaLink = () => {
+    const url = `${window.location.origin}/orcamentos/${deal.id}/carta`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    marcarProposta();
+    toast.success("Link da carta copiado", {
+      description: "Link interno (requer login). A versão pública pro cliente vem depois.",
+    });
+  };
+  const gerarCarta = () => {
+    marcarProposta();
+    navigate(`/orcamentos/${deal.id}/carta`);
   };
 
   if (deal.stage === "perdido") {
@@ -465,10 +479,26 @@ function AcaoBotoes({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={enviarProposta} disabled={ganho}>
-        <Send className="mr-1.5 h-3.5 w-3.5" />
-        Enviar proposta
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" disabled={ganho}>
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            Enviar proposta
+            <ChevronDown className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={enviarViaLink}>
+            <Link2 className="mr-2 h-4 w-4" /> Enviar pro cliente via link
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={gerarCarta}>
+            <FileText className="mr-2 h-4 w-4" /> Gerar carta de orçamento
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate(`/orcamentos/${deal.id}/carta?manual=1`)}>
+            <Pencil className="mr-2 h-4 w-4" /> Carta manual (padrão)
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {ganho ? (
         <Button
           onClick={() => jobGerado && navigate(`/projetos/${jobGerado.id}`)}

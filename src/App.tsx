@@ -24,6 +24,7 @@ import Orcamentos from "./pages/Orcamentos";
 import OrcamentosLegado from "./pages/OrcamentosLegado";
 import NovoOrcamento from "./pages/NovoOrcamento";
 import OrcamentoEditor from "./pages/OrcamentoEditor";
+import CartaOrcamento from "./pages/CartaOrcamento";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import ProjetoPecas from "./pages/ProjetoPecas";
 import EntregavelDetalhe from "./pages/EntregavelDetalhe";
@@ -130,6 +131,7 @@ const App = () => (
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
               <Route path="/orcamentos/novo" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
               <Route path="/orcamentos/:id" element={<ProtectedRoute><OrcamentoEditor /></ProtectedRoute>} />
+              <Route path="/orcamentos/:id/carta" element={<ProtectedRoute><CartaOrcamento /></ProtectedRoute>} />
               <Route path="/orcamentos-legado" element={<ProtectedRoute><OrcamentosLegado /></ProtectedRoute>} />
               <Route path="/projetos" element={<ProtectedRoute><Projetos /></ProtectedRoute>} />
               <Route path="/projetos/:id" element={<ProtectedRoute><ProjetoDetalhe /></ProtectedRoute>} />
