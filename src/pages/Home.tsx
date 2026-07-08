@@ -212,6 +212,36 @@ export default function Home() {
     },
   });
 
+  // "Meu dia" — quadro pessoal (tarefas e entregáveis de quem está logado)
+  const { data: minhasTarefas = [] } = useQuery({
+    queryKey: ["home-minhas-tarefas", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("tasks")
+        .select("id, title, due_date, project_id")
+        .eq("assigned_user_id", user!.id)
+        .eq("completed", false)
+        .order("due_date", { nullsFirst: false })
+        .limit(6);
+      return (data as any[]) || [];
+    },
+  });
+  const { data: meusEntregaveis = [] } = useQuery({
+    queryKey: ["home-meus-entregaveis", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("deliverables")
+        .select("id, titulo, status, prazo_interno, data_entrega, project_id, project:projects(id, name)")
+        .eq("responsavel_id", user!.id)
+        .not("status", "in", "(entregue,aprovado)")
+        .order("prazo_interno", { nullsFirst: false })
+        .limit(6);
+      return (data as any[]) || [];
+    },
+  });
+
   // ===== FINANCEIRO =====
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
@@ -632,6 +662,64 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Meu dia — quadro pessoal (cada um vê o que é seu) */}
+      <section className="space-y-3">
+        <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Inbox className="h-5 w-5 text-primary" /> Meu dia
+        </h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-primary" /> Minhas tarefas</p>
+                <span className="text-xs text-muted-foreground">{minhasTarefas.length}</span>
+              </div>
+              {minhasTarefas.length === 0 ? (
+                <EmptyState icon={CheckCircle2} message="Nada pendente pra você 🎉" />
+              ) : (
+                <div className="space-y-1.5">
+                  {minhasTarefas.map((t: any) => {
+                    const atrasada = t.due_date && t.due_date < today;
+                    return (
+                      <div key={t.id} className="flex items-center gap-2 text-xs">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasada ? "bg-destructive" : "bg-primary"}`} />
+                        <span className="min-w-0 flex-1 truncate text-foreground">{t.title}</span>
+                        {t.due_date && <span className={`shrink-0 ${atrasada ? "text-destructive" : "text-muted-foreground"}`}>{new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold flex items-center gap-1.5"><Clapperboard className="h-4 w-4 text-primary" /> Meus entregáveis</p>
+                <span className="text-xs text-muted-foreground">{meusEntregaveis.length}</span>
+              </div>
+              {meusEntregaveis.length === 0 ? (
+                <EmptyState icon={Clapperboard} message="Nenhum entregável seu ativo" />
+              ) : (
+                <div className="space-y-1.5">
+                  {meusEntregaveis.map((d: any) => {
+                    const prazo = d.prazo_interno || d.data_entrega;
+                    const atrasado = prazo && prazo < today;
+                    return (
+                      <button key={d.id} onClick={() => navigate(`/projetos/${d.project_id}/entregaveis/${d.id}`)} className="flex w-full items-center gap-2 text-left text-xs hover:opacity-80">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasado ? "bg-destructive" : "bg-primary"}`} />
+                        <span className="min-w-0 flex-1 truncate text-foreground">{d.titulo}{d.project?.name ? <span className="text-muted-foreground"> · {d.project.name}</span> : null}</span>
+                        {prazo && <span className={`shrink-0 ${atrasado ? "text-destructive" : "text-muted-foreground"}`}>{new Date(prazo).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* FINANCEIRO */}
       <section className="space-y-5">
         <div className="flex items-center justify-between">
@@ -648,21 +736,33 @@ export default function Home() {
           </Button>
         </div>
 
-        {/* Status de saúde (tendência 3 meses fechados + runway) */}
-        <div className={`flex items-center gap-3 rounded-xl border p-4 ${statusSaude.cls}`}>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/40 ${statusSaude.color}`}>
-            <statusSaude.icon className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`}>{statusSaude.label}</p>
-            <p className="text-xs text-muted-foreground">
-              {statusSaude.nota} · margem líquida do período {formatPercent(margemLiquida.pct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
-              {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento pra zerar` : ""}
-            </p>
-          </div>
+        {/* Saúde & sinais — recolhível por padrão (descongestiona a home) */}
+        <div>
+          <SecHeader
+            open={aberto.has("sinais")}
+            onToggle={() => toggleSec("sinais")}
+            dot="bg-orange-400"
+            title="Saúde do negócio & o que olhar agora"
+            hint={statusSaude.label}
+          />
+          {aberto.has("sinais") && (
+            <div className="mt-3 space-y-5">
+              <div className={`flex items-center gap-3 rounded-xl border p-4 ${statusSaude.cls}`}>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/40 ${statusSaude.color}`}>
+                  <statusSaude.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`}>{statusSaude.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {statusSaude.nota} · margem líquida do período {formatPercent(margemLiquida.pct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
+                    {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento pra zerar` : ""}
+                  </p>
+                </div>
+              </div>
+              <PainelSinais sinais={sinais} onAcao={handleSinalAcao} loading={financialLoading} />
+            </div>
+          )}
         </div>
-        {/* O que olhar agora — o protagonista da tela (sinais auditados, seguem o período) */}
-        <PainelSinais sinais={sinais} onAcao={handleSinalAcao} loading={financialLoading} />
 
         {/* Resumo — os números-chave */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
