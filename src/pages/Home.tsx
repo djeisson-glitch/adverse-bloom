@@ -188,6 +188,30 @@ export default function Home() {
   });
   const monthlyTarget = settingsQuery.data?.monthly_target || 200000;
 
+  // Visão de produção (home) — contadores leves
+  const { data: entregaveisAguardando = 0 } = useQuery({
+    queryKey: ["home-entregaveis-aguardando"],
+    queryFn: async () => {
+      const { count } = await (supabase as any)
+        .from("deliverables")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["revisao_n1", "revisao_n2", "com_cliente"]);
+      return count ?? 0;
+    },
+  });
+  const { data: followupsHoje = 0 } = useQuery({
+    queryKey: ["home-followups-hoje"],
+    queryFn: async () => {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { count } = await (supabase as any)
+        .from("follow_ups")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pendente")
+        .lte("data_prevista", hoje);
+      return count ?? 0;
+    },
+  });
+
   // ===== FINANCEIRO =====
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
   const payItems = useMemo(() => extractItems<CAItem>(payables.data?.payload), [payables.data]);
@@ -569,6 +593,44 @@ export default function Home() {
           </Button>
         </div>
       </motion.div>
+
+      {/* Ações rápidas */}
+      <motion.div {...anim} className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {[
+          { label: "Novo orçamento", icon: FileText, to: "/orcamentos/novo", primary: true },
+          { label: "Projetos", icon: Clapperboard, to: "/projetos" },
+          { label: "Apontar horas", icon: Clock, to: "/horas" },
+          { label: "Follow-ups", icon: CalendarDays, to: "/follow-ups" },
+          { label: "Faturamento", icon: Receipt, to: "/faturamento" },
+          { label: "Minha mesa", icon: Inbox, to: "/minha-mesa" },
+        ].map((a) => (
+          <button
+            key={a.label}
+            onClick={() => navigate(a.to)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition-colors ${
+              a.primary
+                ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                : "border-border/50 bg-card text-foreground hover:border-primary/40"
+            }`}
+          >
+            <a.icon className="h-5 w-5" />
+            <span className="text-xs font-medium leading-tight">{a.label}</span>
+          </button>
+        ))}
+      </motion.div>
+
+      {/* Produção */}
+      <section className="space-y-3">
+        <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
+          <Clapperboard className="h-5 w-5 text-primary" /> Produção
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard label="Orçamentos abertos" value={String(openDeals.length)} sub={formatCurrency(pipelineValue)} icon={FileText} onClick={() => navigate("/orcamentos")} />
+          <MetricCard label="Projetos em andamento" value={String(productionMetrics.activeCount)} sub={formatCurrency(productionMetrics.receitaAberto)} icon={Clapperboard} onClick={() => navigate("/projetos")} />
+          <MetricCard label="Entregáveis aguardando" value={String(entregaveisAguardando)} sub="revisão / aprovação" icon={Inbox} onClick={() => navigate("/minha-mesa")} />
+          <MetricCard label="Follow-ups pra hoje" value={String(followupsHoje)} sub={followupsHoje > 0 ? "pendentes" : "em dia"} subColor={followupsHoje > 0 ? "text-amber-400" : "text-green-400"} icon={CalendarDays} onClick={() => navigate("/follow-ups")} />
+        </div>
+      </section>
 
       {/* FINANCEIRO */}
       <section className="space-y-5">
