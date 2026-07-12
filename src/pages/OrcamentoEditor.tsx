@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -285,6 +285,7 @@ export default function OrcamentoEditor() {
         <PlanilhaSection
           budget={budget}
           categorias={categorias}
+          tipoOrcamento={deal.tipo_orcamento}
           itens={itens}
           onChanged={() => {
             qc.invalidateQueries({ queryKey: ["orcamento-itens"] });
@@ -595,11 +596,12 @@ function AcaoBotoes({
 /* ------------------------------------------- Planilha (11 categorias) */
 
 function PlanilhaSection({
-  budget, categorias, itens, onChanged,
+  budget, categorias, itens, tipoOrcamento, onChanged,
 }: {
   budget: any;
   categorias: Categoria[];
   itens: BudgetItem[];
+  tipoOrcamento?: string;
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
@@ -626,6 +628,18 @@ function PlanilhaSection({
     });
     return m;
   }, [itens]);
+
+  // Filtra categorias pelo tipo de orçamento (só produção = sem pós; só pós = só pós;
+  // geral/fotos/ia = tudo). Mantém categoria que já tenha item, pra não sumir dado.
+  const categoriasVisiveis = useMemo(() => {
+    const isPos = (c: Categoria) => c.codigo === "011" || /p[óo]s\s*produ/i.test(c.nome || "");
+    return categorias.filter((c) => {
+      if ((itensPorCategoria.get(c.id)?.length ?? 0) > 0) return true;
+      if (tipoOrcamento === "so_pos_producao") return isPos(c);
+      if (tipoOrcamento === "so_producao") return !isPos(c);
+      return true;
+    });
+  }, [categorias, itensPorCategoria, tipoOrcamento]);
 
   // Valor da linha = qtd × diária × valor unitário.
   // diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
@@ -737,6 +751,7 @@ function PlanilhaSection({
   });
 
   return (
+    <>
     <Card className="glass-card">
       <CardContent className="space-y-4 p-6">
         <div className="flex items-center gap-2">
@@ -911,7 +926,7 @@ function PlanilhaSection({
 
         {/* Categorias */}
         <div className="space-y-2">
-          {categorias.map((cat) => {
+          {categoriasVisiveis.map((cat) => {
             const itensCat = itensPorCategoria.get(cat.id) || [];
             const totalCat = totaisPorCategoria.get(cat.id) || 0;
             const aberta = expandidas.has(cat.id);
@@ -947,6 +962,21 @@ function PlanilhaSection({
         </div>
       </CardContent>
     </Card>
+
+    {/* Barra fixa: total + rentabilidade sempre na tela (ajuda no orçamento grande) */}
+    <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-full border border-border/60 bg-card/95 px-5 py-2 shadow-lg backdrop-blur">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</span>
+        <span className="text-sm font-semibold text-primary">{formatCurrency(valorTotal)}</span>
+      </div>
+      <div className="h-4 w-px bg-border" />
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Rentab.</span>
+        <span className={`text-sm font-semibold ${rentabilidade >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(rentabilidade)}</span>
+        <span className="text-[10px] text-muted-foreground">{margemPercent.toFixed(0)}%</span>
+      </div>
+    </div>
+    </>
   );
 }
 
@@ -959,15 +989,31 @@ function PctInput({
   valorCalc: number;
   hint: string;
 }) {
+  // Input de texto controlado: evita o "0" grudado do input number e cresce com o número.
+  const [buf, setBuf] = useState(value ? String(value) : "");
+  useEffect(() => {
+    const bn = buf.trim() === "" ? 0 : Number(buf.replace(",", "."));
+    if (bn !== value) setBuf(value ? String(value) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  const handle = (raw: string) => {
+    const cleaned = raw.replace(/[^\d.,]/g, "").replace(/^0+(?=\d)/, "");
+    setBuf(cleaned);
+    const n = cleaned.trim() === "" ? 0 : Number(cleaned.replace(",", "."));
+    if (!Number.isNaN(n)) onChange(n);
+  };
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="flex items-center gap-1">
-        <Input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="h-8 w-14 text-xs"
+        <input
+          type="text"
+          inputMode="decimal"
+          value={buf}
+          onChange={(e) => handle(e.target.value)}
+          placeholder="0"
+          style={{ width: `${Math.max(3, buf.length + 1.5)}ch` }}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
         <span className="text-xs">%</span>
         <span className="text-xs">= {formatCurrency(valorCalc)}</span>
