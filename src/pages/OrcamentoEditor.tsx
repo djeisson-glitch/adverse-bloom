@@ -77,7 +77,15 @@ export default function OrcamentoEditor() {
       if (error) throw error;
       if (data) return data;
 
-      // Cria budget automaticamente se ainda não existir
+      // Padrão da produtora (margem/imposto/comissões) — se a migration ainda não
+      // rodou, segue sem padrão (try/catch), sem travar a criação do orçamento.
+      let padrao: any = null;
+      try {
+        const { data: p } = await (supabase as any).from("orcamento_padroes").select("*").eq("id", true).maybeSingle();
+        padrao = p;
+      } catch { /* tabela ainda não existe */ }
+
+      // Cria budget automaticamente se ainda não existir, já com o padrão
       const { data: created, error: e2 } = await (supabase as any)
         .from("budgets")
         .insert({
@@ -85,6 +93,10 @@ export default function OrcamentoEditor() {
           project_name: deal.title,
           client_name: deal.client?.name || "",
           status: "draft",
+          margem_produtora_percent: padrao?.margem ?? 0,
+          imposto_percent: padrao?.imposto ?? 0,
+          comissoes: padrao?.comissoes ?? [],
+          comissao_base: padrao?.comissao_base ?? "subtotal2",
         })
         .select("*")
         .single();
@@ -731,6 +743,23 @@ function PlanilhaSection({
   const rentabilidade = valorTotal - custoProducao - imposto - comissaoTotal;
   const margemPercent = valorTotal > 0 ? (rentabilidade / valorTotal) * 100 : 0;
 
+  // "Salvar como padrão" — fixa margem/imposto/comissões pros próximos orçamentos
+  const salvarPadrao = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("orcamento_padroes").upsert({
+        id: true,
+        margem: percentuais.margem,
+        imposto: percentuais.imposto,
+        comissoes,
+        comissao_base: comissaoBase,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => toast.success("Padrão salvo — novos orçamentos já nascem assim"),
+    onError: (e: any) => toast.error("Não salvou o padrão", { description: /orcamento_padroes/i.test(e.message || "") ? "Rode 'supabase db push' pra habilitar os padrões." : e.message }),
+  });
+
   // "Usar como proposta" — leva o valor total da planilha pro deal
   const usarComoProposta = useMutation({
     mutationFn: async () => {
@@ -765,6 +794,9 @@ function PlanilhaSection({
             <Button size="sm" variant="outline" onClick={() => usarComoProposta.mutate()} disabled={usarComoProposta.isPending}>
               <Upload className="mr-1 h-3.5 w-3.5" />
               Usar como proposta
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => salvarPadrao.mutate()} disabled={salvarPadrao.isPending} title="Fixa margem/imposto/comissões pros próximos orçamentos">
+              Salvar como padrão
             </Button>
           </div>
         </div>
