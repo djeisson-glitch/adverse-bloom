@@ -25,6 +25,8 @@ import OrcamentosLegado from "./pages/OrcamentosLegado";
 import NovoOrcamento from "./pages/NovoOrcamento";
 import OrcamentoEditor from "./pages/OrcamentoEditor";
 import CartaOrcamento from "./pages/CartaOrcamento";
+import Leads from "./pages/Leads";
+import LeadDetalhe from "./pages/LeadDetalhe";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import ProjetoPecas from "./pages/ProjetoPecas";
 import EntregavelDetalhe from "./pages/EntregavelDetalhe";
@@ -128,6 +130,8 @@ const App = () => (
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
 
               {/* Onda 0 — Produção */}
+              <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+              <Route path="/leads/:id" element={<ProtectedRoute><LeadDetalhe /></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
               <Route path="/orcamentos/novo" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
               <Route path="/orcamentos/:id" element={<ProtectedRoute><OrcamentoEditor /></ProtectedRoute>} />

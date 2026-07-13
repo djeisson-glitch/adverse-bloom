@@ -1,5 +1,6 @@
 import {
   Home,
+  Sprout,
   DollarSign,
   ChevronDown,
   LogOut,
@@ -63,6 +64,7 @@ type NavItem = {
 
 const producaoItems: NavItem[] = [
   { title: "Início", url: "/", icon: Home },
+  { title: "Leads", url: "/leads", icon: Sprout },
   { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList },
   { title: "Projetos", url: "/projetos", icon: LayoutGrid },
   { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard },
