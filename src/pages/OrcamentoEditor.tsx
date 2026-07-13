@@ -367,7 +367,7 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
       onChanged();
     }
   };
-  const onChange = (key: string, val: string) => {
+  const onChange = (key: string, val: any) => {
     setDados((prev) => {
       const novo = { ...prev, [key]: val };
       if (timer.current) clearTimeout(timer.current);
