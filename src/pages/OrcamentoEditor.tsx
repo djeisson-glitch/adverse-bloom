@@ -1147,6 +1147,30 @@ function CategoriaItens({
   );
 }
 
+// Campo numérico da planilha: text controlado (sem o "0" grudado do input number).
+function NumCell({ value, onChange, onCommit }: { value: number; onChange: (n: number) => void; onCommit: () => void }) {
+  const [buf, setBuf] = useState(String(value ?? 0));
+  useEffect(() => {
+    const bn = buf.trim() === "" ? 0 : Number(buf.replace(",", "."));
+    if (bn !== value) setBuf(String(value ?? 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={buf}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/[^\d.,]/g, "").replace(/^0+(?=\d)/, "");
+        setBuf(cleaned);
+        onChange(cleaned.trim() === "" ? 0 : Number(cleaned.replace(",", ".")) || 0);
+      }}
+      onBlur={onCommit}
+      className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+    />
+  );
+}
+
 function BudgetItemRow({
   item, codigo, idx, onChanged,
 }: {
@@ -1204,27 +1228,9 @@ function BudgetItemRow({
         onBlur={() => salvar.mutate()}
         className="h-7 text-xs"
       />
-      <Input
-        type="number"
-        value={row.quantity}
-        onChange={(e) => setRow({ ...row, quantity: Number(e.target.value) })}
-        onBlur={() => salvar.mutate()}
-        className="h-7 text-xs"
-      />
-      <Input
-        type="number"
-        value={row.diaria}
-        onChange={(e) => setRow({ ...row, diaria: Number(e.target.value) })}
-        onBlur={() => salvar.mutate()}
-        className="h-7 text-xs"
-      />
-      <Input
-        type="number"
-        value={row.client_unit_price}
-        onChange={(e) => setRow({ ...row, client_unit_price: Number(e.target.value) })}
-        onBlur={() => salvar.mutate()}
-        className="h-7 text-xs"
-      />
+      <NumCell value={row.quantity} onChange={(n) => setRow({ ...row, quantity: n })} onCommit={() => salvar.mutate()} />
+      <NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} />
+      <NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} />
       <span className="text-right text-xs">{formatCurrency(valor)}</span>
       <Input
         value={row.observacoes}
