@@ -56,7 +56,7 @@ export default function Orcamentos() {
       return;
     }
     updateDeal.mutate(
-      { id: dealId, updates: { stage: newStage } },
+      { id: dealId, stage: newStage },
       {
         onError: (err: any) =>
           toast({ title: "Erro ao mover", description: err.message, variant: "destructive" }),
@@ -68,10 +68,7 @@ export default function Orcamentos() {
   const handleConfirmLost = (data: { reason: string; otherReason?: string }) => {
     if (!pendingMove) return;
     updateDeal.mutate(
-      {
-        id: pendingMove.dealId,
-        updates: { stage: pendingMove.stage, lost_reason: data.reason } as any,
-      },
+      { id: pendingMove.dealId, stage: pendingMove.stage, lost_reason: data.reason } as any,
       {
         onSuccess: () => {
           setLostOpen(false);
@@ -89,7 +86,7 @@ export default function Orcamentos() {
   const handleConfirmWon = (_opts: { createBudget: boolean; createProject: boolean }) => {
     if (!pendingMove) return;
     updateDeal.mutate(
-      { id: pendingMove.dealId, updates: { stage: pendingMove.stage } as any },
+      { id: pendingMove.dealId, stage: pendingMove.stage } as any,
       {
         onSuccess: () => {
           setWonOpen(false);
