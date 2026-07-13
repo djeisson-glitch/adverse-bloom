@@ -50,6 +50,7 @@ import ConfiguracoesIntegracoes from "./pages/ConfiguracoesIntegracoes";
 import ConfiguracoesPermissoes from "./pages/ConfiguracoesPermissoes";
 import AuthContaAzul from "./pages/AuthContaAzul";
 import PropostaPublica from "./pages/PropostaPublica";
+import CartaPublica from "./pages/CartaPublica";
 // Onda 0 — placeholders dos novos módulos do Adverse OS Produtora
 import Fechamento from "./pages/Fechamento";
 import PosProducao from "./pages/PosProducao";
@@ -181,6 +182,7 @@ const App = () => (
               <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ConfiguracoesPermissoes /></ProtectedRoute>} />
               <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />
               <Route path="/proposta/:token" element={<PropostaPublica />} />
+              <Route path="/carta/:token" element={<CartaPublica />} />
               <Route path="/portal/:token" element={<PortalPublico />} />
               {/* Rota temporária de preview da Onda 0 (sem auth) — remover após validação */}
               <Route path="/preview-onda-0" element={<PreviewOnda0 />} />

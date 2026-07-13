@@ -11,6 +11,12 @@ export function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+/** Arredonda sempre pra cima, de 50 em 50 (ex.: 6070 → 6100, 6100 → 6100). */
+export function roundUpTo50(value: number): number {
+  if (!value || value <= 0) return 0;
+  return Math.ceil(value / 50) * 50;
+}
+
 export function formatDate(date: string | null): string {
   if (!date) return "—";
   // For date-only strings (YYYY-MM-DD), parse parts to avoid UTC timezone shift
