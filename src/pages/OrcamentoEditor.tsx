@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency, roundUpTo50 } from "@/lib/format";
+import { MergulhoForm } from "@/components/MergulhoForm";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -339,7 +340,86 @@ export default function OrcamentoEditor() {
 
       {/* Briefing */}
       <BriefingSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
+
+      {/* Mergulho / Briefing estratégico */}
+      <MergulhoSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
     </div>
+  );
+}
+
+function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [dados, setDados] = useState<Record<string, any>>(
+    deal.mergulho && typeof deal.mergulho === "object" ? deal.mergulho : {},
+  );
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const salvar = async (d: Record<string, any>) => {
+    setStatus("saving");
+    const { error } = await (supabase as any).from("deals").update({ mergulho: d, mergulho_em: new Date().toISOString() }).eq("id", deal.id);
+    if (error) {
+      setStatus("idle");
+      toast.error("Não salvou o mergulho", { description: /mergulho/i.test(error.message || "") ? "Rode 'supabase db push' pra habilitar." : error.message });
+    } else {
+      setStatus("saved");
+      onChanged();
+    }
+  };
+  const onChange = (key: string, val: string) => {
+    setDados((prev) => {
+      const novo = { ...prev, [key]: val };
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => salvar(novo), 800);
+      return novo;
+    });
+  };
+
+  const copiarLink = async () => {
+    try {
+      let token = deal.mergulho_token;
+      if (!token) {
+        token = crypto.randomUUID();
+        const { error } = await (supabase as any).from("deals").update({ mergulho_token: token }).eq("id", deal.id);
+        if (error) throw error;
+        onChanged();
+      }
+      const url = `${window.location.origin}/briefing/${token}`;
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      toast.success("Link do briefing copiado", { description: "O cliente responde por aqui — ou use você mesmo na reunião." });
+    } catch (e: any) {
+      toast.error("Não gerou o link", { description: /mergulho_token|column/i.test(e.message || "") ? "Rode 'supabase db push' pra habilitar." : e.message });
+    }
+  };
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button onClick={() => setAberto((v) => !v)} className="flex items-center gap-2 text-left">
+            {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="text-base font-semibold text-foreground">Mergulho / Briefing estratégico</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">
+              {status === "saving" ? "salvando…" : status === "saved" ? "salvo" : deal.mergulho_em ? "respondido" : ""}
+            </span>
+            <Button size="sm" variant="outline" onClick={copiarLink}>
+              <Link2 className="mr-1 h-3.5 w-3.5" /> Copiar link do cliente
+            </Button>
+          </div>
+        </div>
+        {!aberto ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Cair de cabeça na marca antes de orçar. Mande o link pro cliente responder, ou preencha na reunião. Vai junto pro projeto quando ganhar.
+          </p>
+        ) : (
+          <div className="mt-5">
+            <MergulhoForm value={dados} onChange={onChange} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
