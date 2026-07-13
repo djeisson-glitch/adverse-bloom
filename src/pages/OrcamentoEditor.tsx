@@ -102,8 +102,8 @@ export default function OrcamentoEditor() {
         .single();
       if (e2) throw e2;
 
-      // Planilha nasce populada com os itens padrão de produtora (Onda 5D)
-      await (supabase as any).rpc("seed_budget_items", { _budget_id: created.id });
+      // Planilha nasce populada com os itens padrão, filtrando pelo porte do projeto
+      await (supabase as any).rpc("seed_budget_items", { _budget_id: created.id, _porte: deal.porte || "grande" });
 
       return created;
     },
@@ -298,6 +298,7 @@ export default function OrcamentoEditor() {
           budget={budget}
           categorias={categorias}
           tipoOrcamento={deal.tipo_orcamento}
+          porte={deal.porte}
           itens={itens}
           onChanged={() => {
             qc.invalidateQueries({ queryKey: ["orcamento-itens"] });
@@ -608,12 +609,13 @@ function AcaoBotoes({
 /* ------------------------------------------- Planilha (11 categorias) */
 
 function PlanilhaSection({
-  budget, categorias, itens, tipoOrcamento, onChanged,
+  budget, categorias, itens, tipoOrcamento, porte, onChanged,
 }: {
   budget: any;
   categorias: Categoria[];
   itens: BudgetItem[];
   tipoOrcamento?: string;
+  porte?: string;
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
@@ -739,6 +741,7 @@ function PlanilhaSection({
     mutationFn: async () => {
       const { data, error } = await (supabase as any).rpc("seed_budget_items", {
         _budget_id: budget.id,
+        _porte: porte || "grande",
       });
       if (error) throw error;
       return data as number;
