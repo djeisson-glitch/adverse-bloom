@@ -83,7 +83,7 @@ export default function CartaPublica() {
     pos: salvo.pos ?? DEFAULTS.pos,
     equipamentos: salvo.equipamentos ?? DEFAULTS.equipamentos,
     nao_inclui: salvo.nao_inclui ?? DEFAULTS.nao_inclui,
-    investimento: salvo.investimento ?? (data.total_value ? String(data.total_value) : ""),
+    investimento: salvo.investimento ?? (data.valor_investimento ? String(data.valor_investimento) : ""),
     validade_dias: salvo.validade_dias ?? 15,
     condicoes_pagamento: salvo.condicoes_pagamento ?? "à vista",
   };
