@@ -98,7 +98,11 @@ export default function CartaPublica() {
   const investimentoNum = roundUpTo50(parseValor(p.investimento));
   const cliente = { nome: cli.nome, contato: cli.contato, email: cli.email, telefone: cli.telefone };
 
-  const jaAprovada = !!data.aprovada_em || !!aprovadaLocal;
+  // Se o deal foi reaberto (não está mais num estágio ganho), a carta volta a
+  // pedir aprovação mesmo que a aprovação antiga não tenha sido limpa.
+  const stage = deal?.stage;
+  const stageReaberto = stage != null && stage !== "aceite" && stage !== "fechado_ganho";
+  const jaAprovada = !!aprovadaLocal || (!!data.aprovada_em && !stageReaberto);
   const aprovadaPor = data.aprovada_por || (aprovadaLocal ? { nome: aprovadaLocal.nome } : null);
   const podeAprovar = form.nome.trim() && form.email.trim();
   const historico: any[] = Array.isArray(data.aprovacoes) ? data.aprovacoes : [];
