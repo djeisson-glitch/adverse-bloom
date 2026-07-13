@@ -69,12 +69,10 @@ export default function CartaOrcamento() {
               )
               .join("\n")
           : "");
-      // Valor da carta = valor do orçamento (planilha → proposta → deal), arredondado pra cima de 50 em 50.
+      // Valor da carta = SEMPRE do orçamento (planilha → proposta → deal),
+      // arredondado pra cima de 50 em 50. Não é mais editável na carta.
       const valorOrc = Number(budget?.total_value) || Number(deal.valor_proposta) || Number(deal.value) || 0;
-      const investimentoBase =
-        (salvo.investimento && String(salvo.investimento).trim())
-          ? salvo.investimento
-          : valorOrc ? String(roundUpTo50(valorOrc)) : "";
+      const investimentoBase = valorOrc ? String(roundUpTo50(valorOrc)) : "";
       setP({
         titulo: salvo.titulo ?? (deal.client?.name || deal.title || ""),
         subtitulo: salvo.subtitulo ?? (TIPO_LABEL[deal.tipo_orcamento] || deal.title || ""),
@@ -95,7 +93,9 @@ export default function CartaOrcamento() {
   const salvar = useMutation({
     mutationFn: async () => {
       if (!data?.budget?.id) throw new Error("Sem orçamento pra salvar (modo manual não persiste).");
-      const { error } = await (supabase as any).from("budgets").update({ proposta: p }).eq("id", data.budget.id);
+      // Não persiste o investimento: ele é sempre puxado do orçamento (fica automático).
+      const { investimento, ...propostaSemValor } = p;
+      const { error } = await (supabase as any).from("budgets").update({ proposta: propostaSemValor }).eq("id", data.budget.id);
       if (error) {
         if (/proposta/i.test(error.message || "")) {
           throw new Error("Rode 'supabase db push' pra habilitar o salvamento da carta (coluna nova).");
@@ -173,9 +173,15 @@ export default function CartaOrcamento() {
               <Campo label="Não inclui"><Textarea rows={3} value={p.nao_inclui || ""} onChange={(e) => set({ nao_inclui: e.target.value })} className="bg-white/5" /></Campo>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
-              <Campo label="Investimento (R$) — arredonda pra cima de 50 em 50">
-                <Input value={p.investimento || ""} onChange={(e) => set({ investimento: e.target.value })} className="bg-white/5" placeholder="6070" />
-                {investimentoNum > 0 && <p className="mt-1 text-[10px] text-[#9A968C]">na carta: R$ {investimentoNum.toLocaleString("pt-BR")}</p>}
+              <Campo label="Investimento — vem do orçamento">
+                <div className="flex h-10 items-center rounded-md border border-white/10 bg-white/[0.03] px-3 text-sm text-[#E8E1D0]">
+                  {investimentoNum > 0 ? `R$ ${investimentoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}
+                </div>
+                <p className="mt-1 text-[10px] text-[#9A968C]">
+                  {investimentoNum > 0
+                    ? "Valor total do orçamento, arredondado pra cima de 50 em 50."
+                    : "Esse orçamento ainda não tem valor — preencha a planilha ou use “Usar como proposta” no editor."}
+                </p>
               </Campo>
               <Campo label="Validade (dias)"><Input type="number" value={p.validade_dias ?? ""} onChange={(e) => set({ validade_dias: e.target.value })} className="bg-white/5" /></Campo>
               <Campo label="Condições de pagamento"><Input value={p.condicoes_pagamento || ""} onChange={(e) => set({ condicoes_pagamento: e.target.value })} className="bg-white/5" /></Campo>
