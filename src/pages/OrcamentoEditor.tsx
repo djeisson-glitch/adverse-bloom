@@ -887,6 +887,9 @@ function PlanilhaSection({
   );
   const imposto = (subTotal2 + comissaoTotal) * (Number(percentuais.imposto) / 100);
   const valorTotal = subTotal2 + comissaoTotal + imposto;
+  // O valor cobrado é sempre arredondado pra cima de 50 em 50 (número "limpo"
+  // pro cliente). O excedente do arredondamento entra como lucro.
+  const valorTotalArredondado = roundUpTo50(valorTotal);
 
   const addComissao = () => {
     if (!novaCom.nome.trim() || !novaCom.valor) return;
@@ -906,7 +909,7 @@ function PlanilhaSection({
       const base = {
         margem_produtora_percent: percentuais.margem,
         imposto_percent: percentuais.imposto,
-        total_value: valorTotal,
+        total_value: valorTotalArredondado,
       };
       // Tenta salvar com as comissões; se a coluna ainda não existe (migration
       // não aplicada), salva só o resto pra não travar o Salvar.
@@ -955,8 +958,10 @@ function PlanilhaSection({
   // Rentabilidade real = taxa da produtora + sobra das linhas da planilha.
   // (Comissão e imposto são pass-through — o cliente paga e a produtora repassa —
   //  então se cancelam e não entram no lucro.)
-  const rentabilidade = margemValor + sobraLinhas;
-  const margemPercent = valorTotal > 0 ? (rentabilidade / valorTotal) * 100 : 0;
+  // Rentabilidade a partir do valor arredondado (inclui o excedente do
+  // arredondamento como lucro), pra Total e Rentabilidade ficarem coerentes.
+  const rentabilidade = valorTotalArredondado - custoReal - imposto - comissaoTotal;
+  const margemPercent = valorTotalArredondado > 0 ? (rentabilidade / valorTotalArredondado) * 100 : 0;
 
   // "Salvar como padrão" — fixa margem/imposto/comissões pros próximos orçamentos
   const salvarPadrao = useMutation({
@@ -979,7 +984,7 @@ function PlanilhaSection({
   const usarComoProposta = useMutation({
     mutationFn: async () => {
       await salvarPercentuais.mutateAsync();
-      const valorProposta = roundUpTo50(valorTotal);
+      const valorProposta = valorTotalArredondado;
       const { error } = await (supabase as any)
         .from("deals")
         .update({ valor_proposta: valorProposta, value: valorProposta })
@@ -988,7 +993,7 @@ function PlanilhaSection({
     },
     onSuccess: () => {
       onChanged();
-      toast.success(`Proposta definida: ${formatCurrency(roundUpTo50(valorTotal))}`, {
+      toast.success(`Proposta definida: ${formatCurrency(valorTotalArredondado)}`, {
         description: "Valor total da planilha, arredondado pra cima de 50 em 50.",
       });
     },
@@ -1045,7 +1050,7 @@ function PlanilhaSection({
           />
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
-            <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotal)}</p>
+            <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</p>
           </div>
         </div>
 
@@ -1251,7 +1256,7 @@ function PlanilhaSection({
     <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-full border border-border/60 bg-card/95 px-5 py-2 shadow-lg backdrop-blur">
       <div className="flex items-baseline gap-1.5">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</span>
-        <span className="text-sm font-semibold text-primary">{formatCurrency(valorTotal)}</span>
+        <span className="text-sm font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</span>
       </div>
       <div className="h-4 w-px bg-border" />
       <div className="flex items-baseline gap-1.5">
