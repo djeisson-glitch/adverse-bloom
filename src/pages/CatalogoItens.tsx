@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
 type Cat = { id: string; codigo: string; nome: string; ordem: number };
-type Tpl = { id: string; categoria_codigo: string; descricao: string; ordem: number; valor_unitario: number; no_medio: boolean };
+type Tpl = { id: string; categoria_codigo: string; descricao: string; ordem: number; valor_unitario: number; custo_unitario: number; no_medio: boolean };
 
 export default function CatalogoItens() {
   const qc = useQueryClient();
@@ -48,7 +48,7 @@ export default function CatalogoItens() {
     mutationFn: async (codigo: string) => {
       const n = (porCat.get(codigo) || []).length;
       const { error } = await (supabase as any).from("budget_item_templates").insert({
-        categoria_codigo: codigo, descricao: "Novo item", ordem: n + 1, valor_unitario: 0, no_medio: false,
+        categoria_codigo: codigo, descricao: "Novo item", ordem: n + 1, valor_unitario: 0, custo_unitario: 0, no_medio: false,
       });
       if (error) throw error;
     },
@@ -71,7 +71,8 @@ export default function CatalogoItens() {
       <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <span>
-          O <strong>valor unitário</strong> já vem preenchido no orçamento novo (com quantidade 0 — você só coloca as quantidades).
+          O <strong>valor unitário</strong> (o que você cobra) e o <strong>custo padrão</strong> (o que custa de verdade) já vêm preenchidos no orçamento novo
+          — com quantidade 0, você só coloca as quantidades. A diferença entre eles é a sobra que vira rentabilidade.
           Marque <strong>"no médio"</strong> nos itens que devem aparecer no orçamento de porte <strong>médio</strong>; o <strong>grande</strong> traz tudo.
         </span>
       </div>
@@ -94,8 +95,8 @@ export default function CatalogoItens() {
                 </button>
                 {aberta && (
                   <div className="border-t border-border/40">
-                    <div className="grid grid-cols-[1fr_130px_70px_36px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <span>Descrição</span><span>Valor unitário</span><span className="text-center">No médio</span><span />
+                    <div className="grid grid-cols-[1fr_120px_120px_60px_32px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span>Descrição</span><span>Valor unitário</span><span>Custo padrão</span><span className="text-center">No médio</span><span />
                     </div>
                     {itens.map((t) => <ItemRow key={t.id} tpl={t} onChanged={invalidate} />)}
                     <div className="px-4 py-2">
@@ -117,6 +118,7 @@ export default function CatalogoItens() {
 function ItemRow({ tpl, onChanged }: { tpl: Tpl; onChanged: () => void }) {
   const [desc, setDesc] = useState(tpl.descricao);
   const [valor, setValor] = useState(String(tpl.valor_unitario ?? 0));
+  const [custo, setCusto] = useState(String(tpl.custo_unitario ?? 0));
   const [noMedio, setNoMedio] = useState(tpl.no_medio);
 
   const salvar = (patch: any) =>
@@ -132,11 +134,15 @@ function ItemRow({ tpl, onChanged }: { tpl: Tpl; onChanged: () => void }) {
     });
 
   return (
-    <div className="grid grid-cols-[1fr_130px_70px_36px] items-center gap-2 border-b border-border/30 px-4 py-1.5 last:border-0">
+    <div className="grid grid-cols-[1fr_120px_120px_60px_32px] items-center gap-2 border-b border-border/30 px-4 py-1.5 last:border-0">
       <Input value={desc} onChange={(e) => setDesc(e.target.value)} onBlur={() => desc !== tpl.descricao && salvar({ descricao: desc })} className="h-7 text-xs" />
       <div className="flex items-center gap-1">
         <span className="text-[10px] text-muted-foreground">R$</span>
         <Input type="number" value={valor} onChange={(e) => setValor(e.target.value)} onBlur={() => Number(valor) !== Number(tpl.valor_unitario) && salvar({ valor_unitario: Number(valor) || 0 })} className="h-7 text-xs" />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] text-muted-foreground">R$</span>
+        <Input type="number" value={custo} onChange={(e) => setCusto(e.target.value)} onBlur={() => Number(custo) !== Number(tpl.custo_unitario) && salvar({ custo_unitario: Number(custo) || 0 })} className="h-7 text-xs" />
       </div>
       <div className="flex justify-center">
         <input type="checkbox" checked={noMedio} onChange={(e) => { setNoMedio(e.target.checked); salvar({ no_medio: e.target.checked }); }} className="h-3.5 w-3.5 accent-primary" />
