@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock } from "lucide-react";
+import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle } from "lucide-react";
 
 /**
  * Formulário público de demandas do cliente (sem login).
@@ -16,6 +16,10 @@ type Anexo = { nome: string; path: string; url: string };
 
 const FORMATOS = ["16x9", "9x16", "1x1", "4x5", "Outro"];
 const entregaVazia = (): Entrega => ({ titulo: "", formato: "16x9", duracao: "", briefing: "" });
+
+function fmtEarliest(iso: string) {
+  return new Date(iso).toLocaleString("pt-BR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 export default function SolicitarDemanda() {
   const { slug } = useParams<{ slug: string }>();
@@ -37,6 +41,30 @@ export default function SolicitarDemanda() {
     },
   });
 
+  // Disponibilidade ao vivo enquanto o cliente escolhe a data/hora (read-only).
+  const prazoIso = form.prazo ? new Date(form.prazo).toISOString() : null;
+  const nEntregas = Math.max(1, entregas.filter((e) => e.titulo.trim() || e.briefing.trim()).length);
+  const { data: dispo, isFetching: checando } = useQuery({
+    queryKey: ["intake-dispo", slug, nEntregas, prazoIso],
+    enabled: !!slug && !!prazoIso,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("intake_disponibilidade", {
+        _slug: slug,
+        _n_entregas: nEntregas,
+        _prazo: prazoIso,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+  });
+  const inviavel = !!prazoIso && dispo && dispo.no_prazo === false;
+  const usarSugerido = () => {
+    if (!dispo?.earliest) return;
+    const d = new Date(dispo.earliest);
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setForm((f) => ({ ...f, prazo: local }));
+  };
+
   const setEntrega = (i: number, patch: Partial<Entrega>) =>
     setEntregas((arr) => arr.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
   const addEntrega = () => setEntregas((a) => [...a, entregaVazia()]);
@@ -52,6 +80,9 @@ export default function SolicitarDemanda() {
       if (hp) return { ok: true }; // bot preencheu o honeypot — ignora silenciosamente
       if (!form.nome.trim() || !form.email.trim() || !form.projeto.trim()) {
         throw new Error("Preencha seu nome, e-mail e o nome do projeto.");
+      }
+      if (inviavel) {
+        throw new Error("Escolha um horário com disponibilidade (use o horário sugerido).");
       }
       // 1) sobe os anexos pro bucket
       const anexos: Anexo[] = [];
@@ -151,7 +182,25 @@ export default function SolicitarDemanda() {
           {/* Prazo */}
           <Campo label="Prazo desejado (data e hora)">
             <input type="datetime-local" className={inputCls} value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} />
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><CalendarClock className="h-3 w-3" /> A gente estima na hora se dá pra entregar nesse prazo.</p>
+            {!prazoIso ? (
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><CalendarClock className="h-3 w-3" /> A gente checa na hora se temos disponibilidade pra esse prazo.</p>
+            ) : checando ? (
+              <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><Loader2 className="h-3 w-3 animate-spin" /> Checando disponibilidade…</p>
+            ) : dispo && dispo.no_prazo ? (
+              <p className="mt-1 flex items-center gap-1.5 rounded-md border border-[#10b981]/30 bg-[#10b981]/5 px-2.5 py-1.5 text-xs text-[#8fe7c4]">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Temos disponibilidade pra esse prazo. <span className="text-[#6b675f]">(nosso time confirma)</span>
+              </p>
+            ) : inviavel ? (
+              <div className="mt-1 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/5 px-2.5 py-2 text-xs">
+                <p className="flex items-center gap-1.5 text-[#f5c37a]"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Nesse horário não conseguimos entregar com qualidade.</p>
+                {dispo?.earliest && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="text-[#9A968C]">Data mais próxima: <strong className="capitalize text-[#E8E1D0]">{fmtEarliest(dispo.earliest)}</strong></span>
+                    <button onClick={usarSugerido} className="rounded border border-[#E53500]/50 px-2 py-0.5 text-[11px] font-medium text-[#E53500] hover:bg-[#E53500]/10">Usar esse horário</button>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </Campo>
 
           {/* Anexos */}
@@ -179,13 +228,17 @@ export default function SolicitarDemanda() {
 
           <button
             onClick={() => enviar.mutate()}
-            disabled={enviando}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:opacity-60"
+            disabled={enviando || inviavel}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Enviar demanda
+            {inviavel ? "Ajuste o prazo pra enviar" : "Enviar demanda"}
           </button>
-          <p className="text-center text-[11px] text-[#6b675f]">Ao enviar, você recebe uma estimativa de prazo. Nosso time confirma com você em seguida.</p>
+          <p className="text-center text-[11px] text-[#6b675f]">
+            {inviavel
+              ? "Esse prazo está sem disponibilidade — escolha o horário sugerido acima pra enviar."
+              : "Ao enviar, você recebe uma estimativa de prazo. Nosso time confirma com você em seguida."}
+          </p>
         </div>
       </div>
     </div>
