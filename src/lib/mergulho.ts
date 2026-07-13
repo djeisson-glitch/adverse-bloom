@@ -1,50 +1,63 @@
 /**
- * Estrutura do Mergulho / Briefing estratégico (Método Adverse).
- * Base enxuta (sempre) + Mergulho profundo (opcional, as 5 lentes).
- * Usada pelo formulário público, pela edição interna e pela leitura no projeto.
+ * Estrutura do Briefing (cliente) + Leitura interna (Adverse).
+ * As perguntas do cliente são detalhistas mas práticas. As "lentes" profundas
+ * do Método (zeitgeist, tensão…) são INTERNAS — o cliente não vê.
  */
 
-export type MergulhoCampo = { key: string; label: string; hint?: string };
+export type CampoTipo = "texto" | "entregas";
+export type MergulhoCampo = { key: string; label: string; hint?: string; tipo?: CampoTipo };
 export type MergulhoSecao = {
   id: string;
   titulo: string;
   descricao?: string;
-  opcional?: boolean;
+  interno?: boolean; // seção só da Adverse (não vai pro formulário do cliente)
   campos: MergulhoCampo[];
 };
 
 export const MERGULHO_ESTRUTURA: MergulhoSecao[] = [
   {
-    id: "base",
-    titulo: "O essencial",
-    descricao: "O suficiente pra gente entender o projeto e orçar com segurança.",
+    id: "cliente",
+    titulo: "Briefing",
+    descricao: "Quanto mais contexto você der, melhor a ideia — pode ser detalhista à vontade.",
     campos: [
-      { key: "marca", label: "Sobre a marca / empresa", hint: "O que vocês fazem, como se posicionam, o tom de voz." },
-      { key: "objetivo", label: "Objetivo do projeto", hint: "O que precisa acontecer depois que esse material for ao ar? Qual resultado?" },
-      { key: "publico", label: "Público-alvo", hint: "Quem a gente precisa impactar? (idade, contexto, o que sente/quer)" },
-      { key: "mensagem", label: "Mensagem-chave", hint: "A única coisa que a pessoa tem que sair sabendo ou sentindo." },
-      { key: "nao_pode_faltar", label: "O que não pode faltar / o que evitar", hint: "Elementos obrigatórios, restrições de marca, o que vocês não curtem." },
-      { key: "referencias", label: "Referências", hint: "Links, filmes, campanhas que vocês admiram (e por quê)." },
-      { key: "entregas", label: "Entregas desejadas e onde vai veicular", hint: "Quantos vídeos, formatos, canais (Instagram, TV, evento, YouTube…)." },
-      { key: "verba_prazo", label: "Verba e prazo (aproximados)", hint: "Ajuda a calibrar a ambição do projeto ao que é viável." },
+      { key: "marca", label: "Sobre a marca / empresa", hint: "O que vocês fazem, como se posicionam, o tom de voz, o que te diferencia da concorrência." },
+      { key: "objetivo", label: "Objetivo deste projeto", hint: "O que precisa acontecer depois que esse material for ao ar? Que resultado vocês querem (vendas, reconhecimento, engajamento…)?" },
+      { key: "publico", label: "Quem vocês querem impactar", hint: "O público-alvo: idade, contexto, o que essa pessoa sente, quer ou precisa." },
+      { key: "mensagem", label: "Mensagem-chave", hint: "Se a pessoa só puder sair com uma ideia na cabeça, qual é?" },
+      { key: "entregas", label: "Quais são as entregas?", tipo: "entregas", hint: "Liste cada vídeo/peça com formato e duração. Adicione quantas precisar." },
+      { key: "tom", label: "Tom e referências", hint: "Sério, divertido, emocional, institucional? Cole links de filmes/campanhas que vocês curtem — e por quê." },
+      { key: "veiculacao", label: "Onde vai ser veiculado", hint: "Instagram, YouTube, TV, telão de evento, site, treinamento interno…" },
+      { key: "nao_pode_faltar", label: "O que não pode faltar / o que evitar", hint: "Elementos obrigatórios (logo, pessoas, produto), restrições de marca, e o que vocês NÃO curtem." },
+      { key: "materiais", label: "Vocês já têm algum material?", hint: "Roteiro, logo, fotos, vídeos antigos, manual de marca, dados… (a gente combina como enviar)." },
+      { key: "verba_prazo", label: "Verba e prazo (aproximados)", hint: "Ajuda a calibrar a ambição do projeto ao que é viável. Pode ser uma faixa." },
     ],
   },
   {
-    id: "mergulho",
-    titulo: "Mergulho profundo",
-    descricao: "As lentes do Método Adverse — pra projetos maiores, quando queremos cair de cabeça na marca. Opcional.",
-    opcional: true,
+    id: "interno",
+    titulo: "Leitura interna (Adverse)",
+    descricao: "As lentes do Método — só do time, o cliente não vê.",
+    interno: true,
     campos: [
-      { key: "pessoa_gesto", label: "A pessoa e o gesto", hint: "Quem é a pessoa real do outro lado? Que gesto/ação concreta a gente quer provocar nela?" },
+      { key: "consolidacao", label: "Consolidação do projeto", hint: "Resumo do time com o entendimento do briefing." },
+      { key: "pessoa_gesto", label: "A pessoa e o gesto", hint: "Quem é a pessoa real do outro lado? Que gesto/ação concreta a gente quer provocar?" },
       { key: "produto_imaginario", label: "O produto no imaginário", hint: "Que lugar a marca/produto ocupa (ou queremos que ocupe) na cabeça das pessoas?" },
       { key: "momento_marca", label: "O momento da marca", hint: "O que está acontecendo com a marca agora? (lançamento, virada, crise, consolidação)" },
       { key: "zeitgeist", label: "O zeitgeist", hint: "O que está no ar na cultura / no mercado que conversa com isso?" },
-      { key: "tensao", label: "A tensão", hint: "O conflito central: eles querem X, mas Y. Qual a verdade incômoda que ninguém diz?" },
+      { key: "tensao", label: "A tensão", hint: "O conflito central: eles querem X, mas Y. Qual a verdade incômoda?" },
     ],
   },
 ];
 
-/** Retorna true se houver ao menos uma resposta preenchida na seção. */
+export const SECOES_CLIENTE = MERGULHO_ESTRUTURA.filter((s) => !s.interno);
+export const CAMPOS_CLIENTE = SECOES_CLIENTE.flatMap((s) => s.campos);
+
+/** Uma resposta conta como preenchida? (texto não-vazio ou ao menos 1 entrega) */
+export function campoRespondido(dados: Record<string, any>, campo: MergulhoCampo) {
+  const v = dados?.[campo.key];
+  if (campo.tipo === "entregas") return Array.isArray(v) && v.length > 0;
+  return (v || "").toString().trim().length > 0;
+}
+
 export function secaoRespondida(dados: Record<string, any>, secao: MergulhoSecao) {
-  return secao.campos.some((c) => (dados?.[c.key] || "").toString().trim().length > 0);
+  return secao.campos.some((c) => campoRespondido(dados || {}, c));
 }
