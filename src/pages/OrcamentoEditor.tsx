@@ -37,6 +37,7 @@ type BudgetItem = {
   diaria: number | null;
   client_unit_price: number | null;
   client_price: number | null;
+  custo_unitario: number | null;
   tira_taxa: boolean;
   observacoes: string | null;
   ordem: number;
@@ -657,10 +658,13 @@ function PlanilhaSection({
     });
   }, [categorias, itensPorCategoria, tipoOrcamento]);
 
-  // Valor da linha = qtd × diária × valor unitário.
+  // Valor cobrado da linha = qtd × diária × valor unitário.
   // diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
   const valorItem = (i: BudgetItem) =>
     Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0);
+  // Custo real da linha = qtd × diária × custo unitário (o que ela custa de verdade).
+  const custoItem = (i: BudgetItem) =>
+    Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.custo_unitario || 0);
 
   const totaisPorCategoria = useMemo(() => {
     const m = new Map<string, number>();
@@ -675,6 +679,13 @@ function PlanilhaSection({
     () => itens.reduce((s, i) => s + valorItem(i), 0),
     [itens],
   );
+  // Custo real total (soma dos custos por linha) e a sobra (o que cada linha
+  // deixa acima do custo). Rentabilidade = margem da produtora + sobra das linhas.
+  const custoReal = useMemo(
+    () => itens.reduce((s, i) => s + custoItem(i), 0),
+    [itens],
+  );
+  const sobraLinhas = custoProducao - custoReal;
   const baseSemTaxa = useMemo(
     () => itens.filter((i) => !i.tira_taxa).reduce((s, i) => s + valorItem(i), 0),
     [itens],
@@ -753,8 +764,10 @@ function PlanilhaSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
-  // Rentabilidade ao vivo — o que sobra pra produtora (margem, fora custo/imposto/comissão)
-  const rentabilidade = valorTotal - custoProducao - imposto - comissaoTotal;
+  // Rentabilidade real = taxa da produtora + sobra das linhas da planilha.
+  // (Comissão e imposto são pass-through — o cliente paga e a produtora repassa —
+  //  então se cancelam e não entram no lucro.)
+  const rentabilidade = margemValor + sobraLinhas;
   const margemPercent = valorTotal > 0 ? (rentabilidade / valorTotal) * 100 : 0;
 
   // "Salvar como padrão" — fixa margem/imposto/comissões pros próximos orçamentos
@@ -823,9 +836,9 @@ function PlanilhaSection({
         {/* Cabeçalho percentuais + total */}
         <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr]">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo de produção</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Subtotal das linhas</p>
             <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
-            <p className="text-[10px] text-muted-foreground">sobre {formatCurrency(baseSemTaxa)} (fora "tirar da taxa")</p>
+            <p className="text-[10px] text-muted-foreground">custo real {formatCurrency(custoReal)} · taxa sobre {formatCurrency(baseSemTaxa)}</p>
           </div>
           <PctInput
             label="Margem da produtora"
@@ -923,19 +936,22 @@ function PlanilhaSection({
           )}
         </div>
 
-        {/* Rentabilidade do job — ao vivo enquanto orça */}
+        {/* Rentabilidade real do job — taxa da produtora + sobra das linhas */}
         <div className="grid gap-3 rounded-lg border border-success/30 bg-success/5 p-4 md:grid-cols-[1fr_1fr_1fr_1.4fr]">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total cobrado</p>
-            <p className="text-sm font-medium text-foreground">{formatCurrency(valorTotal)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Taxa da produtora</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(margemValor)}</p>
+            <p className="text-[10px] text-muted-foreground">margem {percentuais.margem || 0}%</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">− Custos previstos</p>
-            <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">+ Sobra das linhas</p>
+            <p className={`text-sm font-medium ${sobraLinhas >= 0 ? "text-foreground" : "text-destructive"}`}>{formatCurrency(sobraLinhas)}</p>
+            <p className="text-[10px] text-muted-foreground">valor cobrado − custo real</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">− Impostos</p>
-            <p className="text-sm font-medium text-foreground">{formatCurrency(imposto)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo real das linhas</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(custoReal)}</p>
+            <p className="text-[10px] text-muted-foreground">de {formatCurrency(custoProducao)} cobrado</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Rentabilidade</p>
@@ -1116,12 +1132,13 @@ function CategoriaItens({
 
   return (
     <div className="border-t border-border/40">
-      <div className="grid grid-cols-[70px_1.4fr_70px_80px_100px_100px_1fr_50px_40px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_46px_36px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         <span />
         <span>Descrição</span>
         <span>QTD</span>
         <span>{porHora ? "Horas" : "Diária"}</span>
         <span>{porHora ? "Valor/hora" : "Valor unit."}</span>
+        <span>{porHora ? "Custo/hora" : "Custo unit."}</span>
         <span className="text-right">Valor</span>
         <span>Observações</span>
         <span>T. taxa</span>
@@ -1184,26 +1201,35 @@ function BudgetItemRow({
     quantity: item.quantity ?? 1,
     diaria: item.diaria ?? 1,
     client_unit_price: item.client_unit_price ?? 0,
+    custo_unitario: item.custo_unitario ?? 0,
     tira_taxa: item.tira_taxa,
     observacoes: item.observacoes || "",
   });
   const valor = row.quantity * row.diaria * row.client_unit_price;
+  const custoLinha = row.quantity * row.diaria * row.custo_unitario;
+  const sobra = valor - custoLinha;
 
   const salvar = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any)
+      const base = {
+        descricao: row.descricao,
+        item_name: row.descricao,
+        quantity: row.quantity,
+        diaria: row.diaria,
+        client_unit_price: row.client_unit_price,
+        client_price: valor,   // total da linha — lido por Fechamento/Proposta
+        tira_taxa: row.tira_taxa,
+        observacoes: row.observacoes,
+      };
+      // Tenta salvar com o custo; se a coluna ainda não existe (migration não
+      // aplicada), salva o resto pra não travar a edição da linha.
+      let { error } = await (supabase as any)
         .from("budget_items")
-        .update({
-          descricao: row.descricao,
-          item_name: row.descricao,
-          quantity: row.quantity,
-          diaria: row.diaria,
-          client_unit_price: row.client_unit_price,
-          client_price: valor,   // total da linha — lido por Fechamento/Proposta
-          tira_taxa: row.tira_taxa,
-          observacoes: row.observacoes,
-        })
+        .update({ ...base, custo_unitario: row.custo_unitario })
         .eq("id", item.id);
+      if (error && /custo_unitario/i.test(error.message || "")) {
+        ({ error } = await (supabase as any).from("budget_items").update(base).eq("id", item.id));
+      }
       if (error) throw error;
     },
     onSuccess: onChanged,
@@ -1218,7 +1244,7 @@ function BudgetItemRow({
   });
 
   return (
-    <div className="grid grid-cols-[70px_1.4fr_70px_80px_100px_100px_1fr_50px_40px] gap-2 border-b border-border/30 px-4 py-1.5 last:border-0">
+    <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_46px_36px] gap-2 border-b border-border/30 px-4 py-1.5 last:border-0">
       <span className="font-mono text-[10px] text-muted-foreground">
         {codigo}.{String(idx).padStart(3, "0")}
       </span>
@@ -1231,7 +1257,13 @@ function BudgetItemRow({
       <NumCell value={row.quantity} onChange={(n) => setRow({ ...row, quantity: n })} onCommit={() => salvar.mutate()} />
       <NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} />
       <NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} />
-      <span className="text-right text-xs">{formatCurrency(valor)}</span>
+      <NumCell value={row.custo_unitario} onChange={(n) => setRow({ ...row, custo_unitario: n })} onCommit={() => salvar.mutate()} />
+      <span className="text-right text-xs" title={`Custo ${formatCurrency(custoLinha)} · sobra ${formatCurrency(sobra)}`}>
+        {formatCurrency(valor)}
+        <span className={`block text-[9px] ${sobra >= 0 ? "text-success" : "text-destructive"}`}>
+          {sobra >= 0 ? "+" : ""}{formatCurrency(sobra)}
+        </span>
+      </span>
       <Input
         value={row.observacoes}
         onChange={(e) => setRow({ ...row, observacoes: e.target.value })}
