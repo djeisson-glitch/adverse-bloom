@@ -53,6 +53,7 @@ import PropostaPublica from "./pages/PropostaPublica";
 import CartaPublica from "./pages/CartaPublica";
 import Demandas from "./pages/Demandas";
 import SolicitarDemanda from "./pages/SolicitarDemanda";
+import BriefingPublico from "./pages/BriefingPublico";
 // Onda 0 — placeholders dos novos módulos do Adverse OS Produtora
 import Fechamento from "./pages/Fechamento";
 import PosProducao from "./pages/PosProducao";
@@ -187,6 +188,7 @@ const App = () => (
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="/carta/:token" element={<CartaPublica />} />
               <Route path="/solicitar/:slug" element={<SolicitarDemanda />} />
+              <Route path="/briefing/:token" element={<BriefingPublico />} />
               <Route path="/portal/:token" element={<PortalPublico />} />
               {/* Rota temporária de preview da Onda 0 (sem auth) — remover após validação */}
               <Route path="/preview-onda-0" element={<PreviewOnda0 />} />

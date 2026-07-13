@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
+import { MergulhoForm } from "@/components/MergulhoForm";
 
 /**
  * Ficha de projeto no layout Catalunya OS (single-page) — modelado a partir
@@ -224,6 +225,7 @@ export default function ProjetoDetalhe() {
           {tab === "briefing" && (
             <>
               <BriefingProjetoSection project={project} onChanged={invalidate} />
+              <MergulhoProjetoCard dealId={project.deal_id} />
               <DocumentosSection projectId={project.id} />
               <AprovacaoProjetoCard project={project} profiles={profiles} onChanged={invalidate} />
             </>
@@ -547,6 +549,32 @@ function TaskRow({
         <X className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+/* ------------------------------- Mergulho vindo do orçamento (read-only) */
+
+function MergulhoProjetoCard({ dealId }: { dealId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["projeto-mergulho", dealId],
+    enabled: !!dealId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("deals").select("mergulho").eq("id", dealId).maybeSingle();
+      if (error) throw error;
+      return (data?.mergulho && typeof data.mergulho === "object" ? data.mergulho : {}) as Record<string, any>;
+    },
+  });
+  const dados = data || {};
+  const temResposta = Object.values(dados).some((v: any) => (v || "").toString().trim());
+  if (!dealId || !temResposta) return null;
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-6">
+        <h2 className="mb-1 text-base font-semibold text-foreground">Mergulho / Briefing estratégico</h2>
+        <p className="mb-4 text-xs text-muted-foreground">Respondido na fase do orçamento — carregado pra cá pra não se perder.</p>
+        <MergulhoForm value={dados} readOnly />
+      </CardContent>
+    </Card>
   );
 }
 
