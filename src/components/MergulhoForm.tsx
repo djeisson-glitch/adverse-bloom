@@ -64,6 +64,28 @@ export function MergulhoForm({
           </div>
         );
       })}
+
+      {/* Complementos que o cliente respondeu às perguntas sugeridas pela IA */}
+      {(() => {
+        const extras = Array.isArray(value?.ia_extras)
+          ? value.ia_extras.filter((e: any) => (e?.resposta || "").toString().trim())
+          : [];
+        if (extras.length === 0) return null;
+        return (
+          <div className="rounded-lg border border-border/50 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Complementos do cliente</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Respostas às perguntas que a IA sugeriu no fim do briefing.</p>
+            <div className="mt-3 space-y-3">
+              {extras.map((e: any, i: number) => (
+                <div key={i}>
+                  <Label className="text-sm text-foreground">{e.pergunta}</Label>
+                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{e.resposta}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil, CheckCircle2, EyeOff, RotateCcw,
+  FileText, Link2, Pencil, CheckCircle2, EyeOff, RotateCcw, Sparkles, AlertTriangle,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -354,6 +354,8 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
     deal.mergulho && typeof deal.mergulho === "object" ? deal.mergulho : {},
   );
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [consolidando, setConsolidando] = useState(false);
+  const [iaResultado, setIaResultado] = useState<{ pontos_atencao: string[]; perguntas: string[] } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const salvar = async (d: Record<string, any>) => {
@@ -362,10 +364,11 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
     if (error) {
       setStatus("idle");
       toast.error("Não salvou o mergulho", { description: /mergulho/i.test(error.message || "") ? "Rode 'supabase db push' pra habilitar." : error.message });
-    } else {
-      setStatus("saved");
-      onChanged();
+      return false;
     }
+    setStatus("saved");
+    onChanged();
+    return true;
   };
   const onChange = (key: string, val: any) => {
     setDados((prev) => {
@@ -376,20 +379,67 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
     });
   };
 
+  // Garante que o deal tenha um mergulho_token (usado como gate da IA e do link).
+  const garantirToken = async (): Promise<string | null> => {
+    let token = deal.mergulho_token;
+    if (!token) {
+      token = crypto.randomUUID();
+      const { error } = await (supabase as any).from("deals").update({ mergulho_token: token }).eq("id", deal.id);
+      if (error) throw error;
+      onChanged();
+    }
+    return token;
+  };
+
   const copiarLink = async () => {
     try {
-      let token = deal.mergulho_token;
-      if (!token) {
-        token = crypto.randomUUID();
-        const { error } = await (supabase as any).from("deals").update({ mergulho_token: token }).eq("id", deal.id);
-        if (error) throw error;
-        onChanged();
-      }
+      const token = await garantirToken();
       const url = `${window.location.origin}/briefing/${token}`;
       await navigator.clipboard?.writeText(url).catch(() => {});
       toast.success("Link do briefing copiado", { description: "O cliente responde por aqui — ou use você mesmo na reunião." });
     } catch (e: any) {
       toast.error("Não gerou o link", { description: /mergulho_token|column/i.test(e.message || "") ? "Rode 'supabase db push' pra habilitar." : e.message });
+    }
+  };
+
+  // INTERNO: consolida o briefing com IA e escreve na "Consolidação do projeto".
+  const consolidarIA = async () => {
+    setConsolidando(true);
+    setIaResultado(null);
+    try {
+      if (timer.current) clearTimeout(timer.current);
+      const token = await garantirToken();
+      // Salva o que está na tela antes (a IA lê do banco pelo token).
+      const salvou = await salvar(dados);
+      if (!salvou) return;
+      const { data, error } = await (supabase as any).functions.invoke("mergulho-ia", {
+        body: { token, acao: "consolidar" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const consolidacao = (data?.consolidacao || "").toString().trim();
+      if (consolidacao) {
+        const novo = { ...dados, consolidacao };
+        setDados(novo);
+        await salvar(novo);
+        setAberto(true);
+      }
+      setIaResultado({
+        pontos_atencao: Array.isArray(data?.pontos_atencao) ? data.pontos_atencao : [],
+        perguntas: Array.isArray(data?.perguntas) ? data.perguntas : [],
+      });
+      toast.success("Consolidado com IA", { description: "Escrevi a leitura na parte interna do time." });
+    } catch (e: any) {
+      const msg = e?.message || "Erro ao consolidar";
+      toast.error("IA não rodou", {
+        description: /ANTHROPIC_API_KEY|não configurada/i.test(msg)
+          ? "Falta a chave da Anthropic no Supabase (secret ANTHROPIC_API_KEY)."
+          : /not found|Failed to send|Function/i.test(msg)
+          ? "Faltou publicar a função. Rode: supabase functions deploy mergulho-ia."
+          : msg,
+      });
+    } finally {
+      setConsolidando(false);
     }
   };
 
@@ -405,6 +455,10 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
             <span className="text-[11px] text-muted-foreground">
               {status === "saving" ? "salvando…" : status === "saved" ? "salvo" : deal.mergulho_em ? "respondido" : ""}
             </span>
+            <Button size="sm" variant="outline" onClick={consolidarIA} disabled={consolidando}>
+              {consolidando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
+              Consolidar com IA
+            </Button>
             <Button size="sm" variant="outline" onClick={copiarLink}>
               <Link2 className="mr-1 h-3.5 w-3.5" /> Copiar link do cliente
             </Button>
@@ -416,6 +470,36 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
           </p>
         ) : (
           <div className="mt-5">
+            {iaResultado && (iaResultado.pontos_atencao.length > 0 || iaResultado.perguntas.length > 0) && (
+              <div className="mb-5 rounded-lg border border-primary/25 bg-primary/[0.04] p-4">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Sparkles className="h-4 w-4 text-primary" /> Leitura da IA
+                </div>
+                {iaResultado.pontos_atencao.length > 0 && (
+                  <div className="mt-3">
+                    <p className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      <AlertTriangle className="h-3 w-3" /> Pontos de atenção
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {iaResultado.pontos_atencao.map((p, i) => (
+                        <li key={i} className="text-sm text-foreground">· {p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {iaResultado.perguntas.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Esclarecer com o cliente</p>
+                    <ul className="mt-1 space-y-1">
+                      {iaResultado.perguntas.map((p, i) => (
+                        <li key={i} className="text-sm text-foreground">· {p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="mt-3 text-[11px] text-muted-foreground">A consolidação foi escrita na seção interna abaixo. Edite à vontade.</p>
+              </div>
+            )}
             <MergulhoForm value={dados} onChange={onChange} />
           </div>
         )}

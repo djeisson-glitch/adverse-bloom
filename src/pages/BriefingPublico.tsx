@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Check, Pencil, ArrowRight, Send, CheckCircle2 } from "lucide-react";
+import { Loader2, Check, Pencil, ArrowRight, Send, CheckCircle2, Sparkles } from "lucide-react";
 import { EntregasField } from "@/components/mergulho/EntregasField";
 import { CAMPOS_CLIENTE, campoRespondido, type MergulhoCampo } from "@/lib/mergulho";
 
@@ -19,6 +19,7 @@ export default function BriefingPublico() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [enviadoView, setEnviadoView] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [iaChecado, setIaChecado] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: cfg, isLoading, isError } = useQuery({
@@ -36,6 +37,8 @@ export default function BriefingPublico() {
       const d = cfg.mergulho || {};
       setDados(d);
       setEnviadoView(!!cfg.enviado_em);
+      // Já tem perguntas da IA salvas? então não precisa checar de novo.
+      if (Array.isArray(d.ia_extras) && d.ia_extras.length > 0) setIaChecado(true);
       const primeiroVazio = CAMPOS_CLIENTE.findIndex((c) => !campoRespondido(d, c));
       setPasso(primeiroVazio === -1 ? CAMPOS_CLIENTE.length - 1 : primeiroVazio);
     }
@@ -55,11 +58,54 @@ export default function BriefingPublico() {
     });
   };
 
-  const enviar = async () => {
+  // Resposta a uma pergunta que a IA sugeriu (fica dentro de dados.ia_extras).
+  const setExtra = (i: number, val: string) => {
+    setDados((prev) => {
+      const extras = Array.isArray(prev?.ia_extras) ? [...prev!.ia_extras] : [];
+      extras[i] = { ...(extras[i] || {}), resposta: val };
+      const novo = { ...(prev || {}), ia_extras: extras };
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => salvar(novo), 800);
+      return novo;
+    });
+  };
+
+  const enviarDeVerdade = async (d: Record<string, any>) => {
     setEnviando(true);
-    const { error } = await (supabase as any).rpc("mergulho_enviar", { _token: token, _dados: dados || {} });
+    const { error } = await (supabase as any).rpc("mergulho_enviar", { _token: token, _dados: d });
     setEnviando(false);
     if (!error) setEnviadoView(true);
+  };
+
+  // Ao enviar pela 1ª vez, a IA (automática) sugere perguntas de complemento
+  // com base no que foi preenchido. Se sugerir algo, mostramos antes de enviar.
+  const enviar = async () => {
+    const d = dados || {};
+    if (iaChecado) return enviarDeVerdade(d);
+    setEnviando(true);
+    try {
+      if (timer.current) clearTimeout(timer.current);
+      await salvar(d); // a IA lê do banco pelo token
+      const { data, error } = await (supabase as any).functions.invoke("mergulho-ia", {
+        body: { token, acao: "followups" },
+      });
+      const perguntas: string[] = !error && Array.isArray(data?.perguntas) ? data.perguntas : [];
+      if (perguntas.length > 0) {
+        const extras = perguntas.map((p) => ({ pergunta: p, resposta: "" }));
+        const novo = { ...d, ia_extras: extras };
+        setDados(novo);
+        setIaChecado(true);
+        setEnviando(false);
+        await salvar(novo);
+        return; // mostra as perguntas; o próximo clique envia
+      }
+      // Sem sugestões (ou IA indisponível): envia direto.
+      setIaChecado(true);
+      await enviarDeVerdade(d);
+    } catch {
+      setIaChecado(true);
+      await enviarDeVerdade(d);
+    }
   };
 
   if (isLoading || (cfg && dados === null)) {
@@ -140,6 +186,32 @@ export default function BriefingPublico() {
               </PerguntaCard>
             );
           })}
+
+          {/* Perguntas de complemento sugeridas pela IA (automático, sem botão) */}
+          {iaChecado && Array.isArray(d.ia_extras) && d.ia_extras.length > 0 && (
+            <div className="mt-2 rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" /> Só mais isso pra ficar redondo
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Umas perguntas rápidas pra gente entender melhor — responda o que quiser, ou pule e envie assim mesmo.
+              </p>
+              <div className="mt-3 space-y-3">
+                {d.ia_extras.map((ex: any, i: number) => (
+                  <div key={i}>
+                    <p className="text-sm font-medium text-foreground">{ex?.pergunta}</p>
+                    <textarea
+                      value={ex?.resposta || ""}
+                      onChange={(e) => setExtra(i, e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      placeholder="Escreva aqui… (opcional)"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {editIdx === null && (
             <div className="pt-1">
