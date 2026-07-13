@@ -8,60 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/format";
+import { roundUpTo50 } from "@/lib/format";
+import {
+  CartaDocumento, CARTA_STYLE, DEFAULTS, TIPO_LABEL, parseValor,
+  type Proposta,
+} from "@/components/CartaDocumento";
 
 /**
- * Carta de orçamento — documento "INVESTIMENTO" no padrão Adverse.
- * Puxa o que dá do orçamento (entregas, valor, cliente) e deixa preencher o
- * resto (equipe, pós, equipamentos, não inclui, diárias, condições).
- * Modo manual (?manual=1): começa em branco pra montar do zero.
+ * Carta de orçamento — documento "INVESTIMENTO" no padrão Adverse (visão interna).
+ * Puxa o que dá do orçamento (entregas, valor, cliente) e deixa preencher o resto.
+ * O valor sempre é arredondado pra cima de 50 em 50. Modo manual (?manual=1) começa em branco.
  */
-
-type Proposta = {
-  titulo?: string;
-  subtitulo?: string;
-  briefing?: string;
-  entregas_texto?: string;
-  diarias?: string;
-  equipe?: string;
-  pos?: string;
-  equipamentos?: string;
-  nao_inclui?: string;
-  investimento?: string;
-  validade_dias?: number | string;
-  condicoes_pagamento?: string;
-};
-
-const DEFAULTS: Proposta = {
-  equipe: "Direção\nOperador de câmera\nAssistente",
-  pos: "Edição e finalização\nColor grading",
-  equipamentos: "Câmera cinema\nDrone\nIluminação",
-  nao_inclui:
-    "Imagens geradas por IA\nFotografia\nReduções/versões extras das especificadas aqui\nProdução de locação\nLegenda em outros idiomas\nDiária de produção extra por clima ruim, agenda do cliente e/ou outros fatores não controláveis pela produtora",
-  validade_dias: 15,
-  condicoes_pagamento: "à vista",
-};
-
-const TIPO_LABEL: Record<string, string> = {
-  geral: "Geral",
-  so_producao: "Só produção",
-  so_pos_producao: "Só pós-produção",
-  fotos: "Fotos",
-  ia: "IA",
-  institucional: "Institucional",
-};
-
-function linhas(t?: string) {
-  return (t || "").split("\n").map((l) => l.trim()).filter(Boolean);
-}
-
-// Aceita "6070", "6070.5" (US/planilha) e "6.070,00" (BR digitado).
-function parseValor(s?: string | number) {
-  const str = String(s ?? "").replace(/[R$\s]/g, "").trim();
-  if (!str) return 0;
-  if (str.includes(",")) return Number(str.replace(/\./g, "").replace(",", ".")) || 0;
-  return Number(str) || 0;
-}
 
 export default function CartaOrcamento() {
   const { id } = useParams<{ id: string }>();
@@ -77,7 +34,7 @@ export default function CartaOrcamento() {
     queryFn: async () => {
       const { data: deal, error } = await (supabase as any)
         .from("deals")
-        .select("*, client:clients(id, name)")
+        .select("*, client:clients(id, name, contact_name, email, phone)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -112,6 +69,8 @@ export default function CartaOrcamento() {
               )
               .join("\n")
           : "");
+      // Valor da carta = valor total do orçamento, arredondado pra cima de 50 em 50.
+      const investimentoBase = salvo.investimento ?? (budget?.total_value ? String(roundUpTo50(Number(budget.total_value))) : "");
       setP({
         titulo: salvo.titulo ?? (deal.client?.name || deal.title || ""),
         subtitulo: salvo.subtitulo ?? (TIPO_LABEL[deal.tipo_orcamento] || deal.title || ""),
@@ -122,7 +81,7 @@ export default function CartaOrcamento() {
         pos: salvo.pos ?? DEFAULTS.pos,
         equipamentos: salvo.equipamentos ?? DEFAULTS.equipamentos,
         nao_inclui: salvo.nao_inclui ?? DEFAULTS.nao_inclui,
-        investimento: salvo.investimento ?? (budget?.total_value ? String(budget.total_value) : ""),
+        investimento: investimentoBase,
         validade_dias: salvo.validade_dias ?? 15,
         condicoes_pagamento: salvo.condicoes_pagamento ?? "à vista",
       });
@@ -156,20 +115,16 @@ export default function CartaOrcamento() {
   }
 
   const set = (patch: Partial<Proposta>) => setP({ ...p, ...patch });
-  const investimentoNum = parseValor(p.investimento);
+  const investimentoNum = roundUpTo50(parseValor(p.investimento));
+  const cli = data?.deal?.client;
+  const cliente = cli
+    ? { nome: cli.name, contato: cli.contact_name, email: cli.email, telefone: cli.phone }
+    : undefined;
+  const hoje = new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-[#0f0f10]">
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
-        .carta-root{font-family:'Montserrat',Inter,sans-serif}
-        @media print{
-          .no-print{display:none!important}
-          .carta-doc{position:absolute;inset:0;margin:0}
-          @page{margin:0}
-          html,body{background:#0f0f10}
-        }
-        .carta-doc{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      `}</style>
+      <style>{CARTA_STYLE}</style>
 
       <div className="carta-root">
         {/* Barra de ações — não imprime */}
@@ -214,7 +169,10 @@ export default function CartaOrcamento() {
               <Campo label="Não inclui"><Textarea rows={3} value={p.nao_inclui || ""} onChange={(e) => set({ nao_inclui: e.target.value })} className="bg-white/5" /></Campo>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
-              <Campo label="Investimento (R$)"><Input value={p.investimento || ""} onChange={(e) => set({ investimento: e.target.value })} className="bg-white/5" placeholder="6070" /></Campo>
+              <Campo label="Investimento (R$) — arredonda pra cima de 50 em 50">
+                <Input value={p.investimento || ""} onChange={(e) => set({ investimento: e.target.value })} className="bg-white/5" placeholder="6070" />
+                {investimentoNum > 0 && <p className="mt-1 text-[10px] text-[#9A968C]">na carta: R$ {investimentoNum.toLocaleString("pt-BR")}</p>}
+              </Campo>
               <Campo label="Validade (dias)"><Input type="number" value={p.validade_dias ?? ""} onChange={(e) => set({ validade_dias: e.target.value })} className="bg-white/5" /></Campo>
               <Campo label="Condições de pagamento"><Input value={p.condicoes_pagamento || ""} onChange={(e) => set({ condicoes_pagamento: e.target.value })} className="bg-white/5" /></Campo>
             </div>
@@ -222,92 +180,9 @@ export default function CartaOrcamento() {
         )}
 
         {/* ---------------- A CARTA (imprime) ---------------- */}
-        <div className="carta-doc mx-auto max-w-5xl bg-[#0f0f10] px-10 py-12 text-[#CFC9BC] md:px-16 md:py-16">
-          <Header />
-
-          <div className="mt-10">
-            <h1 className="text-2xl font-bold text-[#E8E1D0]">{p.titulo || "—"}</h1>
-            {p.subtitulo && <p className="text-sm text-[#9A968C]">{p.subtitulo}</p>}
-          </div>
-
-          <div className="mt-10 grid gap-x-16 gap-y-8 md:grid-cols-2">
-            <div className="space-y-8">
-              {p.briefing && <Bloco titulo="Briefing"><p className="leading-relaxed">{p.briefing}</p></Bloco>}
-              {linhas(p.entregas_texto).length > 0 && (
-                <Bloco titulo="Entregas">
-                  <ul className="space-y-1">{linhas(p.entregas_texto).map((l, i) => <li key={i}>· {l}</li>)}</ul>
-                </Bloco>
-              )}
-              {linhas(p.diarias).length > 0 && (
-                <Bloco titulo="Diárias">
-                  {linhas(p.diarias).map((l, i) => <p key={i} className={i === 0 ? "" : "text-sm text-[#9A968C]"}>{l}</p>)}
-                </Bloco>
-              )}
-            </div>
-            <div className="space-y-8">
-              <Lista titulo="Equipe" itens={linhas(p.equipe)} />
-              <Lista titulo="Pós-produção" itens={linhas(p.pos)} />
-              <Lista titulo="Equipamentos" itens={linhas(p.equipamentos)} />
-            </div>
-          </div>
-
-          <div className="mt-12 border-t border-white/10 pt-4">
-            <p className="text-xs text-[#9A968C]">Qualquer alteração desse escopo ou solicitação não prevista acarretará em custos extras.</p>
-          </div>
-
-          {linhas(p.nao_inclui).length > 0 && (
-            <div className="mt-16" style={{ breakBefore: "page" }}>
-              <Header />
-              <div className="mt-16">
-                <Lista titulo="Não inclui" itens={linhas(p.nao_inclui)} />
-              </div>
-            </div>
-          )}
-
-          <div className="mt-16" style={{ breakBefore: "page" }}>
-            <Header />
-            <div className="mt-24">
-              <p className="text-lg text-[#9A968C]">Investimento <span className="text-sm">(R$)</span></p>
-              <p className="text-6xl font-bold tracking-tight text-[#E8E1D0]">
-                {investimentoNum ? formatCurrency(investimentoNum).replace("R$", "").trim() : "—"}
-              </p>
-              <p className="mt-4 text-sm text-[#9A968C]">Esta Proposta de Orçamento tem prazo de validade de {p.validade_dias || 15} dias.</p>
-              <p className="text-sm text-[#9A968C]">(TRIBUTOS INCLUSOS), podendo sofrer ajustes após aprovação.</p>
-              <p className="mt-6 text-sm font-semibold text-[#E8E1D0]">CONDIÇÕES DE PAGAMENTO: {p.condicoes_pagamento || "à vista"}.</p>
-            </div>
-          </div>
-        </div>
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} />
       </div>
     </div>
-  );
-}
-
-function Header() {
-  return (
-    <div className="flex items-start justify-between">
-      <span className="text-lg font-extrabold tracking-tight text-[#E8E1D0]">
-        adverse.rec <span className="text-[#E53500]">//</span>
-      </span>
-      <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9A968C]">Investimento</span>
-    </div>
-  );
-}
-
-function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#E8E1D0]">{titulo}</h2>
-      <div className="text-[#CFC9BC]">{children}</div>
-    </div>
-  );
-}
-
-function Lista({ titulo, itens }: { titulo: string; itens: string[] }) {
-  if (itens.length === 0) return null;
-  return (
-    <Bloco titulo={titulo}>
-      <ul className="space-y-1">{itens.map((l, i) => <li key={i}>{l}</li>)}</ul>
-    </Bloco>
   );
 }
 

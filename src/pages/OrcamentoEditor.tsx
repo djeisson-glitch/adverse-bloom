@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, roundUpTo50 } from "@/lib/format";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -277,7 +277,7 @@ export default function OrcamentoEditor() {
             </Link>
           )}
 
-          <AcaoBotoes deal={deal} jobGerado={jobGerado} navigate={navigate} qc={qc} />
+          <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
           <p className="text-xs text-muted-foreground">
             Ganhar/Perder geram automaticamente um <strong>follow-up para +60 dias</strong> na agenda.
           </p>
@@ -469,9 +469,10 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
 /* ------------------------------------------ Ações principais (3 botões) */
 
 function AcaoBotoes({
-  deal, jobGerado, navigate, qc,
+  deal, budget, jobGerado, navigate, qc,
 }: {
   deal: any;
+  budget?: any;
   jobGerado?: any;
   navigate: any;
   qc: any;
@@ -515,13 +516,34 @@ function AcaoBotoes({
       qc.invalidateQueries({ queryKey: ["orcamento-deal", deal.id] });
     });
   };
-  const enviarViaLink = () => {
-    const url = `${window.location.origin}/orcamentos/${deal.id}/carta`;
-    navigator.clipboard?.writeText(url).catch(() => {});
-    marcarProposta();
-    toast.success("Link da carta copiado", {
-      description: "Link interno (requer login). A versão pública pro cliente vem depois.",
-    });
+  const enviarViaLink = async () => {
+    try {
+      let budgetId = budget?.id;
+      if (!budgetId) {
+        const { data } = await (supabase as any)
+          .from("budgets").select("id").eq("deal_id", deal.id)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        budgetId = data?.id;
+      }
+      if (!budgetId) {
+        toast.error("Abra a planilha do orçamento antes de gerar o link");
+        return;
+      }
+      const { data: tok, error } = await (supabase as any).rpc("carta_gerar_token", { _budget_id: budgetId });
+      if (error) throw error;
+      const url = `${window.location.origin}/carta/${tok}`;
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      marcarProposta();
+      toast.success("Link público copiado", {
+        description: "É a carta do cliente — ele abre sem login e pode aprovar por ali.",
+      });
+    } catch (e: any) {
+      toast.error("Não gerou o link", {
+        description: /carta_gerar_token|public_token|function/i.test(e.message || "")
+          ? "Rode 'supabase db push' pra habilitar o link público."
+          : e.message,
+      });
+    }
   };
   const gerarCarta = () => {
     marcarProposta();
@@ -549,15 +571,27 @@ function AcaoBotoes({
             <ChevronDown className="ml-1 h-3.5 w-3.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuItem onClick={enviarViaLink}>
-            <Link2 className="mr-2 h-4 w-4" /> Enviar pro cliente via link
+            <Link2 className="mr-2 h-4 w-4" />
+            <span className="flex flex-col">
+              <span>Copiar link do cliente</span>
+              <span className="text-[10px] text-muted-foreground">Abre sem login · o cliente aprova online</span>
+            </span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={gerarCarta}>
-            <FileText className="mr-2 h-4 w-4" /> Gerar carta de orçamento
+            <FileText className="mr-2 h-4 w-4" />
+            <span className="flex flex-col">
+              <span>Abrir a carta (revisar / PDF)</span>
+              <span className="text-[10px] text-muted-foreground">Edita os textos e imprime em PDF</span>
+            </span>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate(`/orcamentos/${deal.id}/carta?manual=1`)}>
-            <Pencil className="mr-2 h-4 w-4" /> Carta manual (padrão)
+            <Pencil className="mr-2 h-4 w-4" />
+            <span className="flex flex-col">
+              <span>Carta manual (em branco)</span>
+              <span className="text-[10px] text-muted-foreground">Monta do zero, sem puxar a planilha</span>
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -825,20 +859,21 @@ function PlanilhaSection({
     onError: (e: any) => toast.error("Não salvou o padrão", { description: /orcamento_padroes/i.test(e.message || "") ? "Rode 'supabase db push' pra habilitar os padrões." : e.message }),
   });
 
-  // "Usar como proposta" — leva o valor total da planilha pro deal
+  // "Usar como proposta" — leva o valor total (arredondado pra cima de 50) pro deal
   const usarComoProposta = useMutation({
     mutationFn: async () => {
       await salvarPercentuais.mutateAsync();
+      const valorProposta = roundUpTo50(valorTotal);
       const { error } = await (supabase as any)
         .from("deals")
-        .update({ valor_proposta: valorTotal, value: valorTotal })
+        .update({ valor_proposta: valorProposta, value: valorProposta })
         .eq("id", budget.deal_id);
       if (error) throw error;
     },
     onSuccess: () => {
       onChanged();
-      toast.success(`Proposta definida: ${formatCurrency(valorTotal)}`, {
-        description: "Valor total da planilha copiado pro orçamento.",
+      toast.success(`Proposta definida: ${formatCurrency(roundUpTo50(valorTotal))}`, {
+        description: "Valor total da planilha, arredondado pra cima de 50 em 50.",
       });
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
