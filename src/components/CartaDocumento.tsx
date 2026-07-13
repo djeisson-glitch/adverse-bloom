@@ -130,6 +130,8 @@ export function CartaDocumento({
               {linhas(p.diarias).map((l, i) => <p key={i} className={i === 0 ? "" : "text-sm text-[#9A968C]"}>{l}</p>)}
             </Bloco>
           )}
+          {/* Não inclui — no lado, aproveitando o espaço do topo */}
+          <Lista titulo="Não inclui" itens={linhas(p.nao_inclui)} />
         </div>
         <div className="space-y-8">
           <Lista titulo="Equipe" itens={linhas(p.equipe)} />
@@ -142,18 +144,12 @@ export function CartaDocumento({
         <p className="text-xs text-[#9A968C]">Qualquer alteração desse escopo ou solicitação não prevista acarretará em custos extras.</p>
       </div>
 
-      {linhas(p.nao_inclui).length > 0 && (
-        <div className="mt-16" style={{ breakBefore: "page" }}>
+      {/* Investimento — página própria na impressão; sem repetir o cabeçalho na tela */}
+      <div className="mt-12 print:mt-16" style={{ breakBefore: "page" }}>
+        <div className="hidden print:block">
           <Header />
-          <div className="mt-16">
-            <Lista titulo="Não inclui" itens={linhas(p.nao_inclui)} />
-          </div>
         </div>
-      )}
-
-      <div className="mt-16" style={{ breakBefore: "page" }}>
-        <Header />
-        <div className="mt-24">
+        <div className="mt-8 print:mt-24">
           <p className="text-lg text-[#9A968C]">Investimento <span className="text-sm">(R$)</span></p>
           <p className="text-6xl font-bold tracking-tight text-[#E8E1D0]">
             {investimentoNum ? formatCurrency(investimentoNum).replace("R$", "").trim() : "—"}
