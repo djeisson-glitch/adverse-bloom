@@ -1,16 +1,25 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { UsersRound, Plus, KeyRound, Save } from "lucide-react";
+import { UsersRound, Plus, KeyRound, Save, Check, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+
+// Client separado só pro signUp: evita que criar um membro troque a sessão do admin.
+const signupClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false } },
+);
 
 const PAPEIS: { value: string; label: string; hint: string }[] = [
   { value: "admin", label: "Admin", hint: "Acesso total, vê valores em R$" },
@@ -27,6 +36,7 @@ type Profile = {
   avatar_url: string | null;
   funcao: string | null;
   funcao_id: string | null;
+  funcoes: string[] | null;
   custo_hora: number | null;
   horas_semana: number;
   ativo: boolean;
@@ -51,7 +61,7 @@ export default function Time() {
     nome: "",
     email: "",
     senha: "",
-    funcao: "",
+    funcoes: [] as string[],
     papel: "equipe",
     horas_semana: 40,
     custo_hora: "" as string,
@@ -101,75 +111,84 @@ export default function Time() {
     }
     setCriando(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // 1) libera o e-mail na allowlist (senão o trigger bloqueia o signup)
+      const { error: eAllow } = await (supabase as any).rpc("admin_add_allowed_email", {
+        _email: novo.email,
+        _nota: "cadastro via Time",
+      });
+      if (eAllow) throw eAllow;
+
+      // 2) cria o usuário num client separado (não derruba a sessão do admin)
+      const { data, error } = await signupClient.auth.signUp({
         email: novo.email,
         password: novo.senha,
         options: { data: { full_name: novo.nome } },
       });
       if (error) throw error;
       const uid = data.user?.id;
-      if (uid) {
-        const funcaoObj = rateCard.find((r) => r.funcao === novo.funcao);
-        await (supabase as any)
-          .from("profiles")
-          .update({
-            full_name: novo.nome,
-            email: novo.email,
-            funcao: novo.funcao || null,
-            funcao_id: funcaoObj?.id || null,
-            horas_semana: novo.horas_semana,
-            custo_hora: novo.custo_hora ? Number(novo.custo_hora) : funcaoObj?.custo_hora || null,
-            ativo: true,
-          })
-          .eq("id", uid);
-        await supabase.from("user_roles").insert({ user_id: uid, role: novo.papel as any });
-      }
+      if (!uid) throw new Error("Usuário não foi criado (confira se a confirmação de e-mail está desligada no Supabase).");
+
+      // 3) grava o profile + papel via RPC de admin (contorna a RLS)
+      const primeira = novo.funcoes[0] || null;
+      const funcaoObj = rateCard.find((r) => r.funcao === primeira);
+      const { error: eUp } = await (supabase as any).rpc("admin_upsert_membro", {
+        _uid: uid,
+        _email: novo.email,
+        _nome: novo.nome,
+        _funcao: primeira,
+        _funcao_id: funcaoObj?.id || null,
+        _funcoes: novo.funcoes,
+        _papel: novo.papel,
+        _horas: novo.horas_semana,
+        _custo: novo.custo_hora ? Number(novo.custo_hora) : funcaoObj?.custo_hora || null,
+        _ativo: true,
+      });
+      if (eUp) throw eUp;
+
       toast.success("Membro cadastrado");
-      setNovo({ nome: "", email: "", senha: "", funcao: "", papel: "equipe", horas_semana: 40, custo_hora: "" });
+      setNovo({ nome: "", email: "", senha: "", funcoes: [], papel: "equipe", horas_semana: 40, custo_hora: "" });
       qc.invalidateQueries({ queryKey: ["team-profiles"] });
       qc.invalidateQueries({ queryKey: ["team-roles"] });
     } catch (e: any) {
-      toast.error("Erro ao cadastrar", { description: e.message });
+      toast.error("Erro ao cadastrar", {
+        description: /admin_add_allowed_email|admin_upsert_membro|function|does not exist/i.test(e.message || "")
+          ? "Rode 'supabase db push' pra habilitar o cadastro de membros."
+          : e.message,
+      });
     } finally {
       setCriando(false);
     }
   };
 
   const salvarPerfil = useMutation({
-    mutationFn: async (p: Profile & { papel: string }) => {
-      const funcaoObj = rateCard.find((r) => r.funcao === p.funcao);
-      const { error: eProfile } = await (supabase as any)
-        .from("profiles")
-        .update({
-          funcao: p.funcao,
-          funcao_id: funcaoObj?.id || null,
-          custo_hora: p.custo_hora,
-          horas_semana: p.horas_semana,
-          ativo: p.ativo,
-        })
-        .eq("id", p.id);
-      if (eProfile) throw eProfile;
-
-      const existing = roles.find((r) => r.user_id === p.id);
-      if (existing) {
-        const { error } = await supabase
-          .from("user_roles")
-          .update({ role: p.papel as any })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert({ user_id: p.id, role: p.papel as any });
-        if (error) throw error;
-      }
+    mutationFn: async (p: Profile & { papel: string; funcoes: string[] }) => {
+      const primeira = p.funcoes[0] || null;
+      const funcaoObj = rateCard.find((r) => r.funcao === primeira);
+      const { error } = await (supabase as any).rpc("admin_upsert_membro", {
+        _uid: p.id,
+        _email: p.email,
+        _nome: p.full_name,
+        _funcao: primeira,
+        _funcao_id: funcaoObj?.id || null,
+        _funcoes: p.funcoes,
+        _papel: p.papel,
+        _horas: p.horas_semana,
+        _custo: p.custo_hora,
+        _ativo: p.ativo,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["team-profiles"] });
       qc.invalidateQueries({ queryKey: ["team-roles"] });
       toast.success("Salvo");
     },
-    onError: (e: any) => toast.error("Erro ao salvar", { description: e.message }),
+    onError: (e: any) =>
+      toast.error("Erro ao salvar", {
+        description: /admin_upsert_membro|function|does not exist/i.test(e.message || "")
+          ? "Rode 'supabase db push' pra habilitar."
+          : e.message,
+      }),
   });
 
   const resetSenha = async (email: string) => {
@@ -212,18 +231,11 @@ export default function Time() {
                 value={novo.senha}
                 onChange={(e) => setNovo({ ...novo, senha: e.target.value })}
               />
-              <Select value={novo.funcao} onValueChange={(v) => setNovo({ ...novo, funcao: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Função (ex.: Editor)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rateCard.map((r) => (
-                    <SelectItem key={r.id} value={r.funcao}>
-                      {r.funcao}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiFuncao
+                rateCard={rateCard}
+                value={novo.funcoes}
+                onChange={(v) => setNovo({ ...novo, funcoes: v })}
+              />
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <Select value={novo.papel} onValueChange={(v) => setNovo({ ...novo, papel: v })}>
@@ -291,6 +303,49 @@ export default function Time() {
   );
 }
 
+function MultiFuncao({
+  rateCard, value, onChange,
+}: {
+  rateCard: RateCard[];
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const toggle = (f: string) =>
+    onChange(value.includes(f) ? value.filter((x) => x !== f) : [...value, f]);
+  const label = value.length === 0 ? "Função" : value.length === 1 ? value[0] : `${value.length} funções`;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm">
+          <span className={`truncate ${value.length ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-1">
+        {rateCard.length === 0 ? (
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">Cadastre funções no rate card primeiro.</p>
+        ) : (
+          rateCard.map((r) => {
+            const on = value.includes(r.funcao);
+            return (
+              <button
+                key={r.id}
+                onClick={() => toggle(r.funcao)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+              >
+                <span className={`flex h-4 w-4 items-center justify-center rounded border ${on ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>
+                  {on && <Check className="h-3 w-3" />}
+                </span>
+                {r.funcao}
+              </button>
+            );
+          })
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function TeamMemberRow({
   profile,
   currentRole,
@@ -305,10 +360,12 @@ function TeamMemberRow({
   rateCard: RateCard[];
   editable: boolean;
   adminActions: boolean;
-  onSave: (patch: Partial<Profile> & { papel: string }) => void;
+  onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => void;
   onResetSenha: () => void;
 }) {
-  const [funcao, setFuncao] = useState(profile.funcao || "");
+  const [funcoes, setFuncoes] = useState<string[]>(
+    profile.funcoes && profile.funcoes.length ? profile.funcoes : profile.funcao ? [profile.funcao] : [],
+  );
   const [papel, setPapel] = useState(currentRole);
   const [horas, setHoras] = useState(profile.horas_semana);
   const [custoHora, setCustoHora] = useState<string>(profile.custo_hora?.toString() || "");
@@ -355,18 +412,7 @@ function TeamMemberRow({
 
         {editable && (
           <div className="grid gap-3 md:grid-cols-6">
-            <Select value={funcao} onValueChange={setFuncao}>
-              <SelectTrigger>
-                <SelectValue placeholder="Função" />
-              </SelectTrigger>
-              <SelectContent>
-                {rateCard.map((r) => (
-                  <SelectItem key={r.id} value={r.funcao}>
-                    {r.funcao}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiFuncao rateCard={rateCard} value={funcoes} onChange={setFuncoes} />
             <Select value={papel} onValueChange={setPapel} disabled={!adminActions}>
               <SelectTrigger>
                 <SelectValue />
@@ -416,7 +462,7 @@ function TeamMemberRow({
               size="sm"
               onClick={() =>
                 onSave({
-                  funcao,
+                  funcoes,
                   papel,
                   horas_semana: horas,
                   custo_hora: custoHora ? Number(custoHora) : null,
