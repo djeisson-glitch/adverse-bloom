@@ -8,7 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil, CheckCircle2,
+  FileText, Link2, Pencil, CheckCircle2, EyeOff,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -637,6 +637,32 @@ function PlanilhaSection({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const hidratado = useRef(false);
 
+  // Grupos (categorias) ocultos deste orçamento — some da planilha e sai do cálculo.
+  const [ocultas, setOcultas] = useState<string[]>(
+    Array.isArray(budget.categorias_ocultas) ? budget.categorias_ocultas : [],
+  );
+  const ocultasSet = useMemo(() => new Set(ocultas), [ocultas]);
+  const salvarOcultas = useMutation({
+    mutationFn: async (lista: string[]) => {
+      const { error } = await (supabase as any)
+        .from("budgets")
+        .update({ categorias_ocultas: lista })
+        .eq("id", budget.id);
+      if (error) throw error;
+    },
+    onError: (e: any) =>
+      toast.error("Não salvou os grupos", {
+        description: /categorias_ocultas/i.test(e.message || "")
+          ? "Rode 'supabase db push' pra habilitar."
+          : e.message,
+      }),
+  });
+  const toggleOculta = (catId: string, ocultar: boolean) => {
+    const lista = ocultar ? [...ocultas, catId] : ocultas.filter((x) => x !== catId);
+    setOcultas(lista);
+    salvarOcultas.mutate(lista);
+  };
+
   const itensPorCategoria = useMemo(() => {
     const m = new Map<string, BudgetItem[]>();
     itens.forEach((i) => {
@@ -651,12 +677,18 @@ function PlanilhaSection({
   const categoriasVisiveis = useMemo(() => {
     const isPos = (c: Categoria) => c.codigo === "011" || /p[óo]s\s*produ/i.test(c.nome || "");
     return categorias.filter((c) => {
+      if (ocultasSet.has(c.id)) return false;                 // grupo excluído deste orçamento
       if ((itensPorCategoria.get(c.id)?.length ?? 0) > 0) return true;
       if (tipoOrcamento === "so_pos_producao") return isPos(c);
       if (tipoOrcamento === "so_producao") return !isPos(c);
       return true;
     });
-  }, [categorias, itensPorCategoria, tipoOrcamento]);
+  }, [categorias, itensPorCategoria, tipoOrcamento, ocultasSet]);
+  // Grupos escondidos, pra oferecer reinclusão.
+  const categoriasOcultas = useMemo(
+    () => categorias.filter((c) => ocultasSet.has(c.id)),
+    [categorias, ocultasSet],
+  );
 
   // Valor cobrado da linha = qtd × diária × valor unitário.
   // diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
@@ -675,20 +707,26 @@ function PlanilhaSection({
     return m;
   }, [itens]);
 
+  // Só as linhas de grupos NÃO ocultos entram nos totais e na rentabilidade.
+  const itensAtivos = useMemo(
+    () => itens.filter((i) => !ocultasSet.has(i.categoria_id || "")),
+    [itens, ocultasSet],
+  );
+
   const custoProducao = useMemo(
-    () => itens.reduce((s, i) => s + valorItem(i), 0),
-    [itens],
+    () => itensAtivos.reduce((s, i) => s + valorItem(i), 0),
+    [itensAtivos],
   );
   // Custo real total (soma dos custos por linha) e a sobra (o que cada linha
   // deixa acima do custo). Rentabilidade = margem da produtora + sobra das linhas.
   const custoReal = useMemo(
-    () => itens.reduce((s, i) => s + custoItem(i), 0),
-    [itens],
+    () => itensAtivos.reduce((s, i) => s + custoItem(i), 0),
+    [itensAtivos],
   );
   const sobraLinhas = custoProducao - custoReal;
   const baseSemTaxa = useMemo(
-    () => itens.filter((i) => !i.tira_taxa).reduce((s, i) => s + valorItem(i), 0),
-    [itens],
+    () => itensAtivos.filter((i) => !i.tira_taxa).reduce((s, i) => s + valorItem(i), 0),
+    [itensAtivos],
   );
   const margemValor = baseSemTaxa * (Number(percentuais.margem) / 100);
   const subTotal2 = custoProducao + margemValor;
@@ -999,20 +1037,29 @@ function PlanilhaSection({
             const aberta = expandidas.has(cat.id);
             return (
               <div key={cat.id} className="rounded-lg border border-border/50">
-                <button
-                  onClick={() => toggleCat(cat.id)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
-                >
-                  {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <span className="font-mono text-[10px] text-muted-foreground">{cat.codigo}</span>
-                  <span className="text-sm font-medium text-foreground">{cat.nome}</span>
-                  <span className="ml-auto flex items-center gap-3">
-                    <span className="text-[10px] text-muted-foreground">{itensCat.length}</span>
-                    <span className="text-sm font-medium text-foreground">
-                      {formatCurrency(totalCat)}
+                <div className="flex w-full items-center gap-3 px-4 py-2.5">
+                  <button
+                    onClick={() => toggleCat(cat.id)}
+                    className="flex flex-1 items-center gap-3 text-left"
+                  >
+                    {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <span className="font-mono text-[10px] text-muted-foreground">{cat.codigo}</span>
+                    <span className="text-sm font-medium text-foreground">{cat.nome}</span>
+                    <span className="ml-auto flex items-center gap-3">
+                      <span className="text-[10px] text-muted-foreground">{itensCat.length}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        {formatCurrency(totalCat)}
+                      </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+                  <button
+                    onClick={() => toggleOculta(cat.id, true)}
+                    title="Excluir este grupo do orçamento (dá pra reincluir depois)"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <EyeOff className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {aberta && (
                   <CategoriaItens
                     budgetId={budget.id}
@@ -1027,6 +1074,25 @@ function PlanilhaSection({
             );
           })}
         </div>
+
+        {/* Grupos excluídos deste orçamento — clique pra reincluir */}
+        {categoriasOcultas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/50 bg-muted/10 p-3">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupos ocultos</span>
+            {categoriasOcultas.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => toggleOculta(c.id, false)}
+                title="Reincluir este grupo no orçamento"
+                className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              >
+                <Plus className="h-3 w-3" />
+                <span className="font-mono text-[10px]">{c.codigo}</span>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
 
