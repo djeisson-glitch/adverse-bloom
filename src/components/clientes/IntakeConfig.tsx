@@ -31,6 +31,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     intake_editor_id: "",
     intake_edit_horas: "4",
     intake_revisao_horas: "2",
+    intake_alteracoes_media: "1",
   });
   const [hidratado, setHidratado] = useState(false);
 
@@ -39,7 +40,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("clients")
-        .select("intake_ativo, intake_slug, intake_editor_id, intake_edit_horas, intake_revisao_horas")
+        .select("intake_ativo, intake_slug, intake_editor_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media")
         .eq("id", clientId)
         .maybeSingle();
       if (error) throw error;
@@ -64,6 +65,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_editor_id: cli.intake_editor_id || "",
         intake_edit_horas: String(cli.intake_edit_horas ?? 4),
         intake_revisao_horas: String(cli.intake_revisao_horas ?? 2),
+        intake_alteracoes_media: String(cli.intake_alteracoes_media ?? 1),
       });
       setHidratado(true);
     }
@@ -77,6 +79,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_editor_id: form.intake_editor_id || null,
         intake_edit_horas: Number(form.intake_edit_horas) || 0,
         intake_revisao_horas: Number(form.intake_revisao_horas) || 0,
+        intake_alteracoes_media: Number(form.intake_alteracoes_media) || 1,
       };
       const { error } = await (supabase as any).from("clients").update(patch).eq("id", clientId);
       if (error) throw error;
@@ -146,6 +149,15 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
             <Label>Buffer de revisão interna (horas)</Label>
             <Input type="number" value={form.intake_revisao_horas} onChange={(e) => setForm({ ...form, intake_revisao_horas: e.target.value })} />
           </div>
+          <div>
+            <Label>Rodadas médias de alteração</Label>
+            <Input type="number" step="0.5" value={form.intake_alteracoes_media} onChange={(e) => setForm({ ...form, intake_alteracoes_media: e.target.value })} />
+            <p className="mt-1 text-[11px] text-muted-foreground">Fallback enquanto não há histórico. Com ≥3 entregáveis, o sistema passa a usar a média real do cliente automaticamente.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <span>O prazo agora escala pela <strong>duração</strong> de cada vídeo e pelo <strong>histórico de alterações</strong> do cliente. A leitura de complexidade por IA aparece na caixa de <strong>Demandas</strong> quando o time abre a solicitação.</span>
         </div>
 
         {url && (

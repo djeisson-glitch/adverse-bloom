@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock } from "lucide-react";
+import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock, Sparkles, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ type Demanda = {
   prazo_desejado: string | null;
   anexos: any[];
   viabilidade: any;
+  ia_complexidade: any;
   status: string;
   projeto_id: string | null;
   created_at: string;
@@ -71,6 +72,36 @@ export default function Demandas() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["demandas"] }),
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
+
+  // Leitura de complexidade por IA (interno) — roda ao abrir a demanda.
+  const analisar = useMutation({
+    mutationFn: async (demandaId: string) => {
+      const { data, error } = await (supabase as any).functions.invoke("intake-ia", { body: { demanda_id: demandaId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["demandas"] }),
+    onError: (e: any) =>
+      toast.error("IA não rodou", {
+        description: /ANTHROPIC|configurada/i.test(e.message || "")
+          ? "Falta a chave da Anthropic no Supabase."
+          : /not found|Function|Failed to send/i.test(e.message || "")
+          ? "Publique a função: supabase functions deploy intake-ia."
+          : e.message,
+      }),
+  });
+
+  const autoRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!aberta) return;
+    const d = demandas.find((x) => x.id === aberta);
+    if (!d || d.ia_complexidade || d.status === "recusada") return;
+    if (autoRef.current.has(d.id)) return;
+    autoRef.current.add(d.id);
+    analisar.mutate(d.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberta, demandas]);
 
   const virarProjeto = useMutation({
     mutationFn: async (d: Demanda) => {
@@ -201,9 +232,66 @@ export default function Demandas() {
                         <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
                           <p className="mb-1 font-medium text-foreground">Cálculo de viabilidade</p>
                           Fila do editor {Number(d.viabilidade.carga_horas || 0)}h + edição {Number(d.viabilidade.demanda_horas || 0)}h + revisão {Number(d.viabilidade.revisao_horas || 0)}h = <strong>{Number(d.viabilidade.total_horas || 0)}h úteis</strong>.
+                          {d.viabilidade.complexidade && <> · complexidade da entrega: <strong>{d.viabilidade.complexidade}</strong></>}
+                          {d.viabilidade.rodadas != null && <> · alteração projetada: <strong>{d.viabilidade.rodadas}×</strong> {d.viabilidade.rodadas_hist ? "(histórico do cliente)" : "(fator manual)"}</>}
                           {d.viabilidade.sem_editor && <span className="text-amber-500"> · Sem editor configurado pro cliente — estimativa considera só a nova demanda.</span>}
                         </div>
                       )}
+
+                      {/* Leitura de complexidade por IA (interno, automático ao abrir) */}
+                      {(() => {
+                        const ia = d.ia_complexidade;
+                        const analisando = analisar.isPending && analisar.variables === d.id;
+                        const cor = (c: string) =>
+                          c === "alta" ? "bg-amber-500/15 text-amber-500" : c === "baixa" ? "bg-success/15 text-success" : "bg-primary/15 text-primary";
+                        return (
+                          <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
+                            <div className="flex items-center justify-between">
+                              <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                <Sparkles className="h-3.5 w-3.5 text-primary" /> Complexidade (leitura de IA)
+                              </p>
+                              <button
+                                onClick={() => analisar.mutate(d.id)}
+                                disabled={analisando}
+                                className="text-[11px] text-primary hover:underline disabled:opacity-50"
+                              >
+                                {analisando ? "analisando…" : ia ? "reanalisar" : "analisar"}
+                              </button>
+                            </div>
+                            {analisando && !ia ? (
+                              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Lendo o briefing…
+                              </p>
+                            ) : ia ? (
+                              <div className="mt-2 space-y-2 text-xs">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${cor(ia.complexidade_geral)}`}>
+                                    complexidade {ia.complexidade_geral}
+                                  </span>
+                                  {ia.horas_ajustadas != null && (
+                                    <span className="text-muted-foreground">
+                                      {Number(d.viabilidade?.total_horas || 0)}h → <strong className="text-foreground">~{ia.horas_ajustadas}h</strong> com a leitura (×{ia.fator_ajuste})
+                                    </span>
+                                  )}
+                                </div>
+                                {ia.nota && <p className="text-muted-foreground">{ia.nota}</p>}
+                                {Array.isArray(ia.riscos) && ia.riscos.length > 0 && (
+                                  <ul className="space-y-0.5">
+                                    {ia.riscos.map((r: string, i: number) => (
+                                      <li key={i} className="flex items-start gap-1">
+                                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                                        <span className="text-muted-foreground">{r}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-xs text-muted-foreground">Abra pra analisar, ou clique em “analisar”.</p>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Entregas */}
                       <div>

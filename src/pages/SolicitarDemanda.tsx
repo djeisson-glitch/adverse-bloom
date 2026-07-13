@@ -42,15 +42,20 @@ export default function SolicitarDemanda() {
   });
 
   // Disponibilidade ao vivo enquanto o cliente escolhe a data/hora (read-only).
+  // Agora manda as entregas (com duração) — o prazo escala pela complexidade.
   const prazoIso = form.prazo ? new Date(form.prazo).toISOString() : null;
-  const nEntregas = Math.max(1, entregas.filter((e) => e.titulo.trim() || e.briefing.trim()).length);
+  const entregasReais = entregas.filter((e) => e.titulo.trim() || e.briefing.trim());
+  const entregasCalc = (entregasReais.length ? entregasReais : [entregas[0]]).map((e) => ({
+    titulo: e.titulo, formato: e.formato, duracao: e.duracao, briefing: e.briefing,
+  }));
+  const dispoKey = entregasCalc.map((e) => `${e.duracao}|${e.formato}`).join(",");
   const { data: dispo, isFetching: checando } = useQuery({
-    queryKey: ["intake-dispo", slug, nEntregas, prazoIso],
+    queryKey: ["intake-dispo", slug, dispoKey, prazoIso],
     enabled: !!slug && !!prazoIso,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("intake_disponibilidade", {
         _slug: slug,
-        _n_entregas: nEntregas,
+        _entregas: entregasCalc,
         _prazo: prazoIso,
       });
       if (error) throw error;
