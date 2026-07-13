@@ -517,18 +517,27 @@ function AcaoBotoes({
     });
   };
 
-  // Reabrir um orçamento já aceito/ganho — volta pra Negociação.
+  // Reabrir um orçamento já aceito/ganho — limpa a aprovação da carta (volta a
+  // pedir aprovação, com histórico) e devolve o deal pra Negociação.
   const reabrir = useMutation({
     mutationFn: async () => {
       if (jobGerado) {
         throw new Error(`Esse orçamento virou o Job #${jobGerado.numero}. Exclua o projeto antes de reabrir.`);
       }
-      const { error } = await (supabase as any).from("deals").update({ stage: "negociacao" }).eq("id", deal.id);
-      if (error) throw error;
+      const { error } = await (supabase as any).rpc("carta_reabrir", { _deal_id: deal.id });
+      if (error) {
+        // fallback se a migration do histórico ainda não rodou
+        if (/carta_reabrir|function|does not exist/i.test(error.message || "")) {
+          const { error: e2 } = await (supabase as any).from("deals").update({ stage: "negociacao" }).eq("id", deal.id);
+          if (e2) throw e2;
+        } else {
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orcamento-deal", deal.id] });
-      toast.info("Orçamento reaberto — voltou pra Negociação");
+      toast.info("Orçamento reaberto — voltou pra Negociação e a carta pede aprovação de novo");
     },
     onError: (e: any) => toast.error("Não deu pra reabrir", { description: e.message }),
   });

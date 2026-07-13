@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import { Loader2, CheckCircle2, ShieldCheck, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { roundUpTo50, formatCurrency } from "@/lib/format";
 import {
@@ -83,7 +83,15 @@ export default function CartaPublica() {
     pos: salvo.pos ?? DEFAULTS.pos,
     equipamentos: salvo.equipamentos ?? DEFAULTS.equipamentos,
     nao_inclui: salvo.nao_inclui ?? DEFAULTS.nao_inclui,
-    investimento: salvo.investimento ?? (data.valor_investimento ? String(data.valor_investimento) : ""),
+    // valor: proposta salva (se não-vazia) → valor do orçamento → total da planilha
+    investimento:
+      (salvo.investimento && String(salvo.investimento).trim())
+        ? salvo.investimento
+        : data.valor_investimento
+          ? String(data.valor_investimento)
+          : data.total_value
+            ? String(data.total_value)
+            : "",
     validade_dias: salvo.validade_dias ?? 15,
     condicoes_pagamento: salvo.condicoes_pagamento ?? "à vista",
   };
@@ -93,6 +101,10 @@ export default function CartaPublica() {
   const jaAprovada = !!data.aprovada_em || !!aprovadaLocal;
   const aprovadaPor = data.aprovada_por || (aprovadaLocal ? { nome: aprovadaLocal.nome } : null);
   const podeAprovar = form.nome.trim() && form.email.trim();
+  const historico: any[] = Array.isArray(data.aprovacoes) ? data.aprovacoes : [];
+  const jaFoiAprovadaAntes = historico.some((h) => h?.tipo === "aprovacao");
+  const fmtEvento = (iso?: string) =>
+    iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
 
   return (
     <div className="min-h-screen bg-[#0f0f10]">
@@ -103,6 +115,23 @@ export default function CartaPublica() {
         {/* Área de aprovação — fixa embaixo */}
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#131314]/95 backdrop-blur">
           <div className="mx-auto max-w-5xl px-6 py-4">
+            {/* Histórico — transparência com o cliente */}
+            {historico.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#9A968C]">
+                <span className="uppercase tracking-wider text-[#6b675f]">Histórico</span>
+                {historico.map((h, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    {h?.tipo === "aprovacao" ? (
+                      <><CheckCircle2 className="h-3 w-3 text-[#10b981]" /> Aprovada por {h.nome}</>
+                    ) : (
+                      <><RotateCcw className="h-3 w-3 text-[#f59e0b]" /> Reaberta</>
+                    )}
+                    <span className="text-[#6b675f]">· {fmtEvento(h?.em)}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
             {jaAprovada ? (
               <div className="flex items-center gap-3 text-[#E8E1D0]">
                 <CheckCircle2 className="h-6 w-6 text-[#10b981]" />
@@ -114,19 +143,26 @@ export default function CartaPublica() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="grid flex-1 gap-2 sm:grid-cols-3">
-                  <CampoPub label="Seu nome *" value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} placeholder="Nome completo" />
-                  <CampoPub label="E-mail *" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="voce@empresa.com" type="email" />
-                  <CampoPub label="Celular" value={form.celular} onChange={(v) => setForm({ ...form, celular: v })} placeholder="(00) 00000-0000" />
+              <div className="space-y-2">
+                {jaFoiAprovadaAntes && (
+                  <p className="flex items-center gap-1.5 text-xs text-[#f5c37a]">
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0" /> Esta proposta foi atualizada — precisamos da sua aprovação novamente.
+                  </p>
+                )}
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="grid flex-1 gap-2 sm:grid-cols-3">
+                    <CampoPub label="Seu nome *" value={form.nome} onChange={(v) => setForm({ ...form, nome: v })} placeholder="Nome completo" />
+                    <CampoPub label="E-mail *" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="voce@empresa.com" type="email" />
+                    <CampoPub label="Celular" value={form.celular} onChange={(v) => setForm({ ...form, celular: v })} placeholder="(00) 00000-0000" />
+                  </div>
+                  <button
+                    onClick={() => setConfirmar(true)}
+                    disabled={!podeAprovar}
+                    className="h-10 shrink-0 rounded-md bg-[#E53500] px-5 text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Aprovar proposta
+                  </button>
                 </div>
-                <button
-                  onClick={() => setConfirmar(true)}
-                  disabled={!podeAprovar}
-                  className="h-10 shrink-0 rounded-md bg-[#E53500] px-5 text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Aprovar proposta
-                </button>
               </div>
             )}
           </div>

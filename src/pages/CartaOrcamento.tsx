@@ -71,7 +71,10 @@ export default function CartaOrcamento() {
           : "");
       // Valor da carta = valor do orçamento (planilha → proposta → deal), arredondado pra cima de 50 em 50.
       const valorOrc = Number(budget?.total_value) || Number(deal.valor_proposta) || Number(deal.value) || 0;
-      const investimentoBase = salvo.investimento ?? (valorOrc ? String(roundUpTo50(valorOrc)) : "");
+      const investimentoBase =
+        (salvo.investimento && String(salvo.investimento).trim())
+          ? salvo.investimento
+          : valorOrc ? String(roundUpTo50(valorOrc)) : "";
       setP({
         titulo: salvo.titulo ?? (deal.client?.name || deal.title || ""),
         subtitulo: salvo.subtitulo ?? (TIPO_LABEL[deal.tipo_orcamento] || deal.title || ""),
