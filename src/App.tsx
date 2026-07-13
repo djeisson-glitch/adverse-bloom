@@ -27,6 +27,7 @@ import OrcamentoEditor from "./pages/OrcamentoEditor";
 import CartaOrcamento from "./pages/CartaOrcamento";
 import Leads from "./pages/Leads";
 import LeadDetalhe from "./pages/LeadDetalhe";
+import CatalogoItens from "./pages/CatalogoItens";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import ProjetoPecas from "./pages/ProjetoPecas";
 import EntregavelDetalhe from "./pages/EntregavelDetalhe";
@@ -162,6 +163,7 @@ const App = () => (
               <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
               <Route path="/time" element={<ProtectedRoute><TimePage /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+              <Route path="/admin/catalogo" element={<ProtectedRoute><CatalogoItens /></ProtectedRoute>} />
               <Route path="/admin/rate-card" element={<ProtectedRoute><AdminRateCard /></ProtectedRoute>} />
               <Route path="/admin/workflows" element={<ProtectedRoute><AdminWorkflows /></ProtectedRoute>} />
               <Route path="/admin/aprovacoes" element={<ProtectedRoute><AdminAprovacoes /></ProtectedRoute>} />

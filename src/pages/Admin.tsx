@@ -1,4 +1,4 @@
-import { Users, GitBranch, Coins, Settings2, ShieldCheck } from "lucide-react";
+import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -66,6 +66,12 @@ export default function Admin() {
       title: "Rate card",
       icon: Coins,
       count: () => `${funcoes} funções · preço/hora p/ orçar`,
+    },
+    {
+      href: "/admin/catalogo",
+      title: "Catálogo de itens",
+      icon: Package,
+      count: () => "valor unitário padrão + itens do porte médio",
     },
   ];
 

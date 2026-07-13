@@ -37,6 +37,7 @@ export default function NovoOrcamento() {
     novo_cliente: "",
     canal_entrada: "",
     tipo_orcamento: "",
+    porte: "grande",
     precisa_roteiro: "",
     precisa_elenco: "",
     local_filmagem: "",
@@ -71,6 +72,7 @@ export default function NovoOrcamento() {
           value: form.verba_estimada ? Number(form.verba_estimada) : 0,
           canal_entrada: form.canal_entrada || null,
           tipo_orcamento: form.tipo_orcamento || null,
+          porte: form.porte,
           precisa_roteiro: form.precisa_roteiro || null,
           precisa_elenco: form.precisa_elenco || null,
           local_filmagem: form.local_filmagem || null,
@@ -182,6 +184,16 @@ export default function NovoOrcamento() {
                       {o.label}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Porte do projeto</Label>
+              <Select value={form.porte} onValueChange={(v) => setForm({ ...form, porte: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="grande">Grande (planilha completa)</SelectItem>
+                  <SelectItem value="medio">Médio (planilha reduzida)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
