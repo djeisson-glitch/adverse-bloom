@@ -52,6 +52,8 @@ export default function SolicitarDemanda() {
   const { data: dispo, isFetching: checando } = useQuery({
     queryKey: ["intake-dispo", slug, dispoKey, prazoIso],
     enabled: !!slug && !!prazoIso,
+    retry: false,                 // falhou? cai no aviso neutro, não gira pra sempre
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("intake_disponibilidade", {
         _slug: slug,
