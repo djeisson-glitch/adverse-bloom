@@ -51,6 +51,8 @@ import ConfiguracoesPermissoes from "./pages/ConfiguracoesPermissoes";
 import AuthContaAzul from "./pages/AuthContaAzul";
 import PropostaPublica from "./pages/PropostaPublica";
 import CartaPublica from "./pages/CartaPublica";
+import Demandas from "./pages/Demandas";
+import SolicitarDemanda from "./pages/SolicitarDemanda";
 // Onda 0 — placeholders dos novos módulos do Adverse OS Produtora
 import Fechamento from "./pages/Fechamento";
 import PosProducao from "./pages/PosProducao";
@@ -132,6 +134,7 @@ const App = () => (
               <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
 
               {/* Onda 0 — Produção */}
+              <Route path="/demandas" element={<ProtectedRoute><Demandas /></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
               <Route path="/leads/:id" element={<ProtectedRoute><LeadDetalhe /></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
@@ -183,6 +186,7 @@ const App = () => (
               <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="/carta/:token" element={<CartaPublica />} />
+              <Route path="/solicitar/:slug" element={<SolicitarDemanda />} />
               <Route path="/portal/:token" element={<PortalPublico />} />
               {/* Rota temporária de preview da Onda 0 (sem auth) — remover após validação */}
               <Route path="/preview-onda-0" element={<PreviewOnda0 />} />

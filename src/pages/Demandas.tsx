@@ -1,0 +1,277 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/format";
+import { toast } from "sonner";
+
+type Demanda = {
+  id: string;
+  client_id: string | null;
+  solicitante_nome: string;
+  solicitante_email: string;
+  nome_projeto: string;
+  entregas: any[];
+  prazo_desejado: string | null;
+  anexos: any[];
+  viabilidade: any;
+  status: string;
+  projeto_id: string | null;
+  created_at: string;
+  client?: { name: string } | null;
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  nova: "bg-primary/15 text-primary",
+  aceita: "bg-blue-500/15 text-blue-400",
+  recusada: "bg-red-500/15 text-red-400",
+  virou_projeto: "bg-success/15 text-success",
+};
+const STATUS_LABEL: Record<string, string> = {
+  nova: "Nova", aceita: "Aceita", recusada: "Recusada", virou_projeto: "Virou projeto",
+};
+
+function fmtDateTime(s?: string | null) {
+  if (!s) return "—";
+  return new Date(s).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+export default function Demandas() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [aberta, setAberta] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<string>("abertas");
+
+  const { data: demandas = [], isLoading } = useQuery({
+    queryKey: ["demandas"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("demandas")
+        .select("*, client:clients(name)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Demanda[];
+    },
+  });
+
+  const visiveis = demandas.filter((d) =>
+    filtro === "todas" ? true : filtro === "abertas" ? d.status === "nova" || d.status === "aceita" : d.status === filtro,
+  );
+  const novas = demandas.filter((d) => d.status === "nova").length;
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await (supabase as any).from("demandas").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["demandas"] }),
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  const virarProjeto = useMutation({
+    mutationFn: async (d: Demanda) => {
+      // editor padrão do cliente (pra já responsabilizar os entregáveis)
+      let editorId: string | null = null;
+      let clientName = d.client?.name || "";
+      if (d.client_id) {
+        const { data: cli } = await (supabase as any)
+          .from("clients").select("name, intake_editor_id").eq("id", d.client_id).maybeSingle();
+        editorId = cli?.intake_editor_id ?? null;
+        clientName = cli?.name || clientName;
+      }
+      const prazoDate = d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null;
+      const { data: proj, error: pErr } = await (supabase as any)
+        .from("projects")
+        .insert({
+          name: d.nome_projeto,
+          client_name: clientName,
+          client_id: d.client_id,
+          status: "Pré-produção",
+          sold_date: new Date().toISOString().slice(0, 10),
+          delivery_date: prazoDate,
+        })
+        .select("id")
+        .single();
+      if (pErr) throw pErr;
+
+      const entregas = Array.isArray(d.entregas) ? d.entregas : [];
+      if (entregas.length > 0) {
+        const rows = entregas.map((e: any, i: number) => ({
+          project_id: proj.id,
+          titulo: (e.titulo || "").trim() || `Vídeo ${i + 1}`,
+          descricao: e.briefing || null,
+          formato: e.formato || null,
+          duracao: e.duracao || null,
+          data_entrega: prazoDate,
+          responsavel_id: editorId,
+          ordem: i + 1,
+        }));
+        const { error: dErr } = await (supabase as any).from("deliverables").insert(rows);
+        if (dErr) throw dErr;
+      }
+
+      const { error: uErr } = await (supabase as any)
+        .from("demandas").update({ status: "virou_projeto", projeto_id: proj.id }).eq("id", d.id);
+      if (uErr) throw uErr;
+      return proj.id as string;
+    },
+    onSuccess: (projectId) => {
+      qc.invalidateQueries({ queryKey: ["demandas"] });
+      toast.success("Projeto criado a partir da demanda");
+      navigate(`/projetos/${projectId}`);
+    },
+    onError: (e: any) => toast.error("Não deu pra criar o projeto", { description: e.message }),
+  });
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-5 py-6">
+      <div className="flex items-center gap-3">
+        <Inbox className="h-6 w-6 text-primary" />
+        <div className="flex-1">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Demandas</h1>
+          <p className="text-sm text-muted-foreground">Solicitações que chegaram pelos formulários dos clientes.</p>
+        </div>
+        {novas > 0 && <Badge className="bg-primary/15 text-primary">{novas} nova{novas > 1 ? "s" : ""}</Badge>}
+      </div>
+
+      <div className="flex gap-1.5">
+        {[["abertas", "Abertas"], ["nova", "Novas"], ["virou_projeto", "Viraram projeto"], ["recusada", "Recusadas"], ["todas", "Todas"]].map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => setFiltro(v)}
+            className={`rounded-md px-2.5 py-1 text-xs ${filtro === v ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40"}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : visiveis.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
+          Nenhuma demanda por aqui ainda.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {visiveis.map((d) => {
+            const open = aberta === d.id;
+            const viab = d.viabilidade || {};
+            const noPrazo = viab.no_prazo;
+            return (
+              <Card key={d.id} className="glass-card">
+                <CardContent className="p-0">
+                  <button onClick={() => setAberta(open ? null : d.id)} className="flex w-full items-center gap-3 p-4 text-left">
+                    {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{d.nome_projeto}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {d.client?.name || "—"} · {d.solicitante_nome} · {Array.isArray(d.entregas) ? d.entregas.length : 0} vídeo(s)
+                      </p>
+                    </div>
+                    {d.prazo_desejado && (
+                      <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
+                        <Clock className="h-3 w-3" /> pediu {fmtDateTime(d.prazo_desejado)}
+                      </span>
+                    )}
+                    {d.viabilidade?.earliest && (
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${noPrazo ? "bg-success/15 text-success" : "bg-amber-500/15 text-amber-500"}`}>
+                        {noPrazo ? "no prazo" : "apertado"}
+                      </span>
+                    )}
+                    <Badge className={STATUS_BADGE[d.status] || "bg-muted text-muted-foreground"}>{STATUS_LABEL[d.status] || d.status}</Badge>
+                  </button>
+
+                  {open && (
+                    <div className="space-y-4 border-t border-border/40 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Info label="Solicitante">{d.solicitante_nome} · {d.solicitante_email}</Info>
+                        <Info label="Recebida">{formatDate(d.created_at)}</Info>
+                        <Info label="Prazo pedido">{fmtDateTime(d.prazo_desejado)}</Info>
+                        <Info label="Podemos entregar até">
+                          <span className={noPrazo ? "text-success" : "text-amber-500"}>{fmtDateTime(d.viabilidade?.earliest)}</span>
+                        </Info>
+                      </div>
+
+                      {d.viabilidade && (
+                        <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+                          <p className="mb-1 font-medium text-foreground">Cálculo de viabilidade</p>
+                          Fila do editor {Number(d.viabilidade.carga_horas || 0)}h + edição {Number(d.viabilidade.demanda_horas || 0)}h + revisão {Number(d.viabilidade.revisao_horas || 0)}h = <strong>{Number(d.viabilidade.total_horas || 0)}h úteis</strong>.
+                          {d.viabilidade.sem_editor && <span className="text-amber-500"> · Sem editor configurado pro cliente — estimativa considera só a nova demanda.</span>}
+                        </div>
+                      )}
+
+                      {/* Entregas */}
+                      <div>
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entregas</p>
+                        <div className="space-y-2">
+                          {(Array.isArray(d.entregas) ? d.entregas : []).map((e: any, i: number) => (
+                            <div key={i} className="rounded-md border border-border/40 bg-background/40 p-2.5 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-foreground">{e.titulo || `Vídeo ${i + 1}`}</span>
+                                {e.formato && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{e.formato}</span>}
+                                {e.duracao && <span className="text-[10px] text-muted-foreground">{e.duracao}</span>}
+                              </div>
+                              {e.briefing && <p className="mt-1 text-xs text-muted-foreground">{e.briefing}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Anexos */}
+                      {Array.isArray(d.anexos) && d.anexos.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Anexos</p>
+                          <div className="flex flex-wrap gap-2">
+                            {d.anexos.map((a: any, i: number) => (
+                              <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                                className="flex items-center gap-1.5 rounded-md border border-border/50 bg-muted/30 px-2 py-1 text-xs text-foreground hover:border-primary/40">
+                                <Paperclip className="h-3 w-3" /> {a.nome}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ações */}
+                      {d.status === "virou_projeto" ? (
+                        <Button size="sm" variant="outline" onClick={() => d.projeto_id && navigate(`/projetos/${d.projeto_id}`)}>
+                          <ArrowRight className="mr-1 h-3.5 w-3.5" /> Abrir projeto
+                        </Button>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" onClick={() => virarProjeto.mutate(d)} disabled={virarProjeto.isPending} className="bg-primary text-primary-foreground">
+                            {virarProjeto.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
+                            Virar projeto
+                          </Button>
+                          {d.status !== "recusada" && (
+                            <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: d.id, status: "recusada" })} className="text-muted-foreground hover:text-destructive">
+                              <XCircle className="mr-1 h-3.5 w-3.5" /> Recusar
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Info({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-sm text-foreground">{children}</p>
+    </div>
+  );
+}

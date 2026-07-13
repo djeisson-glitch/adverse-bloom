@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { STAGES } from "@/hooks/useDeals";
+import IntakeConfig from "@/components/clientes/IntakeConfig";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 const ORIGINS = ["Apollo", "Indicação", "Evento", "Outros"];
@@ -326,6 +327,7 @@ export default function ClienteDetalhe() {
               <TabsTrigger value="deals">Deals ({clientDeals.length})</TabsTrigger>
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
+              <TabsTrigger value="formulario">Formulário de demandas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="deals" className="space-y-3">
@@ -414,6 +416,10 @@ export default function ClienteDetalhe() {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="formulario">
+              {id && <IntakeConfig clientId={id} clientName={client.name} />}
             </TabsContent>
           </Tabs>
         </div>
