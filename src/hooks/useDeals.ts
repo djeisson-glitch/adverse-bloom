@@ -43,17 +43,21 @@ export function useDeals() {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch latest budget values for all deals
+      // Valor do orçamento = total_value do budget MAIS RECENTE de cada deal.
+      // (Não depende de is_latest_version — o fluxo novo nem sempre marca a flag.)
       const dealIds = (data || []).map((d: any) => d.id);
       let budgetMap: Record<string, number> = {};
       if (dealIds.length > 0) {
         const { data: budgets } = await supabase
           .from("budgets")
-          .select("deal_id, total_value, status")
+          .select("deal_id, total_value, created_at")
           .in("deal_id", dealIds)
-          .eq("is_latest_version", true);
+          .order("created_at", { ascending: false });
         (budgets || []).forEach((b: any) => {
-          if (b.deal_id) budgetMap[b.deal_id] = (budgetMap[b.deal_id] || 0) + (b.total_value || 0);
+          // o primeiro de cada deal (ordenado desc) é o mais recente
+          if (b.deal_id && budgetMap[b.deal_id] === undefined) {
+            budgetMap[b.deal_id] = b.total_value || 0;
+          }
         });
       }
 

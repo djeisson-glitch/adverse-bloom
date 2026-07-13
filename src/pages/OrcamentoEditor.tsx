@@ -95,6 +95,7 @@ export default function OrcamentoEditor() {
           project_name: deal.title,
           client_name: deal.client?.name || "",
           status: "draft",
+          is_latest_version: true,
           margem_produtora_percent: padrao?.margem ?? 0,
           imposto_percent: padrao?.imposto ?? 0,
           comissoes: padrao?.comissoes ?? [],
@@ -929,14 +930,16 @@ function PlanilhaSection({
     },
   });
 
-  // Auto-save: salva %/imposto/comissões sozinho (debounce) — não precisa clicar em Salvar.
+  // Auto-save: salva %/imposto/comissões E o valor total (que muda quando as
+  // linhas mudam) sozinho (debounce). Assim o total_value no banco — lido pelo
+  // pipeline e pela carta — fica sempre atualizado.
   useEffect(() => {
     if (!hidratado.current) { hidratado.current = true; return; }
     setSaveStatus("saving");
     const t = setTimeout(() => salvarPercentuais.mutate(), 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [percentuais.margem, percentuais.imposto, comissoes, comissaoBase]);
+  }, [percentuais.margem, percentuais.imposto, comissoes, comissaoBase, valorTotalArredondado]);
 
   // Planilha vazia → popular com os itens padrão de produtora
   const carregarPadrao = useMutation({
