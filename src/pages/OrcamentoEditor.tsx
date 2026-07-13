@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil,
+  FileText, Link2, Pencil, CheckCircle2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -631,6 +631,8 @@ function PlanilhaSection({
     tipo: "%",
     valor: "",
   });
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const hidratado = useRef(false);
 
   const itensPorCategoria = useMemo(() => {
     const m = new Map<string, BudgetItem[]>();
@@ -716,12 +718,21 @@ function PlanilhaSection({
       }
       if (error) throw error;
     },
-    onSuccess: () => {
-      onChanged();
-      toast.success("Salvo");
+    onSuccess: () => setSaveStatus("saved"),
+    onError: (e: any) => {
+      setSaveStatus("idle");
+      toast.error("Erro ao salvar", { description: e.message });
     },
-    onError: (e: any) => toast.error("Erro ao salvar", { description: e.message }),
   });
+
+  // Auto-save: salva %/imposto/comissões sozinho (debounce) — não precisa clicar em Salvar.
+  useEffect(() => {
+    if (!hidratado.current) { hidratado.current = true; return; }
+    setSaveStatus("saving");
+    const t = setTimeout(() => salvarPercentuais.mutate(), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [percentuais.margem, percentuais.imposto, comissoes, comissaoBase]);
 
   // Planilha vazia → popular com os itens padrão de produtora
   const carregarPadrao = useMutation({
@@ -787,10 +798,15 @@ function PlanilhaSection({
           <Table className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold text-foreground">Planilha de produção</h2>
           <div className="ml-auto flex gap-2">
-            <Button size="sm" onClick={() => salvarPercentuais.mutate()} className="bg-primary text-primary-foreground">
-              <Save className="mr-1 h-3.5 w-3.5" />
-              Salvar
-            </Button>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground" title="Salva sozinho — não precisa clicar">
+              {saveStatus === "saving" ? (
+                <><Loader2 className="h-3 w-3 animate-spin" /> salvando…</>
+              ) : saveStatus === "saved" ? (
+                <><CheckCircle2 className="h-3 w-3 text-success" /> salvo</>
+              ) : (
+                <>salva automático</>
+              )}
+            </span>
             <Button size="sm" variant="outline" onClick={() => usarComoProposta.mutate()} disabled={usarComoProposta.isPending}>
               <Upload className="mr-1 h-3.5 w-3.5" />
               Usar como proposta
@@ -1044,8 +1060,8 @@ function PctInput({
           value={buf}
           onChange={(e) => handle(e.target.value)}
           placeholder="0"
-          style={{ width: `${Math.max(3, buf.length + 1.5)}ch` }}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+          style={{ width: `calc(${Math.max(1, buf.length)}ch + 1.9rem)` }}
+          className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
         <span className="text-xs">%</span>
         <span className="text-xs">= {formatCurrency(valorCalc)}</span>
