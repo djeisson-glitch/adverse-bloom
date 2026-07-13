@@ -8,7 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil, CheckCircle2, EyeOff,
+  FileText, Link2, Pencil, CheckCircle2, EyeOff, RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -516,6 +516,22 @@ function AcaoBotoes({
       qc.invalidateQueries({ queryKey: ["orcamento-deal", deal.id] });
     });
   };
+
+  // Reabrir um orçamento já aceito/ganho — volta pra Negociação.
+  const reabrir = useMutation({
+    mutationFn: async () => {
+      if (jobGerado) {
+        throw new Error(`Esse orçamento virou o Job #${jobGerado.numero}. Exclua o projeto antes de reabrir.`);
+      }
+      const { error } = await (supabase as any).from("deals").update({ stage: "negociacao" }).eq("id", deal.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orcamento-deal", deal.id] });
+      toast.info("Orçamento reaberto — voltou pra Negociação");
+    },
+    onError: (e: any) => toast.error("Não deu pra reabrir", { description: e.message }),
+  });
   const enviarViaLink = async () => {
     try {
       let budgetId = budget?.id;
@@ -596,13 +612,24 @@ function AcaoBotoes({
         </DropdownMenuContent>
       </DropdownMenu>
       {ganho ? (
-        <Button
-          onClick={() => jobGerado && navigate(`/projetos/${jobGerado.id}`)}
-          className="bg-success text-white hover:bg-success/90"
-        >
-          <Trophy className="mr-1.5 h-3.5 w-3.5" />
-          {jobGerado ? `Job #${jobGerado.numero} gerado` : "Orçamento ganho"}
-        </Button>
+        <>
+          <Button
+            onClick={() => jobGerado && navigate(`/projetos/${jobGerado.id}`)}
+            className="bg-success text-white hover:bg-success/90"
+          >
+            <Trophy className="mr-1.5 h-3.5 w-3.5" />
+            {jobGerado ? `Job #${jobGerado.numero} gerado` : "Orçamento ganho"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => reabrir.mutate()}
+            disabled={reabrir.isPending}
+            title={jobGerado ? "Exclua o projeto antes de reabrir" : "Volta o orçamento pra Negociação"}
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            Reabrir
+          </Button>
+        </>
       ) : (
         <Button
           onClick={() => ganhar.mutate()}
