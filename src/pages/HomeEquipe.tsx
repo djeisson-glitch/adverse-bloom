@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
+import { NotificacoesCard } from "@/components/NotificacoesCard";
 import {
   CheckCircle2, Clapperboard, Timer, AlertTriangle, ArrowRight,
   CalendarDays, CalendarCheck, ListChecks,
@@ -103,6 +104,8 @@ export default function HomeEquipe() {
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
         </p>
       </div>
+
+      <NotificacoesCard />
 
       {/* Panorama */}
       <div className="grid gap-4 sm:grid-cols-3">

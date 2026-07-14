@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { usePermissions } from "@/hooks/usePermissions";
+import { NotificacoesCard } from "@/components/NotificacoesCard";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
   calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems, calcEntradasPrevistasNoMes, calcRecebidoTotal,
@@ -598,6 +599,9 @@ export default function Home() {
           </Button>
         </div>
       </motion.div>
+
+      {/* Notificações não lidas — direto na cara */}
+      <NotificacoesCard />
 
       {/* Ações rápidas */}
       <motion.div {...anim} className="grid grid-cols-3 gap-3 sm:grid-cols-6">
