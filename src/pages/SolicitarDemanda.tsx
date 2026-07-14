@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle } from "lucide-react";
+
+/** ISO (timestamptz) -> string do input datetime-local (horário local). */
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+/** Formato curto pro card de slot: "qui, 16/07 · 18h". */
+function fmtSlot(iso: string) {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "");
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${dia} · ${hora}`;
+}
 
 /**
  * Formulário público de demandas do cliente (sem login).
@@ -30,6 +43,8 @@ export default function SolicitarDemanda() {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [modoData, setModoData] = useState<"slots" | "custom">("slots");
+  const preSelRef = useRef(false);
 
   const { data: cfg, isLoading } = useQuery({
     queryKey: ["intake-config", slug],
@@ -67,10 +82,34 @@ export default function SolicitarDemanda() {
   const inviavel = !!prazoIso && dispo && dispo.no_prazo === false;
   const usarSugerido = () => {
     if (!dispo?.earliest) return;
-    const d = new Date(dispo.earliest);
-    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    setForm((f) => ({ ...f, prazo: local }));
+    setForm((f) => ({ ...f, prazo: toLocalInput(dispo.earliest) }));
   };
+
+  // Horários sugeridos (nudge): 3 slots prontos, o recomendado em destaque.
+  const { data: sugestoes } = useQuery({
+    queryKey: ["intake-sugestoes", slug, dispoKey],
+    enabled: !!slug,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("intake_sugestoes", { _slug: slug, _entregas: entregasCalc });
+      if (error) throw error;
+      return data as { slots: any[]; sem_editor: boolean } | null;
+    },
+  });
+  const slots: any[] = Array.isArray(sugestoes?.slots) ? sugestoes!.slots : [];
+  const escolherSlot = (s: any) => setForm((f) => ({ ...f, prazo: toLocalInput(s.data) }));
+
+  // Pré-seleciona o recomendado uma vez (efeito de default do nudge).
+  useEffect(() => {
+    if (modoData !== "slots" || form.prazo || preSelRef.current || slots.length === 0) return;
+    const rec = slots.find((s) => s.recomendado) || slots[0];
+    if (rec?.data) {
+      preSelRef.current = true;
+      setForm((f) => ({ ...f, prazo: toLocalInput(rec.data) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots, modoData]);
 
   const setEntrega = (i: number, patch: Partial<Entrega>) =>
     setEntregas((arr) => arr.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
@@ -173,41 +212,97 @@ export default function SolicitarDemanda() {
                       <button onClick={() => removeEntrega(i)} className="text-[#9A968C] hover:text-[#E53500]"><Trash2 className="h-3.5 w-3.5" /></button>
                     )}
                   </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_110px_110px]">
-                    <input className={inputSm} value={e.titulo} onChange={(ev) => setEntrega(i, { titulo: ev.target.value })} placeholder="Título / nome do vídeo" />
-                    <select className={inputSm} value={e.formato} onChange={(ev) => setEntrega(i, { formato: ev.target.value })}>
-                      {FORMATOS.map((f) => <option key={f} value={f} className="bg-[#17171a]">{f}</option>)}
-                    </select>
-                    <input className={inputSm} value={e.duracao} onChange={(ev) => setEntrega(i, { duracao: ev.target.value })} placeholder='Duração (ex.: 30")' />
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px_130px]">
+                    <div>
+                      <span className={campoLabel}>Título</span>
+                      <input className={`${inputSm} w-full`} value={e.titulo} onChange={(ev) => setEntrega(i, { titulo: ev.target.value })} placeholder="Nome do vídeo" />
+                    </div>
+                    <div>
+                      <span className={campoLabel}>Formato</span>
+                      <select className={`${inputSm} w-full`} value={e.formato} onChange={(ev) => setEntrega(i, { formato: ev.target.value })}>
+                        {FORMATOS.map((f) => <option key={f} value={f} className="bg-[#17171a]">{f}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <span className={campoLabel}>Duração</span>
+                      <input className={`${inputSm} w-full`} value={e.duracao} onChange={(ev) => setEntrega(i, { duracao: ev.target.value })} placeholder='ex.: 30" / 3min' />
+                    </div>
                   </div>
-                  <textarea className={`${inputSm} mt-2 min-h-[64px] w-full`} value={e.briefing} onChange={(ev) => setEntrega(i, { briefing: ev.target.value })} placeholder="Briefing: objetivo, referências, mensagem-chave, o que não pode faltar…" />
+                  <textarea className={`${inputSm} mt-2 min-h-[64px] w-full`} value={e.briefing} onChange={(ev) => setEntrega(i, { briefing: ev.target.value })} placeholder="Briefing: objetivo, referências, mensagem-chave, se tiver GC, letterings, o que não pode faltar…" />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Prazo */}
-          <Campo label="Prazo desejado (data e hora)">
-            <input type="datetime-local" className={inputCls} value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} />
-            {!prazoIso ? (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><CalendarClock className="h-3 w-3" /> A gente checa na hora se temos disponibilidade pra esse prazo.</p>
-            ) : checando ? (
-              <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><Loader2 className="h-3 w-3 animate-spin" /> Checando disponibilidade…</p>
-            ) : dispo && dispo.no_prazo ? (
-              <p className="mt-1 flex items-center gap-1.5 rounded-md border border-[#10b981]/30 bg-[#10b981]/5 px-2.5 py-1.5 text-xs text-[#8fe7c4]">
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Temos disponibilidade pra esse prazo. <span className="text-[#6b675f]">(nosso time confirma)</span>
-              </p>
-            ) : inviavel ? (
-              <div className="mt-1 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/5 px-2.5 py-2 text-xs">
-                <p className="flex items-center gap-1.5 text-[#f5c37a]"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Nesse horário não conseguimos entregar com qualidade.</p>
-                {dispo?.earliest && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-[#9A968C]">Data mais próxima: <strong className="capitalize text-[#E8E1D0]">{fmtEarliest(dispo.earliest)}</strong></span>
-                    <button onClick={usarSugerido} className="rounded border border-[#E53500]/50 px-2 py-0.5 text-[11px] font-medium text-[#E53500] hover:bg-[#E53500]/10">Usar esse horário</button>
-                  </div>
+          {/* Prazo — horários sugeridos (recomendado em destaque) */}
+          <Campo label="Quando você precisa da entrega?">
+            {modoData === "slots" && slots.length > 0 ? (
+              <>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {slots.map((s) => {
+                    const sel = form.prazo === toLocalInput(s.data);
+                    return (
+                      <button
+                        key={s.nivel}
+                        type="button"
+                        onClick={() => escolherSlot(s)}
+                        className={`relative rounded-lg border p-3 text-left transition ${
+                          sel
+                            ? "border-[#E53500] bg-[#E53500]/10"
+                            : s.recomendado
+                            ? "border-[#E53500]/40 bg-[#E53500]/[0.05] hover:border-[#E53500]/70"
+                            : "border-white/12 bg-white/[0.03] hover:border-white/30"
+                        }`}
+                      >
+                        {s.recomendado && (
+                          <span className="absolute -top-2 left-3 rounded-full bg-[#E53500] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                            Recomendado
+                          </span>
+                        )}
+                        {sel && <CheckCircle2 className="absolute right-2 top-2 h-4 w-4 text-[#E53500]" />}
+                        <p className="text-[10px] uppercase tracking-wider text-[#9A968C]">{s.label}</p>
+                        <p className="mt-0.5 text-sm font-semibold capitalize text-[#E8E1D0]">{fmtSlot(s.data)}</p>
+                        <p className="mt-0.5 text-[11px] leading-tight text-[#9A968C]">{s.hint}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-[#6b675f]">Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.</p>
+                  <button type="button" onClick={() => setModoData("custom")} className="text-[11px] text-[#9A968C] underline hover:text-[#CFC9BC]">
+                    Preciso de outra data
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <input type="datetime-local" className={inputCls} value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} />
+                {slots.length > 0 && (
+                  <button type="button" onClick={() => setModoData("slots")} className="mt-1 text-[11px] text-[#E53500] underline hover:opacity-80">
+                    Ver horários sugeridos
+                  </button>
                 )}
-              </div>
-            ) : null}
+                {!prazoIso ? (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><CalendarClock className="h-3 w-3" /> A gente checa na hora se temos disponibilidade pra esse prazo.</p>
+                ) : checando ? (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9A968C]"><Loader2 className="h-3 w-3 animate-spin" /> Checando disponibilidade…</p>
+                ) : dispo && dispo.no_prazo ? (
+                  <p className="mt-1 flex items-center gap-1.5 rounded-md border border-[#10b981]/30 bg-[#10b981]/5 px-2.5 py-1.5 text-xs text-[#8fe7c4]">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Temos disponibilidade pra esse prazo. <span className="text-[#6b675f]">(nosso time confirma)</span>
+                  </p>
+                ) : inviavel ? (
+                  <div className="mt-1 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/5 px-2.5 py-2 text-xs">
+                    <p className="flex items-center gap-1.5 text-[#f5c37a]"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Nesse horário não conseguimos entregar com qualidade.</p>
+                    {dispo?.earliest && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span className="text-[#9A968C]">Data mais próxima: <strong className="capitalize text-[#E8E1D0]">{fmtEarliest(dispo.earliest)}</strong></span>
+                        <button onClick={usarSugerido} className="rounded border border-[#E53500]/50 px-2 py-0.5 text-[11px] font-medium text-[#E53500] hover:bg-[#E53500]/10">Usar esse horário</button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </>
+            )}
           </Campo>
 
           {/* Anexos */}
@@ -296,3 +391,4 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 const inputCls = "h-10 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-[#E8E1D0] placeholder:text-[#6b675f] focus:border-[#E53500]/50 focus:outline-none";
 const inputSm = "h-9 rounded-md border border-white/15 bg-white/5 px-2.5 text-sm text-[#E8E1D0] placeholder:text-[#6b675f] focus:border-[#E53500]/50 focus:outline-none";
+const campoLabel = "mb-0.5 block text-[10px] uppercase tracking-wider text-[#6b675f]";
