@@ -160,7 +160,8 @@ const App = () => (
               <Route path="/projetos/:id/pecas" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoPecas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos/:id/entregaveis/:did" element={<ProtectedRoute><ModuleGuard module="projetos"><EntregavelDetalhe /></ModuleGuard></ProtectedRoute>} />
               <Route path="/relatorios/projeto/:id" element={<ProtectedRoute><ModuleGuard module="relatorios"><RelatorioProjeto /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/projetos-legado" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetosLegado /></ModuleGuard></ProtectedRoute>} />
+              {/* Legado: mostra valor vendido/custos/faturado sem gate — é tela de gestão, não da equipe. */}
+              <Route path="/projetos-legado" element={<ProtectedRoute><ModuleGuard module="relatorios"><ProjetosLegado /></ModuleGuard></ProtectedRoute>} />
               <Route path="/fechamento" element={<ProtectedRoute><ModuleGuard module="fechamento"><Fechamento /></ModuleGuard></ProtectedRoute>} />
               <Route path="/pos-producao" element={<ProtectedRoute><ModuleGuard module="pos_producao"><PosProducao /></ModuleGuard></ProtectedRoute>} />
               <Route path="/pauta" element={<ProtectedRoute><ModuleGuard module="pauta"><Pauta /></ModuleGuard></ProtectedRoute>} />

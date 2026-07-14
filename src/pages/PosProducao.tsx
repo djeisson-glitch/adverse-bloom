@@ -19,7 +19,7 @@ export default function PosProducao() {
     queryKey: ["pos-projetos"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("projects")
+        .from("projects_v")
         .select("id, numero, name, client_name, status, edicao_horas_vendidas, edicao_horas_mapeadas, sold_value")
         .neq("status", "faturado")
         .order("created_at", { ascending: false });

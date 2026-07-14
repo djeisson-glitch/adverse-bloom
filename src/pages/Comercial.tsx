@@ -129,14 +129,25 @@ export default function Comercial() {
       }
       // Create production project from deal
       if (opts.createProject && deal) {
-        await supabase.from("projects").insert({
-          name: deal.title,
-          client_name: deal.client?.name || "",
-          client_id: deal.client_id || null,
-          sold_value: deal.value || 0,
-          status: "Pré-produção",
-          sold_date: new Date().toISOString().slice(0, 10),
-        });
+        const { data: novoProjeto } = await supabase
+          .from("projects")
+          .insert({
+            name: deal.title,
+            client_name: deal.client?.name || "",
+            client_id: deal.client_id || null,
+            status: "Pré-produção",
+            sold_date: new Date().toISOString().slice(0, 10),
+          })
+          .select("id")
+          .single();
+        // o dinheiro vai pra lateral trancada, via RPC
+        if (novoProjeto?.id) {
+          await (supabase as any).rpc("set_projeto_financeiro", {
+            _project_id: novoProjeto.id,
+            _sold_value: deal.value || 0,
+            _contract_value: deal.value || 0,
+          });
+        }
       }
       if (opts.createBudget && deal) {
         navigate("/orcamentos", { state: { fromDeal: deal } });

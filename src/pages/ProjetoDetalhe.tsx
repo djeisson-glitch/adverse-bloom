@@ -65,7 +65,7 @@ export default function ProjetoDetalhe() {
     queryKey: ["projeto", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("projects").select("*").eq("id", id!).single();
+      const { data, error } = await (supabase as any).from("projects_v").select("*").eq("id", id!).single();
       if (error) throw error;
       return data as any;
     },
@@ -76,7 +76,7 @@ export default function ProjetoDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, email, custo_hora")
+        .select("id, full_name, email")
         .neq("ativo", false)
         .order("full_name");
       if (error) throw error;
@@ -1089,10 +1089,18 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("project_members")
-        .select("*, profile:profiles(id, full_name, email, custo_hora)")
+        .select("*, profile:profiles(id, full_name, email)")
         .eq("project_id", project.id);
       if (error) throw error;
-      return data as any[];
+
+      const { data: custos } = await (supabase as any)
+        .from("profiles_custo")
+        .select("user_id, custo_hora");   // RLS: vem vazio pra quem não vê dinheiro
+      const porPessoa = new Map((custos || []).map((c: any) => [c.user_id, c.custo_hora]));
+      return (data || []).map((m: any) => ({
+        ...m,
+        profile: m.profile ? { ...m.profile, custo_hora: porPessoa.get(m.user_id) ?? null } : m.profile,
+      })) as any[];
     },
   });
 
@@ -1140,9 +1148,10 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
 
   const salvarFallback = async () => {
     const { error } = await (supabase as any)
-      .from("projects")
-      .update({ custo_hora_padrao: fallback ? Number(fallback) : null })
-      .eq("id", project.id);
+      .rpc("set_projeto_financeiro", {
+        _project_id: project.id,
+        _custo_hora_padrao: fallback ? Number(fallback) : null,
+      });
     if (error) toast.error("Erro", { description: error.message });
     else {
       toast.success("Fallback salvo");
@@ -1151,10 +1160,10 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
   };
 
   const salvarCustoHoraPessoa = async (userId: string, valor: string) => {
-    const { error } = await (supabase as any)
-      .from("profiles")
-      .update({ custo_hora: valor ? Number(valor) : null })
-      .eq("id", userId);
+    const { error } = await (supabase as any).rpc("set_custo_hora", {
+      _user_id: userId,
+      _valor: valor ? Number(valor) : null,
+    });
     if (error) toast.error("Erro", { description: error.message });
     else {
       toast.success("Custo/hora da pessoa salvo (vale em todos os projetos)");
