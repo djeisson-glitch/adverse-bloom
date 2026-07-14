@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 const sections = [
   { title: "Geral", description: "Nome da empresa, logo e fuso horário", icon: Building2, path: "/configuracoes/geral" },
-  { title: "Usuários", description: "Gerenciar usuários, roles e permissões", icon: Users, path: "/configuracoes/usuarios" },
+  { title: "Time", description: "Convidar membros, papéis, funções e custo/hora", icon: Users, path: "/time" },
   { title: "Contexto da Empresa", description: "Estrutura, metas e contexto que alimentam os insights da IA", icon: Brain, path: "/configuracoes/contexto" },
   { title: "Contratos (MRR)", description: "Valor mensal dos contratos recorrentes para o MRR", icon: Repeat, path: "/configuracoes/contratos" },
   { title: "Integrações", description: "Conta Azul e sincronização automática", icon: Plug, path: "/configuracoes/integracoes" },

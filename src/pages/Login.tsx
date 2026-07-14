@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,24 @@ export default function Login() {
   const { user, loading } = useAuth();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // O Google volta pra cá com o erro na URL quando o e-mail não está convidado
+  // (o trigger da allowlist aborta o signup). Sem isso, a pessoa só "volta" e
+  // não entende o motivo.
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const query = new URLSearchParams(window.location.search);
+    const desc = hash.get("error_description") || query.get("error_description");
+    if (!desc) return;
+    const naoConvidado = /not allowed|EMAIL_NOT_ALLOWED|saving new user|database error/i.test(desc);
+    setError(
+      naoConvidado
+        ? "Esse e-mail não está autorizado. Peça pro admin te convidar no Adverse OS usando o e-mail da sua conta Google."
+        : "Não deu pra entrar com o Google. Tente de novo.",
+    );
+    // limpa a URL pra não repetir o erro num refresh
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   if (loading) {
     return (
