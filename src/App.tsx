@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import HomeEquipe from "./pages/HomeEquipe";
 import Notificacoes from "./pages/Notificacoes";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
 import ClienteDetalhe from "./pages/ClienteDetalhe";
@@ -93,7 +94,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  return <DashboardLayout>{children}</DashboardLayout>;
+  // Crash numa página não pode mais apagar o app inteiro (tela preta).
+  return <DashboardLayout><ErrorBoundary>{children}</ErrorBoundary></DashboardLayout>;
 }
 
 /** A Home depende do papel: financeira pra gestão, panorama pessoal pra equipe.

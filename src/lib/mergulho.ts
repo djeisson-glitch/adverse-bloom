@@ -60,11 +60,28 @@ export const CAMPOS_CLIENTE = SECOES_CLIENTE.flatMap((s) => s.campos);
 export const CAMPOS_MARCA = CAMPOS_CLIENTE.filter((c) => c.escopo === "marca");
 export const CAMPOS_PROJETO = CAMPOS_CLIENTE.filter((c) => c.escopo !== "marca");
 
+/**
+ * O mergulho é jsonb: um campo de texto pode chegar como objeto/array/número se
+ * alguma versão antiga (ou a IA) gravou torto. Renderizar isso cru derruba o
+ * React ("Objects are not valid as a React child") e a tela fica preta.
+ * Aqui a gente sempre devolve string.
+ */
+export function textoDoCampo(v: any): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
 /** Uma resposta conta como preenchida? (texto não-vazio ou ao menos 1 entrega) */
 export function campoRespondido(dados: Record<string, any>, campo: MergulhoCampo) {
   const v = dados?.[campo.key];
   if (campo.tipo === "entregas") return Array.isArray(v) && v.length > 0;
-  return (v || "").toString().trim().length > 0;
+  return textoDoCampo(v).trim().length > 0;
 }
 
 export function secaoRespondida(dados: Record<string, any>, secao: MergulhoSecao) {
