@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EntregasField } from "@/components/mergulho/EntregasField";
-import { MERGULHO_ESTRUTURA, secaoRespondida, campoRespondido } from "@/lib/mergulho";
+import { MERGULHO_ESTRUTURA, secaoRespondida, campoRespondido, textoDoCampo } from "@/lib/mergulho";
 
 /**
  * Renderiza o Briefing/Mergulho (visão INTERNA e leitura no projeto).
@@ -53,9 +53,9 @@ export function MergulhoForm({
                         <EntregasField value={Array.isArray(value?.[c.key]) ? value[c.key] : []} onChange={(v) => onChange?.(c.key, v)} readOnly={readOnly} />
                       </div>
                     ) : readOnly ? (
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{value?.[c.key] || "—"}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{textoDoCampo(value?.[c.key]) || "—"}</p>
                     ) : (
-                      <Textarea value={value?.[c.key] || ""} onChange={(e) => onChange?.(c.key, e.target.value)} rows={3} className="mt-1" />
+                      <Textarea value={textoDoCampo(value?.[c.key])} onChange={(e) => onChange?.(c.key, e.target.value)} rows={3} className="mt-1" />
                     )}
                   </div>
                 ))}
@@ -68,7 +68,7 @@ export function MergulhoForm({
       {/* Complementos que o cliente respondeu às perguntas sugeridas pela IA */}
       {(() => {
         const extras = Array.isArray(value?.ia_extras)
-          ? value.ia_extras.filter((e: any) => (e?.resposta || "").toString().trim())
+          ? value.ia_extras.filter((e: any) => textoDoCampo(e?.resposta).trim())
           : [];
         if (extras.length === 0) return null;
         return (
@@ -78,8 +78,8 @@ export function MergulhoForm({
             <div className="mt-3 space-y-3">
               {extras.map((e: any, i: number) => (
                 <div key={i}>
-                  <Label className="text-sm text-foreground">{e.pergunta}</Label>
-                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{e.resposta}</p>
+                  <Label className="text-sm text-foreground">{textoDoCampo(e.pergunta)}</Label>
+                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{textoDoCampo(e.resposta)}</p>
                 </div>
               ))}
             </div>

@@ -145,7 +145,7 @@ const GRUPOS: NavGrupo[] = [
   },
 ];
 
-const CHAVE_ABERTOS = "adverse.sidebar.grupos";
+const CHAVE_ABERTOS = "adverse.sidebar.grupo";
 
 function SidebarLink({ item, collapsed, small = false }: { item: NavItem; collapsed: boolean; small?: boolean }) {
   const Icon = item.icon;
@@ -189,24 +189,21 @@ export function AppSidebar() {
     return null;
   }, [grupos, location.pathname]);
 
-  const [abertos, setAbertos] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(CHAVE_ABERTOS) || "{}");
-    } catch {
-      return {};
-    }
-  });
+  // Acordeão: um grupo aberto por vez. Abrir o próximo fecha o anterior, senão o
+  // menu volta a virar a lista comprida que a gente acabou de desfazer.
+  const [aberto, setAberto] = useState<string | null>(() => localStorage.getItem(CHAVE_ABERTOS));
 
   // O grupo da página em que você está fica sempre aberto (senão você não se acha).
   useEffect(() => {
-    if (grupoDaRota) setAbertos((a) => (a[grupoDaRota] ? a : { ...a, [grupoDaRota]: true }));
+    if (grupoDaRota) setAberto(grupoDaRota);
   }, [grupoDaRota]);
 
   useEffect(() => {
-    localStorage.setItem(CHAVE_ABERTOS, JSON.stringify(abertos));
-  }, [abertos]);
+    if (aberto) localStorage.setItem(CHAVE_ABERTOS, aberto);
+    else localStorage.removeItem(CHAVE_ABERTOS);
+  }, [aberto]);
 
-  const alternar = (id: string) => setAbertos((a) => ({ ...a, [id]: !a[id] }));
+  const alternar = (id: string) => setAberto((atual) => (atual === id ? null : id));
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const avatarUrl = profile?.avatar_url || "";
@@ -253,12 +250,12 @@ export function AppSidebar() {
             );
           }
 
-          const aberto = !!abertos[g.id];
+          const estaAberto = aberto === g.id;
           const temAtiva = g.id === grupoDaRota;
 
           return (
             <SidebarGroup key={g.id} className="py-1">
-              <Collapsible open={aberto} onOpenChange={() => alternar(g.id)}>
+              <Collapsible open={estaAberto} onOpenChange={() => alternar(g.id)}>
                 <CollapsibleTrigger asChild>
                   <SidebarGroupLabel
                     className={`flex w-full cursor-pointer items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em] transition-colors hover:text-foreground ${
