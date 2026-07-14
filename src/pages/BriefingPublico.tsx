@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Check, Pencil, ArrowRight, Send, CheckCircle2, Sparkles } from "lucide-react";
 import { EntregasField } from "@/components/mergulho/EntregasField";
-import { CAMPOS_CLIENTE, campoRespondido, type MergulhoCampo } from "@/lib/mergulho";
+import { CAMPOS_CLIENTE, CAMPOS_PROJETO, campoRespondido, type MergulhoCampo } from "@/lib/mergulho";
 
 /**
  * Briefing público — uma pergunta por vez (as próximas só aparecem depois).
@@ -20,6 +20,7 @@ export default function BriefingPublico() {
   const [enviadoView, setEnviadoView] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [iaChecado, setIaChecado] = useState(false);
+  const [editandoMarca, setEditandoMarca] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: cfg, isLoading, isError } = useQuery({
@@ -28,20 +29,34 @@ export default function BriefingPublico() {
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("mergulho_publico", { _token: token });
       if (error) throw error;
-      return data as { projeto: string; cliente_nome: string; enviado_em: string | null; mergulho: Record<string, any> } | null;
+      return data as {
+        projeto: string; cliente_nome: string; enviado_em: string | null;
+        marca_cliente: string | null; mergulho: Record<string, any>;
+      } | null;
     },
   });
 
+  // Já conhecemos a marca desse cliente? Então não perguntamos de novo —
+  // o briefing vira só do projeto (a marca é herdada e fica editável).
+  const marcaHerdada = (cfg?.marca_cliente || "").trim();
+  const campos = marcaHerdada ? CAMPOS_PROJETO : CAMPOS_CLIENTE;
+
   useEffect(() => {
     if (cfg && dados === null) {
-      const d = cfg.mergulho || {};
+      const d: Record<string, any> = { ...(cfg.mergulho || {}) };
+      // Herda a marca do cliente pro briefing deste projeto (assim o time vê
+      // tudo junto), sem perguntar de novo pro cliente.
+      const semear = !!marcaHerdada && !(d.marca || "").toString().trim();
+      if (semear) d.marca = marcaHerdada;
       setDados(d);
       setEnviadoView(!!cfg.enviado_em);
       // Já tem perguntas da IA salvas? então não precisa checar de novo.
       if (Array.isArray(d.ia_extras) && d.ia_extras.length > 0) setIaChecado(true);
-      const primeiroVazio = CAMPOS_CLIENTE.findIndex((c) => !campoRespondido(d, c));
-      setPasso(primeiroVazio === -1 ? CAMPOS_CLIENTE.length - 1 : primeiroVazio);
+      const primeiroVazio = campos.findIndex((c) => !campoRespondido(d, c));
+      setPasso(primeiroVazio === -1 ? campos.length - 1 : primeiroVazio);
+      if (semear) salvar(d);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg, dados]);
 
   const salvar = async (d: Record<string, any>) => {
@@ -123,8 +138,8 @@ export default function BriefingPublico() {
   }
 
   const d = dados || {};
-  const total = CAMPOS_CLIENTE.length;
-  const respondidas = CAMPOS_CLIENTE.filter((c) => campoRespondido(d, c)).length;
+  const total = campos.length;
+  const respondidas = campos.filter((c) => campoRespondido(d, c)).length;
 
   if (enviadoView) {
     return (
@@ -169,8 +184,38 @@ export default function BriefingPublico() {
           </p>
         </header>
 
+        {/* Cliente que já conhecemos: não perguntamos a marca de novo */}
+        {marcaHerdada && (
+          <div className="mb-4 rounded-xl border border-border/50 bg-muted/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">O que já sabemos sobre vocês</p>
+              <button
+                onClick={() => setEditandoMarca((v) => !v)}
+                className="shrink-0 text-[11px] text-primary hover:underline"
+              >
+                {editandoMarca ? "pronto" : "atualizar"}
+              </button>
+            </div>
+            {editandoMarca ? (
+              <textarea
+                value={d.marca || ""}
+                onChange={(e) => setCampo("marca", e.target.value)}
+                rows={4}
+                className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+              />
+            ) : (
+              <>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{d.marca || marcaHerdada}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground/70">
+                  Não vamos perguntar isso de novo. Mudou algo (posicionamento, tom)? É só atualizar.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="space-y-3">
-          {CAMPOS_CLIENTE.slice(0, passo + 1).map((campo, i) => {
+          {campos.slice(0, passo + 1).map((campo, i) => {
             const ativo = i === passo || editIdx === i;
             if (!ativo) {
               return <ResumoCard key={campo.key} campo={campo} dados={d} onEdit={() => setEditIdx(i)} />;
