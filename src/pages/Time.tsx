@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { UsersRound, Plus, Save, Check, ChevronDown, MailCheck, X, Info } from "lucide-react";
+import { UsersRound, Plus, Save, Check, ChevronDown, MailCheck, X, Info, UserMinus, Trash2, RotateCcw, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,6 +165,39 @@ export default function Time() {
     qc.invalidateQueries({ queryKey: ["team-convites"] });
   };
 
+  // Tirar alguém do sistema. Revogar = seguro (preserva horas). Excluir = só
+  // se a pessoa nunca apontou hora (o banco recusa se tiver histórico).
+  const acaoMembro = useMutation({
+    mutationFn: async ({ acao, uid, papel }: { acao: "desativar" | "reativar" | "excluir"; uid: string; papel?: string }) => {
+      const rpc =
+        acao === "desativar" ? "admin_desativar_membro"
+        : acao === "reativar" ? "admin_reativar_membro"
+        : "admin_excluir_membro";
+      const args: any = { _uid: uid };
+      if (acao === "reativar") args._papel = papel || "equipe";
+      const { error } = await (supabase as any).rpc(rpc, args);
+      if (error) throw error;
+      return acao;
+    },
+    onSuccess: (acao) => {
+      qc.invalidateQueries({ queryKey: ["team-profiles"] });
+      qc.invalidateQueries({ queryKey: ["team-roles"] });
+      qc.invalidateQueries({ queryKey: ["team-convites"] });
+      toast.success(
+        acao === "desativar" ? "Acesso revogado" : acao === "reativar" ? "Acesso devolvido" : "Membro excluído",
+        acao === "desativar" ? { description: "O histórico de horas foi preservado." } : undefined,
+      );
+    },
+    onError: (e: any) => {
+      const msg = e.message || "";
+      toast.error("Não deu", {
+        description: /admin_desativar_membro|admin_excluir_membro|function|does not exist/i.test(msg)
+          ? "Rode 'supabase db push' pra habilitar."
+          : msg.replace(/^.*?:\s*/, ""),   // tira o prefixo técnico do erro do Postgres
+      });
+    },
+  });
+
   const salvarPerfil = useMutation({
     mutationFn: async (p: Profile & { papel: string; funcoes: string[] }) => {
       const primeira = p.funcoes[0] || null;
@@ -324,7 +357,10 @@ export default function Time() {
             rateCard={rateCard}
             editable={isAdmin || p.id === me?.id}
             adminActions={isAdmin}
+            podeRemover={isAdmin && p.id !== me?.id}
             onSave={(patch) => salvarPerfil.mutate({ ...p, ...patch })}
+            onAcao={(acao, papel) => acaoMembro.mutate({ acao, uid: p.id, papel })}
+            processando={acaoMembro.isPending && acaoMembro.variables?.uid === p.id}
           />
         ))}
         {profiles.length === 0 && (
@@ -386,15 +422,22 @@ function TeamMemberRow({
   rateCard,
   editable,
   adminActions,
+  podeRemover,
   onSave,
+  onAcao,
+  processando,
 }: {
   profile: Profile;
   currentRole: string;
   rateCard: RateCard[];
   editable: boolean;
   adminActions: boolean;
+  podeRemover: boolean;
   onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => void;
+  onAcao: (acao: "desativar" | "reativar" | "excluir", papel?: string) => void;
+  processando: boolean;
 }) {
+  const [confirmando, setConfirmando] = useState<null | "desativar" | "excluir">(null);
   const [funcoes, setFuncoes] = useState<string[]>(
     profile.funcoes && profile.funcoes.length ? profile.funcoes : profile.funcao ? [profile.funcao] : [],
   );
@@ -476,19 +519,9 @@ function TeamMemberRow({
               />
               <span className="text-xs text-muted-foreground">R$/h</span>
             </div>
-            {adminActions && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={ativo}
-                  onChange={(e) => setAtivo(e.target.checked)}
-                  className="h-4 w-4 accent-primary"
-                />
-                <span className={ativo ? "text-success" : "text-muted-foreground"}>
-                  {ativo ? "ativo" : "inativo"}
-                </span>
-              </label>
-            )}
+            <span className={`text-xs ${ativo ? "text-success" : "text-amber-500"}`}>
+              {ativo ? "ativo" : "sem acesso"}
+            </span>
             <Button
               size="sm"
               onClick={() =>
@@ -505,6 +538,73 @@ function TeamMemberRow({
               <Save className="mr-1 h-3.5 w-3.5" />
               Salvar
             </Button>
+          </div>
+        )}
+
+        {/* Zona de perigo: revogar acesso (seguro) ou excluir (só sem horas) */}
+        {podeRemover && (
+          <div className="mt-4 border-t border-border/40 pt-3">
+            {confirmando === null ? (
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                {ativo ? (
+                  <button
+                    onClick={() => setConfirmando("desativar")}
+                    disabled={processando}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-amber-500 disabled:opacity-50"
+                  >
+                    <UserMinus className="h-3.5 w-3.5" /> Revogar acesso
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onAcao("reativar", papel)}
+                    disabled={processando}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-success disabled:opacity-50"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Devolver acesso
+                  </button>
+                )}
+                <button
+                  onClick={() => setConfirmando("excluir")}
+                  disabled={processando}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+                <p className="text-xs text-foreground">
+                  {confirmando === "desativar" ? (
+                    <>
+                      <strong>Revogar o acesso de {profile.full_name || "essa pessoa"}?</strong> Ela não consegue mais
+                      entrar, mas <strong>as horas apontadas e o histórico ficam preservados</strong>. Dá pra devolver depois.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Excluir {profile.full_name || "essa pessoa"} de vez?</strong> Isso apaga a conta. Só funciona
+                      se ela <strong>nunca apontou hora</strong> — se apontou, o sistema recusa e você deve revogar o acesso.
+                    </>
+                  )}
+                </p>
+                <div className="mt-2.5 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={confirmando === "excluir" ? "destructive" : "default"}
+                    disabled={processando}
+                    onClick={() => {
+                      onAcao(confirmando);
+                      setConfirmando(null);
+                    }}
+                  >
+                    {processando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+                    {confirmando === "desativar" ? "Revogar acesso" : "Excluir de vez"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
