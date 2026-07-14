@@ -5,7 +5,12 @@
  */
 
 export type CampoTipo = "texto" | "entregas";
-export type MergulhoCampo = { key: string; label: string; hint?: string; tipo?: CampoTipo };
+/**
+ * escopo "marca": pergunta do CLIENTE, não do projeto — respondida uma vez e
+ * herdada nos projetos seguintes (não perguntamos de novo). O resto é do projeto.
+ */
+export type CampoEscopo = "marca" | "projeto";
+export type MergulhoCampo = { key: string; label: string; hint?: string; tipo?: CampoTipo; escopo?: CampoEscopo };
 export type MergulhoSecao = {
   id: string;
   titulo: string;
@@ -20,7 +25,7 @@ export const MERGULHO_ESTRUTURA: MergulhoSecao[] = [
     titulo: "Briefing",
     descricao: "Quanto mais contexto você der, melhor a ideia — pode ser detalhista à vontade.",
     campos: [
-      { key: "marca", label: "Sobre a marca / empresa", hint: "O que vocês fazem, como se posicionam, o tom de voz, o que te diferencia da concorrência." },
+      { key: "marca", label: "Sobre a marca / empresa", escopo: "marca", hint: "O que vocês fazem, como se posicionam, o tom de voz, o que te diferencia da concorrência." },
       { key: "objetivo", label: "Objetivo deste projeto", hint: "O que precisa acontecer depois que esse material for ao ar? Que resultado vocês querem (vendas, reconhecimento, engajamento…)?" },
       { key: "publico", label: "Quem vocês querem impactar", hint: "O público-alvo: idade, contexto, o que essa pessoa sente, quer ou precisa." },
       { key: "mensagem", label: "Mensagem-chave", hint: "Se a pessoa só puder sair com uma ideia na cabeça, qual é?" },
@@ -50,6 +55,10 @@ export const MERGULHO_ESTRUTURA: MergulhoSecao[] = [
 
 export const SECOES_CLIENTE = MERGULHO_ESTRUTURA.filter((s) => !s.interno);
 export const CAMPOS_CLIENTE = SECOES_CLIENTE.flatMap((s) => s.campos);
+
+/** Perguntas da marca (uma vez por cliente) e do projeto (toda vez). */
+export const CAMPOS_MARCA = CAMPOS_CLIENTE.filter((c) => c.escopo === "marca");
+export const CAMPOS_PROJETO = CAMPOS_CLIENTE.filter((c) => c.escopo !== "marca");
 
 /** Uma resposta conta como preenchida? (texto não-vazio ou ao menos 1 entrega) */
 export function campoRespondido(dados: Record<string, any>, campo: MergulhoCampo) {
