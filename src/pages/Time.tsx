@@ -68,12 +68,15 @@ export default function Time() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["team-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("full_name");
+      // custo/hora não mora mais em profiles (era lido por qualquer pessoa
+      // logada pela API). Vem da tabela lateral, que só a gestão enxerga.
+      const [{ data, error }, { data: custos }] = await Promise.all([
+        supabase.from("profiles").select("*").order("full_name"),
+        (supabase as any).from("profiles_custo").select("user_id, custo_hora"),
+      ]);
       if (error) throw error;
-      return data as unknown as Profile[];
+      const porPessoa = new Map((custos || []).map((c: any) => [c.user_id, c.custo_hora]));
+      return (data || []).map((p: any) => ({ ...p, custo_hora: porPessoa.get(p.id) ?? null })) as unknown as Profile[];
     },
   });
 

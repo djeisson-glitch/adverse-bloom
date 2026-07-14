@@ -1307,6 +1307,13 @@ export type Database = {
             foreignKeyName: "deliverables_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliverables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -1378,6 +1385,13 @@ export type Database = {
             columns: ["projeto_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demandas_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -1598,6 +1612,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -1891,7 +1912,6 @@ export type Database = {
           ativo: boolean
           avatar_url: string | null
           created_at: string | null
-          custo_hora: number | null
           email: string | null
           full_name: string | null
           funcao: string | null
@@ -1905,7 +1925,6 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           created_at?: string | null
-          custo_hora?: number | null
           email?: string | null
           full_name?: string | null
           funcao?: string | null
@@ -1919,7 +1938,6 @@ export type Database = {
           ativo?: boolean
           avatar_url?: string | null
           created_at?: string | null
-          custo_hora?: number | null
           email?: string | null
           full_name?: string | null
           funcao?: string | null
@@ -1936,6 +1954,39 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rate_card"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles_custo: {
+        Row: {
+          custo_hora: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          custo_hora?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          custo_hora?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_custo_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_custo_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_capacidade_semana"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1992,6 +2043,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_closures_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -2098,6 +2156,13 @@ export type Database = {
             foreignKeyName: "project_costs_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_costs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -2153,6 +2218,13 @@ export type Database = {
             foreignKeyName: "project_costs_lancados_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_costs_lancados_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -2202,6 +2274,13 @@ export type Database = {
             foreignKeyName: "project_documents_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -2242,6 +2321,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -2417,6 +2503,71 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workflows"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects_financeiro: {
+        Row: {
+          contract_value: number | null
+          custo_hora_padrao: number | null
+          direct_costs: number | null
+          gross_margin_percent: number | null
+          gross_margin_value: number | null
+          invoiced_value: number | null
+          project_id: string
+          sold_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          contract_value?: number | null
+          custo_hora_padrao?: number | null
+          direct_costs?: number | null
+          gross_margin_percent?: number | null
+          gross_margin_value?: number | null
+          invoiced_value?: number | null
+          project_id: string
+          sold_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          contract_value?: number | null
+          custo_hora_padrao?: number | null
+          direct_costs?: number | null
+          gross_margin_percent?: number | null
+          gross_margin_value?: number | null
+          invoiced_value?: number | null
+          project_id?: string
+          sold_value?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_financeiro_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "projects_financeiro_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_financeiro_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_financeiro_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "v_rentabilidade_projeto"
+            referencedColumns: ["project_id"]
           },
         ]
       }
@@ -2921,6 +3072,13 @@ export type Database = {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -3041,6 +3199,13 @@ export type Database = {
             foreignKeyName: "time_entries_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -3094,6 +3259,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_planning_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -3212,6 +3384,97 @@ export type Database = {
           },
         ]
       }
+      projects_v: {
+        Row: {
+          aprovador_n1_id: string | null
+          aprovador_n2_id: string | null
+          billing_status: string | null
+          briefing_consolidado: string | null
+          budget_id: string | null
+          clickup_task_id: string | null
+          client_id: string | null
+          client_name: string | null
+          cliente_aprova: boolean | null
+          conta_fee_id: string | null
+          contract_value: number | null
+          created_at: string | null
+          custo_hora_padrao: number | null
+          deal_id: string | null
+          delivery_date: string | null
+          direct_costs: number | null
+          edicao_horas_mapeadas: number | null
+          edicao_horas_vendidas: number | null
+          escopo_vendido: string | null
+          gross_margin_percent: number | null
+          gross_margin_value: number | null
+          id: string | null
+          invoiced_value: number | null
+          name: string | null
+          notes: string | null
+          numero: string | null
+          objetivos: string | null
+          observacoes_cliente: string | null
+          progress: number | null
+          project_type: string | null
+          restricoes: string | null
+          sold_date: string | null
+          sold_value: number | null
+          start_date: string | null
+          status: string | null
+          workflow_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["budget_id"]
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_conta_fee_id_fkey"
+            columns: ["conta_fee_id"]
+            isOneToOne: false
+            referencedRelation: "contas_fees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_completo"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "projects_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_capacidade_semana: {
         Row: {
           capacidade: number | null
@@ -3247,6 +3510,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -3301,6 +3571,13 @@ export type Database = {
             foreignKeyName: "time_entries_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
+            referencedRelation: "projects_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
             referencedRelation: "v_rentabilidade_projeto"
             referencedColumns: ["project_id"]
           },
@@ -3325,6 +3602,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_v"
             referencedColumns: ["id"]
           },
           {
@@ -3546,6 +3830,25 @@ export type Database = {
       seed_budget_items: {
         Args: { _budget_id: string; _porte?: string }
         Returns: number
+      }
+      set_custo_hora: {
+        Args: { _user_id: string; _valor: number }
+        Returns: undefined
+      }
+      set_projeto_financeiro: {
+        Args: {
+          _contract_value?: number
+          _custo_hora_padrao?: number
+          _direct_costs?: number
+          _invoiced_value?: number
+          _project_id: string
+          _sold_value?: number
+        }
+        Returns: undefined
+      }
+      zerar_custo_hora_padrao: {
+        Args: { _project_id: string }
+        Returns: undefined
       }
     }
     Enums: {

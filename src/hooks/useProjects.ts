@@ -2,7 +2,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
-export type Project = Tables<"projects">;
+/**
+ * O dinheiro do projeto (valor vendido, margem, custo/hora padrão) não mora
+ * mais em `projects` — ficava legível por qualquer pessoa logada pela API.
+ * Mora em projects_financeiro, que só a gestão lê. A view projects_v recompõe
+ * os dois; pra quem não pode ver dinheiro, esses campos vêm null.
+ */
+export type Project = Tables<"projects"> & {
+  sold_value: number | null;
+  direct_costs: number | null;
+  contract_value: number | null;
+  invoiced_value: number | null;
+  custo_hora_padrao: number | null;
+  gross_margin_value: number | null;
+  gross_margin_percent: number | null;
+};
 
 export const PRODUCTION_STAGES_NEW = [
   { id: "briefing", label: "Briefing", color: "border-slate-500/40" },
@@ -17,8 +31,8 @@ export function useProjects() {
   return useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
+      const { data, error } = await (supabase as any)
+        .from("projects_v")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -30,9 +44,20 @@ export function useProjects() {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (project: Omit<TablesInsert<"projects">, "id" | "created_at" | "gross_margin_value" | "gross_margin_percent">) => {
-      const { data, error } = await supabase.from("projects").insert(project as any).select().single();
+    mutationFn: async (project: any) => {
+      // o dinheiro não entra no insert: vai pela RPC, que checa o papel
+      const { sold_value, direct_costs, contract_value, invoiced_value, custo_hora_padrao, ...campos } = project;
+      const { data, error } = await supabase.from("projects").insert(campos as any).select().single();
       if (error) throw error;
+
+      if (sold_value != null || direct_costs != null || contract_value != null) {
+        await (supabase as any).rpc("set_projeto_financeiro", {
+          _project_id: data.id,
+          _sold_value: sold_value ?? null,
+          _direct_costs: direct_costs ?? null,
+          _contract_value: contract_value ?? sold_value ?? null,
+        });
+      }
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
@@ -60,7 +85,20 @@ export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Project> & { id: string }) => {
-      const { data, error } = await supabase.from("projects").update(updates as any).eq("id", id).select().single();
+      const { sold_value, direct_costs, contract_value, invoiced_value, custo_hora_padrao, ...campos } = updates as any;
+      if (sold_value != null || direct_costs != null || contract_value != null || invoiced_value != null || custo_hora_padrao != null) {
+        const { error: e } = await (supabase as any).rpc("set_projeto_financeiro", {
+          _project_id: id,
+          _sold_value: sold_value ?? null,
+          _direct_costs: direct_costs ?? null,
+          _contract_value: contract_value ?? null,
+          _invoiced_value: invoiced_value ?? null,
+          _custo_hora_padrao: custo_hora_padrao ?? null,
+        });
+        if (e) throw e;
+      }
+      if (!Object.keys(campos).length) return { id };
+      const { data, error } = await supabase.from("projects").update(campos as any).eq("id", id).select().single();
       if (error) throw error;
       return data;
     },

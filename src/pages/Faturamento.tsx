@@ -64,7 +64,7 @@ export default function Faturamento() {
     queryKey: ["invoices-projects"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("projects")
+        .from("projects_v")
         .select("id, name, client_id, sold_value, client_name")
         .order("created_at", { ascending: false });
       if (error) throw error;

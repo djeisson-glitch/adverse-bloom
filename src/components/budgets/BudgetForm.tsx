@@ -805,14 +805,25 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
 
           if (opts.createProject) {
             try {
-              await supabase.from("projects").insert({
-                name: opts.projectName,
-                client_name: clientName,
-                status: "em_producao",
-                sold_value: totals.totalValue,
-                sold_date: new Date().toISOString().slice(0, 10),
-                delivery_date: opts.deliveryDate || null,
-              } as any);
+              const { data: novoProjeto } = await supabase
+                .from("projects")
+                .insert({
+                  name: opts.projectName,
+                  client_name: clientName,
+                  status: "em_producao",
+                  sold_date: new Date().toISOString().slice(0, 10),
+                  delivery_date: opts.deliveryDate || null,
+                } as any)
+                .select("id")
+                .single();
+              // dinheiro vai pra lateral trancada
+              if (novoProjeto?.id) {
+                await (supabase as any).rpc("set_projeto_financeiro", {
+                  _project_id: novoProjeto.id,
+                  _sold_value: totals.totalValue,
+                  _contract_value: totals.totalValue,
+                });
+              }
               toast({ title: "Projeto criado!" });
             } catch (err: any) {
               toast({ title: "Erro ao criar projeto", description: err.message, variant: "destructive" });

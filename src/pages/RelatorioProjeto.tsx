@@ -20,7 +20,7 @@ export default function RelatorioProjeto() {
     enabled: !!id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("projects")
+        .from("projects_v")
         .select("id, numero, name, client_name, status, sold_value")
         .eq("id", id!)
         .single();
