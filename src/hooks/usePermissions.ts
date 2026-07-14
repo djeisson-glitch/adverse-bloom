@@ -93,14 +93,14 @@ interface UserPermission {
  * é só conveniência: quem manda é o banco.
  */
 const EQUIPE_MODULES: ModuleId[] = [
-  "minha_mesa",   // a Home deles: tarefas + entregáveis + aprovações
+  "inicio",       // Home própria (panorama pessoal, sem R$) — ver HomeEquipe
+  "minha_mesa",   // a lista onde a pessoa opera: tarefas + entregáveis + aprovações
   "projetos",
   "calendario",
   "horas",
   "timesheet",
   "pos_producao",
   // "pauta" NÃO: é a mesa do TIME (coordenação), não a da pessoa.
-  // "inicio" NÃO: a Home é financeira; equipe é redirecionada pra Minha mesa.
 ];
 
 export function usePermissions() {

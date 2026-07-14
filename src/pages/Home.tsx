@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -577,9 +577,6 @@ export default function Home() {
   const anim = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
 
-  // Equipe / Edição não veem dinheiro. Em vez de um painel financeiro zerado
-  // (a RLS devolve vazio), vão pro lugar único do "o que é meu": a Minha mesa.
-  if (!canSeeMoney) return <Navigate to="/minha-mesa" replace />;
 
   return (
     <div className="space-y-8">

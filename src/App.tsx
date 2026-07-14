@@ -10,6 +10,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import HomeEquipe from "./pages/HomeEquipe";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
 import ClienteDetalhe from "./pages/ClienteDetalhe";
@@ -94,6 +95,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
+/** A Home depende do papel: financeira pra gestão, panorama pessoal pra equipe.
+ *  Escolher aqui (e não dentro da Home) evita disparar as queries de dinheiro
+ *  pra quem a RLS vai devolver vazio mesmo. */
+function HomeSwitch() {
+  const { canSeeMoney, isLoading } = usePermissions();
+  if (isLoading) return null;
+  return canSeeMoney ? <Home /> : <HomeEquipe />;
+}
+
 function ModuleGuard({ module, children }: { module: ModuleId; children: React.ReactNode }) {
   const { can, isLoading } = usePermissions();
   if (isLoading) return null;
@@ -120,7 +130,7 @@ const App = () => (
             <PeriodProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/" element={<ProtectedRoute><HomeSwitch /></ProtectedRoute>} />
               <Route path="/financeiro" element={<ProtectedRoute><ModuleGuard module="financeiro"><Index /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/fluxo" element={<ProtectedRoute><ModuleGuard module="financeiro"><FluxoDeCaixa /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/dre" element={<ProtectedRoute><ModuleGuard module="financeiro"><DREGerencial /></ModuleGuard></ProtectedRoute>} />
