@@ -130,59 +130,59 @@ const App = () => (
               <Route path="/financeiro/insights" element={<ProtectedRoute><ModuleGuard module="financeiro"><Insights /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/projecoes" element={<ProtectedRoute><ModuleGuard module="financeiro"><Projecoes2026 /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/contas" element={<ProtectedRoute><ModuleGuard module="financeiro"><ContasAPagar /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-              <Route path="/clientes/:id" element={<ProtectedRoute><ClienteDetalhe /></ProtectedRoute>} />
+              <Route path="/clientes" element={<ProtectedRoute><ModuleGuard module="clientes"><Clientes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/clientes/:id" element={<ProtectedRoute><ModuleGuard module="clientes"><ClienteDetalhe /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Produção */}
-              <Route path="/demandas" element={<ProtectedRoute><Demandas /></ProtectedRoute>} />
-              <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-              <Route path="/leads/:id" element={<ProtectedRoute><LeadDetalhe /></ProtectedRoute>} />
-              <Route path="/orcamentos" element={<ProtectedRoute><Orcamentos /></ProtectedRoute>} />
-              <Route path="/orcamentos/novo" element={<ProtectedRoute><NovoOrcamento /></ProtectedRoute>} />
-              <Route path="/orcamentos/:id" element={<ProtectedRoute><OrcamentoEditor /></ProtectedRoute>} />
-              <Route path="/orcamentos/:id/carta" element={<ProtectedRoute><CartaOrcamento /></ProtectedRoute>} />
-              <Route path="/orcamentos-legado" element={<ProtectedRoute><OrcamentosLegado /></ProtectedRoute>} />
-              <Route path="/projetos" element={<ProtectedRoute><Projetos /></ProtectedRoute>} />
-              <Route path="/projetos/:id" element={<ProtectedRoute><ProjetoDetalhe /></ProtectedRoute>} />
-              <Route path="/projetos/:id/pecas" element={<ProtectedRoute><ProjetoPecas /></ProtectedRoute>} />
-              <Route path="/projetos/:id/entregaveis/:did" element={<ProtectedRoute><EntregavelDetalhe /></ProtectedRoute>} />
-              <Route path="/relatorios/projeto/:id" element={<ProtectedRoute><RelatorioProjeto /></ProtectedRoute>} />
-              <Route path="/projetos-legado" element={<ProtectedRoute><ProjetosLegado /></ProtectedRoute>} />
-              <Route path="/fechamento" element={<ProtectedRoute><Fechamento /></ProtectedRoute>} />
-              <Route path="/pos-producao" element={<ProtectedRoute><PosProducao /></ProtectedRoute>} />
-              <Route path="/pauta" element={<ProtectedRoute><Pauta /></ProtectedRoute>} />
-              <Route path="/minha-mesa" element={<ProtectedRoute><MinhaMesa /></ProtectedRoute>} />
-              <Route path="/calendario" element={<ProtectedRoute><Calendario /></ProtectedRoute>} />
-              <Route path="/horas" element={<ProtectedRoute><Horas /></ProtectedRoute>} />
-              <Route path="/timesheet" element={<ProtectedRoute><TimesheetPage /></ProtectedRoute>} />
-              <Route path="/capacidade" element={<ProtectedRoute><Capacidade /></ProtectedRoute>} />
-              <Route path="/planejamento" element={<ProtectedRoute><Planejamento /></ProtectedRoute>} />
-              <Route path="/previsao" element={<ProtectedRoute><Previsao /></ProtectedRoute>} />
+              <Route path="/demandas" element={<ProtectedRoute><ModuleGuard module="demandas"><Demandas /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute><ModuleGuard module="leads"><Leads /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/leads/:id" element={<ProtectedRoute><ModuleGuard module="leads"><LeadDetalhe /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos/novo" element={<ProtectedRoute><ModuleGuard module="orcamentos"><NovoOrcamento /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos/:id" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentoEditor /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos/:id/carta" element={<ProtectedRoute><ModuleGuard module="orcamentos"><CartaOrcamento /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos-legado" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentosLegado /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="projetos"><Projetos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos/:id" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoDetalhe /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos/:id/pecas" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoPecas /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos/:id/entregaveis/:did" element={<ProtectedRoute><ModuleGuard module="projetos"><EntregavelDetalhe /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/relatorios/projeto/:id" element={<ProtectedRoute><ModuleGuard module="relatorios"><RelatorioProjeto /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/projetos-legado" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetosLegado /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/fechamento" element={<ProtectedRoute><ModuleGuard module="fechamento"><Fechamento /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/pos-producao" element={<ProtectedRoute><ModuleGuard module="pos_producao"><PosProducao /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/pauta" element={<ProtectedRoute><ModuleGuard module="pauta"><Pauta /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/minha-mesa" element={<ProtectedRoute><ModuleGuard module="minha_mesa"><MinhaMesa /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/calendario" element={<ProtectedRoute><ModuleGuard module="calendario"><Calendario /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/horas" element={<ProtectedRoute><ModuleGuard module="horas"><Horas /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/timesheet" element={<ProtectedRoute><ModuleGuard module="timesheet"><TimesheetPage /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/capacidade" element={<ProtectedRoute><ModuleGuard module="capacidade"><Capacidade /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/planejamento" element={<ProtectedRoute><ModuleGuard module="planejamento"><Planejamento /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/previsao" element={<ProtectedRoute><ModuleGuard module="previsao"><Previsao /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Gestão */}
-              <Route path="/contas-fees" element={<ProtectedRoute><ContasFees /></ProtectedRoute>} />
-              <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
-              <Route path="/follow-ups" element={<ProtectedRoute><FollowUps /></ProtectedRoute>} />
-              <Route path="/faturamento" element={<ProtectedRoute><FaturamentoPage /></ProtectedRoute>} />
-              <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-              <Route path="/time" element={<ProtectedRoute><TimePage /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-              <Route path="/admin/catalogo" element={<ProtectedRoute><CatalogoItens /></ProtectedRoute>} />
-              <Route path="/admin/rate-card" element={<ProtectedRoute><AdminRateCard /></ProtectedRoute>} />
-              <Route path="/admin/workflows" element={<ProtectedRoute><AdminWorkflows /></ProtectedRoute>} />
-              <Route path="/admin/aprovacoes" element={<ProtectedRoute><AdminAprovacoes /></ProtectedRoute>} />
+              <Route path="/contas-fees" element={<ProtectedRoute><ModuleGuard module="contas_fees"><ContasFees /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/fornecedores" element={<ProtectedRoute><ModuleGuard module="fornecedores"><Fornecedores /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/follow-ups" element={<ProtectedRoute><ModuleGuard module="follow_ups"><FollowUps /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/faturamento" element={<ProtectedRoute><ModuleGuard module="faturamento"><FaturamentoPage /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/relatorios" element={<ProtectedRoute><ModuleGuard module="relatorios"><Relatorios /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/time" element={<ProtectedRoute><ModuleGuard module="time"><TimePage /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><ModuleGuard module="admin"><AdminPage /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/catalogo" element={<ProtectedRoute><ModuleGuard module="admin"><CatalogoItens /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/rate-card" element={<ProtectedRoute><ModuleGuard module="admin"><AdminRateCard /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/workflows" element={<ProtectedRoute><ModuleGuard module="admin"><AdminWorkflows /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/aprovacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminAprovacoes /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Extras */}
-              <Route path="/portal" element={<ProtectedRoute><PortalCliente /></ProtectedRoute>} />
+              <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />
               <Route path="/guia" element={<ProtectedRoute><Guia /></ProtectedRoute>} />
 
-              <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-              <Route path="/configuracoes/geral" element={<ProtectedRoute><ConfiguracoesGeral /></ProtectedRoute>} />
-              <Route path="/configuracoes/contexto" element={<ProtectedRoute><ConfiguracoesContexto /></ProtectedRoute>} />
-              <Route path="/configuracoes/contratos" element={<ProtectedRoute><ConfiguracoesContratos /></ProtectedRoute>} />
-              <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ConfiguracoesIntegracoes /></ProtectedRoute>} />
-              <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ConfiguracoesPermissoes /></ProtectedRoute>} />
-              <Route path="/auth/conta-azul" element={<ProtectedRoute><AuthContaAzul /></ProtectedRoute>} />
+              <Route path="/configuracoes" element={<ProtectedRoute><ModuleGuard module="admin"><Configuracoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/configuracoes/geral" element={<ProtectedRoute><ModuleGuard module="admin"><ConfiguracoesGeral /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/configuracoes/contexto" element={<ProtectedRoute><ModuleGuard module="admin"><ConfiguracoesContexto /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/configuracoes/contratos" element={<ProtectedRoute><ModuleGuard module="admin"><ConfiguracoesContratos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/configuracoes/integracoes" element={<ProtectedRoute><ModuleGuard module="admin"><ConfiguracoesIntegracoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/configuracoes/permissoes" element={<ProtectedRoute><ModuleGuard module="admin"><ConfiguracoesPermissoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/auth/conta-azul" element={<ProtectedRoute><ModuleGuard module="admin"><AuthContaAzul /></ModuleGuard></ProtectedRoute>} />
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="/carta/:token" element={<CartaPublica />} />
               <Route path="/solicitar/:slug" element={<SolicitarDemanda />} />

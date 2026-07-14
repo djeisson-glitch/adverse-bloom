@@ -10,6 +10,13 @@ export type ModuleId =
   | "propostas"
   | "producao"
   | "agenda"
+  // Execução (o que a equipe enxerga)
+  | "inicio"
+  | "minha_mesa"
+  // Comercial
+  | "demandas"
+  | "leads"
+  | "clientes"
   // Onda 0/1 — novos módulos
   | "projetos"
   | "fechamento"
@@ -43,6 +50,11 @@ export type AppRole =
   | "cliente";
 
 export const MODULES: { id: ModuleId; label: string; description: string }[] = [
+  { id: "inicio", label: "Início", description: "Painel inicial" },
+  { id: "minha_mesa", label: "Minha mesa", description: "Fila do editor e do aprovador" },
+  { id: "demandas", label: "Demandas", description: "Solicitações que chegam pelos formulários" },
+  { id: "leads", label: "Leads", description: "Entrada comercial" },
+  { id: "clientes", label: "Clientes", description: "Cadastro e configuração dos clientes" },
   { id: "crm", label: "CRM / Comercial", description: "Pipeline de vendas, deals, clientes" },
   { id: "orcamentos", label: "Orçamentos", description: "Criar e gerenciar orçamentos" },
   { id: "financeiro", label: "Financeiro", description: "Fluxo de caixa, custos, contas a pagar, projeções" },
@@ -74,30 +86,21 @@ interface UserPermission {
   permission: PermissionLevel;
 }
 
-/** Módulos que qualquer pessoa logada da equipe enxerga por padrão (Onda 1 defaults) */
-const EQUIPE_DEFAULT_MODULES: ModuleId[] = [
+/**
+ * Equipe / Edição = SÓ EXECUÇÃO. É uma allowlist: o que não estiver aqui é
+ * negado. (Antes era blocklist — qualquer módulo novo nascia liberado.)
+ * O mesmo recorte é imposto na RLS (pode_ver_dinheiro), então esconder o menu
+ * é só conveniência: quem manda é o banco.
+ */
+const EQUIPE_MODULES: ModuleId[] = [
+  "inicio",
   "projetos",
+  "minha_mesa",
   "pauta",
   "calendario",
   "horas",
   "timesheet",
   "pos_producao",
-  "portal",
-];
-
-/** Módulos que expõem valores em R$ (só admin/manager/produtor veem por padrão) */
-const MONEY_MODULES: ModuleId[] = [
-  "financeiro",
-  "orcamentos",
-  "fechamento",
-  "contas_fees",
-  "faturamento",
-  "relatorios",
-  "capacidade",
-  "planejamento",
-  "previsao",
-  "admin",
-  "time",
 ];
 
 export function usePermissions() {
@@ -139,33 +142,30 @@ export function usePermissions() {
     },
   });
 
+  /** Concessão extra que o admin deu pra essa pessoa (user_permissions). */
+  const concedido = (module: ModuleId, level: PermissionLevel): boolean => {
+    const perm = permissions?.find((p) => p.module === module);
+    if (!perm) return false;
+    if (level === "edit") return perm.permission === "edit";
+    return perm.permission === "view" || perm.permission === "edit";
+  };
+
   const can = (module: ModuleId, level: PermissionLevel = "view"): boolean => {
-    // Admin bypass
     if (isAdmin) return true;
 
-    // Cliente só vê o próprio portal
+    // Cliente: só o próprio portal.
     if (isCliente) return module === "portal";
 
-    // Produtor vê tudo por padrão (equivalente a admin, mas não gerencia Admin/Time nem senhas)
-    if (isProdutor) {
-      if (module === "admin" && level === "edit") return false;
-      return true;
-    }
+    // Produtor: tudo, menos administrar o sistema (Admin em modo edição).
+    if (isProdutor) return !(module === "admin" && level === "edit");
 
-    // Equipe/Edição: veem módulos de execução; NÃO veem módulos de dinheiro
+    // Equipe / Edição: allowlist de execução + o que o admin conceder à mão.
     if (isEquipe || isEdicao) {
-      if (MONEY_MODULES.includes(module)) return false;
-      if (EQUIPE_DEFAULT_MODULES.includes(module)) return true;
-      // Fallback: cai nas permissions granulares configuradas pelo admin
+      return EQUIPE_MODULES.includes(module) || concedido(module, level);
     }
 
-    // Permissões granulares (legado — user_permissions)
-    if (!permissions) return false;
-    const perm = permissions.find((p) => p.module === module);
-    if (!perm) return false;
-    if (level === "view") return perm.permission === "view" || perm.permission === "edit";
-    if (level === "edit") return perm.permission === "edit";
-    return true;
+    // Sem papel reconhecido: nega (fail-closed).
+    return concedido(module, level);
   };
 
   return {

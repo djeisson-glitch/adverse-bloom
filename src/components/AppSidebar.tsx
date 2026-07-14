@@ -55,52 +55,53 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { usePermissions } from "@/hooks/usePermissions";
+import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 
 type NavItem = {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
+  module: ModuleId;   // quem não pode ver o módulo não vê o item
 };
 
 const producaoItems: NavItem[] = [
-  { title: "Início", url: "/", icon: Home },
-  { title: "Demandas", url: "/demandas", icon: Inbox },
-  { title: "Leads", url: "/leads", icon: Sprout },
-  { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList },
-  { title: "Projetos", url: "/projetos", icon: LayoutGrid },
-  { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard },
-  { title: "Fechamento", url: "/fechamento", icon: Scale },
-  { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard },
-  { title: "Pauta", url: "/pauta", icon: ListChecks },
-  { title: "Calendário", url: "/calendario", icon: CalendarDays },
-  { title: "Horas", url: "/horas", icon: Timer },
-  { title: "Timesheet", url: "/timesheet", icon: CalendarCheck },
-  { title: "Capacidade", url: "/capacidade", icon: Gauge },
-  { title: "Planejamento", url: "/planejamento", icon: CalendarClock },
-  { title: "Previsão", url: "/previsao", icon: TrendingUp },
+  { title: "Início", url: "/", icon: Home, module: "inicio" },
+  { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
+  { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
+  { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
+  { title: "Projetos", url: "/projetos", icon: LayoutGrid, module: "projetos" },
+  { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard, module: "minha_mesa" },
+  { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
+  { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard, module: "pos_producao" },
+  { title: "Pauta", url: "/pauta", icon: ListChecks, module: "pauta" },
+  { title: "Calendário", url: "/calendario", icon: CalendarDays, module: "calendario" },
+  { title: "Horas", url: "/horas", icon: Timer, module: "horas" },
+  { title: "Timesheet", url: "/timesheet", icon: CalendarCheck, module: "timesheet" },
+  { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade" },
+  { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento" },
+  { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao" },
 ];
 
 const gestaoItems: NavItem[] = [
-  { title: "Clientes", url: "/clientes", icon: Users },
-  { title: "Contas / Fees", url: "/contas-fees", icon: Building2 },
-  { title: "Fornecedores", url: "/fornecedores", icon: Clapperboard },
-  { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange },
-  { title: "Faturamento", url: "/faturamento", icon: FileText },
-  { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
-  { title: "Time", url: "/time", icon: UsersRound },
-  { title: "Admin", url: "/admin", icon: Settings2 },
+  { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
+  { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
+  { title: "Fornecedores", url: "/fornecedores", icon: Clapperboard, module: "fornecedores" },
+  { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },
+  { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
+  { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
+  { title: "Time", url: "/time", icon: UsersRound, module: "time" },
+  { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
 ];
 
 const financeiroItems: NavItem[] = [
-  { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText },
-  { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUpFin },
-  { title: "Custos", url: "/financeiro/custos", icon: Receipt },
-  { title: "Resultados", url: "/financeiro/resultados", icon: Target },
-  { title: "Runway", url: "/financeiro/runway", icon: Vault },
-  { title: "Insights", url: "/financeiro/insights", icon: Lightbulb },
-  { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart },
-  { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard },
+  { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
+  { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
+  { title: "Custos", url: "/financeiro/custos", icon: Receipt, module: "financeiro" },
+  { title: "Resultados", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
+  { title: "Runway", url: "/financeiro/runway", icon: Vault, module: "financeiro" },
+  { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
+  { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart, module: "financeiro" },
+  { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },
 ];
 
 function SidebarLink({ item, collapsed, small = false }: { item: NavItem; collapsed: boolean; small?: boolean }) {
@@ -126,6 +127,10 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
   const { can } = usePermissions();
+  // O menu só mostra o que a pessoa realmente pode abrir. (A RLS é quem manda
+  // de verdade — isto aqui é conveniência, não segurança.)
+  const producaoVisiveis = producaoItems.filter((i) => can(i.module));
+  const gestaoVisiveis = gestaoItems.filter((i) => can(i.module));
 
   const isFinanceiroActive = financeiroItems.some((i) => location.pathname === i.url);
   const [financeiroOpen, setFinanceiroOpen] = useState(isFinanceiroActive);
@@ -158,6 +163,7 @@ export function AppSidebar() {
         </div>
 
         {/* PRODUÇÃO */}
+        {producaoVisiveis.length > 0 && (
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
@@ -166,7 +172,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {producaoItems.map((item) => (
+              {producaoVisiveis.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarLink item={item} collapsed={collapsed} />
                 </SidebarMenuItem>
@@ -174,8 +180,10 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         {/* GESTÃO */}
+        {gestaoVisiveis.length > 0 && (
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
@@ -184,7 +192,7 @@ export function AppSidebar() {
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {gestaoItems.map((item) => (
+              {gestaoVisiveis.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarLink item={item} collapsed={collapsed} />
                 </SidebarMenuItem>
@@ -192,6 +200,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         {/* FINANCEIRO (collapsible — legado, mantém sub-menu) */}
         {can("financeiro") && (
