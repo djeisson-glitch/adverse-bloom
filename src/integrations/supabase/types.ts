@@ -2351,19 +2351,13 @@ export type Database = {
           client_name: string
           cliente_aprova: boolean | null
           conta_fee_id: string | null
-          contract_value: number
           created_at: string
-          custo_hora_padrao: number | null
           deal_id: string | null
           delivery_date: string | null
-          direct_costs: number | null
           edicao_horas_mapeadas: number | null
           edicao_horas_vendidas: number | null
           escopo_vendido: string | null
-          gross_margin_percent: number | null
-          gross_margin_value: number | null
           id: string
-          invoiced_value: number
           name: string
           notes: string | null
           numero: string | null
@@ -2373,7 +2367,6 @@ export type Database = {
           project_type: string | null
           restricoes: string | null
           sold_date: string | null
-          sold_value: number | null
           start_date: string | null
           status: string
           workflow_id: string | null
@@ -2389,19 +2382,13 @@ export type Database = {
           client_name: string
           cliente_aprova?: boolean | null
           conta_fee_id?: string | null
-          contract_value?: number
           created_at?: string
-          custo_hora_padrao?: number | null
           deal_id?: string | null
           delivery_date?: string | null
-          direct_costs?: number | null
           edicao_horas_mapeadas?: number | null
           edicao_horas_vendidas?: number | null
           escopo_vendido?: string | null
-          gross_margin_percent?: number | null
-          gross_margin_value?: number | null
           id?: string
-          invoiced_value?: number
           name: string
           notes?: string | null
           numero?: string | null
@@ -2411,7 +2398,6 @@ export type Database = {
           project_type?: string | null
           restricoes?: string | null
           sold_date?: string | null
-          sold_value?: number | null
           start_date?: string | null
           status?: string
           workflow_id?: string | null
@@ -2427,19 +2413,13 @@ export type Database = {
           client_name?: string
           cliente_aprova?: boolean | null
           conta_fee_id?: string | null
-          contract_value?: number
           created_at?: string
-          custo_hora_padrao?: number | null
           deal_id?: string | null
           delivery_date?: string | null
-          direct_costs?: number | null
           edicao_horas_mapeadas?: number | null
           edicao_horas_vendidas?: number | null
           escopo_vendido?: string | null
-          gross_margin_percent?: number | null
-          gross_margin_value?: number | null
           id?: string
-          invoiced_value?: number
           name?: string
           notes?: string | null
           numero?: string | null
@@ -2449,7 +2429,6 @@ export type Database = {
           project_type?: string | null
           restricoes?: string | null
           sold_date?: string | null
-          sold_value?: number | null
           start_date?: string | null
           status?: string
           workflow_id?: string | null
