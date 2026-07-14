@@ -37,6 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (data) {
+      // Acesso revogado: o ban no auth impede novo login/refresh, mas o token
+      // atual ainda valeria por ~1h. Derruba a sessão na hora.
+      if (data.ativo === false) {
+        setProfile(null);
+        await supabase.auth.signOut();
+        return;
+      }
       // Completa o que o convite não tinha (foto do Google, nome).
       const patch: Record<string, any> = {};
       const foto = meta.avatar_url || meta.picture;
