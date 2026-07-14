@@ -2,7 +2,6 @@ import {
   Home,
   Inbox,
   Sprout,
-  DollarSign,
   ChevronDown,
   LogOut,
   Users,
@@ -32,10 +31,11 @@ import {
   Lightbulb,
   LineChart,
   CreditCard,
+  Truck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Collapsible,
@@ -61,48 +61,91 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
-  module: ModuleId;   // quem não pode ver o módulo não vê o item
+  module?: ModuleId;   // sem módulo = qualquer pessoa logada
 };
 
-const producaoItems: NavItem[] = [
-  { title: "Início", url: "/", icon: Home, module: "inicio" },
-  { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
-  { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
-  { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
-  { title: "Projetos", url: "/projetos", icon: LayoutGrid, module: "projetos" },
-  { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard, module: "minha_mesa" },
-  { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
-  { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard, module: "pos_producao" },
-  { title: "Pauta", url: "/pauta", icon: ListChecks, module: "pauta" },
-  { title: "Calendário", url: "/calendario", icon: CalendarDays, module: "calendario" },
-  { title: "Horas", url: "/horas", icon: Timer, module: "horas" },
-  { title: "Timesheet", url: "/timesheet", icon: CalendarCheck, module: "timesheet" },
-  { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade" },
-  { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento" },
-  { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao" },
+type NavGrupo = {
+  id: string;        // chave do estado aberto/fechado
+  label?: string;    // sem label = grupo fixo do topo (não colapsa)
+  itens: NavItem[];
+};
+
+/**
+ * O menu é agrupado pela PERGUNTA que a pessoa está se fazendo, não pelo acaso
+ * histórico. Antes "Produção" era um saco de gatos: misturava comercial
+ * (Demandas, Orçamentos), execução (Projetos, Pauta), tempo (Horas, Timesheet)
+ * e planejamento (Capacidade, Previsão) — 15 itens sem parentesco nenhum.
+ */
+const GRUPOS: NavGrupo[] = [
+  {
+    id: "topo",
+    itens: [
+      { title: "Início", url: "/", icon: Home, module: "inicio" },
+      { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard, module: "minha_mesa" },
+    ],
+  },
+  {
+    id: "comercial",
+    label: "Comercial",
+    itens: [
+      { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
+      { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
+      { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
+      { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
+      { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },
+    ],
+  },
+  {
+    id: "producao",
+    label: "Produção",
+    itens: [
+      { title: "Projetos", url: "/projetos", icon: LayoutGrid, module: "projetos" },
+      { title: "Pauta", url: "/pauta", icon: ListChecks, module: "pauta" },
+      { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard, module: "pos_producao" },
+      { title: "Calendário", url: "/calendario", icon: CalendarDays, module: "calendario" },
+    ],
+  },
+  {
+    id: "tempo",
+    label: "Tempo",
+    itens: [
+      { title: "Horas", url: "/horas", icon: Timer, module: "horas" },
+      { title: "Timesheet", url: "/timesheet", icon: CalendarCheck, module: "timesheet" },
+      { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade" },
+      { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento" },
+      { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao" },
+    ],
+  },
+  {
+    id: "financeiro",
+    label: "Financeiro",
+    itens: [
+      { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
+      { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
+      { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
+      { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
+      { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
+      { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
+      { title: "Custos", url: "/financeiro/custos", icon: Receipt, module: "financeiro" },
+      { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },
+      { title: "Resultados", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
+      { title: "Runway", url: "/financeiro/runway", icon: Vault, module: "financeiro" },
+      { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
+      { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart, module: "financeiro" },
+    ],
+  },
+  {
+    id: "ajustes",
+    label: "Ajustes",
+    itens: [
+      { title: "Time", url: "/time", icon: UsersRound, module: "time" },
+      { title: "Fornecedores", url: "/fornecedores", icon: Truck, module: "fornecedores" },
+      { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
+    ],
+  },
 ];
 
-const gestaoItems: NavItem[] = [
-  { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
-  { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
-  { title: "Fornecedores", url: "/fornecedores", icon: Clapperboard, module: "fornecedores" },
-  { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },
-  { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
-  { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
-  { title: "Time", url: "/time", icon: UsersRound, module: "time" },
-  { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
-];
-
-const financeiroItems: NavItem[] = [
-  { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
-  { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
-  { title: "Custos", url: "/financeiro/custos", icon: Receipt, module: "financeiro" },
-  { title: "Resultados", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
-  { title: "Runway", url: "/financeiro/runway", icon: Vault, module: "financeiro" },
-  { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
-  { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart, module: "financeiro" },
-  { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },
-];
+const CHAVE_ABERTOS = "adverse.sidebar.grupos";
 
 function SidebarLink({ item, collapsed, small = false }: { item: NavItem; collapsed: boolean; small?: boolean }) {
   const Icon = item.icon;
@@ -127,13 +170,43 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
   const { can } = usePermissions();
-  // O menu só mostra o que a pessoa realmente pode abrir. (A RLS é quem manda
-  // de verdade — isto aqui é conveniência, não segurança.)
-  const producaoVisiveis = producaoItems.filter((i) => can(i.module));
-  const gestaoVisiveis = gestaoItems.filter((i) => can(i.module));
 
-  const isFinanceiroActive = financeiroItems.some((i) => location.pathname === i.url);
-  const [financeiroOpen, setFinanceiroOpen] = useState(isFinanceiroActive);
+  // O menu só mostra o que a pessoa pode abrir. (A RLS é quem manda de verdade —
+  // isto aqui é conveniência, não segurança.) Grupo sem item nenhum some.
+  const grupos = useMemo(
+    () =>
+      GRUPOS.map((g) => ({ ...g, itens: g.itens.filter((i) => !i.module || can(i.module)) }))
+        .filter((g) => g.itens.length > 0),
+    [can],
+  );
+
+  // Qual grupo contém a página atual? É o único que abre por padrão.
+  const grupoDaRota = useMemo(() => {
+    const path = location.pathname;
+    for (const g of grupos) {
+      if (g.itens.some((i) => (i.url === "/" ? path === "/" : path.startsWith(i.url)))) return g.id;
+    }
+    return null;
+  }, [grupos, location.pathname]);
+
+  const [abertos, setAbertos] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CHAVE_ABERTOS) || "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  // O grupo da página em que você está fica sempre aberto (senão você não se acha).
+  useEffect(() => {
+    if (grupoDaRota) setAbertos((a) => (a[grupoDaRota] ? a : { ...a, [grupoDaRota]: true }));
+  }, [grupoDaRota]);
+
+  useEffect(() => {
+    localStorage.setItem(CHAVE_ABERTOS, JSON.stringify(abertos));
+  }, [abertos]);
+
+  const alternar = (id: string) => setAbertos((a) => ({ ...a, [id]: !a[id] }));
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const avatarUrl = profile?.avatar_url || "";
@@ -162,92 +235,60 @@ export function AppSidebar() {
           )}
         </div>
 
-        {/* PRODUÇÃO */}
-        {producaoVisiveis.length > 0 && (
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Produção
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {producaoVisiveis.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarLink item={item} collapsed={collapsed} />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
+        {grupos.map((g) => {
+          // Menu recolhido (modo ícone): mostra tudo reto, sem cabeçalho de grupo.
+          if (collapsed || !g.label) {
+            return (
+              <SidebarGroup key={g.id}>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {g.itens.map((item) => (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarLink item={item} collapsed={collapsed} />
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          }
 
-        {/* GESTÃO */}
-        {gestaoVisiveis.length > 0 && (
-        <SidebarGroup>
-          {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-              Gestão
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {gestaoVisiveis.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarLink item={item} collapsed={collapsed} />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        )}
+          const aberto = !!abertos[g.id];
+          const temAtiva = g.id === grupoDaRota;
 
-        {/* FINANCEIRO (collapsible — legado, mantém sub-menu) */}
-        {can("financeiro") && (
-          <SidebarGroup>
-            {!collapsed && (
-              <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
-                Financeiro
-              </SidebarGroupLabel>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <Collapsible open={financeiroOpen} onOpenChange={setFinanceiroOpen}>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        className={`hover:bg-sidebar-accent/50 w-full ${
-                          isFinanceiroActive ? "text-primary font-medium" : ""
-                        }`}
-                      >
-                        <DollarSign className="mr-2 h-4 w-4" />
-                        {!collapsed && (
-                          <>
-                            <span className="flex-1 text-left">Módulo Financeiro</span>
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 transition-transform ${
-                                financeiroOpen ? "rotate-180" : ""
-                              }`}
-                            />
-                          </>
-                        )}
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenu className="ml-4 border-l border-sidebar-border pl-2">
-                        {financeiroItems.map((item) => (
-                          <SidebarMenuItem key={item.url}>
-                            <SidebarLink item={item} collapsed={collapsed} small />
-                          </SidebarMenuItem>
-                        ))}
-                      </SidebarMenu>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+          return (
+            <SidebarGroup key={g.id} className="py-1">
+              <Collapsible open={aberto} onOpenChange={() => alternar(g.id)}>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel
+                    className={`flex w-full cursor-pointer items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em] transition-colors hover:text-foreground ${
+                      temAtiva ? "text-primary" : "text-muted-foreground/70"
+                    }`}
+                  >
+                    <span>{g.label}</span>
+                    <span className="flex items-center gap-1.5">
+                      {/* Fechado com item ativo dentro? um ponto avisa onde você está. */}
+                      {!aberto && temAtiva && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${aberto ? "" : "-rotate-90"}`} />
+                    </span>
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {g.itens.map((item) => (
+                        <SidebarMenuItem key={item.url}>
+                          <SidebarLink item={item} collapsed={collapsed} />
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarGroup>
+          );
+        })}
+
       </SidebarContent>
 
       <SidebarFooter className="shrink-0 space-y-1 border-t border-sidebar-border p-3">
