@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePeriod } from "@/contexts/PeriodContext";
@@ -214,35 +214,6 @@ export default function Home() {
     },
   });
 
-  // "Meu dia" — quadro pessoal (tarefas e entregáveis de quem está logado)
-  const { data: minhasTarefas = [] } = useQuery({
-    queryKey: ["home-minhas-tarefas", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("tasks")
-        .select("id, title, due_date, project_id")
-        .eq("assigned_user_id", user!.id)
-        .eq("completed", false)
-        .order("due_date", { nullsFirst: false })
-        .limit(6);
-      return (data as any[]) || [];
-    },
-  });
-  const { data: meusEntregaveis = [] } = useQuery({
-    queryKey: ["home-meus-entregaveis", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("deliverables")
-        .select("id, titulo, status, prazo_interno, data_entrega, project_id, project:projects(id, name)")
-        .eq("responsavel_id", user!.id)
-        .not("status", "in", "(entregue,aprovado)")
-        .order("prazo_interno", { nullsFirst: false })
-        .limit(6);
-      return (data as any[]) || [];
-    },
-  });
 
   // ===== FINANCEIRO =====
   const recItems = useMemo(() => extractItems<CAItem>(receivables.data?.payload), [receivables.data]);
@@ -606,21 +577,9 @@ export default function Home() {
   const anim = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
 
-  // Equipe / Edição não veem dinheiro: em vez de um painel financeiro zerado
-  // (a RLS devolve vazio), entregam a própria mesa.
-  if (!canSeeMoney) {
-    return (
-      <div className="mx-auto max-w-4xl space-y-6 py-6">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-foreground">
-            Olá{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
-          </h1>
-          <p className="text-sm text-muted-foreground">O que está na sua mesa hoje.</p>
-        </div>
-        <MeuDia minhasTarefas={minhasTarefas} meusEntregaveis={meusEntregaveis} today={today} navigate={navigate} />
-      </div>
-    );
-  }
+  // Equipe / Edição não veem dinheiro. Em vez de um painel financeiro zerado
+  // (a RLS devolve vazio), vão pro lugar único do "o que é meu": a Minha mesa.
+  if (!canSeeMoney) return <Navigate to="/minha-mesa" replace />;
 
   return (
     <div className="space-y-8">
@@ -682,7 +641,6 @@ export default function Home() {
       </section>
 
       {/* Meu dia — quadro pessoal (cada um vê o que é seu) */}
-      <MeuDia minhasTarefas={minhasTarefas} meusEntregaveis={meusEntregaveis} today={today} navigate={navigate} />
 
       {/* FINANCEIRO */}
       <section className="space-y-5">
@@ -974,68 +932,3 @@ export default function Home() {
   );
 }
 
-
-/** A mesa da pessoa: tarefas e entregáveis dela. Serve pra todo mundo — e é a
- *  Home inteira de quem não vê dinheiro (equipe/edição). */
-function MeuDia({ minhasTarefas, meusEntregaveis, today, navigate }: {
-  minhasTarefas: any[]; meusEntregaveis: any[]; today: string; navigate: (to: string) => void;
-}) {
-  return (
-      <section className="space-y-3">
-        <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
-          <Inbox className="h-5 w-5 text-primary" /> Meu dia
-        </h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-primary" /> Minhas tarefas</p>
-                <span className="text-xs text-muted-foreground">{minhasTarefas.length}</span>
-              </div>
-              {minhasTarefas.length === 0 ? (
-                <EmptyState icon={CheckCircle2} message="Nada pendente pra você 🎉" />
-              ) : (
-                <div className="space-y-1.5">
-                  {minhasTarefas.map((t: any) => {
-                    const atrasada = t.due_date && t.due_date < today;
-                    return (
-                      <div key={t.id} className="flex items-center gap-2 text-xs">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasada ? "bg-destructive" : "bg-primary"}`} />
-                        <span className="min-w-0 flex-1 truncate text-foreground">{t.title}</span>
-                        {t.due_date && <span className={`shrink-0 ${atrasada ? "text-destructive" : "text-muted-foreground"}`}>{new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold flex items-center gap-1.5"><Clapperboard className="h-4 w-4 text-primary" /> Meus entregáveis</p>
-                <span className="text-xs text-muted-foreground">{meusEntregaveis.length}</span>
-              </div>
-              {meusEntregaveis.length === 0 ? (
-                <EmptyState icon={Clapperboard} message="Nenhum entregável seu ativo" />
-              ) : (
-                <div className="space-y-1.5">
-                  {meusEntregaveis.map((d: any) => {
-                    const prazo = d.prazo_interno || d.data_entrega;
-                    const atrasado = prazo && prazo < today;
-                    return (
-                      <button key={d.id} onClick={() => navigate(`/projetos/${d.project_id}/entregaveis/${d.id}`)} className="flex w-full items-center gap-2 text-left text-xs hover:opacity-80">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasado ? "bg-destructive" : "bg-primary"}`} />
-                        <span className="min-w-0 flex-1 truncate text-foreground">{d.titulo}{d.project?.name ? <span className="text-muted-foreground"> · {d.project.name}</span> : null}</span>
-                        {prazo && <span className={`shrink-0 ${atrasado ? "text-destructive" : "text-muted-foreground"}`}>{new Date(prazo).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-  );
-}

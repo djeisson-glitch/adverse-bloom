@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
-import { Clapperboard, Film, ThumbsUp, ChevronRight, Loader2 } from "lucide-react";
+import { Clapperboard, Film, ThumbsUp, ChevronRight, Loader2, ListChecks } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
@@ -24,11 +24,12 @@ const STATUS_LABEL: Record<string, string> = {
   entregue: "Entregue",
 };
 
-type Aba = "editar" | "aprovar";
+type Aba = "editar" | "tarefas" | "aprovar";
 
 export default function MinhaMesa() {
   const { user } = useAuth();
   const [aba, setAba] = useState<Aba>("editar");
+  const hoje = new Date().toISOString().slice(0, 10);
 
   const { data: settings } = useQuery({
     queryKey: ["approval-settings"],
@@ -49,6 +50,22 @@ export default function MinhaMesa() {
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
+    },
+  });
+
+  // Minhas tarefas — a Minha mesa passa a ser o ÚNICO lugar do "o que é meu".
+  const { data: minhasTarefas = [] } = useQuery({
+    queryKey: ["minha-mesa-tarefas", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("tasks")
+        .select("id, title, due_date, status, project:projects(id, name)")
+        .eq("assigned_user_id", user!.id)
+        .eq("completed", false)
+        .order("due_date", { nullsFirst: false });
+      if (error) throw error;
+      return (data as any[]) || [];
     },
   });
 
@@ -93,13 +110,14 @@ export default function MinhaMesa() {
         <Clapperboard className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
-          <p className="text-sm text-muted-foreground">Seus vídeos pra editar e os que esperam sua aprovação.</p>
+          <p className="text-sm text-muted-foreground">Tudo que é seu: tarefas, vídeos pra editar e o que espera sua aprovação.</p>
         </div>
       </div>
 
       <div className="flex gap-1 border-b border-border/60">
         {([
           { id: "editar", label: `Editar (${meus.length})`, icon: Film },
+          { id: "tarefas", label: `Tarefas (${minhasTarefas.length})`, icon: ListChecks },
           { id: "aprovar", label: `Aprovar (${aprovarPorMim.length})`, icon: ThumbsUp },
         ] as { id: Aba; label: string; icon: any }[]).map((t) => (
           <button
@@ -122,6 +140,39 @@ export default function MinhaMesa() {
           <Bucket titulo="Com o cliente" itens={grupos.cliente} vazio="Nada com o cliente." tone="primary" />
           <Bucket titulo="Concluídos" itens={grupos.concluidos} vazio="Nenhum concluído ainda." tone="success" />
         </div>
+      ) : aba === "tarefas" ? (
+        <Card className="glass-card">
+          <CardContent className="p-5">
+            <p className="mb-3 text-sm font-semibold text-foreground">Minhas tarefas</p>
+            {minhasTarefas.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nada pendente pra você 🎉</p>
+            ) : (
+              <div className="space-y-1.5">
+                {minhasTarefas.map((t: any) => {
+                  const atrasada = t.due_date && t.due_date < hoje;
+                  return (
+                    <Link
+                      key={t.id}
+                      to={t.project?.id ? `/projetos/${t.project.id}` : "#"}
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/40"
+                    >
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasada ? "bg-destructive" : "bg-primary"}`} />
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        {t.title}
+                        {t.project?.name && <span className="text-muted-foreground"> · {t.project.name}</span>}
+                      </span>
+                      {t.due_date && (
+                        <span className={`shrink-0 text-xs ${atrasada ? "text-destructive" : "text-muted-foreground"}`}>
+                          {new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <Bucket
           titulo="Aguardando minha aprovação"
