@@ -14,7 +14,6 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -26,32 +25,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // O profile normalmente já vem pronto do banco: no 1º login com Google, o
+  // trigger trg_provisionar_membro cria profile + papel a partir do convite.
+  // Aqui a gente só carrega — e completa a foto/nome do Google se faltar.
   const ensureProfile = async (u: User) => {
-    // Try to fetch existing profile
+    const meta = u.user_metadata || {};
     const { data } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", u.id)
-      .single();
+      .maybeSingle();
 
     if (data) {
+      // Completa o que o convite não tinha (foto do Google, nome).
+      const patch: Record<string, any> = {};
+      const foto = meta.avatar_url || meta.picture;
+      if (foto && !data.avatar_url) patch.avatar_url = foto;
+      if (!data.full_name && (meta.full_name || meta.name)) patch.full_name = meta.full_name || meta.name;
+      if (Object.keys(patch).length > 0) {
+        const { data: atualizado } = await supabase
+          .from("profiles").update(patch).eq("id", u.id).select().maybeSingle();
+        setProfile(atualizado ?? data);
+        return;
+      }
       setProfile(data);
-    } else {
-      // Auto-create profile from user metadata
-      const meta = u.user_metadata || {};
-      const newProfile = {
+      return;
+    }
+
+    // Fallback (não deveria acontecer): cria o mínimo pra não travar a sessão.
+    const { data: created } = await supabase
+      .from("profiles")
+      .insert({
         id: u.id,
         full_name: meta.full_name || meta.name || u.email?.split("@")[0] || "",
         email: u.email || "",
         avatar_url: meta.avatar_url || meta.picture || "",
-      };
-      const { data: created } = await supabase
-        .from("profiles")
-        .insert(newProfile)
-        .select()
-        .single();
-      setProfile(created);
-    }
+      })
+      .select()
+      .maybeSingle();
+    setProfile(created);
   };
 
   useEffect(() => {
@@ -78,17 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

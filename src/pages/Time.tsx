@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { UsersRound, Plus, KeyRound, Save, Check, ChevronDown } from "lucide-react";
+import { UsersRound, Plus, Save, Check, ChevronDown, MailCheck, X, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +13,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 
-// Client separado só pro signUp: evita que criar um membro troque a sessão do admin.
-const signupClient = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
+/**
+ * Cadastrar = CONVIDAR. Não criamos usuário nem senha: o login é só com Google.
+ * O convite libera o e-mail e guarda a ficha (papel, funções, custo); no 1º
+ * login com Google um trigger provisiona o profile + papel automaticamente.
+ */
 
 const PAPEIS: { value: string; label: string; hint: string }[] = [
   { value: "admin", label: "Admin", hint: "Acesso total, vê valores em R$" },
@@ -60,7 +58,6 @@ export default function Time() {
   const [novo, setNovo] = useState({
     nome: "",
     email: "",
-    senha: "",
     funcoes: [] as string[],
     papel: "equipe",
     horas_semana: 40,
@@ -104,35 +101,32 @@ export default function Time() {
 
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "equipe";
 
-  const cadastrar = async () => {
-    if (!novo.nome || !novo.email || !novo.senha) {
-      toast.error("Preencha nome, e-mail e senha");
+  // Convites pendentes: e-mail liberado, mas a pessoa ainda não entrou.
+  const { data: convites = [] } = useQuery({
+    queryKey: ["team-convites"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("allowed_emails")
+        .select("email, nome, papel, funcoes, horas_semana, custo_hora, usado_em, created_at")
+        .is("usado_em", null)
+        .order("created_at", { ascending: false });
+      if (error) return [] as any[];   // tabela/coluna ainda sem migration: não quebra a tela
+      return data as any[];
+    },
+  });
+
+  // Convidar = cadastrar. Não cria usuário nem senha — o login é só com Google.
+  const convidar = async () => {
+    if (!novo.nome || !novo.email) {
+      toast.error("Preencha nome e e-mail");
       return;
     }
     setCriando(true);
     try {
-      // 1) libera o e-mail na allowlist (senão o trigger bloqueia o signup)
-      const { error: eAllow } = await (supabase as any).rpc("admin_add_allowed_email", {
-        _email: novo.email,
-        _nota: "cadastro via Time",
-      });
-      if (eAllow) throw eAllow;
-
-      // 2) cria o usuário num client separado (não derruba a sessão do admin)
-      const { data, error } = await signupClient.auth.signUp({
-        email: novo.email,
-        password: novo.senha,
-        options: { data: { full_name: novo.nome } },
-      });
-      if (error) throw error;
-      const uid = data.user?.id;
-      if (!uid) throw new Error("Usuário não foi criado (confira se a confirmação de e-mail está desligada no Supabase).");
-
-      // 3) grava o profile + papel via RPC de admin (contorna a RLS)
       const primeira = novo.funcoes[0] || null;
       const funcaoObj = rateCard.find((r) => r.funcao === primeira);
-      const { error: eUp } = await (supabase as any).rpc("admin_upsert_membro", {
-        _uid: uid,
+      const { data, error } = await (supabase as any).rpc("admin_convidar_membro", {
         _email: novo.email,
         _nome: novo.nome,
         _funcao: primeira,
@@ -141,23 +135,34 @@ export default function Time() {
         _papel: novo.papel,
         _horas: novo.horas_semana,
         _custo: novo.custo_hora ? Number(novo.custo_hora) : funcaoObj?.custo_hora || null,
-        _ativo: true,
       });
-      if (eUp) throw eUp;
+      if (error) throw error;
 
-      toast.success("Membro cadastrado");
-      setNovo({ nome: "", email: "", senha: "", funcoes: [], papel: "equipe", horas_semana: 40, custo_hora: "" });
+      toast.success(data?.ja_entrou ? "Membro atualizado" : "Convite enviado", {
+        description: data?.ja_entrou
+          ? "Essa pessoa já tinha entrado — atualizei o perfil dela."
+          : `${novo.email} já pode entrar com o Google. O perfil é criado no primeiro login.`,
+      });
+      setNovo({ nome: "", email: "", funcoes: [], papel: "equipe", horas_semana: 40, custo_hora: "" });
       qc.invalidateQueries({ queryKey: ["team-profiles"] });
       qc.invalidateQueries({ queryKey: ["team-roles"] });
+      qc.invalidateQueries({ queryKey: ["team-convites"] });
     } catch (e: any) {
-      toast.error("Erro ao cadastrar", {
-        description: /admin_add_allowed_email|admin_upsert_membro|function|does not exist/i.test(e.message || "")
-          ? "Rode 'supabase db push' pra habilitar o cadastro de membros."
+      toast.error("Erro ao convidar", {
+        description: /admin_convidar_membro|function|does not exist|column/i.test(e.message || "")
+          ? "Rode 'supabase db push' pra habilitar os convites."
           : e.message,
       });
     } finally {
       setCriando(false);
     }
+  };
+
+  const cancelarConvite = async (email: string) => {
+    const { error } = await (supabase as any).rpc("admin_remover_convite", { _email: email });
+    if (error) return toast.error("Não deu pra cancelar", { description: error.message });
+    toast.success("Convite cancelado");
+    qc.invalidateQueries({ queryKey: ["team-convites"] });
   };
 
   const salvarPerfil = useMutation({
@@ -191,12 +196,6 @@ export default function Time() {
       }),
   });
 
-  const resetSenha = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) return toast.error("Erro ao enviar reset", { description: error.message });
-    toast.success(`Link de reset enviado para ${email}`);
-  };
-
   return (
     <div className="mx-auto max-w-5xl space-y-6 py-6">
       <div className="flex items-center gap-3">
@@ -209,27 +208,29 @@ export default function Time() {
         </div>
       </div>
 
-      {/* Form de cadastro */}
+      {/* Convite (= cadastro). Sem senha: o login é só com Google. */}
       {isAdmin && (
         <Card className="glass-card">
           <CardContent className="space-y-4 p-6">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <span>
+                Cadastrar aqui <strong>convida</strong> a pessoa: não criamos senha (o login é só com Google).
+                Use o <strong>e-mail da conta Google</strong> que ela vai usar pra entrar — o perfil (papel, funções, custo)
+                é aplicado sozinho no primeiro login.
+              </span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
               <Input
                 placeholder="Nome"
                 value={novo.nome}
                 onChange={(e) => setNovo({ ...novo, nome: e.target.value })}
               />
               <Input
-                placeholder="e-mail"
+                placeholder="E-mail da conta Google"
                 type="email"
                 value={novo.email}
                 onChange={(e) => setNovo({ ...novo, email: e.target.value })}
-              />
-              <Input
-                placeholder="senha"
-                type="password"
-                value={novo.senha}
-                onChange={(e) => setNovo({ ...novo, senha: e.target.value })}
               />
               <MultiFuncao
                 rateCard={rateCard}
@@ -270,10 +271,44 @@ export default function Time() {
                 />
                 <span className="text-xs text-muted-foreground">R$/h</span>
               </div>
-              <Button onClick={cadastrar} disabled={criando} className="bg-primary text-primary-foreground">
+              <Button onClick={convidar} disabled={criando} className="bg-primary text-primary-foreground">
                 <Plus className="mr-1 h-4 w-4" />
-                {criando ? "Cadastrando..." : "Cadastrar"}
+                {criando ? "Convidando..." : "Convidar"}
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Convites pendentes: liberados, mas ainda não entraram */}
+      {isAdmin && convites.length > 0 && (
+        <Card className="glass-card">
+          <CardContent className="p-5">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <MailCheck className="h-4 w-4 text-primary" /> Aguardando 1º login
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Já podem entrar com o Google. O perfil aparece na lista abaixo assim que entrarem pela primeira vez.
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {convites.map((c: any) => (
+                <div key={c.email} className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-foreground">{c.nome || "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{c.email}</p>
+                  </div>
+                  <span className="hidden rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
+                    {PAPEIS.find((p) => p.value === c.papel)?.label || c.papel}
+                  </span>
+                  <button
+                    onClick={() => cancelarConvite(c.email)}
+                    title="Cancelar convite"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -290,7 +325,6 @@ export default function Time() {
             editable={isAdmin || p.id === me?.id}
             adminActions={isAdmin}
             onSave={(patch) => salvarPerfil.mutate({ ...p, ...patch })}
-            onResetSenha={() => p.email && resetSenha(p.email)}
           />
         ))}
         {profiles.length === 0 && (
@@ -353,7 +387,6 @@ function TeamMemberRow({
   editable,
   adminActions,
   onSave,
-  onResetSenha,
 }: {
   profile: Profile;
   currentRole: string;
@@ -361,7 +394,6 @@ function TeamMemberRow({
   editable: boolean;
   adminActions: boolean;
   onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => void;
-  onResetSenha: () => void;
 }) {
   const [funcoes, setFuncoes] = useState<string[]>(
     profile.funcoes && profile.funcoes.length ? profile.funcoes : profile.funcao ? [profile.funcao] : [],
@@ -370,7 +402,6 @@ function TeamMemberRow({
   const [horas, setHoras] = useState(profile.horas_semana);
   const [custoHora, setCustoHora] = useState<string>(profile.custo_hora?.toString() || "");
   const [ativo, setAtivo] = useState(profile.ativo);
-  const [openReset, setOpenReset] = useState(false);
 
   const displayName = profile.full_name || profile.email?.split("@")[0] || "sem nome";
   const initials = displayName
@@ -477,25 +508,6 @@ function TeamMemberRow({
           </div>
         )}
 
-        {adminActions && (
-          <div className="text-xs">
-            <button
-              onClick={() => setOpenReset((v) => !v)}
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            >
-              <KeyRound className="h-3 w-3" />
-              Redefinir senha
-            </button>
-            {openReset && (
-              <div className="mt-2 flex items-center gap-2 rounded-md bg-muted/40 p-2">
-                <Label className="text-xs text-muted-foreground">Enviar link de reset para o e-mail?</Label>
-                <Button size="sm" variant="outline" onClick={onResetSenha}>
-                  Enviar
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );
