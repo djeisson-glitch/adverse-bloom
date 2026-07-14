@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProjects, PRODUCTION_STAGES_NEW, type Project } from "@/hooks/useProjects";
+import { useProjects, useUpdateProject, PRODUCTION_STAGES_NEW, type Project } from "@/hooks/useProjects";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LayoutGrid, Plus, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -193,6 +193,7 @@ function ListaVista({
 /* ------------------------------------------------------- Board (Kanban) */
 
 function BoardVista({ projects, onOpen }: { projects: Project[]; onOpen: (id: string) => void }) {
+  const updateProject = useUpdateProject();
   // Reaproveita o ProductionKanban legado — clique no card navega pra ficha
   return (
     <div onClick={(e) => {
@@ -200,7 +201,10 @@ function BoardVista({ projects, onOpen }: { projects: Project[]; onOpen: (id: st
       const id = el?.getAttribute("data-project-id");
       if (id) onOpen(id);
     }}>
-      <ProductionKanban projects={projects as any} onDrop={() => {}} />
+      <ProductionKanban
+        projects={projects as any}
+        onMoveProject={(id, status) => updateProject.mutate({ id, status })}
+      />
     </div>
   );
 }

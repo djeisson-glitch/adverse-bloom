@@ -1,13 +1,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
-interface Profile {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  avatar_url: string | null;
-}
+// A linha inteira da tabela — o select é "*", então declarar 4 campos só fazia
+// o TypeScript mentir sobre o que existe (ativo, horas_semana, papel…).
+type Profile = Tables<"profiles">;
 
 interface AuthContextType {
   session: Session | null;
