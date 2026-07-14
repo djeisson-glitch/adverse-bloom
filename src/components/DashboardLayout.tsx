@@ -1,7 +1,8 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Play, Square, Search, Bell, LogOut, ShieldCheck, XCircle } from "lucide-react";
+import { Play, Square, Search, LogOut, ShieldCheck, XCircle } from "lucide-react";
+import { NotificacoesSino } from "@/components/NotificacoesSino";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -115,18 +116,6 @@ function UserChip() {
   );
 }
 
-function NotificationBell() {
-  return (
-    <button
-      onClick={() => toast.info("Notificações chegam junto dos follow-ups")}
-      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground hover:text-foreground"
-      title="Notificações"
-    >
-      <Bell className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
 export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
@@ -138,7 +127,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <SearchBox />
             <div className="ml-auto flex items-center gap-2">
               <TimerButton />
-              <NotificationBell />
+              <NotificacoesSino />
               <UserChip />
             </div>
           </header>

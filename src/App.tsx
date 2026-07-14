@@ -11,6 +11,7 @@ import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import HomeEquipe from "./pages/HomeEquipe";
+import Notificacoes from "./pages/Notificacoes";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
 import ClienteDetalhe from "./pages/ClienteDetalhe";
@@ -184,6 +185,7 @@ const App = () => (
 
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
               <Route path="/guia" element={<ProtectedRoute><Guia /></ProtectedRoute>} />
 
               <Route path="/configuracoes" element={<ProtectedRoute><ModuleGuard module="admin"><Configuracoes /></ModuleGuard></ProtectedRoute>} />
