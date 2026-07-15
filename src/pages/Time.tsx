@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
-import { ACCESS_GROUPS } from "@/lib/moduleGroups";
+import { ACCESS_GROUPS, ACCESS_SECTIONS } from "@/lib/moduleGroups";
 import { toast } from "sonner";
 
 /**
@@ -597,29 +597,36 @@ function TeamMemberRow({
         {adminActions && !["cliente", "admin", "manager"].includes(currentRole) && (
           <div className="mt-4 border-t border-border/40 pt-3">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acessos</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ACCESS_GROUPS.map((g) => {
-                const ligado = g.modules.some(
-                  (m) => acessosDaPessoa.find((a) => a.module === m)?.permission &&
-                         acessosDaPessoa.find((a) => a.module === m)?.permission !== "none",
-                );
-                return (
-                  <label key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                        {g.label}
-                        {g.dinheiro && (
-                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-500" title="Abre dados financeiros de verdade">💰 vê valores</span>
-                        )}
-                      </p>
-                      <p className="truncate text-[11px] text-muted-foreground">{g.hint}</p>
-                    </div>
-                    <Switch checked={ligado} disabled={togglando} onCheckedChange={(v) => onToggleGrupo(g, v)} />
-                  </label>
-                );
-              })}
+            <div className="space-y-3">
+              {ACCESS_SECTIONS.map((secao) => (
+                <div key={secao}>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{secao}</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ACCESS_GROUPS.filter((g) => g.section === secao).map((g) => {
+                      const ligado = g.modules.some((m) => {
+                        const perm = acessosDaPessoa.find((a) => a.module === m)?.permission;
+                        return !!perm && perm !== "none";
+                      });
+                      return (
+                        <label key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                              {g.label}
+                              {g.dinheiro && (
+                                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-500" title="Abre dados financeiros de verdade">💰</span>
+                              )}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">{g.hint}</p>
+                          </div>
+                          <Switch checked={ligado} disabled={togglando} onCheckedChange={(v) => onToggleGrupo(g, v)} />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">Início e Minha mesa ficam sempre ligados. Grupos com 💰 dão acesso real aos valores.</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">Início e Minha mesa ficam sempre ligados. Itens com 💰 dão acesso real aos valores.</p>
           </div>
         )}
 
