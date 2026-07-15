@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import { StartTimerModal } from "@/components/timer/StartTimerModal";
+import { AssistenteFlutuante } from "@/components/AssistenteFlutuante";
 import { toast } from "sonner";
 
 function TimerButton() {
@@ -167,6 +168,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <main className="flex-1 overflow-auto p-6">{children}</main>
         </div>
       </div>
+      <AssistenteFlutuante />
     </SidebarProvider>
   );
 }
