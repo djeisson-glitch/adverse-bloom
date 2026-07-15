@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,7 @@ import { KanbanBoard } from "@/components/comercial/KanbanBoard";
 import { DealFormModal } from "@/components/comercial/DealFormModal";
 import { LostReasonModal } from "@/components/comercial/LostReasonModal";
 import { WonDealModal } from "@/components/comercial/WonDealModal";
+import { HistoricoDealModal } from "@/components/comercial/HistoricoDealModal";
 import { Indicadores } from "@/components/comercial/Indicadores";
 import { useNavigate } from "react-router-dom";
 
@@ -48,6 +49,7 @@ export default function Comercial() {
   const [pendingMove, setPendingMove] = useState<{ dealId: string; stage: Stage } | null>(null);
   const [lostModalOpen, setLostModalOpen] = useState(false);
   const [wonModalOpen, setWonModalOpen] = useState(false);
+  const [histOpen, setHistOpen] = useState(false);
   const [wonDealTitle, setWonDealTitle] = useState("");
   const [wonClientName, setWonClientName] = useState("");
 
@@ -193,6 +195,10 @@ export default function Comercial() {
         </div>
         <div className="flex items-center gap-3">
           <PeriodFilter value={period} onChange={setPeriod} />
+          <Button variant="outline" onClick={() => setHistOpen(true)}>
+            <History className="mr-2 h-4 w-4" />
+            Lançar histórico
+          </Button>
           <Button onClick={openNewDeal}>
             <Plus className="mr-2 h-4 w-4" />
             Novo Deal
@@ -225,6 +231,8 @@ export default function Comercial() {
         onCreateClient={handleCreateClient}
         saving={saving}
       />
+
+      <HistoricoDealModal open={histOpen} onOpenChange={setHistOpen} />
 
       <LostReasonModal
         open={lostModalOpen}
