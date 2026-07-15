@@ -1,8 +1,9 @@
-import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package } from "lucide-react";
+import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type CardDef = {
   href: string;
@@ -13,6 +14,20 @@ type CardDef = {
 };
 
 export default function Admin() {
+  const { isAdmin, isLoading } = usePermissions();
+
+  // Defesa em profundidade: além do guard de rota, a própria página só abre
+  // pra admin de verdade (papel). Nunca por concessão.
+  if (!isLoading && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <ShieldAlert className="mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="text-lg font-semibold text-foreground">Acesso restrito</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Só administradores acessam esta área.</p>
+      </div>
+    );
+  }
+
   const { data: usuarios = 0 } = useQuery({
     queryKey: ["admin-usuarios-count"],
     queryFn: async () => {

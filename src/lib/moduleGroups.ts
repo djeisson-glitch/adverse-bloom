@@ -45,6 +45,8 @@ export const ACCESS_SECTIONS = ["Comercial", "Produção", "Tempo", "Financeiro"
  * financeiros de verdade. (Mantenha as duas em sincronia.)
  */
 export const MONEY_MODULES: ModuleId[] = [
-  "demandas", "leads", "orcamentos", "clientes", "follow_ups", "crm", "propostas",
+  // Só módulos GERIDOS pelo painel. Legados fora da lista (ex.: "crm") de
+  // propósito: concessão-fantasma a eles não pode mais abrir o financeiro.
+  "demandas", "leads", "orcamentos", "clientes", "follow_ups", "propostas",
   "faturamento", "fechamento", "contas_fees", "relatorios", "financeiro", "fornecedores",
 ];

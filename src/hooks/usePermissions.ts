@@ -141,15 +141,18 @@ export function usePermissions() {
    */
   const can = (module: ModuleId, level: PermissionLevel = "view"): boolean => {
     if (isAdmin) return true;
+    // Admin é SÓ por papel — nunca por concessão. Uma concessão 'admin' fantasma
+    // (legado) NÃO pode mais virar acesso ao painel de administração.
+    if (module === "admin") return false;
     if (isCliente) return module === "portal";
     if (BASE_MODULES.includes(module)) return true;   // Início e Minha mesa: todo mundo
-    if (isProdutor && module === "admin" && level === "view") return true;
     return concedido(module, level);
   };
 
-  // Vê dinheiro = admin/produtor OU tem concessão a algum módulo financeiro
-  // (espelha a RLS pode_ver_dinheiro). Admin curto-circuita antes da query.
-  const canSeeMoney = isAdmin || isProdutor || MONEY_MODULES.some((m) => concedido(m, "view"));
+  // Vê dinheiro = admin OU tem concessão a algum módulo financeiro no painel.
+  // Produtor NÃO entra por papel: se o admin desligar os grupos de dinheiro no
+  // painel, o produtor deixa de ver — "o painel manda" (espelha pode_ver_dinheiro).
+  const canSeeMoney = isAdmin || MONEY_MODULES.some((m) => concedido(m, "view"));
 
   return {
     can,
