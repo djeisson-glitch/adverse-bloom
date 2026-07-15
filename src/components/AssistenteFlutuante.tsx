@@ -3,6 +3,7 @@ import { MessageCircle, X, Send, Bot, Loader2, Sparkles, MessagesSquare, Chevron
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import ReactMarkdown from "react-markdown";
 
 /**
@@ -27,14 +28,14 @@ const quando = (iso: string) => {
 
 export function AssistenteFlutuante() {
   const { user } = useAuth();
-  const [aberto, setAberto] = useState(false);
-  const [tab, setTab] = useState<"ia" | "conversas">("ia");
+  const [aberto, setAberto] = useState(false);            // bolha compacta da IA
+  const [conversas, setConversas] = useState(false);      // drawer lateral das conversas
   const [thread, setThread] = useState<Thread | null>(null);
 
-  // perfis (pra @menções e nomes) — carrega uma vez ao abrir
+  // perfis (pra @menções e nomes) — carrega quando algo abre
   const { data: profiles = [] } = useQuery({
     queryKey: ["flut-profiles"],
-    enabled: aberto,
+    enabled: aberto || conversas,
     queryFn: async () => {
       const { data } = await (supabase as any).from("profiles").select("id, full_name");
       return (data || []) as { id: string; full_name: string | null }[];
@@ -51,26 +52,38 @@ export function AssistenteFlutuante() {
         {aberto ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </button>
 
+      {/* Bolha compacta: só o assistente (IA) */}
       {aberto && (
         <div className="fixed bottom-20 right-5 z-40 flex h-[540px] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-          {/* Abas */}
-          <div className="flex border-b border-border">
-            <button onClick={() => { setTab("ia"); }} className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium ${tab === "ia" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}>
-              <Bot className="h-4 w-4" /> Assistente
-            </button>
-            <button onClick={() => { setTab("conversas"); setThread(null); }} className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-sm font-medium ${tab === "conversas" ? "border-b-2 border-primary text-foreground" : "text-muted-foreground"}`}>
-              <MessagesSquare className="h-4 w-4" /> Conversas
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Bot className="h-4 w-4 text-primary" /> Assistente</p>
+            <button
+              onClick={() => { setConversas(true); setAberto(false); }}
+              className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40"
+            >
+              <MessagesSquare className="h-3.5 w-3.5" /> Conversas
             </button>
           </div>
-
-          {tab === "ia" && <ChatIA user={user} />}
-          {tab === "conversas" && (
-            thread
-              ? <ThreadView thread={thread} profiles={profiles} onVoltar={() => setThread(null)} />
-              : <ConversasLista onAbrir={setThread} />
-          )}
+          <ChatIA user={user} />
         </div>
       )}
+
+      {/* Conversas: barra lateral (altura cheia) */}
+      <Sheet open={conversas} onOpenChange={(o) => { setConversas(o); if (!o) setThread(null); }}>
+        <SheetContent side="right" className="flex w-[min(440px,92vw)] flex-col gap-0 p-0">
+          {thread ? (
+            <ThreadView thread={thread} profiles={profiles} onVoltar={() => setThread(null)} />
+          ) : (
+            <>
+              <div className="border-b border-border px-4 py-3.5">
+                <p className="flex items-center gap-2 text-base font-semibold text-foreground"><MessagesSquare className="h-4 w-4 text-primary" /> Conversas</p>
+                <p className="text-xs text-muted-foreground">as threads ativas dos seus projetos</p>
+              </div>
+              <ConversasLista onAbrir={setThread} />
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
