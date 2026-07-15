@@ -52,6 +52,39 @@ const TIPOS_CUSTO = [
   { id: "outro", label: "Outro" },
 ] as const;
 
+/** Formato técnico → palavra que se bate o olho. */
+function formatoAmigavel(f?: string | null): string {
+  const k = (f || "").toLowerCase().replace(/[:x]/g, "x").replace(/\s/g, "");
+  if (k === "9x16") return "vertical";
+  if (k === "16x9") return "horizontal";
+  if (k === "1x1") return "quadrado";
+  if (k === "4x5") return "retrato";
+  return (f || "").trim();
+}
+
+/**
+ * Resumo BEM enxuto das entregas, agrupado por duração + formato.
+ * Ex.: [{label:"5× 15s vertical", n:5}, {label:"3× 90s horizontal", n:3}], total 8.
+ */
+function resumirEntregas(itens: { formato: string | null; duracao: string | null }[]) {
+  const grupos = new Map<string, { n: number; dur: string; fmt: string }>();
+  for (const it of itens) {
+    const dur = (it.duracao || "").trim();
+    const fmt = formatoAmigavel(it.formato);
+    const chave = `${dur}|${fmt}`;
+    const g = grupos.get(chave) || { n: 0, dur, fmt };
+    g.n += 1;
+    grupos.set(chave, g);
+  }
+  const linhas = [...grupos.values()]
+    .sort((a, b) => b.n - a.n)
+    .map((g) => ({
+      n: g.n,
+      label: `${g.n}× ${[g.dur, g.fmt].filter(Boolean).join(" ") || "vídeo"}`,
+    }));
+  return { total: itens.length, linhas };
+}
+
 type ProjetoTab = "entregaveis" | "tarefas" | "briefing" | "fechamento";
 
 export default function ProjetoDetalhe() {
@@ -96,6 +129,21 @@ export default function ProjetoDetalhe() {
       return data as any[];
     },
   });
+
+  // Resumo das entregas (formato × duração) — pra bater o olho no card de cima.
+  const { data: entregasResumo = [] } = useQuery({
+    queryKey: ["projeto-entregas-resumo", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables")
+        .select("formato, duracao")
+        .eq("project_id", id!);
+      if (error) throw error;
+      return data as { formato: string | null; duracao: string | null }[];
+    },
+  });
+  const resumo = resumirEntregas(entregasResumo);
 
   const { data: horasProjeto } = useQuery({
     queryKey: ["projeto-horas-total", id],
@@ -185,6 +233,18 @@ export default function ProjetoDetalhe() {
               value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
             />
           </div>
+
+          {resumo.total > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entregas</span>
+              {resumo.linhas.map((l) => (
+                <span key={l.label} className="rounded-full border border-border/50 bg-muted/30 px-2.5 py-0.5 text-xs text-foreground">
+                  {l.label}
+                </span>
+              ))}
+              <span className="text-xs text-muted-foreground">· {resumo.total} no total</span>
+            </div>
+          )}
 
           <EquipeAvatars members={members} profiles={profiles} projectId={project.id} onChanged={invalidate} />
         </CardContent>
