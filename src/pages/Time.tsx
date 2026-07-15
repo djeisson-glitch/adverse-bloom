@@ -447,7 +447,11 @@ function TeamMemberRow({
   const [papel, setPapel] = useState(currentRole);
   const [horas, setHoras] = useState(profile.horas_semana);
   const [custoHora, setCustoHora] = useState<string>(profile.custo_hora?.toString() || "");
-  const [ativo, setAtivo] = useState(profile.ativo);
+  // ativo NÃO é campo de formulário: só as ações da zona de perigo o mudam, no
+  // servidor. Como estado local (useState) ele ficava congelado no valor inicial
+  // — revogar acesso tinha sucesso mas o card não mudava (key estável não
+  // reinicializa o state). Derivar da prop faz o card refletir o refetch na hora.
+  const ativo = profile.ativo;
 
   const displayName = profile.full_name || profile.email?.split("@")[0] || "sem nome";
   const initials = displayName
