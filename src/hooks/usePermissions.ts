@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { BASE_MODULES, MONEY_MODULES } from "@/lib/moduleGroups";
 
 export type ModuleId =
   // Legado
@@ -86,23 +87,6 @@ interface UserPermission {
   permission: PermissionLevel;
 }
 
-/**
- * Equipe / Edição = SÓ EXECUÇÃO. É uma allowlist: o que não estiver aqui é
- * negado. (Antes era blocklist — qualquer módulo novo nascia liberado.)
- * O mesmo recorte é imposto na RLS (pode_ver_dinheiro), então esconder o menu
- * é só conveniência: quem manda é o banco.
- */
-const EQUIPE_MODULES: ModuleId[] = [
-  "inicio",       // Home própria (panorama pessoal, sem R$) — ver HomeEquipe
-  "minha_mesa",   // a lista onde a pessoa opera: tarefas + entregáveis + aprovações
-  "projetos",
-  "calendario",
-  "horas",
-  "timesheet",
-  "pos_producao",
-  // "pauta" NÃO: é a mesa do TIME (coordenação), não a da pessoa.
-];
-
 export function usePermissions() {
   const { user } = useAuth();
 
@@ -126,7 +110,6 @@ export function usePermissions() {
   const isEdicao = roles.includes("edicao");
   const isCliente = roles.includes("cliente");
 
-  const canSeeMoney = isAdmin || isProdutor;
   const canApontarHoras = isAdmin || isProdutor || isEquipe || isEdicao;
 
   const { data: permissions } = useQuery({
@@ -150,23 +133,23 @@ export function usePermissions() {
     return perm.permission === "view" || perm.permission === "edit";
   };
 
+  /**
+   * "O painel manda": o acesso vem das concessões (user_permissions), geridas
+   * no painel de Time. O papel só semeou os padrões. Exceções que não passam
+   * por grupo: admin vê tudo; cliente só o portal; produtor enxerga o Admin
+   * (em leitura), que de propósito não é um grupo togglável.
+   */
   const can = (module: ModuleId, level: PermissionLevel = "view"): boolean => {
     if (isAdmin) return true;
-
-    // Cliente: só o próprio portal.
     if (isCliente) return module === "portal";
-
-    // Produtor: tudo, menos administrar o sistema (Admin em modo edição).
-    if (isProdutor) return !(module === "admin" && level === "edit");
-
-    // Equipe / Edição: allowlist de execução + o que o admin conceder à mão.
-    if (isEquipe || isEdicao) {
-      return EQUIPE_MODULES.includes(module) || concedido(module, level);
-    }
-
-    // Sem papel reconhecido: nega (fail-closed).
+    if (BASE_MODULES.includes(module)) return true;   // Início e Minha mesa: todo mundo
+    if (isProdutor && module === "admin" && level === "view") return true;
     return concedido(module, level);
   };
+
+  // Vê dinheiro = admin/produtor OU tem concessão a algum módulo financeiro
+  // (espelha a RLS pode_ver_dinheiro). Admin curto-circuita antes da query.
+  const canSeeMoney = isAdmin || isProdutor || MONEY_MODULES.some((m) => concedido(m, "view"));
 
   return {
     can,
