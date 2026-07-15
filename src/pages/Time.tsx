@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+import { ACCESS_GROUPS } from "@/lib/moduleGroups";
 import { toast } from "sonner";
 
 /**
@@ -100,6 +102,40 @@ export default function Time() {
       if (error) throw error;
       return data as RateCard[];
     },
+  });
+
+  // Acessos concedidos (user_permissions) — base do painel de acessos por grupo.
+  const { data: acessos = [] } = useQuery({
+    queryKey: ["team-acessos"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_permissions")
+        .select("user_id, module, permission");
+      if (error) throw error;
+      return data as { user_id: string; module: string; permission: string }[];
+    },
+  });
+
+  // Liga/desliga um grupo inteiro pra uma pessoa (concede 'view' ou 'none').
+  const toggleGrupo = useMutation({
+    mutationFn: async ({ uid, grupo, ligar }: { uid: string; grupo: (typeof ACCESS_GROUPS)[number]; ligar: boolean }) => {
+      const rows = grupo.modules.map((module) => ({
+        user_id: uid,
+        module,
+        permission: ligar ? "view" : "none",
+        updated_at: new Date().toISOString(),
+      }));
+      const { error } = await (supabase as any)
+        .from("user_permissions")
+        .upsert(rows, { onConflict: "user_id,module" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["team-acessos"] });
+      qc.invalidateQueries({ queryKey: ["user_permissions"] });
+    },
+    onError: (e: any) => toast.error("Não deu pra mudar o acesso", { description: e.message }),
   });
 
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "equipe";
@@ -364,6 +400,9 @@ export default function Time() {
             onSave={(patch) => salvarPerfil.mutate({ ...p, ...patch })}
             onAcao={(acao, papel) => acaoMembro.mutate({ acao, uid: p.id, papel })}
             processando={acaoMembro.isPending && acaoMembro.variables?.uid === p.id}
+            acessosDaPessoa={acessos.filter((a) => a.user_id === p.id)}
+            onToggleGrupo={(grupo, ligar) => toggleGrupo.mutate({ uid: p.id, grupo, ligar })}
+            togglando={toggleGrupo.isPending && toggleGrupo.variables?.uid === p.id}
           />
         ))}
         {profiles.length === 0 && (
@@ -429,6 +468,9 @@ function TeamMemberRow({
   onSave,
   onAcao,
   processando,
+  acessosDaPessoa,
+  onToggleGrupo,
+  togglando,
 }: {
   profile: Profile;
   currentRole: string;
@@ -439,6 +481,9 @@ function TeamMemberRow({
   onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => void;
   onAcao: (acao: "desativar" | "reativar" | "excluir", papel?: string) => void;
   processando: boolean;
+  acessosDaPessoa: { module: string; permission: string }[];
+  onToggleGrupo: (grupo: (typeof ACCESS_GROUPS)[number], ligar: boolean) => void;
+  togglando: boolean;
 }) {
   const [confirmando, setConfirmando] = useState<null | "desativar" | "excluir">(null);
   const [funcoes, setFuncoes] = useState<string[]>(
@@ -545,6 +590,36 @@ function TeamMemberRow({
               <Save className="mr-1 h-3.5 w-3.5" />
               Salvar
             </Button>
+          </div>
+        )}
+
+        {/* Acessos por grupo — o painel manda. Admin/cliente não dependem de toggle. */}
+        {adminActions && !["cliente", "admin", "manager"].includes(currentRole) && (
+          <div className="mt-4 border-t border-border/40 pt-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acessos</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ACCESS_GROUPS.map((g) => {
+                const ligado = g.modules.some(
+                  (m) => acessosDaPessoa.find((a) => a.module === m)?.permission &&
+                         acessosDaPessoa.find((a) => a.module === m)?.permission !== "none",
+                );
+                return (
+                  <label key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        {g.label}
+                        {g.dinheiro && (
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-500" title="Abre dados financeiros de verdade">💰 vê valores</span>
+                        )}
+                      </p>
+                      <p className="truncate text-[11px] text-muted-foreground">{g.hint}</p>
+                    </div>
+                    <Switch checked={ligado} disabled={togglando} onCheckedChange={(v) => onToggleGrupo(g, v)} />
+                  </label>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Início e Minha mesa ficam sempre ligados. Grupos com 💰 dão acesso real aos valores.</p>
           </div>
         )}
 

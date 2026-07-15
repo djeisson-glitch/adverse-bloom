@@ -3809,6 +3809,10 @@ export type Database = {
         Args: { p_budget: Json; p_items: Json }
         Returns: string
       }
+      seed_acessos_padrao: {
+        Args: { _papel: string; _uid: string }
+        Returns: undefined
+      }
       seed_budget_items: {
         Args: { _budget_id: string; _porte?: string }
         Returns: number
