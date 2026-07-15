@@ -796,6 +796,7 @@ export type Database = {
           id: string
           intake_alteracoes_media: number
           intake_ativo: boolean
+          intake_contatos: Json
           intake_edit_horas: number
           intake_editor_id: string | null
           intake_revisao_horas: number
@@ -817,6 +818,7 @@ export type Database = {
           id?: string
           intake_alteracoes_media?: number
           intake_ativo?: boolean
+          intake_contatos?: Json
           intake_edit_horas?: number
           intake_editor_id?: string | null
           intake_revisao_horas?: number
@@ -838,6 +840,7 @@ export type Database = {
           id?: string
           intake_alteracoes_media?: number
           intake_ativo?: boolean
+          intake_contatos?: Json
           intake_edit_horas?: number
           intake_editor_id?: string | null
           intake_revisao_horas?: number

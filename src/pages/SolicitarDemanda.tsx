@@ -24,14 +24,58 @@ function fmtSlot(iso: string) {
  * e mostra a estimativa — com a ressalva de que o time confirma.
  */
 
-type Entrega = { titulo: string; formato: string; duracao: string; briefing: string };
+// Briefing quebrado em campos separados — antes era um textarea só e a pessoa
+// esquecia metade. Cada campo puxa uma parte do que a gente precisa saber.
+type Entrega = {
+  titulo: string; formato: string; duracao: string;
+  objetivo: string; mensagem: string; referencias: string; gc: string; nao_pode_faltar: string;
+};
 type Anexo = { nome: string; path: string; url: string };
 
 const FORMATOS = ["16x9", "9x16", "1x1", "4x5", "Outro"];
-const entregaVazia = (): Entrega => ({ titulo: "", formato: "16x9", duracao: "", briefing: "" });
+const entregaVazia = (): Entrega => ({
+  titulo: "", formato: "16x9", duracao: "",
+  objetivo: "", mensagem: "", referencias: "", gc: "", nao_pode_faltar: "",
+});
+
+// Campos do briefing separado, na ordem em que aparecem.
+const CAMPOS_BRIEFING: { key: keyof Entrega; label: string; ph: string; area?: boolean }[] = [
+  { key: "objetivo", label: "Objetivo do vídeo", ph: "O que ele precisa provocar / pra que serve", area: true },
+  { key: "mensagem", label: "Mensagem-chave", ph: "A ideia que não pode se perder" },
+  { key: "referencias", label: "Referências", ph: "Links, campanhas, algo parecido que curtiu" },
+  { key: "gc", label: "GC / Letterings", ph: "Textos na tela, legendas, créditos" },
+  { key: "nao_pode_faltar", label: "O que não pode faltar", ph: "Logo, produto, pessoa, frase obrigatória…", area: true },
+];
+
+// Junta os campos num texto só — o downstream (entregável, exibição) lê `briefing`.
+function comporBriefing(e: Entrega): string {
+  return CAMPOS_BRIEFING
+    .map(({ key, label }) => { const v = (e[key] || "").toString().trim(); return v ? `${label}: ${v}` : ""; })
+    .filter(Boolean)
+    .join("\n");
+}
+function entregaPreenchida(e: Entrega): boolean {
+  return !!(e.titulo.trim() || CAMPOS_BRIEFING.some(({ key }) => (e[key] || "").toString().trim()));
+}
 
 function fmtEarliest(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+/** Só o dia (pro resumo de andamento). Aceita date ('YYYY-MM-DD') ou timestamptz. */
+function fmtDia(s: string) {
+  const d = new Date(s.length <= 10 ? `${s}T12:00:00` : s);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+/** Status técnico do projeto → rótulo que o cliente entende. */
+function labelEtapa(etapa: string): string {
+  const e = (etapa || "").toLowerCase();
+  if (e === "na fila") return "na fila";
+  if (e.includes("briefing")) return "briefing";
+  if (e.includes("pré") || e.includes("pre")) return "pré-produção";
+  if (e.includes("produ")) return "em produção";
+  if (e.includes("revis")) return "em revisão";
+  if (e.includes("entreg")) return "entregue";
+  return etapa || "em andamento";
 }
 
 export default function SolicitarDemanda() {
@@ -52,16 +96,20 @@ export default function SolicitarDemanda() {
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("intake_config", { _slug: slug });
       if (error) throw error;
-      return data as { nome: string; ativo: boolean } | null;
+      return data as {
+        nome: string; ativo: boolean;
+        contatos?: { nome: string; email: string }[];
+        andamento?: { nome: string; tipo: string; etapa: string; prazo: string | null }[];
+      } | null;
     },
   });
 
   // Disponibilidade ao vivo enquanto o cliente escolhe a data/hora (read-only).
   // Agora manda as entregas (com duração) — o prazo escala pela complexidade.
   const prazoIso = form.prazo ? new Date(form.prazo).toISOString() : null;
-  const entregasReais = entregas.filter((e) => e.titulo.trim() || e.briefing.trim());
+  const entregasReais = entregas.filter(entregaPreenchida);
   const entregasCalc = (entregasReais.length ? entregasReais : [entregas[0]]).map((e) => ({
-    titulo: e.titulo, formato: e.formato, duracao: e.duracao, briefing: e.briefing,
+    titulo: e.titulo, formato: e.formato, duracao: e.duracao, briefing: comporBriefing(e),
   }));
   const dispoKey = entregasCalc.map((e) => `${e.duracao}|${e.formato}`).join(",");
   const { data: dispo, isFetching: checando } = useQuery({
@@ -146,7 +194,8 @@ export default function SolicitarDemanda() {
         _nome: form.nome.trim(),
         _email: form.email.trim(),
         _projeto: form.projeto.trim(),
-        _entregas: entregas.filter((e) => e.titulo.trim() || e.briefing.trim()),
+        // manda os campos separados + o briefing composto (o downstream lê `briefing`)
+        _entregas: entregas.filter(entregaPreenchida).map((e) => ({ ...e, briefing: comporBriefing(e) })),
         _prazo: form.prazo ? new Date(form.prazo).toISOString() : null,
         _anexos: anexos,
       });
@@ -190,7 +239,46 @@ export default function SolicitarDemanda() {
           <p className="text-sm text-[#9A968C]">{cfg.nome} · conte o que você precisa e a gente já estima o prazo.</p>
         </header>
 
+        {/* Resumo do que já está rolando — pra não abrir demanda repetida */}
+        {Array.isArray(cfg.andamento) && cfg.andamento.length > 0 && (
+          <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">Já em andamento com a gente</p>
+            <div className="mt-2.5 space-y-1.5">
+              {cfg.andamento.map((a, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-[#E8E1D0]">{a.nome}</span>
+                  <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[#9A968C]">{labelEtapa(a.etapa)}</span>
+                  {a.prazo && <span className="hidden shrink-0 text-[11px] text-[#6b675f] sm:inline">{fmtDia(a.prazo)}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="space-y-5">
+          {/* Contatos pré-definidos: um clique preenche nome + e-mail */}
+          {Array.isArray(cfg.contatos) && cfg.contatos.length > 0 && (
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#9A968C]">Quem está pedindo?</span>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {cfg.contatos.map((ct, i) => {
+                  const ativo = form.nome === ct.nome && form.email === ct.email;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, nome: ct.nome, email: ct.email }))}
+                      className={`rounded-full border px-3 py-1.5 text-sm transition ${ativo ? "border-[#E53500] bg-[#E53500]/10 text-[#E8E1D0]" : "border-white/12 bg-white/[0.03] text-[#CFC9BC] hover:border-white/30"}`}
+                    >
+                      {ct.nome}
+                    </button>
+                  );
+                })}
+                <span className="self-center text-[11px] text-[#6b675f]">ou preencha abaixo</span>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo label="Seu nome *"><input className={inputCls} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Nome completo" /></Campo>
             <Campo label="Seu e-mail *"><input type="email" className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="voce@empresa.com" /></Campo>
@@ -228,7 +316,18 @@ export default function SolicitarDemanda() {
                       <input className={`${inputSm} w-full`} value={e.duracao} onChange={(ev) => setEntrega(i, { duracao: ev.target.value })} placeholder='ex.: 30" / 3min' />
                     </div>
                   </div>
-                  <textarea className={`${inputSm} mt-2 min-h-[64px] w-full`} value={e.briefing} onChange={(ev) => setEntrega(i, { briefing: ev.target.value })} placeholder="Briefing: objetivo, referências, mensagem-chave, se tiver GC, letterings, o que não pode faltar…" />
+                  <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                    {CAMPOS_BRIEFING.map(({ key, label, ph, area }) => (
+                      <div key={key}>
+                        <span className={campoLabel}>{label}</span>
+                        {area ? (
+                          <textarea className={`${inputSm} min-h-[52px] w-full py-1.5`} value={e[key] as string} onChange={(ev) => setEntrega(i, { [key]: ev.target.value })} placeholder={ph} />
+                        ) : (
+                          <input className={`${inputSm} w-full`} value={e[key] as string} onChange={(ev) => setEntrega(i, { [key]: ev.target.value })} placeholder={ph} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -267,12 +366,14 @@ export default function SolicitarDemanda() {
                     );
                   })}
                 </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] text-[#6b675f]">Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.</p>
-                  <button type="button" onClick={() => setModoData("custom")} className="text-[11px] text-[#9A968C] underline hover:text-[#CFC9BC]">
-                    Preciso de outra data
-                  </button>
-                </div>
+                <p className="mt-2 text-[11px] text-[#6b675f]">Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.</p>
+                <button
+                  type="button"
+                  onClick={() => setModoData("custom")}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.03] py-2.5 text-sm font-medium text-[#CFC9BC] transition hover:border-[#E53500]/50 hover:text-[#E8E1D0]"
+                >
+                  <CalendarClock className="h-4 w-4" /> Preciso de outra data
+                </button>
               </>
             ) : (
               <>
