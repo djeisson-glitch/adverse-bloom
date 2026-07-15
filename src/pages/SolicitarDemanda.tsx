@@ -402,6 +402,9 @@ export default function SolicitarDemanda() {
                     )}
                   </div>
                 ) : null}
+                {dispo?.calibrado && !checando && (
+                  <p className="mt-1 text-[10px] text-[#6b675f]">Prazo já ajustado ao histórico dos seus projetos com a gente.</p>
+                )}
               </>
             )}
           </Campo>

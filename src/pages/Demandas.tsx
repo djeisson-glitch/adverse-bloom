@@ -234,6 +234,7 @@ export default function Demandas() {
                           Fila do editor {Number(d.viabilidade.carga_horas || 0)}h + edição {Number(d.viabilidade.demanda_horas || 0)}h + revisão {Number(d.viabilidade.revisao_horas || 0)}h = <strong>{Number(d.viabilidade.total_horas || 0)}h úteis</strong>.
                           {d.viabilidade.complexidade && <> · complexidade da entrega: <strong>{d.viabilidade.complexidade}</strong></>}
                           {d.viabilidade.rodadas != null && <> · alteração projetada: <strong>{d.viabilidade.rodadas}×</strong> {d.viabilidade.rodadas_hist ? "(histórico do cliente)" : "(fator manual)"}</>}
+                          {d.viabilidade.calibrado && <> · <strong className="text-amber-500">edição ×{d.viabilidade.calib_cliente}</strong> (o "simples" deste cliente costuma render mais — aprendido do timesheet)</>}
                           {d.viabilidade.sem_editor && <span className="text-amber-500"> · Sem editor configurado pro cliente — estimativa considera só a nova demanda.</span>}
                         </div>
                       )}
