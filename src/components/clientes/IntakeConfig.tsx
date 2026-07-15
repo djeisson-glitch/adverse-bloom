@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link2, Copy, Loader2, Info } from "lucide-react";
+import { Link2, Copy, Loader2, Info, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -33,6 +33,8 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     intake_revisao_horas: "2",
     intake_alteracoes_media: "1",
   });
+  const [contatos, setContatos] = useState<{ nome: string; email: string }[]>([]);
+  const [novoContato, setNovoContato] = useState({ nome: "", email: "" });
   const [hidratado, setHidratado] = useState(false);
 
   const { data: cli, isLoading } = useQuery({
@@ -40,7 +42,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("clients")
-        .select("intake_ativo, intake_slug, intake_editor_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media")
+        .select("intake_ativo, intake_slug, intake_editor_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media, intake_contatos")
         .eq("id", clientId)
         .maybeSingle();
       if (error) throw error;
@@ -67,6 +69,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_revisao_horas: String(cli.intake_revisao_horas ?? 2),
         intake_alteracoes_media: String(cli.intake_alteracoes_media ?? 1),
       });
+      setContatos(Array.isArray(cli.intake_contatos) ? cli.intake_contatos : []);
       setHidratado(true);
     }
   }, [cli, hidratado, clientName]);
@@ -80,6 +83,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_edit_horas: Number(form.intake_edit_horas) || 0,
         intake_revisao_horas: Number(form.intake_revisao_horas) || 0,
         intake_alteracoes_media: Number(form.intake_alteracoes_media) || 1,
+        intake_contatos: contatos,
       };
       const { error } = await (supabase as any).from("clients").update(patch).eq("id", clientId);
       if (error) throw error;
@@ -158,6 +162,45 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
           <span>O prazo agora escala pela <strong>duração</strong> de cada vídeo e pelo <strong>histórico de alterações</strong> do cliente. A leitura de complexidade por IA aparece na caixa de <strong>Demandas</strong> quando o time abre a solicitação.</span>
+        </div>
+
+        {/* Contatos pré-definidos: viram atalhos "sou fulano" no formulário */}
+        <div>
+          <Label>Contatos do cliente (atalhos no formulário)</Label>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            As pessoas que costumam pedir. No formulário viram um clique que já preenche nome e e-mail.
+            Como a página é pública, esses e-mails ficam visíveis pra quem tiver o link.
+          </p>
+          {contatos.length > 0 && (
+            <div className="mb-2 space-y-1.5">
+              {contatos.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/20 px-2.5 py-1.5 text-sm">
+                  <span className="font-medium text-foreground">{c.nome}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{c.email}</span>
+                  <button onClick={() => setContatos((a) => a.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input value={novoContato.nome} onChange={(e) => setNovoContato({ ...novoContato, nome: e.target.value })} placeholder="Nome" className="flex-1" />
+            <Input type="email" value={novoContato.email} onChange={(e) => setNovoContato({ ...novoContato, email: e.target.value })} placeholder="email@empresa.com" className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const nome = novoContato.nome.trim();
+                const email = novoContato.email.trim();
+                if (!nome || !email) return;
+                setContatos((a) => [...a, { nome, email }]);
+                setNovoContato({ nome: "", email: "" });
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         {url && (
