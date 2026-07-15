@@ -79,7 +79,7 @@ function SearchBox() {
 
 function UserChip() {
   const { user, profile, signOut } = useAuth();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isProdutor, isCliente, isEdicao } = usePermissions();
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const initials = displayName
     .split(" ")
@@ -87,7 +87,8 @@ function UserChip() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  const role = isAdmin ? "Admin" : "Equipe";
+  // Mostra o papel de verdade (antes era hardcoded Admin/Equipe — enganava).
+  const role = isAdmin ? "Admin" : isProdutor ? "Produtor" : isCliente ? "Cliente" : isEdicao ? "Edição" : "Equipe";
 
   return (
     <div className="flex items-center gap-2">
@@ -116,6 +117,37 @@ function UserChip() {
   );
 }
 
+// Barra proeminente em TODAS as telas quando um cronômetro está rodando.
+function TimerBar() {
+  const { sessao, stop, cancel, elapsedSec } = useTimer();
+  if (!sessao) return null;
+  return (
+    <div className="sticky top-14 z-10 flex items-center gap-3 border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm backdrop-blur">
+      <span className="flex shrink-0 items-center gap-2 font-semibold text-warning">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-warning" />
+        </span>
+        Gravando
+      </span>
+      <span className="min-w-0 flex-1 truncate text-foreground">
+        {sessao.project_name}
+        {sessao.task_title ? ` · ${sessao.task_title}` : ""}
+      </span>
+      <span className="shrink-0 font-semibold tabular-nums text-foreground">{formatElapsed(elapsedSec)}</span>
+      <button
+        onClick={stop}
+        className="flex shrink-0 items-center gap-1 rounded-md bg-warning px-2.5 py-1 text-xs font-semibold text-warning-foreground hover:bg-warning/90"
+      >
+        <Square className="h-3 w-3 fill-current" /> Parar e lançar
+      </button>
+      <button onClick={cancel} className="shrink-0 text-muted-foreground hover:text-destructive" title="Cancelar sem lançar">
+        <XCircle className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
@@ -131,6 +163,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               <UserChip />
             </div>
           </header>
+          <TimerBar />
           <main className="flex-1 overflow-auto p-6">{children}</main>
         </div>
       </div>

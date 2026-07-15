@@ -62,6 +62,7 @@ type NavItem = {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   module?: ModuleId;   // sem módulo = qualquer pessoa logada
+  soMoney?: boolean;   // só aparece pra quem vê dinheiro (visões de gestão)
 };
 
 type NavGrupo = {
@@ -111,9 +112,10 @@ const GRUPOS: NavGrupo[] = [
     itens: [
       { title: "Horas", url: "/horas", icon: Timer, module: "horas" },
       { title: "Timesheet", url: "/timesheet", icon: CalendarCheck, module: "timesheet" },
-      { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade" },
-      { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento" },
-      { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao" },
+      // Gestão (só quem vê dinheiro) — as próprias páginas exigem canSeeMoney.
+      { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade", soMoney: true },
+      { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento", soMoney: true },
+      { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao", soMoney: true },
     ],
   },
   {
@@ -169,15 +171,18 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user, profile } = useAuth();
-  const { can } = usePermissions();
+  const { can, canSeeMoney } = usePermissions();
 
   // O menu só mostra o que a pessoa pode abrir. (A RLS é quem manda de verdade —
   // isto aqui é conveniência, não segurança.) Grupo sem item nenhum some.
+  // Itens soMoney (visões de gestão) exigem acesso ao financeiro.
   const grupos = useMemo(
     () =>
-      GRUPOS.map((g) => ({ ...g, itens: g.itens.filter((i) => !i.module || can(i.module)) }))
-        .filter((g) => g.itens.length > 0),
-    [can],
+      GRUPOS.map((g) => ({
+        ...g,
+        itens: g.itens.filter((i) => (i.soMoney ? canSeeMoney : !i.module || can(i.module))),
+      })).filter((g) => g.itens.length > 0),
+    [can, canSeeMoney],
   );
 
   // Qual grupo contém a página atual? É o único que abre por padrão.

@@ -46,7 +46,7 @@ export default function Capacidade() {
   if (!canSeeMoney) {
     return (
       <div className="mx-auto max-w-2xl py-10 text-center text-sm text-muted-foreground">
-        Só admin e produtor têm acesso à Capacidade.
+        Disponível só para quem tem acesso ao financeiro à Capacidade.
       </div>
     );
   }

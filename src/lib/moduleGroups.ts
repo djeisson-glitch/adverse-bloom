@@ -26,9 +26,9 @@ export const ACCESS_GROUPS: AccessGroup[] = [
   // Produção
   { id: "projetos",     section: "Produção",   label: "Projetos",              dinheiro: false, hint: "Projetos, calendário e pós-produção",     modules: ["projetos", "calendario", "pos_producao"] },
   { id: "pauta",        section: "Produção",   label: "Pauta",                 dinheiro: false, hint: "Coordenação do time (mesa coletiva)",     modules: ["pauta"] },
-  // Tempo
+  // Tempo — Capacidade/Planejamento/Previsão saíram: são visões de gestão,
+  // gated por acesso ao financeiro (não é um toggle de execução).
   { id: "horas",        section: "Tempo",      label: "Minhas horas",          dinheiro: false, hint: "Apontar horas e timesheet",              modules: ["horas", "timesheet"] },
-  { id: "planejamento", section: "Tempo",      label: "Planejamento da equipe", dinheiro: false, hint: "Capacidade, planejamento e previsão",   modules: ["capacidade", "planejamento", "previsao"] },
   // Financeiro
   { id: "faturamento",  section: "Financeiro", label: "Faturamento & Fechamento", dinheiro: true, hint: "Faturas e fechamento de projeto",     modules: ["faturamento", "fechamento"] },
   { id: "dre",          section: "Financeiro", label: "DRE & Relatórios",      dinheiro: true,  hint: "Financeiro profundo, contas/fees, relatórios", modules: ["financeiro", "relatorios", "contas_fees"] },
