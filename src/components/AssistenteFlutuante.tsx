@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Bot, Loader2, Sparkles, MessagesSquare, ChevronLeft } from "lucide-react";
+import { X, Send, Bot, Loader2, Sparkles, MessagesSquare, ChevronLeft } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,33 +44,39 @@ export function AssistenteFlutuante() {
 
   return (
     <>
-      <button
-        onClick={() => setAberto((v) => !v)}
-        className="fixed bottom-5 right-5 z-40 flex h-13 w-13 items-center justify-center rounded-full bg-primary p-3.5 text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-105"
-        aria-label="Abrir assistente"
-      >
-        {aberto ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
-      </button>
+      {/* Botões fixos: Conversas (primário, mais acessado) embaixo; IA acima */}
+      <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+        <button
+          onClick={() => setAberto((v) => !v)}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg transition hover:border-primary/50"
+          title="Assistente (IA)"
+          aria-label="Abrir assistente de IA"
+        >
+          {aberto ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
+        </button>
+        <button
+          onClick={() => setConversas(true)}
+          className="flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-105"
+          aria-label="Abrir conversas"
+        >
+          <MessagesSquare className="h-5 w-5" />
+          <span className="text-sm font-semibold">Conversas</span>
+        </button>
+      </div>
 
       {/* Bolha compacta: só o assistente (IA) */}
       {aberto && (
-        <div className="fixed bottom-20 right-5 z-40 flex h-[540px] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+        <div className="fixed bottom-[9rem] right-5 z-40 flex h-[500px] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Bot className="h-4 w-4 text-primary" /> Assistente</p>
-            <button
-              onClick={() => { setConversas(true); setAberto(false); }}
-              className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40"
-            >
-              <MessagesSquare className="h-3.5 w-3.5" /> Conversas
-            </button>
           </div>
           <ChatIA user={user} />
         </div>
       )}
 
-      {/* Conversas: barra lateral (altura cheia) */}
+      {/* Conversas: barra lateral (altura cheia, mais larga) */}
       <Sheet open={conversas} onOpenChange={(o) => { setConversas(o); if (!o) setThread(null); }}>
-        <SheetContent side="right" className="flex w-[min(440px,92vw)] flex-col gap-0 p-0">
+        <SheetContent side="right" className="flex w-[min(540px,94vw)] flex-col gap-0 p-0 sm:max-w-none">
           {thread ? (
             <ThreadView thread={thread} profiles={profiles} onVoltar={() => setThread(null)} />
           ) : (
