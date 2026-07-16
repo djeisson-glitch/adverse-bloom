@@ -80,23 +80,38 @@
     font-family: var(--font-heading);
   }
 
-  /* Sidebar scrollbar styling */
-  [data-sidebar] ::-webkit-scrollbar {
-    width: 4px;
+  /* Scrollbar escura no app INTEIRO — o sistema é preto; a barra padrão do
+     navegador (trilha branca + polegar cinza) gritava em toda área rolável
+     (colunas do kanban, drawers, tabelas). Fina, trilha invisível, polegar
+     discreto que clareia no hover. */
+  * {
+    scrollbar-width: thin;                                    /* Firefox */
+    scrollbar-color: hsl(var(--border)) transparent;
   }
-  [data-sidebar] ::-webkit-scrollbar-track {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;                                              /* rolagem horizontal também */
+  }
+  ::-webkit-scrollbar-track {
     background: transparent;
   }
-  [data-sidebar] ::-webkit-scrollbar-thumb {
-    background: hsl(var(--sidebar-border));
-    border-radius: 4px;
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 8px;
+    border: 2px solid transparent;                            /* respiro visual */
+    background-clip: padding-box;
   }
-  [data-sidebar] ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.45);
+    background-clip: padding-box;
   }
-  [data-sidebar] {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Sidebar: ainda mais fina */
+  [data-sidebar] ::-webkit-scrollbar {
+    width: 4px;
   }
 }
 
