@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -38,6 +38,9 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: project.id });
   const navigate = useNavigate();
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+  // Clique abre o projeto; arrastar move de etapa. O clique dispara depois do
+  // drop também, então medimos o deslocamento do ponteiro pra distinguir.
+  const downPos = useRef<{ x: number; y: number } | null>(null);
 
   const isOverdue = project.delivery_date && new Date(project.delivery_date) < new Date();
   const billing = billingBadge[(project as any).billing_status] || billingBadge.pending;
@@ -48,13 +51,19 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
       style={style}
       {...listeners}
       {...attributes}
-      className={`rounded-lg border border-border bg-card p-3 space-y-2 cursor-grab active:cursor-grabbing transition-shadow ${
-        isDragging ? "shadow-lg opacity-80" : "hover:shadow-md"
+      className={`min-w-0 space-y-2 rounded-lg border border-border bg-card p-3 transition-shadow cursor-pointer active:cursor-grabbing ${
+        isDragging ? "shadow-lg opacity-80" : "hover:border-primary/40 hover:shadow-md"
       }`}
-      onClick={onEdit}
+      onPointerDownCapture={(e) => { downPos.current = { x: e.clientX, y: e.clientY }; }}
+      onClick={(e) => {
+        const d = downPos.current;
+        if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return; // foi drag, não clique
+        if (onEdit) onEdit();
+        else navigate(`/projetos/${project.id}`);
+      }}
     >
-      <p className="text-sm font-medium text-foreground leading-tight">{project.name}</p>
-      <p className="text-xs text-muted-foreground">{project.client_name}</p>
+      <p className="line-clamp-2 break-all text-sm font-medium leading-tight text-foreground" title={project.name}>{project.name}</p>
+      <p className="truncate text-xs text-muted-foreground">{project.client_name || "—"}</p>
       
       <div className="flex items-center justify-between text-xs">
         <span className="text-primary font-semibold">
