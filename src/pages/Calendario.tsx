@@ -68,9 +68,18 @@ export default function Calendario() {
     const map = new Map<string, Marker[]>();
     tarefas.forEach((t) => {
       const key = t.due_date.slice(0, 10);
+      // Diária de gravação (captação) ganha cor própria — é o calendário de
+      // produção dentro do calendário: câmera na rua ≠ tarefa comum.
+      const diaria = (t.title || "").startsWith("Diária");
       map.set(key, [
         ...(map.get(key) || []),
-        { tipo: "tarefa", label: t.title, projectId: t.project_id, id: t.id, color: "#e5e7eb" },
+        {
+          tipo: "tarefa",
+          label: diaria ? `🎥 ${t.title}` : t.title,
+          projectId: t.project_id,
+          id: t.id,
+          color: diaria ? "#f59e0b" : "#e5e7eb",
+        },
       ]);
     });
     entregaveis.forEach((e) => {

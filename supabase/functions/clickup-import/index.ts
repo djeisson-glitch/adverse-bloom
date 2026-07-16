@@ -57,6 +57,18 @@ serve(async (req) => {
 
       const projIds: string[] = run.payload?.project_ids || [];
       const cliIds: string[] = run.payload?.client_ids || [];
+      const delIds: string[] = run.payload?.deliverable_ids || [];
+      let delApagados = 0;
+      for (const id of delIds) {
+        const { error } = await admin.from("deliverables").delete().eq("id", id);
+        if (!error) delApagados++;
+      }
+      const taskIds: string[] = run.payload?.task_ids || [];
+      let tasksApagadas = 0;
+      for (const id of taskIds) {
+        const { error } = await admin.from("tasks").delete().eq("id", id);
+        if (!error) tasksApagadas++;
+      }
       let projApagados = 0; const projFalhas: string[] = [];
       for (const id of projIds) {
         const { error } = await admin.from("projects").delete().eq("id", id);
@@ -73,7 +85,132 @@ serve(async (req) => {
         cliMantidos.push(id);
       }
       await admin.from("import_runs").update({ revertido_em: new Date().toISOString() }).eq("id", run.id);
-      return json({ modo: "revertido", projetos_apagados: projApagados, projetos_falha: projFalhas, clientes_apagados: cliApagados, clientes_mantidos_em_uso: cliMantidos.length });
+      return json({ modo: "revertido", tarefas_apagadas: tasksApagadas, entregaveis_apagados: delApagados, projetos_apagados: projApagados, projetos_falha: projFalhas, clientes_apagados: cliApagados, clientes_mantidos_em_uso: cliMantidos.length });
+    }
+
+    // ---------------- SUBTAREFAS -> ENTREGÁVEIS ----------------
+    if (Array.isArray(body?.subtarefas)) {
+      const confirmSub = body?.confirm === true;
+      const subs = body.subtarefas as { id: string; parent: string; name: string; status?: string | null; due_date?: string | null; date_closed?: string | null }[];
+
+      // pai (clickup) -> projeto (sistema)
+      const { data: projs } = await admin.from("projects").select("id, clickup_task_id").not("clickup_task_id", "is", null);
+      const porPai = new Map<string, string>();
+      (projs || []).forEach((p: any) => porPai.set(p.clickup_task_id, p.id));
+
+      // dedup por clickup_task_id do entregável
+      const { data: delsExist } = await admin.from("deliverables").select("clickup_task_id").not("clickup_task_id", "is", null);
+      const jaDel = new Set((delsExist || []).map((r: any) => r.clickup_task_id));
+
+      const mapStatusEntregavel = (st?: string | null) => {
+        const k = (st || "").toLowerCase();
+        if (k.includes("final") || k.includes("entreg") || k.includes("conclu") || k.includes("aprovado")) return "entregue";
+        if (k.includes("aguardando cliente") || k.includes("com cliente")) return "com_cliente";
+        if (k.includes("altera") || k.includes("ajuste")) return "ajuste_solicitado";
+        if (k.includes("revis")) return "revisao_n1";
+        if (k.includes("pós") || k.includes("pos") || k.includes("produ") || k.includes("edi") || k.includes("andamento")) return "em_edicao";
+        return "pendente";
+      };
+
+      const validas = subs.filter((s) => porPai.has(s.parent) && !jaDel.has(s.id));
+      const semPai = subs.filter((s) => !porPai.has(s.parent)).length;
+
+      if (!confirmSub) {
+        const porStatus: Record<string, number> = {};
+        validas.forEach((s) => { const m = mapStatusEntregavel(s.status); porStatus[m] = (porStatus[m] || 0) + 1; });
+        return json({
+          modo: "dry-run (nada gravado)", subtarefas_recebidas: subs.length,
+          vao_virar_entregaveis: validas.length, ja_importadas: subs.length - validas.length - semPai, sem_pai_no_sistema: semPai,
+          por_status: porStatus,
+          amostra: validas.slice(0, 5).map((s) => ({ nome: s.name, status: mapStatusEntregavel(s.status), prazo: s.due_date })),
+          como_gravar: 'reenvie com {"confirm": true}',
+        });
+      }
+
+      const ordemPorProjeto = new Map<string, number>();
+      const rowsDel = validas.map((s) => {
+        const pid = porPai.get(s.parent)!;
+        const ordem = (ordemPorProjeto.get(pid) || 0) + 1;
+        ordemPorProjeto.set(pid, ordem);
+        return {
+          project_id: pid,
+          titulo: (s.name || "").trim() || "Entrega",
+          status: mapStatusEntregavel(s.status),
+          data_entrega: s.due_date && /^\d{4}-\d{2}-\d{2}$/.test(s.due_date) ? s.due_date : null,
+          ordem,
+          clickup_task_id: s.id,
+        };
+      });
+
+      const delIds: string[] = [];
+      let falha: string | null = null;
+      for (let i = 0; i < rowsDel.length; i += 100) {
+        const { data: ins, error } = await admin.from("deliverables").insert(rowsDel.slice(i, i + 100)).select("id");
+        if (error) { falha = `lote ${i}: ${error.message}`; break; }
+        (ins || []).forEach((r: any) => delIds.push(r.id));
+      }
+      if (falha && delIds.length === 0) return json({ error: `Falha sem nada criado (${falha})` }, 500);
+
+      const resumoSub = { entregaveis_criados: delIds.length, sem_pai_no_sistema: semPai };
+      const { data: runSub } = await admin.from("import_runs")
+        .insert({ tipo: "clickup-entregaveis", payload: { deliverable_ids: delIds }, resumo: resumoSub })
+        .select("id").single();
+      if (falha) return json({ modo: "parcial", erro: falha, run_id: runSub?.id, ...resumoSub, como_reverter: `{"reverter": "${runSub?.id}"}` }, 500);
+      return json({ modo: "gravado", run_id: runSub?.id, ...resumoSub, como_reverter: `{"reverter": "${runSub?.id}"}` });
+    }
+
+    // ---------------- DIÁRIAS (PROD) -> TAREFAS ----------------
+    if (Array.isArray(body?.diarias)) {
+      const confirmDia = body?.confirm === true;
+      const dias = body.diarias as { id: string; parent: string; name: string; status?: string | null; due_date?: string | null }[];
+
+      const { data: projs } = await admin.from("projects").select("id, clickup_task_id").not("clickup_task_id", "is", null);
+      const porPai = new Map<string, string>();
+      (projs || []).forEach((p: any) => porPai.set(p.clickup_task_id, p.id));
+
+      const { data: tasksExist } = await admin.from("tasks").select("clickup_task_id").not("clickup_task_id", "is", null);
+      const jaTask = new Set((tasksExist || []).map((r: any) => r.clickup_task_id));
+
+      const validas = dias.filter((d) => porPai.has(d.parent) && !jaTask.has(d.id));
+      const semPai = dias.filter((d) => !porPai.has(d.parent)).length;
+      const fin = (st?: string | null) => /final|conclu|entreg/i.test(st || "");
+
+      if (!confirmDia) {
+        return json({
+          modo: "dry-run (nada gravado)", diarias_recebidas: dias.length,
+          vao_virar_tarefas: validas.length, ja_importadas: dias.length - validas.length - semPai, sem_pai_no_sistema: semPai,
+          concluidas: validas.filter((d) => fin(d.status)).length,
+          amostra: validas.slice(0, 5).map((d) => ({ titulo: `Diária · ${d.name}`, data: d.due_date, concluida: fin(d.status) })),
+          como_gravar: 'reenvie com {"confirm": true}',
+        });
+      }
+
+      const rowsT = validas.map((d) => ({
+        project_id: porPai.get(d.parent)!,
+        title: `Diária · ${(d.name || "").trim() || "gravação"}`,
+        description: "Diária de gravação (importada do ClickUp)",
+        due_date: d.due_date && /^\d{4}-\d{2}-\d{2}$/.test(d.due_date) ? d.due_date : null,
+        status: fin(d.status) ? "finalizado" : "aguardando_inicio",
+        completed: fin(d.status),
+        estimativa_horas: 8,          // 1 diária ≈ 1 dia de captação (ajustável)
+        clickup_task_id: d.id,
+      }));
+
+      const taskIds: string[] = [];
+      let falhaT: string | null = null;
+      for (let i = 0; i < rowsT.length; i += 100) {
+        const { data: ins, error } = await admin.from("tasks").insert(rowsT.slice(i, i + 100)).select("id");
+        if (error) { falhaT = `lote ${i}: ${error.message}`; break; }
+        (ins || []).forEach((r: any) => taskIds.push(r.id));
+      }
+      if (falhaT && taskIds.length === 0) return json({ error: `Falha sem nada criado (${falhaT})` }, 500);
+
+      const resumoT = { tarefas_criadas: taskIds.length, sem_pai_no_sistema: semPai };
+      const { data: runT } = await admin.from("import_runs")
+        .insert({ tipo: "clickup-diarias", payload: { task_ids: taskIds }, resumo: resumoT })
+        .select("id").single();
+      if (falhaT) return json({ modo: "parcial", erro: falhaT, run_id: runT?.id, ...resumoT, como_reverter: `{"reverter": "${runT?.id}"}` }, 500);
+      return json({ modo: "gravado", run_id: runT?.id, ...resumoT, como_reverter: `{"reverter": "${runT?.id}"}` });
     }
 
     // ---------------- IMPORTAR ----------------
