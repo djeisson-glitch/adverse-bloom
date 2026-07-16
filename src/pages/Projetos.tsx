@@ -192,20 +192,15 @@ function ListaVista({
 
 /* ------------------------------------------------------- Board (Kanban) */
 
-function BoardVista({ projects, onOpen }: { projects: Project[]; onOpen: (id: string) => void }) {
+function BoardVista({ projects }: { projects: Project[]; onOpen?: (id: string) => void }) {
   const updateProject = useUpdateProject();
-  // Reaproveita o ProductionKanban legado — clique no card navega pra ficha
+  // O card do Kanban navega sozinho pra ficha no clique (e arrasta pra mover).
+  // O wrapper antigo procurava [data-project-id], atributo que nunca existiu.
   return (
-    <div onClick={(e) => {
-      const el = (e.target as HTMLElement).closest("[data-project-id]");
-      const id = el?.getAttribute("data-project-id");
-      if (id) onOpen(id);
-    }}>
-      <ProductionKanban
-        projects={projects as any}
-        onMoveProject={(id, status) => updateProject.mutate({ id, status })}
-      />
-    </div>
+    <ProductionKanban
+      projects={projects as any}
+      onMoveProject={(id, status) => updateProject.mutate({ id, status })}
+    />
   );
 }
 
