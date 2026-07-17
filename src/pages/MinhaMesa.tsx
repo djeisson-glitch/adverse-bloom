@@ -1,42 +1,72 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Link } from "react-router-dom";
-import { Clapperboard, Film, ThumbsUp, ChevronRight, Loader2, ListChecks } from "lucide-react";
+import {
+  Clapperboard, Film, ThumbsUp, ChevronRight, Loader2, ListChecks,
+  RefreshCw, Inbox, AlertTriangle, Clock, CalendarDays, Sparkles,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * Onda 6B — "Minha mesa": painel do editor e do aprovador.
- * Editar: entregáveis onde sou responsável, agrupados por etapa.
- * Aprovar: entregáveis esperando minha aprovação (N1 ou N2), resolvendo o
- * override por projeto vs. o padrão global.
+ * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo
+ * que precisa dela — sem aba escondendo nada. Junta: entregáveis pra editar,
+ * aprovações esperando você, alterações do cliente, tarefas e (pra quem
+ * coordena) demandas novas. Ordem: Atrasado → Precisa de você → Esta semana →
+ * Em andamento. O que está atrasado ou travando alguém aparece em destaque.
  */
 
-const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente",
-  em_edicao: "Em edição",
-  revisao_n1: "Revisão N1",
-  revisao_n2: "Revisão N2",
-  com_cliente: "Com o cliente",
-  ajuste_solicitado: "Ajuste solicitado",
-  aprovado: "Aprovado",
-  entregue: "Entregue",
+type Tipo = "editar" | "aprovar" | "alteracao" | "tarefa" | "demanda";
+type Bucket = "atrasado" | "espera" | "semana" | "andamento";
+
+type Item = {
+  key: string;
+  tipo: Tipo;
+  titulo: string;
+  contexto: string;
+  acao: string;
+  link: string;
+  due: string | null;      // YYYY-MM-DD
+  bloqueante: boolean;      // está travando alguém (aprovação, alteração, demanda, ajuste do cliente)
 };
 
-type Aba = "editar" | "tarefas" | "aprovar";
+const TIPO_ICON: Record<Tipo, any> = {
+  editar: Film,
+  aprovar: ThumbsUp,
+  alteracao: RefreshCw,
+  tarefa: ListChecks,
+  demanda: Inbox,
+};
+const TIPO_COR: Record<Tipo, string> = {
+  editar: "text-primary",
+  aprovar: "text-emerald-400",
+  alteracao: "text-amber-400",
+  tarefa: "text-blue-400",
+  demanda: "text-purple-400",
+};
+
+const SECOES: { id: Bucket; label: string; hint: string; icon: any; cor: string; dot: string }[] = [
+  { id: "atrasado",  label: "Atrasado",        hint: "passou do prazo — resolve primeiro", icon: AlertTriangle, cor: "text-destructive", dot: "bg-destructive" },
+  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-amber-400",   dot: "bg-amber-400" },
+  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-blue-400",    dot: "bg-blue-400" },
+  { id: "andamento", label: "Em andamento",    hint: "seu trabalho aberto",                icon: ListChecks,    cor: "text-muted-foreground", dot: "bg-muted-foreground" },
+];
+
+function iso(d: Date) { return d.toISOString().slice(0, 10); }
 
 export default function MinhaMesa() {
   const { user } = useAuth();
-  const [aba, setAba] = useState<Aba>("editar");
-  const hoje = new Date().toISOString().slice(0, 10);
+  const { can } = usePermissions();
+  const hoje = iso(new Date());
+  const em7 = iso(new Date(Date.now() + 7 * 86400000));
+  const podeDemandas = can("demandas");
 
   const { data: settings } = useQuery({
     queryKey: ["approval-settings"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("approval_settings").select("*").eq("id", true).maybeSingle();
-      if (error) throw error;
+      const { data } = await (supabase as any).from("approval_settings").select("*").eq("id", true).maybeSingle();
       return data as any;
     },
   });
@@ -46,55 +76,159 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, duracao, data_entrega, responsavel_id, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, status, aprovador_n1_id, aprovador_n2_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, aprovador_n1_id, aprovador_n2_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
     },
   });
 
-  // Minhas tarefas — a Minha mesa passa a ser o ÚNICO lugar do "o que é meu".
-  const { data: minhasTarefas = [] } = useQuery({
+  const { data: tarefas = [] } = useQuery({
     queryKey: ["minha-mesa-tarefas", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data } = await (supabase as any)
         .from("tasks")
-        .select("id, title, due_date, status, project:projects(id, name)")
+        .select("id, title, due_date, project:projects(id, name)")
         .eq("assigned_user_id", user!.id)
-        .eq("completed", false)
-        .order("due_date", { nullsFirst: false });
-      if (error) throw error;
+        .eq("completed", false);
       return (data as any[]) || [];
     },
   });
 
-  const meus = useMemo(
-    () => deliverables.filter((d) => d.responsavel_id === user?.id),
-    [deliverables, user?.id],
-  );
+  const { data: alteracoes = [] } = useQuery({
+    queryKey: ["minha-mesa-alteracoes", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("deliverable_alteracoes")
+        .select("id, titulo, status, prazo, responsavel_id, deliverable:deliverables(id, titulo, responsavel_id, data_entrega, project:projects(id, name, numero))")
+        .eq("status", "aberta");
+      return (data as any[]) || [];
+    },
+  });
 
-  const grupos = useMemo(() => {
-    const g = {
-      editar: meus.filter((d) => ["pendente", "em_edicao", "ajuste_solicitado"].includes(d.status)),
-      aprovacao: meus.filter((d) => ["revisao_n1", "revisao_n2"].includes(d.status)),
-      cliente: meus.filter((d) => d.status === "com_cliente"),
-      concluidos: meus.filter((d) => ["aprovado", "entregue"].includes(d.status)),
-    };
-    return g;
-  }, [meus]);
+  const { data: demandas = [] } = useQuery({
+    queryKey: ["minha-mesa-demandas"],
+    enabled: podeDemandas,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("demandas")
+        .select("id, nome_projeto, solicitante_nome, prazo_desejado, client:clients(name)")
+        .eq("status", "nova");
+      return (data as any[]) || [];
+    },
+  });
 
-  // Aprovações esperando por mim
-  const aprovarPorMim = useMemo(() => {
+  const itens = useMemo<Item[]>(() => {
     if (!user?.id) return [];
-    return deliverables.filter((d) => {
+    const out: Item[] = [];
+
+    // 1. Entregáveis meus pra editar
+    deliverables
+      .filter((d) => d.responsavel_id === user.id && ["pendente", "em_edicao", "ajuste_solicitado"].includes(d.status))
+      .forEach((d) => {
+        const ajuste = d.status === "ajuste_solicitado";
+        out.push({
+          key: `edit-${d.id}`,
+          tipo: "editar",
+          titulo: d.titulo,
+          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          acao: ajuste ? "Refazer — ajuste do cliente" : d.status === "pendente" ? "Começar edição" : "Continuar edição",
+          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: d.data_entrega || null,
+          bloqueante: ajuste,
+        });
+      });
+
+    // 2. Entregáveis esperando MINHA aprovação (resolve override por projeto)
+    deliverables.forEach((d) => {
       const effN1 = d.project?.aprovador_n1_id ?? settings?.nivel1_user_id ?? null;
       const effN2 = d.project?.aprovador_n2_id ?? settings?.nivel2_user_id ?? null;
       const souN1 = effN1 === user.id && d.status === "revisao_n1" && !d.aprovado_n1_em;
       const souN2 = effN2 === user.id && d.status === "revisao_n2" && d.aprovado_n1_em && !d.aprovado_n2_em;
-      return souN1 || souN2;
+      if (souN1 || souN2) {
+        out.push({
+          key: `aprov-${d.id}`,
+          tipo: "aprovar",
+          titulo: d.titulo,
+          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          acao: souN1 ? "Aprovar N1" : "Aprovar N2",
+          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: d.data_entrega || null,
+          bloqueante: true,
+        });
+      }
     });
-  }, [deliverables, settings, user?.id]);
+
+    // 3. Alterações do cliente abertas que são minhas
+    alteracoes
+      .filter((a) => a.responsavel_id === user.id || a.deliverable?.responsavel_id === user.id)
+      .forEach((a) => {
+        out.push({
+          key: `alt-${a.id}`,
+          tipo: "alteracao",
+          titulo: `${a.titulo} — ${a.deliverable?.titulo || "entregável"}`,
+          contexto: `${a.deliverable?.project?.numero || ""} · ${a.deliverable?.project?.name || ""}`,
+          acao: "Responder alteração do cliente",
+          link: a.deliverable?.id ? `/projetos/${a.deliverable?.project?.id}/entregaveis/${a.deliverable.id}` : "#",
+          due: a.prazo || a.deliverable?.data_entrega || null,
+          bloqueante: true,
+        });
+      });
+
+    // 4. Minhas tarefas
+    tarefas.forEach((t) => {
+      out.push({
+        key: `task-${t.id}`,
+        tipo: "tarefa",
+        titulo: t.title,
+        contexto: t.project?.name || "Tarefa",
+        acao: "Fazer tarefa",
+        link: t.project?.id ? `/projetos/${t.project.id}` : "/minha-mesa",
+        due: t.due_date ? t.due_date.slice(0, 10) : null,
+        bloqueante: false,
+      });
+    });
+
+    // 5. Demandas novas (coordenação)
+    demandas.forEach((d) => {
+      out.push({
+        key: `dem-${d.id}`,
+        tipo: "demanda",
+        titulo: d.nome_projeto,
+        contexto: `${d.client?.name || "Cliente"} · pediu: ${d.solicitante_nome}`,
+        acao: "Avaliar demanda nova",
+        link: "/demandas",
+        due: d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null,
+        bloqueante: true,
+      });
+    });
+
+    return out;
+  }, [deliverables, tarefas, alteracoes, demandas, settings, user?.id]);
+
+  const porBucket = useMemo(() => {
+    const bucketDe = (it: Item): Bucket => {
+      if (it.due && it.due < hoje) return "atrasado";
+      if (it.bloqueante) return "espera";
+      if (it.due && it.due <= em7) return "semana";
+      return "andamento";
+    };
+    const g: Record<Bucket, Item[]> = { atrasado: [], espera: [], semana: [], andamento: [] };
+    itens.forEach((it) => g[bucketDe(it)].push(it));
+    const ordena = (arr: Item[]) =>
+      arr.sort((a, b) => {
+        if (a.bloqueante !== b.bloqueante) return a.bloqueante ? -1 : 1;
+        if (!a.due) return 1;
+        if (!b.due) return -1;
+        return a.due.localeCompare(b.due);
+      });
+    (Object.keys(g) as Bucket[]).forEach((k) => ordena(g[k]));
+    return g;
+  }, [itens, hoje, em7]);
+
+  const total = itens.length;
 
   if (isLoading) {
     return (
@@ -105,135 +239,100 @@ export default function MinhaMesa() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 py-6">
-      <div className="flex items-center gap-3">
-        <Clapperboard className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
-          <p className="text-sm text-muted-foreground">Tudo que é seu: tarefas, vídeos pra editar e o que espera sua aprovação.</p>
+    <div className="mx-auto max-w-3xl space-y-5 py-6">
+      {/* Cabeçalho + resumo */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Clapperboard className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
+            <p className="text-sm text-muted-foreground">O que precisa de você — em ordem de prioridade.</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {porBucket.atrasado.length > 0 && (
+            <Chip cor="bg-destructive/15 text-destructive border-destructive/30" n={porBucket.atrasado.length} label="atrasado" />
+          )}
+          {porBucket.espera.length > 0 && (
+            <Chip cor="bg-amber-500/15 text-amber-400 border-amber-500/30" n={porBucket.espera.length} label="te esperando" />
+          )}
+          {porBucket.semana.length > 0 && (
+            <Chip cor="bg-blue-500/15 text-blue-400 border-blue-500/30" n={porBucket.semana.length} label="esta semana" />
+          )}
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-border/60">
-        {([
-          { id: "editar", label: `Editar (${meus.length})`, icon: Film },
-          { id: "tarefas", label: `Tarefas (${minhasTarefas.length})`, icon: ListChecks },
-          { id: "aprovar", label: `Aprovar (${aprovarPorMim.length})`, icon: ThumbsUp },
-        ] as { id: Aba; label: string; icon: any }[]).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setAba(t.id)}
-            className={`flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm transition-colors ${
-              aba === t.id ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {aba === "editar" ? (
-        <div className="space-y-5">
-          <Bucket titulo="Pra editar" itens={grupos.editar} vazio="Nada pra editar agora." tone="primary" />
-          <Bucket titulo="Aguardando aprovação" itens={grupos.aprovacao} vazio="Nada aguardando aprovação." tone="warning" />
-          <Bucket titulo="Com o cliente" itens={grupos.cliente} vazio="Nada com o cliente." tone="primary" />
-          <Bucket titulo="Concluídos" itens={grupos.concluidos} vazio="Nenhum concluído ainda." tone="success" />
-        </div>
-      ) : aba === "tarefas" ? (
+      {total === 0 ? (
         <Card className="glass-card">
-          <CardContent className="p-5">
-            <p className="mb-3 text-sm font-semibold text-foreground">Minhas tarefas</p>
-            {minhasTarefas.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Nada pendente pra você 🎉</p>
-            ) : (
-              <div className="space-y-1.5">
-                {minhasTarefas.map((t: any) => {
-                  const atrasada = t.due_date && t.due_date < hoje;
-                  return (
-                    <Link
-                      key={t.id}
-                      to={t.project?.id ? `/projetos/${t.project.id}` : "#"}
-                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/40"
-                    >
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atrasada ? "bg-destructive" : "bg-primary"}`} />
-                      <span className="min-w-0 flex-1 truncate text-foreground">
-                        {t.title}
-                        {t.project?.name && <span className="text-muted-foreground"> · {t.project.name}</span>}
-                      </span>
-                      {t.due_date && (
-                        <span className={`shrink-0 text-xs ${atrasada ? "text-destructive" : "text-muted-foreground"}`}>
-                          {new Date(t.due_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+          <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+            <Sparkles className="h-8 w-8 text-emerald-400" />
+            <p className="text-base font-medium text-foreground">Tudo em dia 🎉</p>
+            <p className="text-sm text-muted-foreground">Nada precisa de você agora.</p>
           </CardContent>
         </Card>
       ) : (
-        <Bucket
-          titulo="Aguardando minha aprovação"
-          itens={aprovarPorMim}
-          vazio="Nenhum entregável esperando você aprovar. 🎉"
-          tone="warning"
-          mostrarAprovar
-        />
+        <div className="space-y-5">
+          {SECOES.map((s) => {
+            const lista = porBucket[s.id];
+            if (lista.length === 0) return null;
+            const Icon = s.icon;
+            return (
+              <div key={s.id} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${s.cor}`} />
+                  <h2 className={`text-sm font-semibold ${s.cor}`}>{s.label}</h2>
+                  <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">{lista.length}</span>
+                  <span className="text-[11px] text-muted-foreground/70">· {s.hint}</span>
+                </div>
+                <Card className={`glass-card overflow-hidden ${s.id === "atrasado" ? "border-destructive/30" : ""}`}>
+                  <CardContent className="p-0">
+                    {lista.map((it) => (
+                      <ItemRow key={it.key} it={it} hoje={hoje} />
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
-function Bucket({
-  titulo, itens, vazio, tone, mostrarAprovar,
-}: {
-  titulo: string; itens: any[]; vazio: string;
-  tone: "primary" | "warning" | "success"; mostrarAprovar?: boolean;
-}) {
-  const dot = tone === "success" ? "bg-success" : tone === "warning" ? "bg-warning" : "bg-primary";
+function Chip({ cor, n, label }: { cor: string; n: number; label: string }) {
   return (
-    <Card className="glass-card">
-      <CardContent className="p-0">
-        <div className="flex items-center gap-2 border-b border-border/50 px-5 py-3">
-          <span className={`h-2 w-2 rounded-full ${dot}`} />
-          <p className="text-sm font-medium text-foreground">{titulo}</p>
-          <span className="text-xs text-muted-foreground">{itens.length}</span>
-        </div>
-        {itens.length === 0 ? (
-          <p className="px-5 py-6 text-center text-xs text-muted-foreground">{vazio}</p>
-        ) : (
-          itens.map((d) => (
-            <Link
-              key={d.id}
-              to={`/projetos/${d.project?.id}/entregaveis/${d.id}`}
-              className="grid grid-cols-[1fr_140px_120px_100px_30px] items-center gap-2 border-b border-border/40 px-5 py-3 text-sm last:border-0 hover:bg-sidebar-accent/40"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium text-foreground">{d.titulo}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {d.project?.numero} · {d.project?.name}
-                </p>
-              </div>
-              <span className="rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground">
-                {STATUS_LABEL[d.status] || d.status}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {d.formato || "—"} {d.duracao ? `· ${d.duracao}` : ""}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {d.data_entrega ? new Date(d.data_entrega).toLocaleDateString("pt-BR") : "—"}
-              </span>
-              {mostrarAprovar ? (
-                <ThumbsUp className="h-4 w-4 text-success" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </Link>
-          ))
+    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${cor}`}>
+      {n} {label}
+    </span>
+  );
+}
+
+function ItemRow({ it, hoje }: { it: Item; hoje: string }) {
+  const Icon = TIPO_ICON[it.tipo];
+  const atrasado = it.due && it.due < hoje;
+  return (
+    <Link
+      to={it.link}
+      className="flex items-center gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40"
+    >
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/40 ${TIPO_COR[it.tipo]}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">{it.titulo}</p>
+        <p className="truncate text-xs text-muted-foreground">{it.contexto}</p>
+      </div>
+      <div className="hidden shrink-0 text-right sm:block">
+        <p className={`text-xs font-medium ${it.bloqueante ? "text-amber-400" : "text-muted-foreground"}`}>{it.acao}</p>
+        {it.due && (
+          <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+            {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            {atrasado ? " · atrasado" : ""}
+          </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </Link>
   );
 }
