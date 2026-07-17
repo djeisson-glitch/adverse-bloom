@@ -1548,12 +1548,21 @@ export function ComentariosSection({
   const { user } = useAuth();
   const [body, setBody] = useState("");
 
+  // comments.user_id referencia auth.users (não profiles), então o autor é
+  // resolvido pela lista de profiles — o embed PostgREST author:profiles não
+  // existe e quebrava a leitura (histórico vinha vazio).
+  const autores = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
+  const autorDe = (uid: string) => {
+    const a = autores.get(uid);
+    return a?.full_name || a?.email || "?";
+  };
+
   const { data: comments = [] } = useQuery({
     queryKey: ["comments", entityType, entityId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("comments")
-        .select("*, author:profiles(full_name, email)")
+        .select("*")
         .eq("entity_type", entityType)
         .eq("entity_id", entityId)
         .order("created_at");
@@ -1600,13 +1609,13 @@ export function ComentariosSection({
             <div key={c.id} className="flex gap-2">
               <Avatar className="h-7 w-7 shrink-0">
                 <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
-                  {(c.author?.full_name || c.author?.email || "?").slice(0, 2).toUpperCase()}
+                  {autorDe(c.user_id).slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">
-                    {c.author?.full_name || c.author?.email}
+                    {autorDe(c.user_id)}
                   </span>{" "}
                   · {new Date(c.created_at).toLocaleString("pt-BR")}
                 </p>
