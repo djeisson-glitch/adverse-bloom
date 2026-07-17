@@ -193,6 +193,16 @@ export default function EntregavelDetalhe() {
     return { total: total / 60, pura: pura / 60, alt: alt / 60, porAlteracao };
   }, [entries]);
 
+  // Canal da peça como painel lateral recolhível (lembra a preferência).
+  // IMPORTANTE: hooks ANTES dos early returns abaixo — senão o nº de hooks
+  // varia entre renders (loading × carregado) e o React quebra (#310).
+  const [chatAberto, setChatAberto] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("adverse.canal") !== "0" : true,
+  );
+  useEffect(() => {
+    localStorage.setItem("adverse.canal", chatAberto ? "1" : "0");
+  }, [chatAberto]);
+
   // Erro na query (ex.: coluna/relação faltando, RLS, id inválido) → mostra o
   // motivo em vez de girar pra sempre.
   if (isError || (!isLoading && !entregavel)) {
@@ -234,14 +244,6 @@ export default function EntregavelDetalhe() {
   const n1Nome = nomeDe(profiles, n1);
   const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
-
-  // Canal da peça como painel lateral recolhível (lembra a preferência).
-  const [chatAberto, setChatAberto] = useState(() =>
-    typeof localStorage !== "undefined" ? localStorage.getItem("adverse.canal") !== "0" : true,
-  );
-  useEffect(() => {
-    localStorage.setItem("adverse.canal", chatAberto ? "1" : "0");
-  }, [chatAberto]);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 py-6">
