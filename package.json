@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "build": "tsc --noEmit -p tsconfig.app.json && vite build",
+    "lint:hooks": "eslint --config eslint.hooks.config.js src",
+    "build": "tsc --noEmit -p tsconfig.app.json && eslint --config eslint.hooks.config.js src && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
