@@ -5,9 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import {
-  ArrowLeft, Loader2, Save, ExternalLink, Film, CalendarClock, CheckCircle2,
+  ArrowLeft, Loader2, Save, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare,
+  PanelRightClose, MessageSquare, Copy,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,33 @@ function nomeDe(profiles: any[], uid: string | null | undefined) {
   if (!uid) return "—";
   const p = profiles.find((x) => x.id === uid);
   return p?.full_name || p?.email || "—";
+}
+
+// Orientação a partir do formato (16x9 = Horizontal, 9x16 = Vertical, 1x1 = Quadrado).
+function orientacaoDe(formato: string | null | undefined): string {
+  const f = (formato || "").toLowerCase().replace(/\s/g, "");
+  if (/9[x×:]16/.test(f) || /vert/.test(f)) return "Vertical";
+  if (/1[x×:]1/.test(f) || /quad/.test(f)) return "Quadrado";
+  if (/16[x×:]9/.test(f) || /horiz/.test(f)) return "Horizontal";
+  return formato || "";
+}
+
+// Nome-padrão pra pasta/projeto no DaVinci:
+// [COD] [2-3 primeiras palavras do nome] [orientação] [V1]
+function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
+  const cod = codigo || "";
+  const palavras = (titulo || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
+  const ori = orientacaoDe(formato);
+  return [cod, palavras, ori, "V1"].filter(Boolean).join(" ");
+}
+
+async function copiarTexto(texto: string, oque: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast.success(`${oque} copiado`);
+  } catch {
+    toast.error("Não consegui copiar — copie manualmente.");
+  }
 }
 
 // Rótulo do status deixando explícito QUEM revisa em cada nível.
@@ -270,6 +297,13 @@ export default function EntregavelDetalhe() {
                 {entregavel.codigo && (
                   <span className="font-mono text-[10px] text-primary">{entregavel.codigo}</span>
                 )}
+                <button
+                  onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
+                  title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
+                  className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Copy className="h-3 w-3" /> Nome DaVinci
+                </button>
               </div>
               <Input
                 value={form.titulo}
@@ -311,11 +345,32 @@ export default function EntregavelDetalhe() {
             </div>
           </div>
 
-          <div className="grid gap-4 text-sm md:grid-cols-4">
-            <Campo label="Projeto">
-              <Link to={`/projetos/${projectId}`} className="text-primary hover:underline">
-                {proj?.numero} · {proj?.name}
-              </Link>
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <Campo label="Projeto" className="sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
+                  {proj?.numero} · {proj?.name}
+                </Link>
+                <button
+                  onClick={() => copiarTexto(proj?.name || "", "Nome do projeto")}
+                  title="Copiar nome do projeto (pasta/DaVinci)"
+                  className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </Campo>
+            <Campo label="Responsável">
+              <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => set({ responsavel_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— sem responsável —</SelectItem>
+                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Campo>
+            <Campo label="Orientação">
+              <span className="flex h-8 items-center text-foreground">{orientacaoDe(form.formato) || "—"}</span>
             </Campo>
             <Campo label="Formato">
               <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9" className="h-8" />
@@ -323,8 +378,21 @@ export default function EntregavelDetalhe() {
             <Campo label="Duração">
               <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
             </Campo>
-            <Campo label="Responsável">
-              <span className="text-foreground">{nomeDe(profiles, form.responsavel_id)}</span>
+            <Campo label="Prazo interno">
+              <Input type="date" value={form.prazo_interno} onChange={(e) => set({ prazo_interno: e.target.value })} className="h-8" />
+            </Campo>
+            <Campo label="Prazo do cliente">
+              <Input type="date" value={form.data_entrega} onChange={(e) => set({ data_entrega: e.target.value })} className="h-8" />
+            </Campo>
+            <Campo label="Link do arquivo / Frame.io" className="sm:col-span-2 lg:col-span-4">
+              <div className="flex gap-2">
+                <Input value={form.arquivo_url} onChange={(e) => set({ arquivo_url: e.target.value })} placeholder="https://frame.io/…" className="h-8" />
+                {form.arquivo_url && (
+                  <a href={form.arquivo_url} target="_blank" rel="noreferrer" className="flex items-center rounded-md border border-border px-3 text-muted-foreground hover:text-primary">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
             </Campo>
           </div>
         </CardContent>
@@ -378,43 +446,12 @@ export default function EntregavelDetalhe() {
             }}
           />
 
-          {/* Detalhes / prazos / briefing */}
+          {/* Briefing do entregável (responsável, prazos e link foram pro cabeçalho) */}
           <Card className="glass-card">
-            <CardContent className="grid gap-4 p-6 md:grid-cols-2">
-              <div>
-                <Label>Responsável</Label>
-                <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => set({ responsavel_id: v === "__none__" ? "" : v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— sem responsável —</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" /> Prazo interno</Label>
-                <Input type="date" value={form.prazo_interno} onChange={(e) => set({ prazo_interno: e.target.value })} />
-              </div>
-              <div>
-                <Label className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Prazo do cliente</Label>
-                <Input type="date" value={form.data_entrega} onChange={(e) => set({ data_entrega: e.target.value })} />
-              </div>
-              <div>
-                <Label>Link do arquivo / Frame.io</Label>
-                <div className="flex gap-2">
-                  <Input value={form.arquivo_url} onChange={(e) => set({ arquivo_url: e.target.value })} placeholder="https://frame.io/…" />
-                  {form.arquivo_url && (
-                    <a href={form.arquivo_url} target="_blank" rel="noreferrer" className="flex items-center rounded-md border border-border px-3 text-muted-foreground hover:text-primary">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <Label>Briefing / observações deste entregável</Label>
-                <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
-              </div>
-              <div className="md:col-span-2 flex justify-end">
+            <CardContent className="space-y-2 p-6">
+              <Label>Briefing / observações deste entregável</Label>
+              <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
+              <div className="flex justify-end">
                 <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
                   <Save className="mr-1 h-3.5 w-3.5" /> Salvar
                 </Button>
@@ -804,9 +841,9 @@ function AlteracoesSection({
 
 /* ------------------------------------------------ helpers de UI */
 
-function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+function Campo({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div>
+    <div className={className}>
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       {children}
     </div>
