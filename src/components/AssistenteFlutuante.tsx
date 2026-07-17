@@ -239,7 +239,7 @@ function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: 
     queryKey: qk,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("comments").select("*, author:profiles(full_name, email)")
+        .from("comments").select("*")
         .eq("entity_type", thread.entity_type).eq("entity_id", thread.entity_id).order("created_at");
       if (error) throw error;
       return data as any[];
@@ -280,7 +280,7 @@ function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: 
           const meu = c.user_id === user?.id;
           return (
             <div key={c.id} className={`flex flex-col ${meu ? "items-end" : "items-start"}`}>
-              <span className="px-1 text-[10px] text-muted-foreground">{(c.author?.full_name || c.author?.email || "?").split(" ")[0]} · {quando(c.created_at)}</span>
+              <span className="px-1 text-[10px] text-muted-foreground">{(profiles.find((p) => p.id === c.user_id)?.full_name || "?").split(" ")[0]} · {quando(c.created_at)}</span>
               <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-1.5 text-sm ${meu ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"}`}>{c.body}</div>
             </div>
           );

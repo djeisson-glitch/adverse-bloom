@@ -138,6 +138,16 @@ export default function Time() {
     onError: (e: any) => toast.error("Não deu pra mudar o acesso", { description: e.message }),
   });
 
+  // Recebe cópia de toda conversa (coordenação — ex.: Maiara).
+  const toggleCopia = useMutation({
+    mutationFn: async ({ uid, ligar }: { uid: string; ligar: boolean }) => {
+      const { error } = await (supabase as any).rpc("set_copia_conversas", { _uid: uid, _valor: ligar });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team-profiles"] }),
+    onError: (e: any) => toast.error("Não deu pra mudar", { description: e.message }),
+  });
+
   const getRole = (userId: string) => roles.find((r) => r.user_id === userId)?.role || "equipe";
 
   // Convites pendentes: e-mail liberado, mas a pessoa ainda não entrou.
@@ -403,6 +413,7 @@ export default function Time() {
             acessosDaPessoa={acessos.filter((a) => a.user_id === p.id)}
             onToggleGrupo={(grupo, ligar) => toggleGrupo.mutate({ uid: p.id, grupo, ligar })}
             togglando={toggleGrupo.isPending && toggleGrupo.variables?.uid === p.id}
+            onToggleCopia={(ligar) => toggleCopia.mutate({ uid: p.id, ligar })}
           />
         ))}
         {profiles.length === 0 && (
@@ -471,6 +482,7 @@ function TeamMemberRow({
   acessosDaPessoa,
   onToggleGrupo,
   togglando,
+  onToggleCopia,
 }: {
   profile: Profile;
   currentRole: string;
@@ -484,6 +496,7 @@ function TeamMemberRow({
   acessosDaPessoa: { module: string; permission: string }[];
   onToggleGrupo: (grupo: (typeof ACCESS_GROUPS)[number], ligar: boolean) => void;
   togglando: boolean;
+  onToggleCopia: (ligar: boolean) => void;
 }) {
   const [confirmando, setConfirmando] = useState<null | "desativar" | "excluir">(null);
   const [funcoes, setFuncoes] = useState<string[]>(
@@ -535,6 +548,15 @@ function TeamMemberRow({
             </span>
           </div>
         </div>
+
+        {adminActions && (
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/40 px-3 py-2 text-xs">
+            <span className="text-muted-foreground">
+              Copiar em <span className="text-foreground">todas as conversas</span> (coordenação) — recebe notificação de toda mensagem
+            </span>
+            <Switch checked={!!(profile as any).copia_conversas} onCheckedChange={(v) => onToggleCopia(v)} />
+          </label>
+        )}
 
         {editable && (
           <div className="grid gap-3 md:grid-cols-6">
