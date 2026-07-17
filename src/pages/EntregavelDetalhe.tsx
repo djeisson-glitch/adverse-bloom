@@ -54,22 +54,19 @@ function nomeDe(profiles: any[], uid: string | null | undefined) {
   return p?.full_name || p?.email || "—";
 }
 
-// Orientação a partir do formato (16x9 = Horizontal, 9x16 = Vertical, 1x1 = Quadrado).
-function orientacaoDe(formato: string | null | undefined): string {
-  const f = (formato || "").toLowerCase().replace(/\s/g, "");
-  if (/9[x×:]16/.test(f) || /vert/.test(f)) return "Vertical";
-  if (/1[x×:]1/.test(f) || /quad/.test(f)) return "Quadrado";
-  if (/16[x×:]9/.test(f) || /horiz/.test(f)) return "Horizontal";
-  return formato || "";
+// Formato normalizado pra nome de pasta: "16×9" / "16 X 9" → "16x9".
+function normFormato(formato: string | null | undefined): string {
+  return (formato || "").trim().replace(/\s+/g, "").replace(/[×:]/g, "x").toLowerCase();
 }
 
 // Nome-padrão pra pasta/projeto no DaVinci:
-// [COD] [2-3 primeiras palavras do nome] [orientação] [V1]
+// [COD] [2-3 primeiras palavras do nome] [FORMATO entre colchetes] V1
+// ex.: "ADVR-4010 Vídeo Completo Podcast [16x9] V1"
 function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
   const cod = codigo || "";
   const palavras = (titulo || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
-  const ori = orientacaoDe(formato);
-  return [cod, palavras, ori, "V1"].filter(Boolean).join(" ");
+  const f = normFormato(formato);
+  return [cod, palavras, f ? `[${f}]` : "", "V1"].filter(Boolean).join(" ");
 }
 
 async function copiarTexto(texto: string, oque: string) {
@@ -368,9 +365,6 @@ export default function EntregavelDetalhe() {
                   {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </Campo>
-            <Campo label="Orientação">
-              <span className="flex h-8 items-center text-foreground">{orientacaoDe(form.formato) || "—"}</span>
             </Campo>
             <Campo label="Formato">
               <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9" className="h-8" />
