@@ -17,6 +17,8 @@ import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Pl
 import { useToast } from "@/hooks/use-toast";
 import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
+import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
 const ORIGINS = ["Apollo", "Indicação", "Evento", "Outros"];
@@ -38,6 +40,7 @@ export default function ClienteDetalhe() {
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
   const { toast } = useToast();
+  const { canSeeMoney } = usePermissions();
 
   const client = clients.find((c) => c.id === id);
 
@@ -328,6 +331,7 @@ export default function ClienteDetalhe() {
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
               <TabsTrigger value="formulario">Formulário de demandas</TabsTrigger>
+              {canSeeMoney && <TabsTrigger value="faturamento">Faturamento</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="deals" className="space-y-3">
@@ -421,6 +425,12 @@ export default function ClienteDetalhe() {
             <TabsContent value="formulario">
               {id && <IntakeConfig clientId={id} clientName={client.name} />}
             </TabsContent>
+
+            {canSeeMoney && (
+              <TabsContent value="faturamento">
+                {id && <FaturamentoConfig clientId={id} clientName={client.name} />}
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>

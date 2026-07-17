@@ -70,6 +70,7 @@ import Previsao from "./pages/Previsao";
 import Fornecedores from "./pages/Fornecedores";
 import FollowUps from "./pages/FollowUps";
 import FaturamentoPage from "./pages/Faturamento";
+import FaturamentoMensal from "./pages/FaturamentoMensal";
 import Relatorios from "./pages/Relatorios";
 import TimePage from "./pages/Time";
 import AdminPage from "./pages/Admin";
@@ -180,6 +181,7 @@ const App = () => (
               <Route path="/fornecedores" element={<ProtectedRoute><ModuleGuard module="fornecedores"><Fornecedores /></ModuleGuard></ProtectedRoute>} />
               <Route path="/follow-ups" element={<ProtectedRoute><ModuleGuard module="follow_ups"><FollowUps /></ModuleGuard></ProtectedRoute>} />
               <Route path="/faturamento" element={<ProtectedRoute><ModuleGuard module="faturamento"><FaturamentoPage /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/faturamento-mensal" element={<ProtectedRoute><ModuleGuard module="faturamento"><FaturamentoMensal /></ModuleGuard></ProtectedRoute>} />
               <Route path="/relatorios" element={<ProtectedRoute><ModuleGuard module="relatorios"><Relatorios /></ModuleGuard></ProtectedRoute>} />
               <Route path="/time" element={<ProtectedRoute><ModuleGuard module="time"><TimePage /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><ModuleGuard module="admin"><AdminPage /></ModuleGuard></ProtectedRoute>} />
