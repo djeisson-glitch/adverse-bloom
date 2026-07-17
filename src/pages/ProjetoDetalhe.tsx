@@ -1570,6 +1570,9 @@ export function ComentariosSection({
       if (error) throw error;
       return data as any[];
     },
+    // Sem isto, mensagem de outra pessoa só aparecia ao recarregar.
+    refetchInterval: 7000,
+    refetchOnWindowFocus: true,
   });
 
   const enviar = useMutation({
