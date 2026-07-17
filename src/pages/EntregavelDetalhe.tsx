@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Save, ExternalLink, Film, CalendarClock, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
+  PanelRightClose, MessageSquare,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -234,6 +235,14 @@ export default function EntregavelDetalhe() {
   const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
+  // Canal da peça como painel lateral recolhível (lembra a preferência).
+  const [chatAberto, setChatAberto] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("adverse.canal") !== "0" : true,
+  );
+  useEffect(() => {
+    localStorage.setItem("adverse.canal", chatAberto ? "1" : "0");
+  }, [chatAberto]);
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 py-6">
       <button
@@ -338,7 +347,7 @@ export default function EntregavelDetalhe() {
         onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
       />
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px] lg:items-start">
+      <div className={chatAberto ? "grid gap-5 lg:grid-cols-[1fr_minmax(340px,400px)] lg:items-start" : ""}>
         <div className="min-w-0 space-y-5">
           {/* Timesheet do entregável */}
           <TimesheetEntregavel
@@ -412,17 +421,38 @@ export default function EntregavelDetalhe() {
           </Card>
         </div>
 
-        {/* Canal da peça */}
-        <Card className="glass-card lg:sticky lg:top-20">
-          <CardContent className="space-y-3 p-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Canal da peça</p>
-              <p className="text-[10px] text-muted-foreground">Conversa operacional só deste entregável. Use @nome pra mencionar.</p>
+        {/* Canal da peça — painel lateral de altura inteira, recolhível */}
+        {chatAberto && (
+          <Card className="glass-card flex h-[70vh] flex-col lg:sticky lg:top-16 lg:h-[calc(100vh-5.5rem)]">
+            <div className="flex items-start justify-between gap-2 border-b border-border/40 p-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Canal da peça</p>
+                <p className="text-[10px] text-muted-foreground">Conversa operacional só deste entregável. Use @nome pra mencionar.</p>
+              </div>
+              <button
+                onClick={() => setChatAberto(false)}
+                title="Recolher a conversa"
+                className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+              >
+                <PanelRightClose className="h-4 w-4" />
+              </button>
             </div>
-            <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} compact vazio="Sem mensagens ainda. A conversa do entregável começa aqui." />
-          </CardContent>
-        </Card>
+            <div className="min-h-0 flex-1 p-4">
+              <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda. A conversa do entregável começa aqui." />
+            </div>
+          </Card>
+        )}
       </div>
+
+      {/* Aba pra reabrir quando recolhido */}
+      {!chatAberto && (
+        <button
+          onClick={() => setChatAberto(true)}
+          className="fixed right-0 top-1/2 z-30 flex -translate-y-1/2 items-center gap-1.5 rounded-l-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg hover:brightness-110"
+        >
+          <MessageSquare className="h-4 w-4" /> Conversa
+        </button>
+      )}
     </div>
   );
 }

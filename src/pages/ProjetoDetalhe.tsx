@@ -1535,7 +1535,7 @@ function FaturamentoSection({ project }: { project: any }) {
 type CommentEntity = "project" | "deal" | "task" | "deliverable";
 
 export function ComentariosSection({
-  entityType, entityId, profiles, titulo = "Comentários", vazio, compact,
+  entityType, entityId, profiles, titulo = "Comentários", vazio, compact, fill,
 }: {
   entityType: CommentEntity;
   entityId: string;
@@ -1543,6 +1543,7 @@ export function ComentariosSection({
   titulo?: string;
   vazio?: string;
   compact?: boolean;
+  fill?: boolean;   // preenche a altura do container (painel lateral) — msgs rolam, input fixo embaixo
 }) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -1597,14 +1598,21 @@ export function ComentariosSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
+  // No modo fill, as mensagens crescem e rolam e o input fica preso embaixo.
+  const corpoCls = fill
+    ? "space-y-3 min-h-0 flex-1 overflow-y-auto pr-1"
+    : compact
+    ? "space-y-3 max-h-[45vh] overflow-y-auto pr-1"
+    : "space-y-3";
+
   const lista = (
     <>
       {comments.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className={`text-xs text-muted-foreground ${fill ? "flex-1" : ""}`}>
           {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
         </p>
       ) : (
-        <div className={`space-y-3 ${compact ? "max-h-[45vh] overflow-y-auto pr-1" : ""}`}>
+        <div className={corpoCls}>
           {comments.map((c) => (
             <div key={c.id} className="flex gap-2">
               <Avatar className="h-7 w-7 shrink-0">
@@ -1643,6 +1651,9 @@ export function ComentariosSection({
       </div>
     </>
   );
+
+  // Modo preencher: ocupa a altura toda do container (painel lateral).
+  if (fill) return <div className="flex h-full flex-col gap-3">{lista}</div>;
 
   // Modo compacto: só o conteúdo (o painel lateral fornece o card e o header)
   if (compact) return <div className="space-y-3">{lista}</div>;
