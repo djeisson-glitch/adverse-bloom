@@ -59,14 +59,22 @@ function normFormato(formato: string | null | undefined): string {
   return (formato || "").trim().replace(/\s+/g, "").replace(/[×:]/g, "x").toLowerCase();
 }
 
-// Nome-padrão pra pasta/projeto no DaVinci:
-// [COD] [2-3 primeiras palavras do nome] [FORMATO entre colchetes] V1
-// ex.: "ADVR-4010 Vídeo Completo Podcast [16x9] V1"
+// Nome-padrão pra pasta/projeto no DaVinci — cada bloco entre colchetes:
+// [COD] [2-3 primeiras palavras] [FORMATO] [V1]
+// ex.: "[ADVR-4010] [Vídeo Completo Podcast] [16x9] [V1]"
 function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
-  const cod = codigo || "";
+  const cod = (codigo || "").trim();
   const palavras = (titulo || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
   const f = normFormato(formato);
-  return [cod, palavras, f ? `[${f}]` : "", "V1"].filter(Boolean).join(" ");
+  return [cod && `[${cod}]`, palavras && `[${palavras}]`, f && `[${f}]`, "[V1]"].filter(Boolean).join(" ");
+}
+
+// Nome-padrão do projeto: [NNNN]_NOME (NNNN = número do orçamento, 4 dígitos).
+// Sem orçamento vinculado, devolve só o nome limpo (sem prefixo antigo #data/[..]).
+function nomeProjetoPadrao(budgetNumber: number | null | undefined, name: string | null | undefined): string {
+  const limpo = (name || "").replace(/^(#[0-9]+_|\[[0-9A-Za-z-]+\]_)/, "");
+  if (budgetNumber != null) return `[${String(budgetNumber).padStart(4, "0")}]_${limpo}`;
+  return limpo;
 }
 
 async function copiarTexto(texto: string, oque: string) {
@@ -99,7 +107,7 @@ export default function EntregavelDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova)")
+        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, budget:budgets(budget_number))")
         .eq("id", did!)
         .single();
       if (error) throw error;
@@ -349,8 +357,8 @@ export default function EntregavelDetalhe() {
                   {proj?.numero} · {proj?.name}
                 </Link>
                 <button
-                  onClick={() => copiarTexto(proj?.name || "", "Nome do projeto")}
-                  title="Copiar nome do projeto (pasta/DaVinci)"
+                  onClick={() => copiarTexto(nomeProjetoPadrao(proj?.budget?.budget_number, proj?.name), "Nome do projeto")}
+                  title={`Copiar: ${nomeProjetoPadrao(proj?.budget?.budget_number, proj?.name)}`}
                   className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Copy className="h-3.5 w-3.5" />
