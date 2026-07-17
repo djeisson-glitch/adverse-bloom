@@ -34,6 +34,10 @@ export function useNotificacoes(limite = 30) {
       if (error) return [] as Notificacao[];   // sem migration ainda: não quebra a tela
       return data as Notificacao[];
     },
+    // Rede de segurança: se o Realtime não chegar (projeto sem realtime, aba
+    // suspensa, reconexão), o sino ainda atualiza sozinho.
+    refetchInterval: 20000,
+    refetchOnWindowFocus: true,
   });
 
   // Realtime: chegou notificação nova, o sino acende na hora.
