@@ -246,7 +246,7 @@ export default function EntregavelDetalhe() {
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5 py-6">
+    <div className={`space-y-5 py-6 ${chatAberto ? "lg:pr-[440px]" : "mx-auto max-w-[1400px]"}`}>
       <button
         onClick={() => navigate(`/projetos/${projectId}`)}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -349,7 +349,7 @@ export default function EntregavelDetalhe() {
         onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
       />
 
-      <div className={chatAberto ? "grid gap-5 lg:grid-cols-[1fr_minmax(340px,400px)] lg:items-start" : ""}>
+      <div>
         <div className="min-w-0 space-y-5">
           {/* Timesheet do entregável */}
           <TimesheetEntregavel
@@ -423,34 +423,35 @@ export default function EntregavelDetalhe() {
           </Card>
         </div>
 
-        {/* Canal da peça — painel lateral de altura inteira, recolhível */}
-        {chatAberto && (
-          <Card className="glass-card flex h-[70vh] flex-col lg:sticky lg:top-16 lg:h-[calc(100vh-5.5rem)]">
-            <div className="flex items-start justify-between gap-2 border-b border-border/40 p-4">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Canal da peça</p>
-                <p className="text-[10px] text-muted-foreground">Conversa operacional só deste entregável. Use @nome pra mencionar.</p>
-              </div>
-              <button
-                onClick={() => setChatAberto(false)}
-                title="Recolher a conversa"
-                className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-              >
-                <PanelRightClose className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 p-4">
-              <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda. A conversa do entregável começa aqui." />
-            </div>
-          </Card>
-        )}
       </div>
+
+      {/* Canal da peça — painel fixo ocupando a lateral inteira da tela, recolhível */}
+      {chatAberto && (
+        <aside className="fixed right-0 top-14 bottom-0 z-50 flex w-full flex-col border-l border-border bg-card shadow-2xl lg:w-[440px]">
+          <div className="flex items-start justify-between gap-2 border-b border-border/60 p-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Canal da peça</p>
+              <p className="text-[10px] text-muted-foreground">Conversa operacional só deste entregável. Use @nome pra mencionar.</p>
+            </div>
+            <button
+              onClick={() => setChatAberto(false)}
+              title="Recolher a conversa"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 p-4">
+            <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda. A conversa do entregável começa aqui." />
+          </div>
+        </aside>
+      )}
 
       {/* Aba pra reabrir quando recolhido */}
       {!chatAberto && (
         <button
           onClick={() => setChatAberto(true)}
-          className="fixed right-0 top-1/2 z-30 flex -translate-y-1/2 items-center gap-1.5 rounded-l-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg hover:brightness-110"
+          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-1.5 rounded-l-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg hover:brightness-110"
         >
           <MessageSquare className="h-4 w-4" /> Conversa
         </button>

@@ -10,6 +10,9 @@ export default [
   { ignores: ["dist", "node_modules", "supabase"] },
   {
     files: ["src/**/*.{ts,tsx}"],
+    // Não reportar `// eslint-disable` de regras que este config não liga
+    // (ex.: exhaustive-deps) — senão vira ruído de warning no build.
+    linterOptions: { reportUnusedDisableDirectives: "off" },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: { ecmaFeatures: { jsx: true }, sourceType: "module" },
