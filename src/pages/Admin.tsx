@@ -16,18 +16,8 @@ type CardDef = {
 export default function Admin() {
   const { isAdmin, isLoading } = usePermissions();
 
-  // Defesa em profundidade: além do guard de rota, a própria página só abre
-  // pra admin de verdade (papel). Nunca por concessão.
-  if (!isLoading && !isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <ShieldAlert className="mb-4 h-12 w-12 text-muted-foreground" />
-        <h2 className="text-lg font-semibold text-foreground">Acesso restrito</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Só administradores acessam esta área.</p>
-      </div>
-    );
-  }
-
+  // Hooks ANTES de qualquer early return (senão o nº de hooks varia entre
+  // renders e o React quebra — #310).
   const { data: usuarios = 0 } = useQuery({
     queryKey: ["admin-usuarios-count"],
     queryFn: async () => {
@@ -56,6 +46,18 @@ export default function Admin() {
       return count ?? 0;
     },
   });
+
+  // Defesa em profundidade: além do guard de rota, a própria página só abre
+  // pra admin de verdade (papel). Nunca por concessão.
+  if (!isLoading && !isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <ShieldAlert className="mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="text-lg font-semibold text-foreground">Acesso restrito</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Só administradores acessam esta área.</p>
+      </div>
+    );
+  }
 
   const cards: CardDef[] = [
     {
