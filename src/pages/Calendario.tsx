@@ -64,6 +64,28 @@ export default function Calendario() {
     },
   });
 
+  // Saídas de produção (diárias, visitas técnicas, saídas) — o mesmo dado que
+  // vai pro Google Agenda, aqui dentro do calendário do OS.
+  const { data: saidas = [] } = useQuery({
+    queryKey: ["cal-saidas", from, to],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("producao_saidas")
+        .select("id, titulo, tipo, data, project_id, status")
+        .neq("status", "cancelada")
+        .gte("data", from)
+        .lte("data", to);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const SAIDA_STYLE: Record<string, { emoji: string; color: string }> = {
+    diaria: { emoji: "🎥", color: "#f59e0b" },
+    visita_tecnica: { emoji: "🔎", color: "#3b82f6" },
+    saida: { emoji: "🚐", color: "#a855f7" },
+  };
+
   const byDate = useMemo(() => {
     const map = new Map<string, Marker[]>();
     tarefas.forEach((t) => {
@@ -96,8 +118,16 @@ export default function Calendario() {
         { tipo: "prazo", label: `🎯 ${p.name}`, projectId: p.id, id: p.id, color: "#ef4444" },
       ]);
     });
+    saidas.forEach((s) => {
+      const key = s.data.slice(0, 10);
+      const st = SAIDA_STYLE[s.tipo] || SAIDA_STYLE.saida;
+      map.set(key, [
+        ...(map.get(key) || []),
+        { tipo: "tarefa", label: `${st.emoji} ${s.titulo}`, projectId: s.project_id, id: `saida-${s.id}`, color: st.color },
+      ]);
+    });
     return map;
-  }, [tarefas, entregaveis, prazos]);
+  }, [tarefas, entregaveis, prazos, saidas]);
 
   const firstDow = new Date(y, m, 1).getDay();
   const dim = new Date(y, m + 1, 0).getDate();
@@ -106,7 +136,7 @@ export default function Calendario() {
   for (let d = 1; d <= dim; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
   const today = iso(new Date());
-  const totalMarcadores = tarefas.length + entregaveis.length + prazos.length;
+  const totalMarcadores = tarefas.length + entregaveis.length + prazos.length + saidas.length;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 py-6">

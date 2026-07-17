@@ -61,6 +61,7 @@ import Fechamento from "./pages/Fechamento";
 import PosProducao from "./pages/PosProducao";
 import Pauta from "./pages/Pauta";
 import Calendario from "./pages/Calendario";
+import AgendaProducao from "./pages/AgendaProducao";
 import Horas from "./pages/Horas";
 import TimesheetPage from "./pages/Timesheet";
 import Capacidade from "./pages/Capacidade";
@@ -167,6 +168,7 @@ const App = () => (
               <Route path="/pauta" element={<ProtectedRoute><ModuleGuard module="pauta"><Pauta /></ModuleGuard></ProtectedRoute>} />
               <Route path="/minha-mesa" element={<ProtectedRoute><ModuleGuard module="minha_mesa"><MinhaMesa /></ModuleGuard></ProtectedRoute>} />
               <Route path="/calendario" element={<ProtectedRoute><ModuleGuard module="calendario"><Calendario /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/saidas" element={<ProtectedRoute><ModuleGuard module="calendario"><AgendaProducao /></ModuleGuard></ProtectedRoute>} />
               <Route path="/horas" element={<ProtectedRoute><ModuleGuard module="horas"><Horas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/timesheet" element={<ProtectedRoute><ModuleGuard module="timesheet"><TimesheetPage /></ModuleGuard></ProtectedRoute>} />
               <Route path="/capacidade" element={<ProtectedRoute><ModuleGuard module="capacidade"><Capacidade /></ModuleGuard></ProtectedRoute>} />
