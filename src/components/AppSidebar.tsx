@@ -125,6 +125,7 @@ const GRUPOS: NavGrupo[] = [
     label: "Financeiro",
     itens: [
       { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
+      { title: "Faturamento mensal", url: "/faturamento-mensal", icon: Receipt, module: "faturamento" },
       { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
       { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
       { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
