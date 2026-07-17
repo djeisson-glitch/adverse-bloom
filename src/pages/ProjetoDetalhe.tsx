@@ -93,6 +93,9 @@ export default function ProjetoDetalhe() {
   const qc = useQueryClient();
   const { canSeeMoney } = usePermissions();
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
+  // Contexto do painel de comentários (levantado pra cá pra o botão "conversa"
+  // de cada entregável poder focar o painel sem sair da lista).
+  const [comentContexto, setComentContexto] = useState<string>("project");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["projeto", id],
@@ -277,7 +280,13 @@ export default function ProjetoDetalhe() {
             ))}
           </div>
 
-          {tab === "entregaveis" && <EntregaveisSection projectId={project.id} profiles={profiles} />}
+          {tab === "entregaveis" && (
+            <EntregaveisSection
+              projectId={project.id}
+              profiles={profiles}
+              onAbrirConversa={(did) => setComentContexto(`deliverable:${did}`)}
+            />
+          )}
 
           {tab === "tarefas" && (
             <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
@@ -300,11 +309,13 @@ export default function ProjetoDetalhe() {
           )}
         </div>
 
-        {/* Painel de comentários sempre aberto — contexto por projeto/tarefa */}
+        {/* Painel de comentários sempre aberto — contexto por projeto/entregável/tarefa */}
         <ComentariosPainel
           projectId={project.id}
           projectName={project.name}
           profiles={profiles}
+          contexto={comentContexto}
+          setContexto={setComentContexto}
         />
       </div>
     </div>
@@ -929,7 +940,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
 
 /* --------------------------------------------------------- Entregáveis */
 
-function EntregaveisSection({ projectId, profiles }: { projectId: string; profiles: any[] }) {
+function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectId: string; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [novo, setNovo] = useState({
@@ -999,13 +1010,13 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
         </p>
 
         {items.length > 0 && (
-          <div className="grid grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_90px_70px_140px_100px_72px_90px_30px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Entregável</span>
             <span>Formato</span>
             <span>Duração</span>
             <span>Responsável</span>
             <span>Entrega</span>
-            <span>Link</span>
+            <span>Ações</span>
             <span>Status</span>
             <span />
           </div>
@@ -1014,7 +1025,7 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
           <div
             key={d.id}
             onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
-            className="grid cursor-pointer grid-cols-[1fr_90px_70px_140px_100px_1fr_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
+            className="grid cursor-pointer grid-cols-[1fr_90px_70px_140px_100px_72px_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
           >
             <span className="truncate font-medium text-foreground">{d.titulo}</span>
             <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
@@ -1023,19 +1034,36 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
             <span className="text-xs text-muted-foreground">
               {d.data_entrega ? new Date(d.data_entrega).toLocaleDateString("pt-BR") : "—"}
             </span>
-            {d.arquivo_url ? (
-              <a
-                href={d.arquivo_url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="truncate text-xs text-primary hover:underline"
+            {/* Ações rápidas — Frame + conversa deste entregável (o link mora dentro do entregável) */}
+            <span className="flex items-center gap-1">
+              {d.arquivo_url ? (
+                <a
+                  href={d.arquivo_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Abrir no Frame.io"
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-primary hover:bg-primary/10"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/projetos/${projectId}/entregaveis/${d.id}`); }}
+                  title="Sem link do Frame — adicione dentro do entregável"
+                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground/40 hover:text-muted-foreground"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onAbrirConversa(d.id); }}
+                title="Abrir a conversa deste entregável"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
               >
-                {d.arquivo_url}
-              </a>
-            ) : (
-              <span className="text-xs text-muted-foreground">sem link</span>
-            )}
+                <MessageSquare className="h-3.5 w-3.5" />
+              </button>
+            </span>
             <span className="rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground">
               {d.status}
             </span>
@@ -1091,13 +1119,10 @@ function EntregaveisSection({ projectId, profiles }: { projectId: string; profil
               value={novo.data_entrega}
               onChange={(e) => setNovo({ ...novo, data_entrega: e.target.value })}
             />
-            <Input
-              placeholder="Link Frame.io"
-              value={novo.arquivo_url}
-              onChange={(e) => setNovo({ ...novo, arquivo_url: e.target.value })}
-              className="md:col-span-2"
-            />
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            O link do Frame.io fica <b>dentro do entregável</b> — abra-o pelo botão <ExternalLink className="inline h-3 w-3" /> da linha pra adicionar ou editar.
+          </p>
           <Button
             onClick={() => criar.mutate()}
             className="w-full bg-primary text-primary-foreground"
@@ -1628,15 +1653,14 @@ export function ComentariosSection({
 /* -------------------------------- Painel lateral de comentários (projeto/tarefa) */
 
 function ComentariosPainel({
-  projectId, projectName, profiles,
+  projectId, projectName, profiles, contexto, setContexto,
 }: {
   projectId: string;
   projectName: string;
   profiles: any[];
+  contexto: string;
+  setContexto: (v: string) => void;
 }) {
-  // Contexto: "project" (geral) ou o id de uma tarefa
-  const [contexto, setContexto] = useState<string>("project");
-
   const { data: tasks = [] } = useQuery({
     queryKey: ["projeto-tasks", projectId],
     queryFn: async () => {
@@ -1651,8 +1675,29 @@ function ComentariosPainel({
     },
   });
 
+  const { data: entregaveis = [] } = useQuery({
+    queryKey: ["projeto-entregaveis-coment", projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables")
+        .select("id, titulo")
+        .eq("project_id", projectId)
+        .order("ordem")
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // contexto: "project" (geral) | "deliverable:<id>" | "<task id>"
   const isProjeto = contexto === "project";
+  const isEntregavel = contexto.startsWith("deliverable:");
+  const entregavelId = isEntregavel ? contexto.slice("deliverable:".length) : null;
   const tarefaSel = tasks.find((t) => t.id === contexto);
+  const entregavelSel = entregaveis.find((e) => e.id === entregavelId);
+
+  const entityType: CommentEntity = isProjeto ? "project" : isEntregavel ? "deliverable" : "task";
+  const entityId = isProjeto ? projectId : isEntregavel ? entregavelId! : contexto;
 
   return (
     <Card className="glass-card lg:sticky lg:top-20">
@@ -1662,13 +1707,18 @@ function ComentariosPainel({
           <p className="text-sm font-semibold text-foreground">Comentários</p>
         </div>
 
-        {/* Seletor de contexto — separa a conversa do projeto de cada tarefa */}
+        {/* Seletor de contexto — separa a conversa do projeto, de cada entregável e de cada tarefa */}
         <Select value={contexto} onValueChange={setContexto}>
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="project">📁 Projeto (geral)</SelectItem>
+            {entregaveis.map((e) => (
+              <SelectItem key={e.id} value={`deliverable:${e.id}`}>
+                🎬 {e.titulo}
+              </SelectItem>
+            ))}
             {tasks.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 ↳ {t.title}
@@ -1680,20 +1730,24 @@ function ComentariosPainel({
         <p className="text-[10px] text-muted-foreground">
           {isProjeto
             ? "Conversa geral do projeto."
-            : `Comentários da tarefa "${tarefaSel?.title || "—"}".`}
+            : isEntregavel
+              ? `Conversa do entregável "${entregavelSel?.titulo || "—"}".`
+              : `Comentários da tarefa "${tarefaSel?.title || "—"}".`}
         </p>
 
         {/* Uma instância por contexto — key força remount ao trocar */}
         <ComentariosSection
           key={contexto}
-          entityType={isProjeto ? "project" : "task"}
-          entityId={isProjeto ? projectId : contexto}
+          entityType={entityType}
+          entityId={entityId}
           profiles={profiles}
           compact
           vazio={
             isProjeto
               ? "Sem mensagens no projeto ainda. Use @nome para mencionar."
-              : "Sem mensagens nesta tarefa ainda."
+              : isEntregavel
+                ? "Sem mensagens neste entregável ainda. Use @nome para mencionar."
+                : "Sem mensagens nesta tarefa ainda."
           }
         />
       </CardContent>
