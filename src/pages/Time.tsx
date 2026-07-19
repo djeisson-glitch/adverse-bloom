@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { UsersRound, Plus, Save, Check, ChevronDown, MailCheck, X, Info, UserMinus, Trash2, RotateCcw, Loader2 } from "lucide-react";
+import { UsersRound, Plus, Check, ChevronDown, MailCheck, X, Info, UserMinus, Trash2, RotateCcw, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { ACCESS_GROUPS, ACCESS_SECTIONS } from "@/lib/moduleGroups";
 import { toast } from "sonner";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 
 /**
  * Cadastrar = CONVIDAR. Não criamos usuário nem senha: o login é só com Google.
@@ -268,7 +270,6 @@ export default function Time() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["team-profiles"] });
       qc.invalidateQueries({ queryKey: ["team-roles"] });
-      toast.success("Salvo");
     },
     onError: (e: any) =>
       toast.error("Erro ao salvar", {
@@ -407,7 +408,7 @@ export default function Time() {
             editable={isAdmin || p.id === me?.id}
             adminActions={isAdmin}
             podeRemover={isAdmin && p.id !== me?.id}
-            onSave={(patch) => salvarPerfil.mutate({ ...p, ...patch })}
+            onSave={(patch) => salvarPerfil.mutateAsync({ ...p, ...patch })}
             onAcao={(acao, papel) => acaoMembro.mutate({ acao, uid: p.id, papel })}
             processando={acaoMembro.isPending && acaoMembro.variables?.uid === p.id}
             acessosDaPessoa={acessos.filter((a) => a.user_id === p.id)}
@@ -490,7 +491,7 @@ function TeamMemberRow({
   editable: boolean;
   adminActions: boolean;
   podeRemover: boolean;
-  onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => void;
+  onSave: (patch: Partial<Profile> & { papel: string; funcoes: string[] }) => Promise<unknown>;
   onAcao: (acao: "desativar" | "reativar" | "excluir", papel?: string) => void;
   processando: boolean;
   acessosDaPessoa: { module: string; permission: string }[];
@@ -510,6 +511,24 @@ function TeamMemberRow({
   // — revogar acesso tinha sucesso mas o card não mudava (key estável não
   // reinicializa o state). Derivar da prop faz o card refletir o refetch na hora.
   const ativo = profile.ativo;
+
+  // Custo/hora é dinheiro: continua indo pela MESMA RPC de antes
+  // (admin_upsert_membro, que checa o papel de quem edita). Como a RPC exige a
+  // ficha inteira, o campo mexido entra por cima do que já está na tela.
+  type Ficha = { funcoes: string[]; papel: string; horas_semana: number; custo_hora: number | null };
+  const salvarFicha = (patch: Partial<Ficha>) =>
+    onSave({
+      funcoes,
+      papel,
+      horas_semana: horas,
+      custo_hora: custoHora ? Number(custoHora) : null,
+      ativo,
+      ...patch,
+    });
+  const auto = useFormAutosave<Ficha>(salvarFicha);
+  // Escolha (função/papel) não é digitação: não tem o que esperar.
+  const autoEscolha = useFormAutosave<Ficha>(salvarFicha, { delay: 150 });
+  const status = auto.status !== "ocioso" ? auto.status : autoEscolha.status;
 
   const displayName = profile.full_name || profile.email?.split("@")[0] || "sem nome";
   const initials = displayName
@@ -560,8 +579,22 @@ function TeamMemberRow({
 
         {editable && (
           <div className="grid gap-3 md:grid-cols-6">
-            <MultiFuncao rateCard={rateCard} value={funcoes} onChange={setFuncoes} />
-            <Select value={papel} onValueChange={setPapel} disabled={!adminActions}>
+            <MultiFuncao
+              rateCard={rateCard}
+              value={funcoes}
+              onChange={(v) => {
+                setFuncoes(v);
+                autoEscolha.agendar({ funcoes: v });
+              }}
+            />
+            <Select
+              value={papel}
+              onValueChange={(v) => {
+                setPapel(v);
+                autoEscolha.agendar({ papel: v });
+              }}
+              disabled={!adminActions}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -579,7 +612,10 @@ function TeamMemberRow({
                 min={0}
                 max={80}
                 value={horas}
-                onChange={(e) => setHoras(Number(e.target.value))}
+                onChange={(e) => {
+                  setHoras(Number(e.target.value));
+                  auto.agendar({ horas_semana: Number(e.target.value) });
+                }}
               />
               <span className="text-xs text-muted-foreground">h/sem</span>
             </div>
@@ -589,29 +625,17 @@ function TeamMemberRow({
                 min={0}
                 placeholder="custo/h"
                 value={custoHora}
-                onChange={(e) => setCustoHora(e.target.value)}
+                onChange={(e) => {
+                  setCustoHora(e.target.value);
+                  auto.agendar({ custo_hora: e.target.value ? Number(e.target.value) : null });
+                }}
               />
               <span className="text-xs text-muted-foreground">R$/h</span>
             </div>
             <span className={`text-xs ${ativo ? "text-success" : "text-amber-500"}`}>
               {ativo ? "ativo" : "sem acesso"}
             </span>
-            <Button
-              size="sm"
-              onClick={() =>
-                onSave({
-                  funcoes,
-                  papel,
-                  horas_semana: horas,
-                  custo_hora: custoHora ? Number(custoHora) : null,
-                  ativo,
-                })
-              }
-              className="bg-primary text-primary-foreground"
-            >
-              <Save className="mr-1 h-3.5 w-3.5" />
-              Salvar
-            </Button>
+            <IndicadorAutosave status={status} />
           </div>
         )}
 

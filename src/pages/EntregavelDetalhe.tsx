@@ -5,8 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import {
-  ArrowLeft, Loader2, Save, ExternalLink, Film, CheckCircle2,
+  ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
   PanelRightClose, MessageSquare, Copy,
 } from "lucide-react";
@@ -191,30 +193,20 @@ export default function EntregavelDetalhe() {
     });
   }
 
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any)
-        .from("deliverables")
-        .update({
-          titulo: form.titulo,
-          status: form.status,
-          formato: form.formato || null,
-          duracao: form.duracao || null,
-          responsavel_id: form.responsavel_id || null,
-          aprovador_id: form.aprovador_id || null,
-          data_entrega: form.data_entrega || null,
-          prazo_interno: form.prazo_interno || null,
-          arquivo_url: form.arquivo_url || null,
-          descricao: form.descricao || null,
-        })
-        .eq("id", did);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["entregavel", did] });
-      toast.success("Entregável salvo");
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  // Salva sozinho ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  // O `__id` é controle interno da tela e nunca vai pro banco.
+  const auto = useFormAutosave<any>(async (patch) => {
+    const { __id, ...campos } = patch;
+    if (!Object.keys(campos).length) return;
+    const { error } = await (supabase as any)
+      .from("deliverables")
+      .update(vaziosParaNull(campos, ["titulo"]))
+      .eq("id", did);
+    if (error) {
+      toast.error("Não salvou", { description: error.message });
+      throw error;
+    }
+    qc.invalidateQueries({ queryKey: ["entregavel", did] });
   });
 
   // Agregações de horas
@@ -272,7 +264,10 @@ export default function EntregavelDetalhe() {
   }
 
   const proj = entregavel.project;
-  const set = (patch: any) => setForm({ ...form, ...patch });
+  const set = (patch: any) => {
+    setForm({ ...form, ...patch });
+    auto.agendar(patch);
+  };
 
   // Config efetiva de aprovação (override por projeto > global)
   const n1 = proj?.aprovador_n1_id ?? config?.nivel1_user_id ?? null;
@@ -314,6 +309,7 @@ export default function EntregavelDetalhe() {
                 {entregavel.codigo && (
                   <span className="font-mono text-[10px] text-primary">{entregavel.codigo}</span>
                 )}
+                <IndicadorAutosave status={auto.status} />
                 <button
                   onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
                   title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
@@ -341,10 +337,6 @@ export default function EntregavelDetalhe() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={() => salvar.mutate()} disabled={salvar.isPending} className="bg-primary text-primary-foreground">
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                Salvar
-              </Button>
               <Button
                 variant="outline"
                 className="text-destructive hover:text-destructive"
@@ -473,13 +465,11 @@ export default function EntregavelDetalhe() {
           {/* Briefing do entregável (responsável, prazos e link foram pro cabeçalho) */}
           <Card className="glass-card">
             <CardContent className="space-y-2 p-6">
-              <Label>Briefing / observações deste entregável</Label>
-              <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
-              <div className="flex justify-end">
-                <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-                  <Save className="mr-1 h-3.5 w-3.5" /> Salvar
-                </Button>
+              <div className="flex items-center justify-between">
+                <Label>Briefing / observações deste entregável</Label>
+                <IndicadorAutosave status={auto.status} />
               </div>
+              <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
             </CardContent>
           </Card>
         </div>

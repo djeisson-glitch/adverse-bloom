@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Link2, Copy, Loader2, Info, Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 
 /**
  * Config do formulário público de demandas de um cliente.
@@ -24,8 +26,17 @@ function slugify(s: string) {
     .slice(0, 40);
 }
 
+type FormIntake = {
+  intake_ativo: boolean;
+  intake_slug: string;
+  intake_editor_id: string;
+  intake_edit_horas: string;
+  intake_revisao_horas: string;
+  intake_alteracoes_media: string;
+};
+
 export default function IntakeConfig({ clientId, clientName }: { clientId: string; clientName: string }) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormIntake>({
     intake_ativo: false,
     intake_slug: "",
     intake_editor_id: "",
@@ -33,7 +44,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     intake_revisao_horas: "2",
     intake_alteracoes_media: "1",
   });
-  const [contatos, setContatos] = useState<{ nome: string; email: string }[]>([]);
+  const [contatos, setContatosState] = useState<{ nome: string; email: string }[]>([]);
   const [novoContato, setNovoContato] = useState({ nome: "", email: "" });
   const [hidratado, setHidratado] = useState(false);
 
@@ -69,35 +80,41 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_revisao_horas: String(cli.intake_revisao_horas ?? 2),
         intake_alteracoes_media: String(cli.intake_alteracoes_media ?? 1),
       });
-      setContatos(Array.isArray(cli.intake_contatos) ? cli.intake_contatos : []);
+      setContatosState(Array.isArray(cli.intake_contatos) ? cli.intake_contatos : []);
       setHidratado(true);
     }
   }, [cli, hidratado, clientName]);
 
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const patch = {
-        intake_ativo: form.intake_ativo,
-        intake_slug: form.intake_slug.trim() ? slugify(form.intake_slug) : null,
-        intake_editor_id: form.intake_editor_id || null,
-        intake_edit_horas: Number(form.intake_edit_horas) || 0,
-        intake_revisao_horas: Number(form.intake_revisao_horas) || 0,
-        intake_alteracoes_media: Number(form.intake_alteracoes_media) || 1,
-        intake_contatos: contatos,
-      };
-      const { error } = await (supabase as any).from("clients").update(patch).eq("id", clientId);
-      if (error) throw error;
-    },
-    onSuccess: () => toast.success("Formulário do cliente salvo"),
-    onError: (e: any) =>
+  // Salva ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  const gravar = async (patch: Record<string, unknown>) => {
+    const { error } = await (supabase as any).from("clients").update(patch).eq("id", clientId);
+    if (error) {
       toast.error("Não salvou", {
-        description: /duplicate|unique|intake_slug/i.test(e.message || "")
+        description: /duplicate|unique|intake_slug/i.test(error.message || "")
           ? "Esse slug já está em uso por outro cliente."
-          : /column|intake_/i.test(e.message || "")
+          : /column|intake_/i.test(error.message || "")
           ? "Rode 'supabase db push' pra habilitar o formulário de demandas."
-          : e.message,
-      }),
-  });
+          : error.message,
+      });
+      throw error;
+    }
+  };
+  const auto = useFormAutosave<Record<string, unknown>>(gravar);
+  // Escolha (checkbox/select/contato) não é digitação: não tem o que esperar.
+  const autoEscolha = useFormAutosave<Record<string, unknown>>(gravar, { delay: 150 });
+
+  const set = (patch: Partial<FormIntake>) => setForm((f) => ({ ...f, ...patch }));
+
+  // O slug vai slugificado pro banco, mas na tela fica o que a pessoa digitou.
+  const setSlug = (valor: string) => {
+    set({ intake_slug: valor });
+    auto.agendar({ intake_slug: valor.trim() ? slugify(valor) : null });
+  };
+
+  const setContatos = (lista: { nome: string; email: string }[]) => {
+    setContatosState(lista);
+    autoEscolha.agendar({ intake_contatos: lista });
+  };
 
   const url = form.intake_slug ? `${window.location.origin}/solicitar/${slugify(form.intake_slug)}` : "";
 
@@ -115,27 +132,39 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
           </span>
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.intake_ativo}
-            onChange={(e) => setForm({ ...form, intake_ativo: e.target.checked })}
-            className="h-4 w-4 accent-primary"
-          />
-          Formulário ativo (o cliente consegue enviar demandas)
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.intake_ativo}
+              onChange={(e) => {
+                set({ intake_ativo: e.target.checked });
+                autoEscolha.agendar({ intake_ativo: e.target.checked });
+              }}
+              className="h-4 w-4 accent-primary"
+            />
+            Formulário ativo (o cliente consegue enviar demandas)
+          </label>
+          <IndicadorAutosave status={auto.status !== "ocioso" ? auto.status : autoEscolha.status} />
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label>Slug do link</Label>
             <div className="flex gap-2">
-              <Input value={form.intake_slug} onChange={(e) => setForm({ ...form, intake_slug: e.target.value })} placeholder="sicredi-sul-minas" />
-              <Button variant="outline" size="sm" onClick={() => setForm({ ...form, intake_slug: slugify(clientName) })}>Gerar</Button>
+              <Input value={form.intake_slug} onChange={(e) => setSlug(e.target.value)} placeholder="sicredi-sul-minas" />
+              <Button variant="outline" size="sm" onClick={() => setSlug(slugify(clientName))}>Gerar</Button>
             </div>
           </div>
           <div>
             <Label>Editor responsável (pro cálculo de prazo)</Label>
-            <Select value={form.intake_editor_id || "none"} onValueChange={(v) => setForm({ ...form, intake_editor_id: v === "none" ? "" : v })}>
+            <Select
+              value={form.intake_editor_id || "none"}
+              onValueChange={(v) => {
+                set({ intake_editor_id: v === "none" ? "" : v });
+                autoEscolha.agendar({ intake_editor_id: v === "none" ? null : v });
+              }}
+            >
               <SelectTrigger><SelectValue placeholder="— selecionar —" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">— nenhum —</SelectItem>
@@ -147,15 +176,37 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
           </div>
           <div>
             <Label>Horas de edição por vídeo</Label>
-            <Input type="number" value={form.intake_edit_horas} onChange={(e) => setForm({ ...form, intake_edit_horas: e.target.value })} />
+            <Input
+              type="number"
+              value={form.intake_edit_horas}
+              onChange={(e) => {
+                set({ intake_edit_horas: e.target.value });
+                auto.agendar({ intake_edit_horas: Number(e.target.value) || 0 });
+              }}
+            />
           </div>
           <div>
             <Label>Buffer de revisão interna (horas)</Label>
-            <Input type="number" value={form.intake_revisao_horas} onChange={(e) => setForm({ ...form, intake_revisao_horas: e.target.value })} />
+            <Input
+              type="number"
+              value={form.intake_revisao_horas}
+              onChange={(e) => {
+                set({ intake_revisao_horas: e.target.value });
+                auto.agendar({ intake_revisao_horas: Number(e.target.value) || 0 });
+              }}
+            />
           </div>
           <div>
             <Label>Rodadas médias de alteração</Label>
-            <Input type="number" step="0.5" value={form.intake_alteracoes_media} onChange={(e) => setForm({ ...form, intake_alteracoes_media: e.target.value })} />
+            <Input
+              type="number"
+              step="0.5"
+              value={form.intake_alteracoes_media}
+              onChange={(e) => {
+                set({ intake_alteracoes_media: e.target.value });
+                auto.agendar({ intake_alteracoes_media: Number(e.target.value) || 1 });
+              }}
+            />
             <p className="mt-1 text-[11px] text-muted-foreground">Fallback enquanto não há histórico. Com ≥3 entregáveis, o sistema passa a usar a média real do cliente automaticamente.</p>
           </div>
         </div>
@@ -177,7 +228,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                 <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/20 px-2.5 py-1.5 text-sm">
                   <span className="font-medium text-foreground">{c.nome}</span>
                   <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{c.email}</span>
-                  <button onClick={() => setContatos((a) => a.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                  <button onClick={() => setContatos(contatos.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -194,7 +245,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                 const nome = novoContato.nome.trim();
                 const email = novoContato.email.trim();
                 if (!nome || !email) return;
-                setContatos((a) => [...a, { nome, email }]);
+                setContatos([...contatos, { nome, email }]);
                 setNovoContato({ nome: "", email: "" });
               }}
             >
@@ -216,11 +267,6 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
             </Button>
           </div>
         )}
-
-        <Button onClick={() => salvar.mutate()} disabled={salvar.isPending} className="bg-primary text-primary-foreground">
-          {salvar.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-          Salvar formulário
-        </Button>
       </CardContent>
     </Card>
   );

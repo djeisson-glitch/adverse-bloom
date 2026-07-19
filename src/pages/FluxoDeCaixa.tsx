@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { type CAItem, calcSaldoEmConta, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -52,15 +54,19 @@ export default function FluxoDeCaixa() {
   const diasAncora = contexto?.saldo_inicial_data
     ? Math.floor((Date.now() - new Date(contexto.saldo_inicial_data).getTime()) / 86400000)
     : null;
-  const salvarSaldo = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any).from("empresa_contexto").upsert({
-        id: 1, saldo_inicial: Number(saldoInput), saldo_inicial_data: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["empresa_contexto"] }); setEditandoSaldo(false); toast({ title: "Saldo atualizado" }); },
-    onError: (e: any) => toast({ title: "Erro ao salvar saldo", description: e.message, variant: "destructive" }),
+  // Salva sozinho ao digitar. A âncora carimba a data do dia a cada gravação —
+  // é isso que alimenta o aviso de "há N dias, confira no CA".
+  const autoSaldo = useFormAutosave<{ saldo: string }>(async (patch) => {
+    const v = patch.saldo ?? "";
+    if (v === "") return; // campo em branco não vira saldo zero
+    const { error } = await (supabase as any).from("empresa_contexto").upsert({
+      id: 1, saldo_inicial: Number(v), saldo_inicial_data: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      toast({ title: "Não salvou o saldo", description: error.message, variant: "destructive" });
+      throw error;
+    }
+    qc.invalidateQueries({ queryKey: ["empresa_contexto"] });
   });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -182,9 +188,18 @@ export default function FluxoDeCaixa() {
         </div>
         {editandoSaldo ? (
           <div className="flex items-center gap-2">
-            <Input type="number" value={saldoInput} onChange={(e) => setSaldoInput(e.target.value)} placeholder="Saldo de hoje" className="h-8 w-36" />
-            <Button size="sm" onClick={() => salvarSaldo.mutate()} disabled={salvarSaldo.isPending}>Salvar</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditandoSaldo(false)}>Cancelar</Button>
+            <Input
+              type="number"
+              value={saldoInput}
+              onChange={(e) => {
+                setSaldoInput(e.target.value);
+                autoSaldo.agendar({ saldo: e.target.value });
+              }}
+              placeholder="Saldo de hoje"
+              className="h-8 w-36"
+            />
+            <IndicadorAutosave status={autoSaldo.status} />
+            <Button size="sm" variant="ghost" onClick={() => setEditandoSaldo(false)}>Fechar</Button>
           </div>
         ) : (
           <Button size="sm" variant="outline" onClick={() => { setSaldoInput(String(contexto?.saldo_inicial ?? "")); setEditandoSaldo(true); }}>Atualizar saldo</Button>

@@ -2,11 +2,13 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Clapperboard, Plus, Save, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Clapperboard, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 
 type Row = {
   id: string;
@@ -83,28 +85,15 @@ export default function Fornecedores() {
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
-  const salvar = useMutation({
-    mutationFn: async (r: Row) => {
-      const { error } = await (supabase as any)
-        .from("supplier_contacts")
-        .update({
-          name: r.name,
-          funcoes: r.funcoes,
-          cidade: r.cidade,
-          email: r.email,
-          telefone: r.telefone,
-          observacoes: r.observacoes,
-          ativo: r.ativo,
-        })
-        .eq("id", r.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["fornecedores"] });
-      toast.success("Salvo");
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
+  // Salva só o campo mexido (o autosave da linha manda o patch, não a linha inteira).
+  const salvar = async (id: string, patch: Partial<Row>) => {
+    const { error } = await (supabase as any).from("supplier_contacts").update(patch).eq("id", id);
+    if (error) {
+      toast.error("Não salvou", { description: error.message });
+      throw error;
+    }
+    qc.invalidateQueries({ queryKey: ["fornecedores"] });
+  };
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
@@ -220,7 +209,7 @@ export default function Fornecedores() {
                 key={r.id}
                 row={r}
                 editable={isAdmin}
-                onSave={(patch) => salvar.mutate({ ...r, ...patch })}
+                onSave={(patch) => salvar(r.id, patch)}
                 onDelete={() => excluir.mutate(r.id)}
               />
             ))
@@ -254,7 +243,7 @@ function FornecedorRow({
 }: {
   row: Row;
   editable: boolean;
-  onSave: (patch: Partial<Row>) => void;
+  onSave: (patch: Partial<Row>) => Promise<unknown>;
   onDelete: () => void;
 }) {
   const [expand, setExpand] = useState(false);
@@ -263,6 +252,9 @@ function FornecedorRow({
   const [cidade, setCidade] = useState(row.cidade || "");
   const [email, setEmail] = useState(row.email || "");
   const [telefone, setTelefone] = useState(row.telefone || "");
+
+  // Salva ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  const auto = useFormAutosave<Partial<Row>>((patch) => onSave(patch));
 
   return (
     <div className="border-b border-border/40 last:border-0">
@@ -289,12 +281,49 @@ function FornecedorRow({
       </div>
       {expand && editable && (
         <div className="grid gap-3 border-t border-border/40 bg-muted/20 px-5 py-4 md:grid-cols-2">
-          <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome" />
-          <Input value={funcoes} onChange={(e) => setFuncoes(e.target.value)} placeholder="Funções (vírgula)" />
-          <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Cidade" />
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-mail" />
-          <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="Telefone" />
+          <Input
+            value={nome}
+            onChange={(e) => {
+              setNome(e.target.value);
+              auto.agendar({ name: e.target.value });
+            }}
+            placeholder="Nome"
+          />
+          <Input
+            value={funcoes}
+            onChange={(e) => {
+              setFuncoes(e.target.value);
+              // Na tela é texto com vírgula; no banco é array.
+              auto.agendar({ funcoes: e.target.value.split(",").map((f) => f.trim()).filter(Boolean) });
+            }}
+            placeholder="Funções (vírgula)"
+          />
+          <Input
+            value={cidade}
+            onChange={(e) => {
+              setCidade(e.target.value);
+              auto.agendar({ cidade: e.target.value || null });
+            }}
+            placeholder="Cidade"
+          />
+          <Input
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              auto.agendar({ email: e.target.value || null });
+            }}
+            placeholder="E-mail"
+          />
+          <Input
+            value={telefone}
+            onChange={(e) => {
+              setTelefone(e.target.value);
+              auto.agendar({ telefone: e.target.value || null });
+            }}
+            placeholder="Telefone"
+          />
           <div className="flex items-center justify-end gap-2">
+            <IndicadorAutosave status={auto.status} />
             <Button
               size="sm"
               variant="ghost"
@@ -303,21 +332,6 @@ function FornecedorRow({
             >
               <Trash2 className="mr-1 h-3.5 w-3.5" />
               Remover
-            </Button>
-            <Button
-              size="sm"
-              onClick={() =>
-                onSave({
-                  name: nome,
-                  funcoes: funcoes.split(",").map((f) => f.trim()).filter(Boolean),
-                  cidade,
-                  email,
-                  telefone,
-                })
-              }
-            >
-              <Save className="mr-1 h-3.5 w-3.5" />
-              Salvar
             </Button>
           </div>
         </div>

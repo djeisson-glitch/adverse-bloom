@@ -2,14 +2,24 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProjects, useUpdateProject, PRODUCTION_STAGES_NEW, type Project } from "@/hooks/useProjects";
 import { usePermissions } from "@/hooks/usePermissions";
-import { LayoutGrid, Plus, Loader2 } from "lucide-react";
+import { useLocalPref } from "@/hooks/useLocalPref";
+import { LayoutGrid, Plus, Loader2, ArrowUpDown, Rows3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ProductionKanban } from "@/components/producao/ProductionKanban";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { NewProjectModal } from "@/components/producao/NewProjectModal";
 
 type Vista = "lista" | "board" | "calendario" | "gantt" | "finalizados";
+type Ordem = "recentes" | "nome" | "prazo";
+type Agrupar = "etapa" | "cliente" | "nenhum";
 
 const VISTAS: { id: Vista; label: string }[] = [
   { id: "lista", label: "Lista" },
@@ -19,11 +29,34 @@ const VISTAS: { id: Vista; label: string }[] = [
   { id: "finalizados", label: "Finalizados" },
 ];
 
+const VISTA_IDS = VISTAS.map((v) => v.id);
+const ORDENS: { id: Ordem; label: string }[] = [
+  { id: "recentes", label: "Mais recentes" },
+  { id: "nome", label: "Nome (A–Z)" },
+  { id: "prazo", label: "Data de vencimento" },
+];
+const AGRUPAMENTOS: { id: Agrupar; label: string }[] = [
+  { id: "etapa", label: "Etapa" },
+  { id: "cliente", label: "Cliente" },
+  { id: "nenhum", label: "Não agrupar" },
+];
+
 export default function Projetos() {
   const { data: projects = [], isLoading } = useProjects();
   const { canSeeMoney } = usePermissions();
   const navigate = useNavigate();
-  const [vista, setVista] = useState<Vista>("lista");
+  // A última escolha vira a padrão: quem volta pra tela cai na visão que usa.
+  const [vista, setVista] = useLocalPref<Vista>("projetos:vista", "lista", VISTA_IDS);
+  const [ordem, setOrdem] = useLocalPref<Ordem>("projetos:ordem", "recentes", [
+    "recentes",
+    "nome",
+    "prazo",
+  ]);
+  const [agrupar, setAgrupar] = useLocalPref<Agrupar>("projetos:agrupar", "etapa", [
+    "etapa",
+    "cliente",
+    "nenhum",
+  ]);
   const [openNew, setOpenNew] = useState(false);
 
   const emAndamento = useMemo(
@@ -35,7 +68,28 @@ export default function Projetos() {
     [projects],
   );
 
-  const lista = vista === "finalizados" ? finalizados : emAndamento;
+  const base = vista === "finalizados" ? finalizados : emAndamento;
+
+  const lista = useMemo(() => {
+    const arr = [...base];
+    if (ordem === "nome") {
+      arr.sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt-BR"));
+    } else if (ordem === "prazo") {
+      // Sem prazo vai pro fim — senão os vazios enterram o que está vencendo.
+      arr.sort((a, b) => {
+        if (!a.delivery_date && !b.delivery_date) return 0;
+        if (!a.delivery_date) return 1;
+        if (!b.delivery_date) return -1;
+        return a.delivery_date.localeCompare(b.delivery_date);
+      });
+    } else {
+      arr.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    }
+    return arr;
+  }, [base, ordem]);
+
+  // Agrupar só faz sentido na tabela — o board já agrupa por coluna.
+  const mostraLista = vista === "lista" || vista === "finalizados";
 
   if (isLoading) {
     return (
@@ -65,6 +119,7 @@ export default function Projetos() {
               <button
                 key={v.id}
                 onClick={() => setVista(v.id)}
+                title={`${v.label} — sua escolha fica salva como visão padrão`}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   vista === v.id
                     ? "bg-primary text-primary-foreground"
@@ -75,6 +130,37 @@ export default function Projetos() {
               </button>
             ))}
           </div>
+
+          <Select value={ordem} onValueChange={(v) => setOrdem(v as Ordem)}>
+            <SelectTrigger className="h-8 w-[178px] text-xs" title="Ordenar projetos">
+              <ArrowUpDown className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDENS.map((o) => (
+                <SelectItem key={o.id} value={o.id} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {mostraLista && (
+            <Select value={agrupar} onValueChange={(v) => setAgrupar(v as Agrupar)}>
+              <SelectTrigger className="h-8 w-[150px] text-xs" title="Agrupar projetos">
+                <Rows3 className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AGRUPAMENTOS.map((a) => (
+                  <SelectItem key={a.id} value={a.id} className="text-xs">
+                    {a.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Button
             size="sm"
             className="bg-primary text-primary-foreground"
@@ -87,8 +173,13 @@ export default function Projetos() {
       </div>
 
       {vista === "board" && <BoardVista projects={lista} onOpen={(id) => navigate(`/projetos/${id}`)} />}
-      {(vista === "lista" || vista === "finalizados") && (
-        <ListaVista projects={lista} canSeeMoney={canSeeMoney} onOpen={(id) => navigate(`/projetos/${id}`)} />
+      {mostraLista && (
+        <ListaVista
+          projects={lista}
+          canSeeMoney={canSeeMoney}
+          agrupar={agrupar}
+          onOpen={(id) => navigate(`/projetos/${id}`)}
+        />
       )}
       {vista === "calendario" && <CalendarioVista projects={lista} />}
       {vista === "gantt" && <GanttVista projects={lista} />}
@@ -103,25 +194,41 @@ export default function Projetos() {
 function ListaVista({
   projects,
   canSeeMoney,
+  agrupar,
   onOpen,
 }: {
   projects: Project[];
   canSeeMoney: boolean;
+  agrupar: Agrupar;
   onOpen: (id: string) => void;
 }) {
-  // Agrupa por status/stage
-  const grupos = useMemo(() => {
+  // Agrupa por etapa ou por cliente (ou não agrupa). A ordem escolhida lá em cima
+  // é preservada dentro de cada grupo, porque o Map mantém a ordem de inserção.
+  const grupos = useMemo<[string, Project[]][]>(() => {
+    if (agrupar === "nenhum") return [["", projects]];
+
     const map = new Map<string, Project[]>();
     projects.forEach((p) => {
-      const s = p.status || "briefing";
-      map.set(s, [...(map.get(s) || []), p]);
+      const chave =
+        agrupar === "cliente" ? p.client_name || "Sem cliente" : p.status || "briefing";
+      map.set(chave, [...(map.get(chave) || []), p]);
     });
-    return Array.from(map.entries()).sort((a, b) => {
+    const entradas = Array.from(map.entries());
+
+    if (agrupar === "cliente") {
+      // "Sem cliente" por último — é pendência de cadastro, não um cliente.
+      return entradas.sort((a, b) => {
+        if (a[0] === "Sem cliente") return 1;
+        if (b[0] === "Sem cliente") return -1;
+        return a[0].localeCompare(b[0], "pt-BR");
+      });
+    }
+    return entradas.sort((a, b) => {
       const ia = PRODUCTION_STAGES_NEW.findIndex((s) => s.id === a[0]);
       const ib = PRODUCTION_STAGES_NEW.findIndex((s) => s.id === b[0]);
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
-  }, [projects]);
+  }, [projects, agrupar]);
 
   if (projects.length === 0) {
     return (
@@ -144,15 +251,20 @@ function ListaVista({
           <span>Prazo</span>
           <span className="text-right">Valor</span>
         </div>
-        {grupos.map(([stageId, items]) => {
-          const stage = PRODUCTION_STAGES_NEW.find((s) => s.id === stageId);
+        {grupos.map(([chave, items]) => {
+          const stage =
+            agrupar === "etapa" ? PRODUCTION_STAGES_NEW.find((s) => s.id === chave) : undefined;
           return (
-            <div key={stageId}>
-              <div className="flex items-center gap-2 bg-muted/20 px-5 py-2 text-xs">
-                <span className={`h-2 w-2 rounded-full border ${stage?.color || ""}`} />
-                <span className="font-medium text-foreground">{stage?.label || stageId}</span>
-                <span className="text-muted-foreground">{items.length}</span>
-              </div>
+            <div key={chave || "todos"}>
+              {agrupar !== "nenhum" && (
+                <div className="flex items-center gap-2 bg-muted/20 px-5 py-2 text-xs">
+                  {agrupar === "etapa" && (
+                    <span className={`h-2 w-2 rounded-full border ${stage?.color || ""}`} />
+                  )}
+                  <span className="font-medium text-foreground">{stage?.label || chave}</span>
+                  <span className="text-muted-foreground">{items.length}</span>
+                </div>
+              )}
               {items.map((p) => (
                 <div
                   key={p.id}
@@ -161,8 +273,18 @@ function ListaVista({
                 >
                   <span className="font-mono text-xs text-muted-foreground">{(p as any).numero || "—"}</span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{p.client_name || "—"}</p>
+                    <p className="truncate text-sm font-medium text-foreground" title={p.name}>
+                      {p.name}
+                    </p>
+                    {/* Agrupado por cliente, repetir o cliente na linha é ruído:
+                        mostra a etapa, que é a informação que falta ali. */}
+                    <p className="truncate text-xs text-muted-foreground">
+                      {agrupar === "cliente"
+                        ? PRODUCTION_STAGES_NEW.find((s) => s.id === p.status)?.label ||
+                          p.status ||
+                          "—"
+                        : p.client_name || "—"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/40">
@@ -175,7 +297,7 @@ function ListaVista({
                   </div>
                   <span className="text-xs text-muted-foreground">—</span>
                   <span className="text-xs text-muted-foreground">
-                    {p.delivery_date ? new Date(p.delivery_date).toLocaleDateString("pt-BR") : "—"}
+                    {formatDate(p.delivery_date)}
                   </span>
                   <span className="text-right text-sm text-foreground">
                     {canSeeMoney ? formatCurrency(p.sold_value || 0) : "—"}

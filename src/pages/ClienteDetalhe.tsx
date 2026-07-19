@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Save, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Loader2, ArrowLeft, DollarSign, Briefcase, TrendingUp, Target, Plus, Check, Clock, Calendar, Activity, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
 import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
@@ -39,7 +41,6 @@ export default function ClienteDetalhe() {
   const navigate = useNavigate();
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
-  const { toast } = useToast();
   const { canSeeMoney } = usePermissions();
 
   const client = clients.find((c) => c.id === id);
@@ -97,43 +98,49 @@ export default function ClienteDetalhe() {
     enabled: dealIds.length > 0,
   });
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>({});
-
-  if (!client) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-
-  const startEdit = () => {
-    const originMatch = client.notes?.match(/^Origem: (.+)$/m);
+  // Re-hidrata só quando muda o CLIENTE. A tela atualiza sozinha a cada 30s e,
+  // se seguisse a query, o refetch apagaria o que a pessoa está digitando.
+  const [form, setForm] = useState<Record<string, string> | null>(null);
+  if (client && form?.__id !== client.id) {
     setForm({
+      __id: client.id,
       name: client.name,
       company: client.company || "",
       email: client.email || "",
       phone: client.phone || "",
       segment: client.segment || "",
-      origin: originMatch?.[1] || "",
+      origin: client.notes?.match(/^Origem: (.+)$/m)?.[1] || "",
       notes: client.notes?.replace(/^Origem: .+\n?/m, "").trim() || "",
     });
-    setEditing(true);
-  };
+  }
 
-  const handleSave = async () => {
+  // Salva ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  const auto = useFormAutosave<Record<string, string | null>>(async (patch) => {
     try {
-      const notes = form.origin ? `Origem: ${form.origin}\n${form.notes}`.trim() : form.notes.trim();
-      await updateClient.mutateAsync({
-        id: client.id,
-        name: form.name.trim(),
-        company: form.company.trim() || null,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        segment: form.segment || null,
-        notes: notes || null,
-      });
-      toast({ title: "Cliente atualizado!" });
-      setEditing(false);
-    } catch {
-      toast({ title: "Erro ao salvar", variant: "destructive" });
+      await updateClient.mutateAsync({ id: id!, ...patch });
+    } catch (e: any) {
+      toast.error("Não salvou o cliente", { description: e?.message });
+      throw e;
+    }
+  });
+
+  if (!client || !form) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
+  // Origem mora dentro de `notes` (linha "Origem: X"), então mexer em qualquer
+  // um dos dois regrava a coluna inteira.
+  const notesCom = (origem: string, notas: string) =>
+    (origem ? `Origem: ${origem}\n${notas}` : notas).trim() || null;
+
+  const set = (campo: string, valor: string) => {
+    const novo = { ...form, [campo]: valor };
+    setForm(novo);
+    if (campo === "origin" || campo === "notes") {
+      auto.agendar({ notes: notesCom(novo.origin, novo.notes) });
+    } else {
+      // Campo apagado vira NULL no banco — menos o nome, que é obrigatório.
+      auto.agendar(vaziosParaNull({ [campo]: valor.trim() }, ["name"]));
     }
   };
 
@@ -152,10 +159,6 @@ export default function ClienteDetalhe() {
     .reduce((s, b) => s + ((b as any).project_count || 1), 0);
   const ticketMedio = totalProjectCount > 0 ? ltv / totalProjectCount : (wonDeals.length > 0 ? ltv / wonDeals.length : 0);
   const taxaConversao = clientDeals.length > 0 ? (wonDeals.length / clientDeals.length) * 100 : 0;
-
-  const originMatch = client.notes?.match(/^Origem: (.+)$/m);
-  const origin = originMatch?.[1] || "";
-  const cleanNotes = client.notes?.replace(/^Origem: .+\n?/m, "").trim() || "";
 
   // Timeline
   const firstDealDate = clientDeals.length > 0
@@ -256,70 +259,49 @@ export default function ClienteDetalhe() {
           <CardContent className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-heading font-semibold">Dados do Cliente</h2>
-              {!editing && <Button variant="outline" size="sm" onClick={startEdit}>Editar</Button>}
+              <IndicadorAutosave status={auto.status} />
             </div>
 
-            {editing ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Nome</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Empresa</Label>
-                  <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Telefone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Segmento</Label>
-                  <Select value={form.segment} onValueChange={(v) => setForm({ ...form, segment: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Origem</Label>
-                  <Select value={form.origin} onValueChange={(v) => setForm({ ...form, origin: v })}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      {ORIGINS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Notas</Label>
-                  <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={4} />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} disabled={updateClient.isPending} size="sm">
-                    <Save className="mr-1 h-3.5 w-3.5" /> Salvar
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancelar</Button>
-                </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Nome</Label>
+                <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
               </div>
-            ) : (
-              <div className="space-y-3 text-sm">
-                <InfoRow label="Email" value={client.email} />
-                <InfoRow label="Telefone" value={client.phone} />
-                <InfoRow label="Segmento" value={client.segment} />
-                <InfoRow label="Origem" value={origin} />
-                {cleanNotes && (
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Notas</p>
-                    <p className="text-foreground whitespace-pre-wrap">{cleanNotes}</p>
-                  </div>
-                )}
+              <div className="space-y-1.5">
+                <Label>Empresa</Label>
+                <Input value={form.company} onChange={(e) => set("company", e.target.value)} />
               </div>
-            )}
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input value={form.email} onChange={(e) => set("email", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Segmento</Label>
+                <Select value={form.segment} onValueChange={(v) => set("segment", v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Origem</Label>
+                <Select value={form.origin} onValueChange={(v) => set("origin", v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {ORIGINS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notas</Label>
+                <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={4} />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -434,15 +416,6 @@ export default function ClienteDetalhe() {
           </Tabs>
         </div>
       </div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="text-foreground">{value || "—"}</p>
     </div>
   );
 }
