@@ -88,6 +88,33 @@ serve(async (req) => {
       return json({ modo: "revertido", tarefas_apagadas: tasksApagadas, entregaveis_apagados: delApagados, projetos_apagados: projApagados, projetos_falha: projFalhas, clientes_apagados: cliApagados, clientes_mantidos_em_uso: cliMantidos.length });
     }
 
+    // ---------------- ATUALIZAR NOMES DE ENTREGÁVEIS (fidelidade ClickUp) ----------------
+    // Payload: { atualizar_entregaveis: [{ id: <clickup_task_id>, nome: <nome exato do ClickUp> }] }
+    // Casa por clickup_task_id, seta o titulo EXATO (preserva prefixo/espaços). Idempotente.
+    if (Array.isArray(body?.atualizar_entregaveis)) {
+      const itens = body.atualizar_entregaveis as { id: string; nome: string }[];
+      let atualizados = 0, jaIguais = 0, semMatch = 0;
+      const exemplos: any[] = [];
+      for (const it of itens) {
+        if (!it?.id || typeof it.nome !== "string") continue;
+        const { data, error } = await admin
+          .from("deliverables")
+          .update({ titulo: it.nome, updated_at: new Date().toISOString() })
+          .eq("clickup_task_id", it.id)
+          .neq("titulo", it.nome)
+          .select("id, titulo");
+        if (error) continue;
+        if (data && data.length) {
+          atualizados += data.length;
+          if (exemplos.length < 3) exemplos.push({ id: it.id, para: it.nome });
+        } else {
+          const { count } = await admin.from("deliverables").select("id", { count: "exact", head: true }).eq("clickup_task_id", it.id);
+          if ((count || 0) === 0) semMatch++; else jaIguais++;
+        }
+      }
+      return json({ modo: "entregaveis-renomeados", recebidos: itens.length, atualizados, ja_iguais: jaIguais, sem_correspondencia: semMatch, exemplos });
+    }
+
     // ---------------- SUBTAREFAS -> ENTREGÁVEIS ----------------
     if (Array.isArray(body?.subtarefas)) {
       const confirmSub = body?.confirm === true;
