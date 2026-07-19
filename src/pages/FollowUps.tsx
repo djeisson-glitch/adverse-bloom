@@ -5,6 +5,7 @@ import { CalendarRange, ChevronLeft, ChevronRight, Trophy, Frown, Check, Trash2 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { formatDate } from "@/lib/format";
 
 type FollowUp = {
   id: string;
@@ -229,7 +230,7 @@ export default function FollowUps() {
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(f.data_prevista).toLocaleDateString("pt-BR")}
+                    {formatDate(f.data_prevista)}
                   </span>
                   <Button
                     size="sm"

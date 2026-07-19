@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
 
 /**
@@ -1010,12 +1010,12 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
         </p>
 
         {items.length > 0 && (
-          <div className="grid grid-cols-[1fr_90px_70px_140px_100px_72px_90px_30px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[minmax(240px,1.8fr)_70px_60px_110px_92px_66px_88px_28px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Entregável</span>
             <span>Formato</span>
             <span>Duração</span>
             <span>Responsável</span>
-            <span>Entrega</span>
+            <span>Prazo interno</span>
             <span>Ações</span>
             <span>Status</span>
             <span />
@@ -1025,14 +1025,19 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
           <div
             key={d.id}
             onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
-            className="grid cursor-pointer grid-cols-[1fr_90px_70px_140px_100px_72px_90px_30px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
+            className="grid cursor-pointer grid-cols-[minmax(240px,1.8fr)_70px_60px_110px_92px_66px_88px_28px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
           >
-            <span className="truncate font-medium text-foreground">{d.titulo}</span>
+            <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>{d.titulo}</span>
             <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
             <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
             <span className="truncate text-xs text-muted-foreground">{nomeDe(d.responsavel_id)}</span>
-            <span className="text-xs text-muted-foreground">
-              {d.data_entrega ? new Date(d.data_entrega).toLocaleDateString("pt-BR") : "—"}
+            {/* Prazo INTERNO (cai pro prazo do cliente só se o interno estiver vazio).
+                formatDate evita o desvio de fuso que fazia aparecer 1 dia a menos. */}
+            <span
+              className="text-xs text-muted-foreground"
+              title={d.prazo_interno ? "Prazo interno" : d.data_entrega ? "Sem prazo interno — mostrando o prazo do cliente" : ""}
+            >
+              {formatDate(d.prazo_interno || d.data_entrega || null)}
             </span>
             {/* Ações rápidas — Frame + conversa deste entregável (o link mora dentro do entregável) */}
             <span className="flex items-center gap-1">

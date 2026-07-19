@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { formatCurrency, roundUpTo50 } from "@/lib/format";
+import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
@@ -322,7 +322,7 @@ export default function OrcamentoEditor() {
               <div key={f.id} className="flex items-center gap-2 text-sm">
                 <CalendarRange className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium text-foreground">
-                  {new Date(f.data_prevista).toLocaleDateString("pt-BR")}
+                  {formatDate(f.data_prevista)}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   · {f.tipo === "pos_ganho" ? "pós-ganho" : f.tipo === "pos_perda" ? "pós-perda" : f.tipo} —{" "}

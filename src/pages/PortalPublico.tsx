@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { formatDate, formatDateShort } from "@/lib/format";
 
 // Etapas do projeto, em linguagem de cliente
 const ETAPA_LABEL: Record<string, string> = {
@@ -203,10 +204,7 @@ export default function PortalPublico() {
                     {p.delivery_date && (
                       <span className="text-xs text-muted-foreground">
                         entrega em{" "}
-                        {new Date(p.delivery_date).toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
+                        {formatDateShort(p.delivery_date)}
                       </span>
                     )}
                   </div>
@@ -231,7 +229,7 @@ export default function PortalPublico() {
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           {d.data_entrega && (
                             <span>
-                              entrega em {new Date(d.data_entrega).toLocaleDateString("pt-BR")}
+                              entrega em {formatDate(d.data_entrega)}
                             </span>
                           )}
                           {d.arquivo_url && (

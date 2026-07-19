@@ -82,7 +82,7 @@ export default function ContasAPagar() {
 
     const header = "data_vencimento,descricao,fornecedor,valor,categoria,projeto";
     const rows = toExport.map((s) => {
-      const date = s.payment_date ? new Date(s.payment_date).toLocaleDateString("pt-BR") : "";
+      const date = s.payment_date ? formatDate(s.payment_date) : "";
       return `${date},${s.supplier_name},${s.supplier_name},${s.amount.toFixed(2)},,${s.budget_project_name ?? ""}`;
     });
     const csv = [header, ...rows].join("\n");
