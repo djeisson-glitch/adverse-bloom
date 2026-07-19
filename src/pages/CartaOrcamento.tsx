@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { roundUpTo50 } from "@/lib/format";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import {
   CartaDocumento, CARTA_STYLE, DEFAULTS, TIPO_LABEL, parseValor,
   type Proposta,
@@ -90,24 +92,20 @@ export default function CartaOrcamento() {
     }
   }
 
-  const salvar = useMutation({
-    mutationFn: async () => {
-      if (!data?.budget?.id) throw new Error("Sem orçamento pra salvar (modo manual não persiste).");
-      // Não persiste o investimento: ele é sempre puxado do orçamento (fica automático).
-      const { investimento, ...propostaSemValor } = p;
-      const { error } = await (supabase as any).from("budgets").update({ proposta: propostaSemValor }).eq("id", data.budget.id);
-      if (error) {
-        if (/proposta/i.test(error.message || "")) {
-          throw new Error("Rode 'supabase db push' pra habilitar o salvamento da carta (coluna nova).");
-        }
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["carta-orcamento", id] });
-      toast.success("Carta salva");
-    },
-    onError: (e: any) => toast.error("Não salvou", { description: e.message }),
+  // A carta inteira mora numa coluna jsonb, então o autosave regrava o bloco
+  // todo — não dá pra mandar campo a campo como nas outras telas.
+  const auto = useFormAutosave<Record<string, unknown>>(async () => {
+    if (!data?.budget?.id || !p) return; // modo manual não persiste
+    // Não persiste o investimento: ele é sempre puxado do orçamento (fica automático).
+    const { investimento, ...propostaSemValor } = p;
+    const { error } = await (supabase as any).from("budgets").update({ proposta: propostaSemValor }).eq("id", data.budget.id);
+    if (error) {
+      const msg = /proposta/i.test(error.message || "")
+        ? "Rode 'supabase db push' pra habilitar o salvamento da carta (coluna nova)."
+        : error.message;
+      toast.error("Não salvou a carta", { description: msg });
+      throw error;
+    }
   });
 
   if (isLoading || !p) {
@@ -118,7 +116,10 @@ export default function CartaOrcamento() {
     );
   }
 
-  const set = (patch: Partial<Proposta>) => setP({ ...p, ...patch });
+  const set = (patch: Partial<Proposta>) => {
+    setP({ ...p, ...patch });
+    auto.agendar(patch as Record<string, unknown>);
+  };
   const investimentoNum = roundUpTo50(parseValor(p.investimento));
   const cli = data?.deal?.client;
   const cliente = cli
@@ -145,11 +146,7 @@ export default function CartaOrcamento() {
             <Button size="sm" variant="outline" className="border-white/20 bg-transparent text-[#E8E1D0] hover:bg-white/10" onClick={() => setEditando((v) => !v)}>
               {editando ? <><Eye className="mr-1 h-3.5 w-3.5" /> Só a carta</> : <><Pencil className="mr-1 h-3.5 w-3.5" /> Editar</>}
             </Button>
-            {!manual && (
-              <Button size="sm" variant="outline" className="border-white/20 bg-transparent text-[#E8E1D0] hover:bg-white/10" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-                <Save className="mr-1 h-3.5 w-3.5" /> Salvar
-              </Button>
-            )}
+            {!manual && <IndicadorAutosave status={auto.status} />}
             <Button size="sm" className="bg-[#E53500] text-white hover:bg-[#E53500]/90" onClick={() => window.print()}>
               <Printer className="mr-1 h-3.5 w-3.5" /> Imprimir / PDF
             </Button>

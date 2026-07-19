@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
 
 /**
@@ -690,17 +692,20 @@ function BriefingProjetoSection({ project, onChanged }: { project: any; onChange
     Object.fromEntries(BRIEFING_CAMPOS.map((c) => [c.key, project[c.key] || ""])),
   );
 
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any).from("projects").update(form).eq("id", project.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      onChanged();
-      toast.success("Briefing salvo");
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  // Salva ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  const auto = useFormAutosave<Record<string, string>>(async (patch) => {
+    const { error } = await (supabase as any).from("projects").update(patch).eq("id", project.id);
+    if (error) {
+      toast.error("Não salvou o briefing", { description: error.message });
+      throw error;
+    }
+    onChanged();
   });
+
+  const set = (key: string, valor: string) => {
+    setForm((f) => ({ ...f, [key]: valor }));
+    auto.agendar({ [key]: valor });
+  };
 
   return (
     <Card className="glass-card">
@@ -712,10 +717,7 @@ function BriefingProjetoSection({ project, onChanged }: { project: any; onChange
               Consolide o contexto, escopo e direcionamento geral do projeto
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-            <Save className="mr-1 h-3.5 w-3.5" />
-            Salvar
-          </Button>
+          <IndicadorAutosave status={auto.status} />
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {BRIEFING_CAMPOS.map((c) => (
@@ -726,7 +728,7 @@ function BriefingProjetoSection({ project, onChanged }: { project: any; onChange
               <Textarea
                 rows={c.full ? 3 : 3}
                 value={form[c.key]}
-                onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
+                onChange={(e) => set(c.key, e.target.value)}
                 placeholder={c.placeholder}
               />
             </div>
@@ -758,24 +760,23 @@ function AprovacaoProjetoCard({
         : "nao",
   );
 
-  const salvar = useMutation({
-    mutationFn: async () => {
+  // Escolha em select salva na hora — não tem o que esperar de digitação.
+  const auto = useFormAutosave<Record<string, unknown>>(
+    async (patch) => {
       const { error } = await (supabase as any)
         .from("projects")
-        .update({
-          aprovador_n1_id: n1 === "__herdar__" ? null : n1,
-          aprovador_n2_id: n2 === "__herdar__" ? null : n2,
-          cliente_aprova: cli === "__herdar__" ? null : cli === "sim",
-        })
+        .update(patch)
         .eq("id", project.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
+      if (error) {
+        toast.error("Não salvou a aprovação", { description: error.message });
+        throw error;
+      }
       onChanged();
-      toast.success("Aprovação do projeto salva");
     },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
+    { delay: 150 },
+  );
+
+  const herdar = (v: string) => (v === "__herdar__" ? null : v);
 
   return (
     <Card className="glass-card">
@@ -790,7 +791,13 @@ function AprovacaoProjetoCard({
         <div className="grid gap-3 md:grid-cols-3">
           <div>
             <Label>Nível 1</Label>
-            <Select value={n1} onValueChange={setN1}>
+            <Select
+              value={n1}
+              onValueChange={(v) => {
+                setN1(v);
+                auto.agendar({ aprovador_n1_id: herdar(v) });
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
@@ -800,7 +807,13 @@ function AprovacaoProjetoCard({
           </div>
           <div>
             <Label>Nível 2</Label>
-            <Select value={n2} onValueChange={setN2}>
+            <Select
+              value={n2}
+              onValueChange={(v) => {
+                setN2(v);
+                auto.agendar({ aprovador_n2_id: herdar(v) });
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
@@ -810,7 +823,13 @@ function AprovacaoProjetoCard({
           </div>
           <div>
             <Label>Cliente aprova?</Label>
-            <Select value={cli} onValueChange={setCli}>
+            <Select
+              value={cli}
+              onValueChange={(v) => {
+                setCli(v);
+                auto.agendar({ cliente_aprova: v === "__herdar__" ? null : v === "sim" });
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
@@ -821,9 +840,7 @@ function AprovacaoProjetoCard({
           </div>
         </div>
         <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => salvar.mutate()} disabled={salvar.isPending}>
-            <Save className="mr-1 h-3.5 w-3.5" /> Salvar
-          </Button>
+          <IndicadorAutosave status={auto.status} />
         </div>
       </CardContent>
     </Card>
@@ -940,6 +957,26 @@ function DocumentosSection({ projectId }: { projectId: string }) {
 
 /* --------------------------------------------------------- Entregáveis */
 
+// Status do entregável em português. O valor cru do banco ("em_edicao",
+// "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
+const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
+  pendente: "Pendente",
+  em_edicao: "Em edição",
+  revisao_n1: "Revisão N1",
+  revisao_n2: "Revisão N2",
+  revisao: "Revisão",
+  pronto: "Pronto",
+  com_cliente: "Com o cliente",
+  ajuste_solicitado: "Ajuste pedido",
+  aprovado: "Aprovado",
+  entregue: "Entregue",
+};
+
+function rotuloStatus(status: string | null | undefined): string {
+  if (!status) return "—";
+  return STATUS_ENTREGAVEL_LABEL[status] || status.replace(/_/g, " ");
+}
+
 function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectId: string; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -1009,23 +1046,25 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
           Entregáveis
         </p>
 
+        {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
+            lixeira ficava pra fora do card. */}
+        <div className="-mx-1 overflow-x-auto px-1">
         {items.length > 0 && (
-          <div className="grid grid-cols-[minmax(240px,1.8fr)_70px_60px_110px_92px_66px_88px_28px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid min-w-[680px] grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Entregável</span>
             <span>Formato</span>
             <span>Duração</span>
             <span>Responsável</span>
             <span>Prazo interno</span>
-            <span>Ações</span>
             <span>Status</span>
-            <span />
+            <span className="text-right">Ações</span>
           </div>
         )}
         {items.map((d) => (
           <div
             key={d.id}
             onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
-            className="grid cursor-pointer grid-cols-[minmax(240px,1.8fr)_70px_60px_110px_92px_66px_88px_28px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
+            className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
           >
             <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>{d.titulo}</span>
             <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
@@ -1039,8 +1078,13 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
             >
               {formatDate(d.prazo_interno || d.data_entrega || null)}
             </span>
-            {/* Ações rápidas — Frame + conversa deste entregável (o link mora dentro do entregável) */}
-            <span className="flex items-center gap-1">
+            {/* Status em português — "em_edicao" cru não diz nada pra quem olha rápido */}
+            <span className="truncate rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground" title={rotuloStatus(d.status)}>
+              {rotuloStatus(d.status)}
+            </span>
+            {/* Ações rápidas — Frame, conversa e excluir deste entregável.
+                A lixeira mora aqui (e não em coluna própria) pra linha não estourar a largura do card. */}
+            <span className="flex items-center justify-end gap-1">
               {d.arquivo_url ? (
                 <a
                   href={d.arquivo_url}
@@ -1068,21 +1112,20 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  excluir.mutate(d.id);
+                }}
+                title="Excluir entregável"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </span>
-            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground">
-              {d.status}
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                excluir.mutate(d.id);
-              }}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
           </div>
         ))}
+        </div>
 
         <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
           <div className="grid gap-2 md:grid-cols-4">
@@ -1236,18 +1279,19 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
     onChanged();
   };
 
-  const salvarFallback = async () => {
-    const { error } = await (supabase as any)
-      .rpc("set_projeto_financeiro", {
-        _project_id: project.id,
-        _custo_hora_padrao: fallback ? Number(fallback) : null,
-      });
-    if (error) toast.error("Erro", { description: error.message });
-    else {
-      toast.success("Fallback salvo");
-      invalidateAll();
+  // Dinheiro continua passando pela RPC, que checa o papel de quem edita.
+  const autoFallback = useFormAutosave<{ custo_hora_padrao: string }>(async (patch) => {
+    const v = patch.custo_hora_padrao ?? "";
+    const { error } = await (supabase as any).rpc("set_projeto_financeiro", {
+      _project_id: project.id,
+      _custo_hora_padrao: v ? Number(v) : null,
+    });
+    if (error) {
+      toast.error("Não salvou o custo/hora", { description: error.message });
+      throw error;
     }
-  };
+    invalidateAll();
+  });
 
   const salvarCustoHoraPessoa = async (userId: string, valor: string) => {
     const { error } = await (supabase as any).rpc("set_custo_hora", {
@@ -1375,13 +1419,13 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
             <Input
               type="number"
               value={fallback}
-              onChange={(e) => setFallback(e.target.value)}
+              onChange={(e) => {
+                setFallback(e.target.value);
+                autoFallback.agendar({ custo_hora_padrao: e.target.value });
+              }}
               className="h-8 w-28 text-xs"
             />
-            <Button size="sm" variant="outline" onClick={salvarFallback}>
-              <Save className="mr-1 h-3 w-3" />
-              Salvar
-            </Button>
+            <IndicadorAutosave status={autoFallback.status} />
           </div>
         </div>
 

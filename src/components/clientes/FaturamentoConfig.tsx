@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Save, Sparkles } from "lucide-react";
+import { Plus, Trash2, Sparkles } from "lucide-react";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave, type StatusSalvamento } from "@/components/autosave/AutosaveContext";
 
 type Modelo = "nenhum" | "horas" | "tabela" | "contrato";
 type Preco = { id?: string; tipo: string; preco: number; ordem: number };
@@ -33,7 +35,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const qc = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: cfg } = useQuery({
+  const { data: cfg, isSuccess: cfgPronto } = useQuery({
     queryKey: ["client_faturamento", clientId],
     queryFn: async () => {
       const { data } = await (supabase as any).from("client_faturamento").select("*").eq("client_id", clientId).maybeSingle();
@@ -63,22 +65,38 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const [obs, setObs] = useState("");
   const [precos, setPrecos] = useState<Preco[]>([]);
   const [contrato, setContrato] = useState({ nome: "Contrato", valor_mensal: "0", diarias_mes: "0", entregas_mes: "0", acumulo_meses: "2", inicio: "" });
-  const [salvando, setSalvando] = useState(false);
 
-  // Semeia o formulário quando os dados chegam (config pode não existir ainda).
+  // Semeia o formulário UMA vez por cliente. A tela atualiza sozinha a cada 30s;
+  // seguir a query a cada refetch apagaria o que a pessoa está digitando.
+  const semeado = useRef<string | null>(null);
   useEffect(() => {
-    if (cfg) {
-      setModelo((cfg.modelo as Modelo) || "nenhum");
-      setValorHora(String(cfg.valor_hora ?? 0));
-      setImposto(String(cfg.imposto_percent ?? 0));
-      setMargem(String(cfg.margem_percent ?? 0));
-      setAutoMensal(cfg.auto_mensal ?? true);
-      setObs(cfg.observacoes || "");
-    }
-  }, [cfg]);
-  useEffect(() => { if (precosDB) setPrecos(precosDB); }, [precosDB]);
+    if (!cfgPronto || semeado.current === clientId) return;
+    semeado.current = clientId;
+    if (!cfg) return;   // cliente ainda sem config: fica nos padrões da tela
+    setModelo((cfg.modelo as Modelo) || "nenhum");
+    setValorHora(String(cfg.valor_hora ?? 0));
+    setImposto(String(cfg.imposto_percent ?? 0));
+    setMargem(String(cfg.margem_percent ?? 0));
+    setAutoMensal(cfg.auto_mensal ?? true);
+    setObs(cfg.observacoes || "");
+  }, [cfg, cfgPronto, clientId]);
+
+  const semeadoPrecos = useRef<string | null>(null);
   useEffect(() => {
-    if (contratoDB) setContrato({
+    if (!precosDB || semeadoPrecos.current === clientId) return;
+    semeadoPrecos.current = clientId;
+    setPrecos(precosDB);
+  }, [precosDB, clientId]);
+
+  // Guarda o id do contrato criado no meio da edição: sem isso, o patch seguinte
+  // inseriria um segundo contrato antes de o refetch trazer o primeiro.
+  const contratoIdRef = useRef<string | null>(null);
+  const semeadoContrato = useRef<string | null>(null);
+  useEffect(() => {
+    if (!contratoDB || semeadoContrato.current === clientId) return;
+    semeadoContrato.current = clientId;
+    contratoIdRef.current = contratoDB.id;
+    setContrato({
       nome: contratoDB.nome || "Contrato",
       valor_mensal: String(contratoDB.valor_mensal ?? 0),
       diarias_mes: String(contratoDB.diarias_mes ?? 0),
@@ -86,64 +104,78 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
       acumulo_meses: String(contratoDB.acumulo_meses ?? 2),
       inicio: contratoDB.inicio || "",
     });
-  }, [contratoDB]);
+  }, [contratoDB, clientId]);
 
-  async function salvar() {
-    setSalvando(true);
-    try {
-      const { error: e1 } = await (supabase as any).from("client_faturamento").upsert({
-        client_id: clientId,
-        modelo,
-        valor_hora: Number(valorHora) || 0,
-        imposto_percent: Number(imposto) || 0,
-        margem_percent: Number(margem) || 0,
-        auto_mensal: autoMensal,
-        observacoes: obs || null,
-      });
-      if (e1) throw e1;
-
-      if (modelo === "tabela") {
-        await (supabase as any).from("client_precos").delete().eq("client_id", clientId);
-        const linhas = precos.filter((p) => p.tipo.trim()).map((p, i) => ({
-          client_id: clientId, tipo: p.tipo.trim(), preco: Number(p.preco) || 0, ordem: i,
-        }));
-        if (linhas.length) {
-          const { error: e2 } = await (supabase as any).from("client_precos").insert(linhas);
-          if (e2) throw e2;
-        }
-      }
-
-      if (modelo === "contrato") {
-        // mantém um contrato ativo por cliente (desativa os antigos, insere/atualiza o atual)
-        const payload = {
-          client_id: clientId,
-          nome: contrato.nome || "Contrato",
-          valor_mensal: Number(contrato.valor_mensal) || 0,
-          diarias_mes: Number(contrato.diarias_mes) || 0,
-          entregas_mes: Number(contrato.entregas_mes) || 0,
-          acumulo_meses: Number(contrato.acumulo_meses) || 1,
-          inicio: contrato.inicio || null,
-          ativo: true,
-        };
-        if (contratoDB?.id) {
-          const { error: e3 } = await (supabase as any).from("client_contratos").update(payload).eq("id", contratoDB.id);
-          if (e3) throw e3;
-        } else {
-          const { error: e3 } = await (supabase as any).from("client_contratos").insert(payload);
-          if (e3) throw e3;
-        }
-      }
-
-      qc.invalidateQueries({ queryKey: ["client_faturamento", clientId] });
-      qc.invalidateQueries({ queryKey: ["client_precos", clientId] });
-      qc.invalidateQueries({ queryKey: ["client_contratos", clientId] });
-      toast.success("Faturamento do cliente salvo.");
-    } catch (e: any) {
-      toast.error("Erro ao salvar: " + (e?.message || e));
-    } finally {
-      setSalvando(false);
+  // Valor/hora, margem e imposto são dinheiro: continuam indo pelo MESMO caminho
+  // de gravação de antes (upsert em client_faturamento, protegido por RLS).
+  // O upsert leva o client_id junto porque a config pode ainda não existir.
+  const gravarCfg = async (patch: Record<string, unknown>) => {
+    const { error } = await (supabase as any)
+      .from("client_faturamento")
+      .upsert({ client_id: clientId, ...patch }, { onConflict: "client_id" });
+    if (error) {
+      toast.error("Não salvou o faturamento", { description: error.message });
+      throw error;
     }
-  }
+    qc.invalidateQueries({ queryKey: ["client_faturamento", clientId] });
+  };
+  const autoCfg = useFormAutosave<Record<string, unknown>>(gravarCfg);
+  // Escolha em select/switch grava quase na hora — não tem digitação pra esperar.
+  const autoEscolha = useFormAutosave<Record<string, unknown>>(gravarCfg, { delay: 150 });
+
+  // Tabela de preços: a linha inteira é substituída (mesma troca do botão antigo).
+  const autoPrecos = useFormAutosave<{ precos: Preco[] }>(async ({ precos: lista = [] }) => {
+    await (supabase as any).from("client_precos").delete().eq("client_id", clientId);
+    const linhas = lista.filter((p) => p.tipo.trim()).map((p, i) => ({
+      client_id: clientId, tipo: p.tipo.trim(), preco: Number(p.preco) || 0, ordem: i,
+    }));
+    if (linhas.length) {
+      const { error } = await (supabase as any).from("client_precos").insert(linhas);
+      if (error) {
+        toast.error("Não salvou a tabela de preços", { description: error.message });
+        throw error;
+      }
+    }
+    qc.invalidateQueries({ queryKey: ["client_precos", clientId] });
+  });
+
+  // Contrato: mantém um ativo por cliente. Se ainda não existe, o primeiro
+  // campo mexido cria a linha inteira — daí em diante só o campo mexido vai.
+  const autoContrato = useFormAutosave<Record<string, unknown>>(async (patch) => {
+    const erroDe = (error: any) => {
+      toast.error("Não salvou o contrato", { description: error.message });
+      throw error;
+    };
+    const atual = contratoIdRef.current ?? contratoDB?.id ?? null;
+    if (atual) {
+      const { error } = await (supabase as any).from("client_contratos").update(patch).eq("id", atual);
+      if (error) erroDe(error);
+    } else {
+      const { data, error } = await (supabase as any).from("client_contratos").insert({
+        client_id: clientId,
+        nome: contrato.nome || "Contrato",
+        valor_mensal: Number(contrato.valor_mensal) || 0,
+        diarias_mes: Number(contrato.diarias_mes) || 0,
+        entregas_mes: Number(contrato.entregas_mes) || 0,
+        acumulo_meses: Number(contrato.acumulo_meses) || 1,
+        inicio: contrato.inicio || null,
+        ativo: true,
+        ...patch,
+      }).select("id").single();
+      if (error) erroDe(error);
+      contratoIdRef.current = data?.id ?? null;
+    }
+    qc.invalidateQueries({ queryKey: ["client_contratos", clientId] });
+  });
+
+  // Vários autosaves na mesma tela, um indicador só: erro na frente, depois "salvando".
+  const estados: StatusSalvamento[] = [autoCfg.status, autoEscolha.status, autoPrecos.status, autoContrato.status];
+  const status = estados.find((s) => s === "erro") ?? estados.find((s) => s !== "ocioso") ?? "ocioso";
+
+  const setPrecosSalvando = (lista: Preco[]) => {
+    setPrecos(lista);
+    autoPrecos.agendar({ precos: lista });
+  };
 
   async function gerarMes() {
     try {
@@ -165,11 +197,18 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
             <h3 className="text-sm font-semibold text-foreground">Faturamento de {clientName}</h3>
             <p className="text-xs text-muted-foreground">Como esse cliente é cobrado — define o rascunho mensal automático.</p>
           </div>
+          <IndicadorAutosave status={status} />
         </div>
 
         <div className="space-y-1.5">
           <Label>Modelo de cobrança</Label>
-          <Select value={modelo} onValueChange={(v) => setModelo(v as Modelo)}>
+          <Select
+            value={modelo}
+            onValueChange={(v) => {
+              setModelo(v as Modelo);
+              autoEscolha.agendar({ modelo: v });
+            }}
+          >
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {(Object.keys(MODELO_LABEL) as Modelo[]).map((m) => (
@@ -182,7 +221,15 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
         {modelo === "horas" && (
           <div className="space-y-1.5">
             <Label>Valor da hora (R$)</Label>
-            <Input type="number" step="0.01" value={valorHora} onChange={(e) => setValorHora(e.target.value)} />
+            <Input
+              type="number"
+              step="0.01"
+              value={valorHora}
+              onChange={(e) => {
+                setValorHora(e.target.value);
+                autoCfg.agendar({ valor_hora: Number(e.target.value) || 0 });
+              }}
+            />
             <p className="text-[11px] text-muted-foreground">Vale para horas de edição e de alteração — o relatório separa as duas.</p>
           </div>
         )}
@@ -195,21 +242,21 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                 <Input
                   placeholder="Tipo (ex.: Vídeo 15s, Reels)"
                   value={p.tipo}
-                  onChange={(e) => setPrecos((arr) => arr.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)))}
+                  onChange={(e) => setPrecosSalvando(precos.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)))}
                   className="flex-1"
                 />
                 <Input
                   type="number" step="0.01" placeholder="R$"
                   value={String(p.preco)}
-                  onChange={(e) => setPrecos((arr) => arr.map((x, j) => (j === i ? { ...x, preco: Number(e.target.value) } : x)))}
+                  onChange={(e) => setPrecosSalvando(precos.map((x, j) => (j === i ? { ...x, preco: Number(e.target.value) } : x)))}
                   className="w-28"
                 />
-                <button onClick={() => setPrecos((arr) => arr.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                <button onClick={() => setPrecosSalvando(precos.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setPrecos((arr) => [...arr, { tipo: "", preco: 0, ordem: arr.length }])}>
+            <Button variant="outline" size="sm" onClick={() => setPrecos([...precos, { tipo: "", preco: 0, ordem: precos.length }])}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar tipo
             </Button>
             <p className="text-[11px] text-muted-foreground">O sistema casa cada entrega do mês com o tipo pelo formato/nome. Confira no rascunho gerado.</p>
@@ -220,27 +267,70 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Nome do contrato</Label>
-              <Input value={contrato.nome} onChange={(e) => setContrato({ ...contrato, nome: e.target.value })} />
+              <Input
+                value={contrato.nome}
+                onChange={(e) => {
+                  setContrato({ ...contrato, nome: e.target.value });
+                  autoContrato.agendar({ nome: e.target.value || "Contrato" });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Valor mensal (R$)</Label>
-              <Input type="number" step="0.01" value={contrato.valor_mensal} onChange={(e) => setContrato({ ...contrato, valor_mensal: e.target.value })} />
+              <Input
+                type="number"
+                step="0.01"
+                value={contrato.valor_mensal}
+                onChange={(e) => {
+                  setContrato({ ...contrato, valor_mensal: e.target.value });
+                  autoContrato.agendar({ valor_mensal: Number(e.target.value) || 0 });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Acúmulo (meses)</Label>
-              <Input type="number" value={contrato.acumulo_meses} onChange={(e) => setContrato({ ...contrato, acumulo_meses: e.target.value })} />
+              <Input
+                type="number"
+                value={contrato.acumulo_meses}
+                onChange={(e) => {
+                  setContrato({ ...contrato, acumulo_meses: e.target.value });
+                  autoContrato.agendar({ acumulo_meses: Number(e.target.value) || 1 });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Diárias / mês</Label>
-              <Input type="number" value={contrato.diarias_mes} onChange={(e) => setContrato({ ...contrato, diarias_mes: e.target.value })} />
+              <Input
+                type="number"
+                value={contrato.diarias_mes}
+                onChange={(e) => {
+                  setContrato({ ...contrato, diarias_mes: e.target.value });
+                  autoContrato.agendar({ diarias_mes: Number(e.target.value) || 0 });
+                }}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Entregas / mês</Label>
-              <Input type="number" value={contrato.entregas_mes} onChange={(e) => setContrato({ ...contrato, entregas_mes: e.target.value })} />
+              <Input
+                type="number"
+                value={contrato.entregas_mes}
+                onChange={(e) => {
+                  setContrato({ ...contrato, entregas_mes: e.target.value });
+                  autoContrato.agendar({ entregas_mes: Number(e.target.value) || 0 });
+                }}
+              />
             </div>
             <div className="col-span-2 space-y-1.5">
               <Label>Início do contrato</Label>
-              <Input type="date" value={contrato.inicio} onChange={(e) => setContrato({ ...contrato, inicio: e.target.value })} />
+              <Input
+                type="date"
+                value={contrato.inicio}
+                onChange={(e) => {
+                  setContrato({ ...contrato, inicio: e.target.value });
+                  // data vazia quebra o banco: vai como null.
+                  autoContrato.agendar({ inicio: e.target.value || null });
+                }}
+              />
             </div>
           </div>
         )}
@@ -250,31 +340,58 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Margem (%)</Label>
-                <Input type="number" step="0.01" value={margem} onChange={(e) => setMargem(e.target.value)} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={margem}
+                  onChange={(e) => {
+                    setMargem(e.target.value);
+                    autoCfg.agendar({ margem_percent: Number(e.target.value) || 0 });
+                  }}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Imposto (%)</Label>
-                <Input type="number" step="0.01" value={imposto} onChange={(e) => setImposto(e.target.value)} />
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={imposto}
+                  onChange={(e) => {
+                    setImposto(e.target.value);
+                    autoCfg.agendar({ imposto_percent: Number(e.target.value) || 0 });
+                  }}
+                />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">Conta: subtotal → + margem (sobre o subtotal) → + imposto (sobre subtotal+margem).</p>
 
             <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/50 px-3 py-2">
               <span className="text-sm">Gerar rascunho automaticamente no dia 01</span>
-              <Switch checked={autoMensal} onCheckedChange={setAutoMensal} />
+              <Switch
+                checked={autoMensal}
+                onCheckedChange={(v) => {
+                  setAutoMensal(v);
+                  autoEscolha.agendar({ auto_mensal: v });
+                }}
+              />
             </label>
           </>
         )}
 
         <div className="space-y-1.5">
           <Label>Observações</Label>
-          <Textarea rows={2} value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Particularidades da cobrança deste cliente…" />
+          <Textarea
+            rows={2}
+            value={obs}
+            onChange={(e) => {
+              setObs(e.target.value);
+              autoCfg.agendar({ observacoes: e.target.value || null });
+            }}
+            placeholder="Particularidades da cobrança deste cliente…"
+          />
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={salvar} disabled={salvando}>
-            <Save className="mr-1.5 h-4 w-4" /> {salvando ? "Salvando…" : "Salvar"}
-          </Button>
           {modelo !== "nenhum" && (
             <Button variant="outline" onClick={gerarMes}>
               <Sparkles className="mr-1.5 h-4 w-4" /> Gerar faturamento do mês anterior

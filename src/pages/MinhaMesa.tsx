@@ -323,18 +323,20 @@ function ItemRow({ it, hoje }: { it: Item; hoje: string }) {
   const Icon = TIPO_ICON[it.tipo];
   const atrasado = it.due && it.due < hoje;
   return (
-    <Link to={it.link} className="flex items-center gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40">
+    <Link to={it.link} className="flex items-start gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40">
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/40 ${TIPO_COR[it.tipo]}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-foreground">{it.titulo}</p>
+        <div className="flex items-start gap-2">
+          <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
+            {it.titulo}
+          </p>
           {it.etapa && <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{it.etapa}</span>}
         </div>
-        <p className="truncate text-xs text-muted-foreground">{it.contexto}</p>
+        <p className="truncate text-xs text-muted-foreground" title={it.contexto}>{it.contexto}</p>
       </div>
-      <div className="hidden shrink-0 text-right sm:block">
+      <div className="hidden shrink-0 pt-0.5 text-right sm:block">
         <p className={`text-xs font-medium ${it.bloqueante ? "text-amber-400" : "text-muted-foreground"}`}>{it.acao}</p>
         {it.due && (
           <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
@@ -342,7 +344,7 @@ function ItemRow({ it, hoje }: { it: Item; hoje: string }) {
           </p>
         )}
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
     </Link>
   );
 }
@@ -365,8 +367,10 @@ function TeamPanel({ itens, hoje }: { itens: SistItem[]; hoje: string }) {
               const atrasado = it.due && it.due < hoje;
               return (
                 <Link key={it.key} to={it.link} className="block border-b border-border/40 px-4 py-2.5 last:border-0 hover:bg-sidebar-accent/40">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 flex-1 truncate text-sm text-foreground">{it.titulo}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="line-clamp-2 min-w-0 flex-1 break-words text-sm leading-tight text-foreground" title={it.titulo}>
+                      {it.titulo}
+                    </p>
                     <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-medium ${TONE_CHIP[it.tone]}`}>{it.tag}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">

@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ShieldCheck, Save } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { toast } from "sonner";
 
 /**
@@ -53,25 +54,26 @@ export default function AdminAprovacoes() {
     });
   }
 
-  const salvar = useMutation({
-    mutationFn: async () => {
+  // Aqui só tem escolha (select/checkbox), não digitação — grava quase na hora.
+  const auto = useFormAutosave<Record<string, unknown>>(
+    async (patch) => {
       const { error } = await (supabase as any)
         .from("approval_settings")
-        .update({
-          nivel1_user_id: form.nivel1_user_id || null,
-          nivel2_user_id: form.nivel2_user_id || null,
-          cliente_aprova: form.cliente_aprova,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ ...patch, updated_at: new Date().toISOString() })
         .eq("id", true);
-      if (error) throw error;
-    },
-    onSuccess: () => {
+      if (error) {
+        toast.error("Não salvou os aprovadores", { description: error.message });
+        throw error;
+      }
       qc.invalidateQueries({ queryKey: ["approval-settings"] });
-      toast.success("Aprovadores salvos");
     },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
+    { delay: 150 },
+  );
+
+  const set = (patch: Record<string, unknown>) => {
+    setForm({ ...form, ...patch });
+    auto.agendar(patch);
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-6">
@@ -94,7 +96,7 @@ export default function AdminAprovacoes() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label>Nível 1 (revisão interna)</Label>
-                <Select value={form.nivel1_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, nivel1_user_id: v === "__none__" ? "" : v })}>
+                <Select value={form.nivel1_user_id || "__none__"} onValueChange={(v) => set({ nivel1_user_id: v === "__none__" ? null : v })}>
                   <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— sem N1 —</SelectItem>
@@ -104,7 +106,7 @@ export default function AdminAprovacoes() {
               </div>
               <div>
                 <Label>Nível 2 (aprovação final interna)</Label>
-                <Select value={form.nivel2_user_id || "__none__"} onValueChange={(v) => setForm({ ...form, nivel2_user_id: v === "__none__" ? "" : v })}>
+                <Select value={form.nivel2_user_id || "__none__"} onValueChange={(v) => set({ nivel2_user_id: v === "__none__" ? null : v })}>
                   <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— sem N2 —</SelectItem>
@@ -118,17 +120,14 @@ export default function AdminAprovacoes() {
               <input
                 type="checkbox"
                 checked={form.cliente_aprova}
-                onChange={(e) => setForm({ ...form, cliente_aprova: e.target.checked })}
+                onChange={(e) => set({ cliente_aprova: e.target.checked })}
                 className="h-4 w-4 accent-primary"
               />
               Cliente aprova por padrão (depois do N2, no portal)
             </label>
 
             <div className="flex justify-end">
-              <Button onClick={() => salvar.mutate()} disabled={salvar.isPending} className="bg-primary text-primary-foreground">
-                <Save className="mr-1 h-3.5 w-3.5" />
-                Salvar
-              </Button>
+              <IndicadorAutosave status={auto.status} />
             </div>
           </CardContent>
         </Card>

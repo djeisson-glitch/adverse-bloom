@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Building2, Trash2, Save } from "lucide-react";
+import { Building2, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 
 type Client = { id: string; name: string };
 
@@ -101,26 +103,15 @@ export default function ContasFees() {
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
-  const salvar = useMutation({
-    mutationFn: async (c: Conta) => {
-      const { error } = await (supabase as any)
-        .from("contas_fees")
-        .update({
-          nome: c.nome,
-          tipo: c.tipo,
-          moeda: c.moeda,
-          balde_mensal: c.balde_mensal,
-          ativo: c.ativo,
-        })
-        .eq("id", c.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["contas-fees"] });
-      toast.success("Salvo");
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
+  // Salva só o campo mexido (o autosave da linha manda o patch, não a conta inteira).
+  const salvar = async (id: string, patch: Partial<Conta>) => {
+    const { error } = await (supabase as any).from("contas_fees").update(patch).eq("id", id);
+    if (error) {
+      toast.error("Não salvou", { description: error.message });
+      throw error;
+    }
+    qc.invalidateQueries({ queryKey: ["contas-fees"] });
+  };
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
@@ -234,7 +225,7 @@ export default function ContasFees() {
                 clienteNome={clientName(c.client_id)}
                 projetos={projetosDaConta(c.id)}
                 editable={isAdmin}
-                onSave={(patch) => salvar.mutate({ ...c, ...patch })}
+                onSave={(patch) => salvar(c.id, patch)}
                 onDelete={() => excluir.mutate(c.id)}
               />
             ))
@@ -257,7 +248,7 @@ function ContaRow({
   clienteNome: string;
   projetos: ProjetoLite[];
   editable: boolean;
-  onSave: (patch: Partial<Conta>) => void;
+  onSave: (patch: Partial<Conta>) => Promise<unknown>;
   onDelete: () => void;
 }) {
   const [expand, setExpand] = useState(false);
@@ -266,6 +257,12 @@ function ContaRow({
   const [moeda, setMoeda] = useState(conta.moeda);
   const [balde, setBalde] = useState<string>(conta.balde_mensal?.toString() || "");
   const [ativo, setAtivo] = useState(conta.ativo);
+
+  // Salva ao digitar: manda só o campo mexido, ~0,8s depois da última tecla.
+  const auto = useFormAutosave<Partial<Conta>>((patch) => onSave(patch));
+  // Escolha em select/checkbox não é digitação: não tem o que esperar.
+  const autoEscolha = useFormAutosave<Partial<Conta>>((patch) => onSave(patch), { delay: 150 });
+  const status = auto.status !== "ocioso" ? auto.status : autoEscolha.status;
 
   return (
     <div className="border-b border-border/40 last:border-0">
@@ -293,8 +290,21 @@ function ContaRow({
         <div className="border-t border-border/40 bg-muted/20 px-5 py-4">
           {editable ? (
             <div className="grid gap-3 md:grid-cols-5">
-              <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome" />
-              <Select value={tipo} onValueChange={setTipo}>
+              <Input
+                value={nome}
+                onChange={(e) => {
+                  setNome(e.target.value);
+                  auto.agendar({ nome: e.target.value });
+                }}
+                placeholder="Nome"
+              />
+              <Select
+                value={tipo}
+                onValueChange={(v) => {
+                  setTipo(v);
+                  autoEscolha.agendar({ tipo: v });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -306,7 +316,13 @@ function ContaRow({
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={moeda} onValueChange={setMoeda}>
+              <Select
+                value={moeda}
+                onValueChange={(v) => {
+                  setMoeda(v);
+                  autoEscolha.agendar({ moeda: v });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -321,7 +337,11 @@ function ContaRow({
               <Input
                 type="number"
                 value={balde}
-                onChange={(e) => setBalde(e.target.value)}
+                onChange={(e) => {
+                  setBalde(e.target.value);
+                  // Balde vazio é "sem teto", não zero.
+                  auto.agendar({ balde_mensal: e.target.value ? Number(e.target.value) : null });
+                }}
                 placeholder="Balde/mês"
               />
               <div className="flex items-center gap-2">
@@ -329,7 +349,10 @@ function ContaRow({
                   <input
                     type="checkbox"
                     checked={ativo}
-                    onChange={(e) => setAtivo(e.target.checked)}
+                    onChange={(e) => {
+                      setAtivo(e.target.checked);
+                      autoEscolha.agendar({ ativo: e.target.checked });
+                    }}
                     className="h-4 w-4 accent-primary"
                   />
                   <span className={ativo ? "text-success" : "text-muted-foreground"}>
@@ -338,6 +361,7 @@ function ContaRow({
                 </label>
               </div>
               <div className="md:col-span-5 flex items-center justify-end gap-2">
+                <IndicadorAutosave status={status} />
                 <Button
                   size="sm"
                   variant="ghost"
@@ -346,21 +370,6 @@ function ContaRow({
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />
                   Remover
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    onSave({
-                      nome,
-                      tipo,
-                      moeda,
-                      balde_mensal: balde ? Number(balde) : null,
-                      ativo,
-                    })
-                  }
-                >
-                  <Save className="mr-1 h-3.5 w-3.5" />
-                  Salvar
                 </Button>
               </div>
             </div>

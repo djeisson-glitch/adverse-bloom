@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ import { useTemplates, useDeleteTemplate } from "@/hooks/useTemplates";
 import { usePresetItems, useSavePresetItem, useDeletePresetItem } from "@/hooks/usePresetItems";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency } from "@/lib/format";
 
 interface CommissionEntry {
@@ -43,7 +45,6 @@ export default function ConfiguracoesOrcamentos() {
     { name: "Djeisson", percent: 3, enabled: true },
     { name: "Robert", percent: 3, enabled: true },
   ]);
-  const [saving, setSaving] = useState(false);
 
   // New preset item form
   const [newPreset, setNewPreset] = useState({
@@ -54,51 +55,45 @@ export default function ConfiguracoesOrcamentos() {
     supplier_unit_price: 0,
   });
 
+  // Re-hidrata só quando muda a LINHA: cada gravação invalida a query e traz
+  // `settings` novo — seguir isso apagaria o que a pessoa está digitando.
+  const carregadoRef = useRef<string | null>(null);
   useEffect(() => {
-    if (settings) {
-      setMarkup(String(settings.markup_default));
-      setTax(String(settings.tax_default));
-      setBv(String(settings.commission_default));
-      setCommissions([
-        { name: "Djeisson", percent: settings.commission_djeisson_percent, enabled: settings.commission_djeisson_enabled },
-        { name: "Robert", percent: settings.commission_robert_percent, enabled: settings.commission_robert_enabled },
-      ]);
-    }
+    if (!settings?.id || carregadoRef.current === settings.id) return;
+    carregadoRef.current = settings.id;
+    setMarkup(String(settings.markup_default));
+    setTax(String(settings.tax_default));
+    setBv(String(settings.commission_default));
+    setCommissions([
+      { name: "Djeisson", percent: settings.commission_djeisson_percent, enabled: settings.commission_djeisson_enabled },
+      { name: "Robert", percent: settings.commission_robert_percent, enabled: settings.commission_robert_enabled },
+    ]);
   }, [settings]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload = {
-        markup_default: parseFloat(markup) || 35,
-        tax_default: parseFloat(tax) || 9.5,
-        commission_default: parseFloat(bv) || 0,
-        commission_djeisson_percent: commissions[0]?.percent || 3,
-        commission_djeisson_enabled: commissions[0]?.enabled ?? true,
-        commission_robert_percent: commissions[1]?.percent || 3,
-        commission_robert_enabled: commissions[1]?.enabled ?? true,
-        updated_at: new Date().toISOString(),
-      };
-      let error;
-      if (settings?.id) {
-        ({ error } = await supabase
-          .from("budget_settings")
-          .update(payload)
-          .eq("id", settings.id));
-      } else {
-        ({ error } = await supabase
-          .from("budget_settings")
-          .insert(payload));
-      }
-      if (error) throw error;
-      qc.invalidateQueries({ queryKey: ["budget_settings"] });
-      toast({ title: "Configurações de orçamento salvas" });
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
+  // Salva ao digitar: só o campo mexido, ~0,8s depois da última tecla. A linha
+  // pode ainda não existir (banco recém-criado), daí o insert no primeiro save.
+  const auto = useFormAutosave<Record<string, unknown>>(async (patch) => {
+    const payload = { ...patch, updated_at: new Date().toISOString() };
+    const { error } = settings?.id
+      ? await supabase.from("budget_settings").update(payload as any).eq("id", settings.id)
+      : await supabase.from("budget_settings").insert(payload as any);
+    if (error) {
+      toast({ title: "Não salvou", description: error.message, variant: "destructive" });
+      throw error;
     }
+    qc.invalidateQueries({ queryKey: ["budget_settings"] });
+  });
+
+  // Percentual vazio/meio digitado não vai pro banco — quem apaga pra redigitar
+  // não pode ver o markup virar 0 no meio do caminho.
+  const setPercentual = (campo: string, valor: string, set: (v: string) => void) => {
+    set(valor);
+    const n = parseFloat(valor);
+    if (valor.trim() !== "" && Number.isFinite(n)) auto.agendar({ [campo]: n });
   };
+
+  // Comissão é por sócio e a coluna é fixa (Djeisson = 0, Robert = 1).
+  const COLUNA_COMISSAO = ["commission_djeisson_percent", "commission_robert_percent"];
 
   const handleAddPreset = () => {
     if (!newPreset.item_name.trim()) {
@@ -130,10 +125,11 @@ export default function ConfiguracoesOrcamentos() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">Orçamentos</h1>
           <p className="text-sm text-muted-foreground">Markup, impostos, comissões, templates e itens pré-cadastrados</p>
         </div>
+        <IndicadorAutosave status={auto.status} />
       </motion.div>
 
       <Card className="bg-card border-border">
@@ -142,15 +138,27 @@ export default function ConfiguracoesOrcamentos() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Markup (%)</Label>
-              <Input type="number" value={markup} onChange={(e) => setMarkup(e.target.value)} />
+              <Input
+                type="number"
+                value={markup}
+                onChange={(e) => setPercentual("markup_default", e.target.value, setMarkup)}
+              />
             </div>
             <div>
               <Label>Imposto (%)</Label>
-              <Input type="number" value={tax} onChange={(e) => setTax(e.target.value)} />
+              <Input
+                type="number"
+                value={tax}
+                onChange={(e) => setPercentual("tax_default", e.target.value, setTax)}
+              />
             </div>
             <div>
               <Label>BV (%)</Label>
-              <Input type="number" value={bv} onChange={(e) => setBv(e.target.value)} />
+              <Input
+                type="number"
+                value={bv}
+                onChange={(e) => setPercentual("commission_default", e.target.value, setBv)}
+              />
             </div>
           </div>
         </CardContent>
@@ -161,17 +169,22 @@ export default function ConfiguracoesOrcamentos() {
         <CardContent className="space-y-2">
           {commissions.map((c, idx) => (
             <div key={idx} className="flex items-center gap-3">
-              <Input value={c.name} onChange={(e) => {
-                const u = [...commissions];
-                u[idx] = { ...u[idx], name: e.target.value };
-                setCommissions(u);
-              }} className="flex-1" />
+              {/* O nome do sócio é fixo: a tabela tem coluna por sócio, não uma
+                  lista — deixar editável só dava a impressão de que salvava. */}
+              <span className="flex-1 text-sm text-foreground">{c.name}</span>
               <div className="flex items-center gap-2">
-                <Input type="number" value={c.percent} onChange={(e) => {
-                  const u = [...commissions];
-                  u[idx] = { ...u[idx], percent: parseFloat(e.target.value) || 0 };
-                  setCommissions(u);
-                }} className="w-20" />
+                <Input
+                  type="number"
+                  value={c.percent}
+                  onChange={(e) => {
+                    const percent = parseFloat(e.target.value) || 0;
+                    const u = [...commissions];
+                    u[idx] = { ...u[idx], percent };
+                    setCommissions(u);
+                    if (COLUNA_COMISSAO[idx]) auto.agendar({ [COLUNA_COMISSAO[idx]]: percent });
+                  }}
+                  className="w-20"
+                />
                 <span className="text-sm text-muted-foreground">%</span>
               </div>
             </div>
@@ -287,11 +300,6 @@ export default function ConfiguracoesOrcamentos() {
           )}
         </CardContent>
       </Card>
-
-      <Button onClick={handleSave} disabled={saving} className="w-full">
-        <Save className="h-4 w-4 mr-2" />
-        {saving ? "Salvando..." : "Salvar alterações"}
-      </Button>
     </div>
   );
 }

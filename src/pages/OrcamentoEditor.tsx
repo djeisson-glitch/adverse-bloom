@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import {
@@ -521,9 +523,36 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
   const totalEntregas = entregas.reduce((s, e) => s + (Number(e.quantidade) || 0), 0);
   const totalDiarias = entregas.reduce((s, e) => s + (Number(e.diarias) || 0), 0);
 
+  // A lista inteira mora numa coluna jsonb: manda o array novo já pronto no
+  // patch, em vez de depender do estado no momento da gravação.
+  const auto = useFormAutosave<{ entregas: Entrega[] }>(
+    async (patch) => {
+      if (!patch.entregas) return;
+      const { error } = await (supabase as any)
+        .from("budgets")
+        .update({ entregas: patch.entregas })
+        .eq("id", budget.id);
+      if (error) {
+        const msg = /entregas/i.test(error.message || "")
+          ? "Rode 'supabase db push' pra habilitar o salvamento das entregas (coluna nova)."
+          : error.message;
+        toast.error("Não salvou as entregas", { description: msg });
+        throw error;
+      }
+      onChanged();
+    },
+    { delay: 300 },
+  );
+
+  // Incluir/remover é ação pontual — grava logo, sem esperar digitação.
+  const aplicar = (novas: Entrega[]) => {
+    setEntregas(novas);
+    auto.agendar({ entregas: novas });
+  };
+
   const add = () => {
     if (!nova.titulo.trim()) return;
-    setEntregas([
+    aplicar([
       ...entregas,
       {
         titulo: nova.titulo.trim(),
@@ -535,24 +564,7 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
     ]);
     setNova({ titulo: "", formato: "", duracao: "", quantidade: "1", diarias: "0" });
   };
-  const remove = (i: number) => setEntregas(entregas.filter((_, idx) => idx !== i));
-
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any).from("budgets").update({ entregas }).eq("id", budget.id);
-      if (error) {
-        if (/entregas/i.test(error.message || "")) {
-          throw new Error("Rode 'supabase db push' pra habilitar o salvamento das entregas (coluna nova).");
-        }
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      onChanged();
-      toast.success("Entregas salvas");
-    },
-    onError: (e: any) => toast.error("Erro ao salvar", { description: e.message }),
-  });
+  const remove = (i: number) => aplicar(entregas.filter((_, idx) => idx !== i));
 
   const cols = "grid grid-cols-[1.6fr_80px_90px_56px_64px_32px] items-center gap-2";
 
@@ -566,14 +578,7 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
               O que está incluso — pra produção executiva, produtor e direção saberem.
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={() => salvar.mutate()}
-            disabled={salvar.isPending}
-            className="bg-primary text-primary-foreground"
-          >
-            <Save className="mr-1 h-3.5 w-3.5" /> Salvar entregas
-          </Button>
+          <IndicadorAutosave status={auto.status} />
         </div>
 
         {entregas.length > 0 && (
@@ -1622,33 +1627,30 @@ function BriefingSection({ deal, onChanged }: { deal: any; onChanged: () => void
   const toggle = (arr: string[], v: string) =>
     arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const { error } = await (supabase as any)
-        .from("deals")
-        .update({
-          title: form.title,
-          canal_entrada: form.canal_entrada || null,
-          tipo_orcamento: form.tipo_orcamento || null,
-          precisa_roteiro: form.precisa_roteiro || null,
-          precisa_elenco: form.precisa_elenco || null,
-          local_filmagem: form.local_filmagem || null,
-          moeda: form.moeda,
-          objetivo: form.objetivo || null,
-          formatos: form.formatos,
-          meios_veiculacao: form.meios_veiculacao,
-          verba_estimada: form.verba_estimada ? Number(form.verba_estimada) : null,
-          valor_proposta: form.valor_proposta ? Number(form.valor_proposta) : null,
-          valor_final_aprovado: form.valor_final_aprovado ? Number(form.valor_final_aprovado) : null,
-        })
-        .eq("id", deal.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      onChanged();
-      toast.success("Briefing salvo");
-    },
+  // Campos que o formulário guarda como texto mas o banco espera número.
+  const NUMERICOS = ["verba_estimada", "valor_proposta", "valor_final_aprovado"];
+
+  const auto = useFormAutosave<Record<string, unknown>>(async (patch) => {
+    const campos = Object.fromEntries(
+      Object.entries(patch).map(([k, v]) => {
+        if (NUMERICOS.includes(k)) return [k, v ? Number(v) : null];
+        if (Array.isArray(v)) return [k, v]; // formatos / meios de veiculação
+        if (k === "title" || k === "moeda") return [k, v]; // obrigatórios, não viram null
+        return [k, v === "" ? null : v];
+      }),
+    );
+    const { error } = await (supabase as any).from("deals").update(campos).eq("id", deal.id);
+    if (error) {
+      toast.error("Não salvou o briefing", { description: error.message });
+      throw error;
+    }
+    onChanged();
   });
+
+  const set = (campo: string, valor: unknown) => {
+    setForm((f) => ({ ...f, [campo]: valor }));
+    auto.agendar({ [campo]: valor });
+  };
 
   return (
     <Card className="glass-card">
@@ -1666,18 +1668,18 @@ function BriefingSection({ deal, onChanged }: { deal: any; onChanged: () => void
             <div className="grid gap-3 md:grid-cols-2">
               <div className="md:col-span-2">
                 <Label>Título do orçamento *</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                <Input value={form.title} onChange={(e) => set("title", e.target.value)} />
               </div>
-              <Field label="Canal de entrada"><Select value={form.canal_entrada} onValueChange={(v) => setForm({ ...form, canal_entrada: v })}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{CANAIS_ENTRADA.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
-              <Field label="Tipo de orçamento"><Select value={form.tipo_orcamento} onValueChange={(v) => setForm({ ...form, tipo_orcamento: v })}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{TIPOS_ORCAMENTO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
-              <Field label="Roteiro"><Select value={form.precisa_roteiro} onValueChange={(v) => setForm({ ...form, precisa_roteiro: v })}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{PRECISA_ROTEIRO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
-              <Field label="Elenco"><Select value={form.precisa_elenco} onValueChange={(v) => setForm({ ...form, precisa_elenco: v })}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{PRECISA_ELENCO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
-              <Field label="Local da filmagem"><Input value={form.local_filmagem} onChange={(e) => setForm({ ...form, local_filmagem: e.target.value })} /></Field>
-              <Field label="Moeda"><Select value={form.moeda} onValueChange={(v) => setForm({ ...form, moeda: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{MOEDAS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
+              <Field label="Canal de entrada"><Select value={form.canal_entrada} onValueChange={(v) => set("canal_entrada", v)}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{CANAIS_ENTRADA.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
+              <Field label="Tipo de orçamento"><Select value={form.tipo_orcamento} onValueChange={(v) => set("tipo_orcamento", v)}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{TIPOS_ORCAMENTO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
+              <Field label="Roteiro"><Select value={form.precisa_roteiro} onValueChange={(v) => set("precisa_roteiro", v)}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{PRECISA_ROTEIRO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
+              <Field label="Elenco"><Select value={form.precisa_elenco} onValueChange={(v) => set("precisa_elenco", v)}><SelectTrigger><SelectValue placeholder="—" /></SelectTrigger><SelectContent>{PRECISA_ELENCO.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
+              <Field label="Local da filmagem"><Input value={form.local_filmagem} onChange={(e) => set("local_filmagem", e.target.value)} /></Field>
+              <Field label="Moeda"><Select value={form.moeda} onValueChange={(v) => set("moeda", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{MOEDAS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}</SelectContent></Select></Field>
             </div>
 
             <Field label="Objetivo do vídeo">
-              <Textarea rows={5} value={form.objetivo} onChange={(e) => setForm({ ...form, objetivo: e.target.value })} />
+              <Textarea rows={5} value={form.objetivo} onChange={(e) => set("objetivo", e.target.value)} />
             </Field>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -1685,32 +1687,31 @@ function BriefingSection({ deal, onChanged }: { deal: any; onChanged: () => void
                 label="Formatos"
                 options={FORMATOS as any}
                 value={form.formatos}
-                onChange={(v) => setForm({ ...form, formatos: toggle(form.formatos, v) })}
+                onChange={(v) => set("formatos", toggle(form.formatos, v))}
               />
               <ChipGroup
                 label="Meio de veiculação"
                 options={MEIOS_VEICULACAO as any}
                 value={form.meios_veiculacao}
-                onChange={(v) => setForm({ ...form, meios_veiculacao: toggle(form.meios_veiculacao, v) })}
+                onChange={(v) => set("meios_veiculacao", toggle(form.meios_veiculacao, v))}
               />
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
               <Field label="Verba estimada">
-                <Input type="number" value={form.verba_estimada} onChange={(e) => setForm({ ...form, verba_estimada: e.target.value })} />
+                <Input type="number" value={form.verba_estimada} onChange={(e) => set("verba_estimada", e.target.value)} />
               </Field>
               <Field label="Valor de proposta">
-                <Input type="number" value={form.valor_proposta} onChange={(e) => setForm({ ...form, valor_proposta: e.target.value })} />
+                <Input type="number" value={form.valor_proposta} onChange={(e) => set("valor_proposta", e.target.value)} />
               </Field>
               <Field label="Valor final aprovado">
-                <Input type="number" value={form.valor_final_aprovado} onChange={(e) => setForm({ ...form, valor_final_aprovado: e.target.value })} />
+                <Input type="number" value={form.valor_final_aprovado} onChange={(e) => set("valor_final_aprovado", e.target.value)} />
               </Field>
             </div>
 
-            <Button onClick={() => salvar.mutate()} className="bg-primary text-primary-foreground">
-              <Save className="mr-1 h-3.5 w-3.5" />
-              Salvar briefing
-            </Button>
+            <div className="flex justify-end">
+              <IndicadorAutosave status={auto.status} />
+            </div>
           </div>
         )}
       </CardContent>

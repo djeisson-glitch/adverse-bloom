@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Brain, Save } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 
 interface Contexto {
   meta_faturamento_mensal: number | null;
@@ -39,8 +41,8 @@ const EMPTY: Contexto = {
 export default function ConfiguracoesContexto() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [form, setForm] = useState<Contexto>(EMPTY);
-  const [saving, setSaving] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["empresa_contexto"],
@@ -51,23 +53,35 @@ export default function ConfiguracoesContexto() {
     },
   });
 
+  // É sempre a mesma linha (id=1), então carrega uma vez só: re-hidratar a cada
+  // refetch (foco na janela, invalidação) apagaria o que está sendo digitado.
+  const carregadoRef = useRef(false);
   useEffect(() => {
-    if (data) setForm({ ...EMPTY, ...data });
+    if (!data || carregadoRef.current) return;
+    carregadoRef.current = true;
+    setForm({ ...EMPTY, ...data });
   }, [data]);
 
-  const num = (v: string) => (v === "" ? null : Number(v));
-  const set = (k: keyof Contexto, v: number | string | null) => setForm((f) => ({ ...f, [k]: v }));
-
-  const handleSave = async () => {
-    setSaving(true);
+  // Salva ao digitar: só o campo mexido, ~0,8s depois da última tecla. Upsert
+  // porque a linha pode ainda não existir no primeiro acesso.
+  const auto = useFormAutosave<Record<string, unknown>>(async (patch) => {
     const { error } = await (supabase as any).from("empresa_contexto").upsert({
       id: 1,
-      ...form,
+      ...patch,
       updated_at: new Date().toISOString(),
     });
-    setSaving(false);
-    if (error) toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
-    else toast({ title: "Contexto salvo", description: "A IA vai usar isso nas próximas análises." });
+    if (error) {
+      toast({ title: "Não salvou", description: error.message, variant: "destructive" });
+      throw error;
+    }
+    // Home e Fluxo de Caixa leem essa mesma linha (custo/hora, saldo âncora).
+    qc.invalidateQueries({ queryKey: ["empresa_contexto"] });
+  });
+
+  const num = (v: string) => (v === "" ? null : Number(v));
+  const set = (k: keyof Contexto, v: number | string | null) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    auto.agendar({ [k]: v });
   };
 
   return (
@@ -76,7 +90,7 @@ export default function ConfiguracoesContexto() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" /> Contexto da Empresa
           </h1>
@@ -84,6 +98,7 @@ export default function ConfiguracoesContexto() {
             Quanto mais contexto, mais sob medida ficam as recomendações da IA financeira.
           </p>
         </div>
+        <IndicadorAutosave status={auto.status} />
       </div>
 
       <Card>
@@ -155,10 +170,6 @@ export default function ConfiguracoesContexto() {
           </div>
         </CardContent>
       </Card>
-
-      <Button onClick={handleSave} disabled={saving} className="w-full">
-        <Save className="mr-2 h-4 w-4" /> {saving ? "Salvando..." : "Salvar contexto"}
-      </Button>
     </div>
   );
 }

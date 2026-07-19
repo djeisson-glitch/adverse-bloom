@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Coins, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Coins, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { toast } from "sonner";
 
 type Row = {
@@ -49,27 +51,6 @@ export default function AdminRateCard() {
       qc.invalidateQueries({ queryKey: ["rate-card-all"] });
       qc.invalidateQueries({ queryKey: ["rate-card"] });
       toast.success("Função adicionada");
-    },
-    onError: (e: any) => toast.error("Erro", { description: e.message }),
-  });
-
-  const salvar = useMutation({
-    mutationFn: async (r: Row) => {
-      const { error } = await (supabase as any)
-        .from("rate_card")
-        .update({
-          funcao: r.funcao,
-          preco_hora: r.preco_hora,
-          custo_hora: r.custo_hora,
-          ativo: r.ativo,
-        })
-        .eq("id", r.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["rate-card-all"] });
-      qc.invalidateQueries({ queryKey: ["rate-card"] });
-      toast.success("Salvo");
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -141,7 +122,15 @@ export default function AdminRateCard() {
             <span className="text-right">Ações</span>
           </div>
           {rows.map((r) => (
-            <RateCardRow key={r.id} row={r} onSave={(p) => salvar.mutate({ ...r, ...p })} onDelete={() => excluir.mutate(r.id)} />
+            <RateCardRow
+              key={r.id}
+              row={r}
+              onSaved={() => {
+                qc.invalidateQueries({ queryKey: ["rate-card-all"] });
+                qc.invalidateQueries({ queryKey: ["rate-card"] });
+              }}
+              onDelete={() => excluir.mutate(r.id)}
+            />
           ))}
           {rows.length === 0 && (
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">
@@ -156,11 +145,11 @@ export default function AdminRateCard() {
 
 function RateCardRow({
   row,
-  onSave,
+  onSaved,
   onDelete,
 }: {
   row: Row;
-  onSave: (patch: Partial<Row>) => void;
+  onSaved: () => void;
   onDelete: () => void;
 }) {
   const [funcao, setFuncao] = useState(row.funcao);
@@ -168,47 +157,61 @@ function RateCardRow({
   const [custo, setCusto] = useState(row.custo_hora?.toString() || "0");
   const [ativo, setAtivo] = useState(row.ativo);
 
-  const dirty =
-    funcao !== row.funcao ||
-    Number(preco) !== Number(row.preco_hora) ||
-    Number(custo) !== Number(row.custo_hora) ||
-    ativo !== row.ativo;
+  // Cada linha salva a sua, mandando só o campo mexido: duas pessoas editando
+  // funções diferentes ao mesmo tempo não se sobrescrevem.
+  const auto = useFormAutosave<Partial<Row>>(async (patch) => {
+    const { error } = await (supabase as any).from("rate_card").update(patch).eq("id", row.id);
+    if (error) {
+      toast.error("Não salvou", { description: error.message });
+      throw error;
+    }
+    onSaved();
+  });
+
+  // Campo de valor vazio não vira 0 no banco enquanto se apaga pra redigitar.
+  const setValor = (campo: "preco_hora" | "custo_hora", v: string, set: (s: string) => void) => {
+    set(v);
+    if (v.trim() !== "" && Number.isFinite(Number(v))) auto.agendar({ [campo]: Number(v) });
+  };
 
   return (
     <div className="grid grid-cols-[1fr_140px_140px_100px_140px] items-center gap-2 border-b border-border/40 px-5 py-2.5 last:border-0">
-      <Input value={funcao} onChange={(e) => setFuncao(e.target.value)} className="h-8 text-sm" />
+      <Input
+        value={funcao}
+        onChange={(e) => {
+          setFuncao(e.target.value);
+          auto.agendar({ funcao: e.target.value });
+        }}
+        className="h-8 text-sm"
+      />
       <Input
         type="number"
         value={preco}
-        onChange={(e) => setPreco(e.target.value)}
+        onChange={(e) => setValor("preco_hora", e.target.value, setPreco)}
         className="h-8 text-sm"
       />
       <Input
         type="number"
         value={custo}
-        onChange={(e) => setCusto(e.target.value)}
+        onChange={(e) => setValor("custo_hora", e.target.value, setCusto)}
         className="h-8 text-sm"
       />
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
           checked={ativo}
-          onChange={(e) => setAtivo(e.target.checked)}
+          onChange={(e) => {
+            setAtivo(e.target.checked);
+            // Marcar/desmarcar é escolha, não digitação: grava na hora.
+            auto.agendar({ ativo: e.target.checked });
+            void auto.gravarAgora();
+          }}
           className="h-4 w-4 accent-primary"
         />
         {ativo ? "sim" : "não"}
       </label>
-      <div className="flex justify-end gap-1">
-        {dirty && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onSave({ funcao, preco_hora: Number(preco), custo_hora: Number(custo), ativo })}
-          >
-            <Save className="mr-1 h-3.5 w-3.5" />
-            Salvar
-          </Button>
-        )}
+      <div className="flex items-center justify-end gap-2">
+        <IndicadorAutosave status={auto.status} />
         <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
