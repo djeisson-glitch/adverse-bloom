@@ -29,6 +29,14 @@ type Item = {
   link: string;
   due: string | null;
   bloqueante: boolean;
+  etapa?: string;
+};
+
+const ETAPA_LABEL: Record<string, string> = {
+  pendente: "Pendente", em_edicao: "Em edição", revisao_n1: "Revisão N1",
+  revisao_n2: "Revisão N2", revisao: "Revisão", pronto: "Pronto pra enviar",
+  com_cliente: "Com o cliente", ajuste_solicitado: "Ajuste do cliente",
+  aprovado: "Aprovado", entregue: "Entregue",
 };
 
 type SistItem = {
@@ -41,6 +49,7 @@ type SistItem = {
   due: string | null;
   link: string;
   ord: number;
+  etapa?: string;
 };
 
 const TIPO_ICON: Record<Tipo, any> = { editar: Film, aprovar: ThumbsUp, alteracao: RefreshCw, tarefa: ListChecks, demanda: Inbox };
@@ -134,6 +143,7 @@ export default function MinhaMesa() {
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
           acao: ajuste ? "Refazer — ajuste do cliente" : d.status === "pendente" ? "Começar edição" : "Continuar edição",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: ajuste,
+          etapa: ETAPA_LABEL[d.status] || d.status,
         });
       });
 
@@ -148,6 +158,7 @@ export default function MinhaMesa() {
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
           acao: souN1 ? "Aprovar N1" : "Aprovar N2",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true,
+          etapa: ETAPA_LABEL[d.status] || d.status,
         });
       }
     });
@@ -209,10 +220,11 @@ export default function MinhaMesa() {
     deliverables.forEach((d) => {
       const ctx = `${d.project?.numero || ""} · ${d.project?.name || ""}`;
       const link = `/projetos/${d.project?.id}/entregaveis/${d.id}`;
+      const etapa = ETAPA_LABEL[d.status] || d.status;
       if (d.data_entrega && d.data_entrega < hoje && ATIVO(d.status)) {
-        out.push({ key: `s-atr-${d.id}`, tag: "Atrasado", tone: "red", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 0 });
-      } else if (["revisao_n1", "revisao_n2"].includes(d.status)) {
-        out.push({ key: `s-apr-${d.id}`, tag: "Aguardando aprovação", tone: "amber", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 1 });
+        out.push({ key: `s-atr-${d.id}`, tag: "Atrasado", tone: "red", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 0, etapa });
+      } else if (["revisao_n1", "revisao_n2", "revisao"].includes(d.status)) {
+        out.push({ key: `s-apr-${d.id}`, tag: "Aguardando aprovação", tone: "amber", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 1, etapa });
       }
     });
     alteracoes.forEach((a: any) => {
@@ -316,7 +328,10 @@ function ItemRow({ it, hoje }: { it: Item; hoje: string }) {
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">{it.titulo}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium text-foreground">{it.titulo}</p>
+          {it.etapa && <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{it.etapa}</span>}
+        </div>
         <p className="truncate text-xs text-muted-foreground">{it.contexto}</p>
       </div>
       <div className="hidden shrink-0 text-right sm:block">
@@ -355,7 +370,7 @@ function TeamPanel({ itens, hoje }: { itens: SistItem[]; hoje: string }) {
                     <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-medium ${TONE_CHIP[it.tone]}`}>{it.tag}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                    <span className="truncate">{it.contexto}</span>
+                    <span className="truncate">{it.contexto}{it.etapa ? ` · ${it.etapa}` : ""}</span>
                     <span className="shrink-0">
                       {it.quem !== "—" ? it.quem : ""}
                       {it.due && <span className={atrasado ? "ml-1 font-semibold text-destructive" : "ml-1"}>
