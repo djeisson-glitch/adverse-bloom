@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Save, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
@@ -30,6 +31,8 @@ const STATUS_ENTREGAVEL = [
   { id: "em_edicao", label: "Em edição", tone: "primary" },
   { id: "revisao_n1", label: "Revisão N1", tone: "warning" },
   { id: "revisao_n2", label: "Revisão N2", tone: "warning" },
+  { id: "revisao", label: "Revisão", tone: "warning" },
+  { id: "pronto", label: "Pronto pra enviar", tone: "success" },
   { id: "com_cliente", label: "Com o cliente", tone: "primary" },
   { id: "ajuste_solicitado", label: "Ajuste solicitado", tone: "destructive" },
   { id: "aprovado", label: "Aprovado", tone: "success" },
@@ -100,6 +103,7 @@ export default function EntregavelDetalhe() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { start } = useTimer();
+  const { isAdmin } = usePermissions();
 
   const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
@@ -277,6 +281,14 @@ export default function EntregavelDetalhe() {
   const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
+  // Papéis pra máquina de estados (admin/manager faz tudo).
+  const eu = user?.id;
+  const isN1 = !!eu && (eu === n1 || isAdmin);
+  const isN2 = !!eu && (eu === n2 || isAdmin);
+  const isRevisor = !!eu && (eu === n1 || eu === n2 || isAdmin);
+  const isEditor = !!eu && (entregavel.responsavel_id === eu || isAdmin);
+  const alteracaoAberta = (alteracoes as any[]).find((a: any) => a.status === "aberta") || null;
+
   return (
     <div className={`space-y-5 py-6 ${chatAberto ? "lg:pr-[440px]" : "mx-auto max-w-[1400px]"}`}>
       <button
@@ -408,15 +420,25 @@ export default function EntregavelDetalhe() {
         <IndicadorCard label="Horas — alteração cliente" value={`${horas.alt.toFixed(1)}h`} icon={MessageSquarePlus} tone="warning" />
       </div>
 
-      <AprovacaoCard
+      <FluxoCard
         entregavel={entregavel}
         did={did!}
-        userId={user?.id}
+        projectId={projectId!}
+        projName={proj?.name || ""}
         n1={n1}
         n2={n2}
         clienteAprova={clienteAprova}
         profiles={profiles}
-        onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+        isEditor={isEditor}
+        isN1={isN1}
+        isN2={isN2}
+        isRevisor={isRevisor}
+        alteracaoAberta={alteracaoAberta}
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["entregavel", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
+        }}
       />
 
       <div>
@@ -501,102 +523,126 @@ export default function EntregavelDetalhe() {
 
 /* ------------------------------------------------ Aprovação em 2 níveis */
 
-function AprovacaoCard({
-  entregavel, did, userId, n1, n2, clienteAprova, profiles, onChanged,
+function FluxoCard({
+  entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
+  isEditor, isN1, isN2, isRevisor, alteracaoAberta, onChanged,
 }: {
-  entregavel: any; did: string; userId?: string; n1: string | null; n2: string | null;
-  clienteAprova: boolean; profiles: any[]; onChanged: () => void;
+  entregavel: any; did: string; projectId: string; projName: string;
+  n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
+  isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
+  alteracaoAberta: any; onChanged: () => void;
 }) {
-  const patch = async (updates: any, msgOk: string) => {
-    const { error } = await (supabase as any).from("deliverables").update(updates).eq("id", did);
+  const { user } = useAuth();
+  const { start, stop, sessao } = useTimer();
+  const status = entregavel.status || "pendente";
+  const retrab = !!entregavel.retrabalho;
+  const rodandoAqui = sessao?.deliverable_id === did;
+  const agora = () => new Date().toISOString();
+
+  const upd = async (patch: any, msg?: string) => {
+    const { error } = await (supabase as any).from("deliverables").update(patch).eq("id", did);
     if (error) return toast.error("Erro", { description: error.message });
     onChanged();
-    toast.success(msgOk);
+    if (msg) toast.success(msg);
   };
 
-  const aprovarN1 = () =>
-    patch({ aprovado_n1_por: userId, aprovado_n1_em: new Date().toISOString(), status: "revisao_n2" }, "Aprovado no N1 → segue pra N2");
-  const aprovarN2 = () =>
-    patch(
-      {
-        aprovado_n2_por: userId,
-        aprovado_n2_em: new Date().toISOString(),
-        status: clienteAprova ? "com_cliente" : "aprovado",
-      },
-      clienteAprova ? "Aprovado no N2 → enviado ao cliente" : "Aprovado no N2",
-    );
-  // Revisão interna: só registra (incrementa contador + volta pra edição).
-  // Não pede descrição — o detalhe do ajuste já está no ClickUp.
+  const iniciarEdicao = async () => {
+    if (!rodandoAqui) {
+      // Com alteração do cliente aberta, cronometra nela (conta como hora de alteração).
+      if (alteracaoAberta) start({ project_id: projectId, project_name: projName, deliverable_id: did, alteracao_id: alteracaoAberta.id });
+      else start({ project_id: projectId, project_name: projName, deliverable_id: did });
+    }
+    if (status !== "em_edicao") await upd({ status: "em_edicao" }, "Edição iniciada");
+  };
+  const pararEdicao = async () => { if (rodandoAqui) await stop(); };
+
+  const entregarRevisao = async () => {
+    if (alteracaoAberta) {
+      await (supabase as any).from("deliverable_alteracoes")
+        .update({ status: "resolvida", resolved_at: agora() }).eq("id", alteracaoAberta.id);
+    }
+    await upd({ status: retrab ? "revisao" : "revisao_n1" }, "Entregue pra revisão");
+  };
+
+  const revisaoOk = async () => {
+    if (status === "revisao_n1") return upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2" }, "Revisão 1 feita → segue pra N2");
+    // revisao_n2 (normal) ou revisao (retrabalho, qualquer revisor) → pronto
+    return upd({ aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "pronto" }, "Revisão feita → pronto pra enviar");
+  };
+
   const pedirAjuste = async () => {
-    const { error } = await (supabase as any)
-      .from("deliverables")
-      .update({ revisoes_internas: (entregavel.revisoes_internas || 0) + 1, status: "em_edicao" })
-      .eq("id", did);
-    if (error) return toast.error("Erro", { description: error.message });
-    onChanged();
-    toast.info("Revisão interna registrada — voltou pra edição");
+    const motivo = window.prompt("O que precisa de ajuste interno? (o editor recebe a mensagem)");
+    if (motivo === null) return;
+    await (supabase as any).from("comments").insert({
+      entity_type: "deliverable", entity_id: did, user_id: user?.id,
+      body: `🔧 Ajuste interno: ${motivo.trim() || "(sem detalhe)"}`, mentions: [],
+    });
+    await upd({ revisoes_internas: (entregavel.revisoes_internas || 0) + 1, status: "em_edicao", retrabalho: true },
+      "Ajuste interno registrado — voltou pra edição");
   };
 
-  const isN1 = !!userId && !!n1 && userId === n1;
-  const isN2 = !!userId && !!n2 && userId === n2;
-  const podeAprovar = isN1 || isN2;
+  const enviarCliente = () => upd({ status: "com_cliente" }, "Enviado ao cliente");
+  const clienteAprovou = () => upd({ status: "entregue", aprovado_cliente_em: agora() }, "Cliente aprovou 🎉");
+
+  const pedidoAlteracao = async () => {
+    const titulo = window.prompt("Resumo do que o cliente pediu de alteração:");
+    if (!titulo || !titulo.trim()) return;
+    const { error } = await (supabase as any).from("deliverable_alteracoes").insert({
+      deliverable_id: did, titulo: titulo.trim(), origem: "cliente",
+      criado_por: "Cliente", responsavel_id: entregavel.responsavel_id || null,
+    });
+    if (error) return toast.error("Erro", { description: error.message });
+    await upd({ status: "ajuste_solicitado", retrabalho: true }, "Alteração registrada — voltou pra edição");
+  };
+
+  const botoes: React.ReactNode[] = [];
+  const B = (key: string, node: React.ReactNode) => botoes.push(<span key={key}>{node}</span>);
+  const emRev1 = status === "revisao_n1", emRev2 = status === "revisao_n2", emRevU = status === "revisao";
+
+  if ((status === "pendente" || status === "ajuste_solicitado") && isEditor) {
+    B("ini", <Button size="sm" onClick={iniciarEdicao} className="bg-primary text-primary-foreground"><Play className="mr-1 h-3.5 w-3.5" /> Iniciar edição</Button>);
+  }
+  if (status === "em_edicao" && isEditor) {
+    if (rodandoAqui) B("par", <Button size="sm" variant="outline" onClick={pararEdicao}><Pause className="mr-1 h-3.5 w-3.5" /> Parar edição</Button>);
+    else B("ret", <Button size="sm" variant="outline" onClick={iniciarEdicao}><Play className="mr-1 h-3.5 w-3.5" /> Retomar edição</Button>);
+    B("ent", <Button size="sm" onClick={entregarRevisao} className="bg-primary text-primary-foreground"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Entregar para revisão</Button>);
+  }
+  if ((emRev1 && isN1) || (emRev2 && isN2) || (emRevU && isRevisor)) {
+    B("rev", <Button size="sm" onClick={revisaoOk} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> {emRev1 ? "Revisão 1 feita" : emRev2 ? "Revisão 2 feita" : "Revisão feita"}</Button>);
+    B("aj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={pedirAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste interno</Button>);
+  }
+  if (status === "pronto" && isRevisor) {
+    B("env", <Button size="sm" onClick={enviarCliente} className="bg-primary text-primary-foreground"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Enviar para o cliente</Button>);
+  }
+  if (status === "com_cliente" && (isRevisor || isEditor)) {
+    B("apr", <Button size="sm" onClick={clienteAprovou} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Cliente aprovou</Button>);
+    B("palt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={pedidoAlteracao}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Pedido de alteração do cliente</Button>);
+  }
 
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Aprovação</p>
-            <p className="text-xs text-muted-foreground">
-              N1 {nomeDe(profiles, n1)} · N2 {nomeDe(profiles, n2)} · Cliente {clienteAprova ? "aprova" : "só visualiza"}
-            </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusTone(status)}`}>{labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}</span>
+            {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-400" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <Nivel ok={!!entregavel.aprovado_n1_em} label="N1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
             <Nivel ok={!!entregavel.aprovado_n2_em} label="N2" quem={nomeDe(profiles, entregavel.aprovado_n2_por)} />
-            {clienteAprova && (
-              <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />
-            )}
+            {clienteAprova && <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />}
           </div>
         </div>
 
-        {(entregavel.status === "revisao_n1" || entregavel.status === "revisao_n2") && (
-          <p className="text-xs">
-            <Clock className="mr-1 inline h-3.5 w-3.5 text-warning" />
-            Aguardando aprovação de{" "}
-            <strong className="text-foreground">
-              {entregavel.status === "revisao_n1" ? nomeDe(profiles, n1) : nomeDe(profiles, n2)}
-            </strong>{" "}
-            ({entregavel.status === "revisao_n1" ? "N1" : "N2"})
-          </p>
-        )}
-
-        {podeAprovar ? (
-          <div className="flex flex-wrap gap-2">
-            {isN1 && !entregavel.aprovado_n1_em && (
-              <Button size="sm" onClick={aprovarN1} className="bg-success text-white hover:bg-success/90">
-                <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N1 · {nomeDe(profiles, n1)}
-              </Button>
-            )}
-            {isN2 && entregavel.aprovado_n1_em && !entregavel.aprovado_n2_em && (
-              <Button size="sm" onClick={aprovarN2} className="bg-success text-white hover:bg-success/90">
-                <ThumbsUp className="mr-1 h-3.5 w-3.5" /> Aprovar N2 · {nomeDe(profiles, n2)}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-destructive hover:text-destructive"
-              onClick={pedirAjuste}
-              title="Registra uma revisão interna e volta pra edição (o detalhe fica no ClickUp)"
-            >
-              <RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste interno
-            </Button>
-          </div>
+        {botoes.length > 0 ? (
+          <div className="flex flex-wrap gap-2">{botoes}</div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            <UserCheck className="mr-1 inline h-3.5 w-3.5" />
-            Você não é aprovador deste entregável. Configure os aprovadores em Admin ou na ficha do projeto.
+            {["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
+              : status.startsWith("revisao") ? "Aguardando o revisor deste entregável."
+              : ["em_edicao", "pendente", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
+              : status === "pronto" ? "Aguardando alguém enviar ao cliente."
+              : "Sem ação sua nesta etapa."}
           </p>
         )}
       </CardContent>
