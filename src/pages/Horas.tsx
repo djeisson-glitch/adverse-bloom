@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Timer, Plus, Trash2, CalendarCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,11 @@ function iso(d: Date) {
 export default function Horas() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { isAdmin } = usePermissions();
 
   const [form, setForm] = useState({
     project_id: "",
+    pessoa: "",          // admin lança pra outra pessoa; vazio = eu
     data: iso(new Date()),
     inicio: "09:00",
     duracao: "60",
@@ -38,20 +41,35 @@ export default function Horas() {
     faturavel: true,
   });
 
+  // Vê as horas de quem está sendo lançado (admin), senão as próprias.
+  const viewUserId = (isAdmin && form.pessoa) ? form.pessoa : user?.id;
+  const suasHoras = viewUserId === user?.id;
+
+  // Janela: início do mês (pra retroativos do mês aparecerem) ou 14 dias atrás,
+  // o que for mais antigo.
   const fromDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 14);
-    return d.toISOString();
+    const inicioMes = new Date();
+    inicioMes.setDate(1);
+    inicioMes.setHours(0, 0, 0, 0);
+    const d14 = new Date();
+    d14.setDate(d14.getDate() - 14);
+    return (inicioMes < d14 ? inicioMes : d14).toISOString();
   }, []);
 
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["horas-profiles"],
+    enabled: isAdmin,
+    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, email").order("full_name")).data || [],
+  });
+
   const { data: entries = [] } = useQuery({
-    queryKey: ["horas-me", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["horas-me", viewUserId],
+    enabled: !!viewUserId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("time_entries")
         .select("*, project:projects(name, client_name)")
-        .eq("user_id", user!.id)
+        .eq("user_id", viewUserId)
         .gte("start_at", fromDate)
         .order("start_at", { ascending: false });
       if (error) throw error;
@@ -83,21 +101,22 @@ export default function Horas() {
       if (!form.data) throw new Error("Informe a data");
       const [h, m] = form.inicio.split(":").map(Number);
       const start = new Date(`${form.data}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
-      const { error } = await (supabase as any).from("time_entries").insert({
-        user_id: user!.id,
-        project_id: form.project_id,
-        start_at: start.toISOString(),
-        duration_min: Math.max(1, Number(form.duracao)),
-        description: form.descricao || null,
-        billable: form.faturavel,
-        source: "manual",
+      const alvo = (isAdmin && form.pessoa) ? form.pessoa : null;   // null = eu (o RPC resolve)
+      const { error } = await (supabase as any).rpc("lancar_horas_manual", {
+        _project_id: form.project_id,
+        _start_at: start.toISOString(),
+        _duration_min: Math.max(1, Number(form.duracao)),
+        _description: form.descricao || null,
+        _billable: form.faturavel,
+        _user_id: alvo,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       setForm({ ...form, descricao: "", duracao: "60" });
       qc.invalidateQueries({ queryKey: ["horas-me"] });
-      toast.success("Horas lançadas");
+      const nome = form.pessoa ? (profiles.find((p: any) => p.id === form.pessoa)?.full_name || "a pessoa") : "você";
+      toast.success(`Horas lançadas para ${nome}`);
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -116,10 +135,12 @@ export default function Horas() {
         <div className="flex items-center gap-3">
           <Timer className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minhas horas</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+              {suasHoras ? "Minhas horas" : `Horas — ${profiles.find((p: any) => p.id === viewUserId)?.full_name || "pessoa"}`}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Últimos 14 dias · total <strong>{totalHoras.toFixed(1)}h</strong>. Use o timer na barra
-              superior (ou o ▶ no projeto/tarefa) — ou lance manualmente abaixo.
+              Este mês · total <strong>{totalHoras.toFixed(1)}h</strong>. Lance manualmente abaixo —
+              a <strong>data passada</strong> lança retroativo (ex.: horas do ClickUp).
             </p>
           </div>
         </div>
@@ -131,6 +152,21 @@ export default function Horas() {
 
       <Card className="glass-card">
         <CardContent className="space-y-4 p-5">
+          {isAdmin && (
+            <div>
+              <Label>Lançar para</Label>
+              <Select value={form.pessoa || "__me__"} onValueChange={(v) => setForm({ ...form, pessoa: v === "__me__" ? "" : v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__me__">Eu mesmo</SelectItem>
+                  {profiles.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">Só admin lança horas de outra pessoa (ex.: retroativo do ClickUp por editor).</p>
+            </div>
+          )}
           <div className="grid gap-3 md:grid-cols-2">
             <div>
               <Label>Projeto</Label>
@@ -218,9 +254,11 @@ export default function Horas() {
                 <span className={`text-xs ${e.billable ? "text-success" : "text-muted-foreground"}`}>
                   {e.billable ? "R$" : "—"}
                 </span>
-                <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {suasHoras ? (
+                  <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                ) : <span />}
               </div>
             ))
           )}
