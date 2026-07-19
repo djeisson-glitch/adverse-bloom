@@ -86,7 +86,22 @@ import PreviewOnda0 from "./pages/PreviewOnda0";
 import NotFound from "./pages/NotFound";
 import { Loader2, ShieldAlert } from "lucide-react";
 
-const queryClient = new QueryClient();
+// Atualização em segundo plano pra TODAS as telas (sem precisar dar refresh):
+// - refetchOnWindowFocus/Reconnect: volta pra aba ou reconecta → atualiza na hora.
+// - refetchInterval 30s enquanto a aba está ativa (não gasta bateria em aba oculta).
+// Queries "ao vivo" (comentários, notificações) têm intervalo próprio menor e
+// sobrescrevem esse padrão.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
+      staleTime: 10000,
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
