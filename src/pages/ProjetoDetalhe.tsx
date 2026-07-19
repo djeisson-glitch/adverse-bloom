@@ -7,7 +7,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, Table2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare,
+  FileText, Link2, ExternalLink, MessageSquare, Rows3,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { useLocalPref } from "@/hooks/useLocalPref";
+import { agruparEntregaveis } from "@/lib/familiaEntregavel";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
 
@@ -957,6 +959,93 @@ function DocumentosSection({ projectId }: { projectId: string }) {
 
 /* --------------------------------------------------------- Entregáveis */
 
+/** Uma linha da tabela de entregáveis. Virou componente porque agora ela é
+ *  renderizada solta OU dentro de um grupo de semelhança. */
+/** Uma linha da tabela de entregáveis. Virou componente porque agora ela é
+ *  renderizada solta OU dentro de um grupo de semelhança. */
+function LinhaEntregavel({
+  d,
+  projectId,
+  nomeDe,
+  navigate,
+  onAbrirConversa,
+  onExcluir,
+}: {
+  d: any;
+  projectId: string;
+  nomeDe: (id: string | null) => string;
+  navigate: (to: string) => void;
+  onAbrirConversa: (id: string) => void;
+  onExcluir: (id: string) => void;
+}) {
+  return (
+    <div
+      onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
+      className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
+    >
+      <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>
+        {d.titulo}
+      </span>
+      <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
+      <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
+      <span className="truncate text-xs text-muted-foreground">{nomeDe(d.responsavel_id)}</span>
+      {/* Prazo INTERNO (cai pro prazo do cliente só se o interno estiver vazio).
+          formatDate evita o desvio de fuso que fazia aparecer 1 dia a menos. */}
+      <span
+        className="text-xs text-muted-foreground"
+        title={d.prazo_interno ? "Prazo interno" : d.data_entrega ? "Sem prazo interno — mostrando o prazo do cliente" : ""}
+      >
+        {formatDate(d.prazo_interno || d.data_entrega || null)}
+      </span>
+      {/* Status em português — "em_edicao" cru não diz nada pra quem olha rápido */}
+      <span
+        className="truncate rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground"
+        title={rotuloStatus(d.status)}
+      >
+        {rotuloStatus(d.status)}
+      </span>
+      {/* Ações rápidas — Frame, conversa e excluir deste entregável.
+          A lixeira mora aqui (e não em coluna própria) pra linha não estourar a largura do card. */}
+      <span className="flex items-center justify-end gap-1">
+        {d.arquivo_url ? (
+          <a
+            href={d.arquivo_url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Abrir no Frame.io"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-primary hover:bg-primary/10"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/projetos/${projectId}/entregaveis/${d.id}`); }}
+            title="Sem link do Frame — adicione dentro do entregável"
+            className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground/40 hover:text-muted-foreground"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onAbrirConversa(d.id); }}
+          title="Abrir a conversa deste entregável"
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onExcluir(d.id); }}
+          title="Excluir entregável"
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    </div>
+  );
+}
+
 // Status do entregável em português. O valor cru do banco ("em_edicao",
 // "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
 const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
@@ -980,6 +1069,7 @@ function rotuloStatus(status: string | null | undefined): string {
 function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectId: string; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [agrupar, setAgrupar] = useLocalPref<"sim" | "nao">("entregaveis:agrupar", "sim", ["sim", "nao"]);
   const [novo, setNovo] = useState({
     titulo: "",
     formato: "",
@@ -995,6 +1085,7 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
     return p?.full_name || p?.email || "—";
   };
 
+
   const { data: items = [] } = useQuery({
     queryKey: ["deliverables", projectId],
     queryFn: async () => {
@@ -1007,6 +1098,13 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
       return data as any[];
     },
   });
+
+  // Junta o que é parecido (formato/duração quando preenchidos; senão, o nome).
+  // Devolve null quando agrupar não ajudaria — aí a lista sai reta, como antes.
+  const grupos = useMemo(
+    () => (agrupar === "nao" ? null : agruparEntregaveis(items)),
+    [items, agrupar],
+  );
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -1042,13 +1140,26 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Entregáveis
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Entregáveis
+          </p>
+          {/* Só oferece desligar quando o agrupamento de fato apareceu. */}
+          {(grupos || agrupar === "nao") && items.length >= 3 && (
+            <button
+              onClick={() => setAgrupar(agrupar === "sim" ? "nao" : "sim")}
+              title={agrupar === "sim" ? "Ver como lista corrida" : "Juntar os parecidos"}
+              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <Rows3 className="h-3 w-3" />
+              {agrupar === "sim" ? "Agrupado" : "Lista corrida"}
+            </button>
+          )}
+        </div>
 
         {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
             lixeira ficava pra fora do card. */}
-        <div className="-mx-1 overflow-x-auto px-1">
+        <div className="-mx-1 space-y-2 overflow-x-auto px-1 pb-1">
         {items.length > 0 && (
           <div className="grid min-w-[680px] grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Entregável</span>
@@ -1060,71 +1171,42 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
             <span className="text-right">Ações</span>
           </div>
         )}
-        {items.map((d) => (
-          <div
-            key={d.id}
-            onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
-            className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
-          >
-            <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>{d.titulo}</span>
-            <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
-            <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
-            <span className="truncate text-xs text-muted-foreground">{nomeDe(d.responsavel_id)}</span>
-            {/* Prazo INTERNO (cai pro prazo do cliente só se o interno estiver vazio).
-                formatDate evita o desvio de fuso que fazia aparecer 1 dia a menos. */}
-            <span
-              className="text-xs text-muted-foreground"
-              title={d.prazo_interno ? "Prazo interno" : d.data_entrega ? "Sem prazo interno — mostrando o prazo do cliente" : ""}
-            >
-              {formatDate(d.prazo_interno || d.data_entrega || null)}
-            </span>
-            {/* Status em português — "em_edicao" cru não diz nada pra quem olha rápido */}
-            <span className="truncate rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground" title={rotuloStatus(d.status)}>
-              {rotuloStatus(d.status)}
-            </span>
-            {/* Ações rápidas — Frame, conversa e excluir deste entregável.
-                A lixeira mora aqui (e não em coluna própria) pra linha não estourar a largura do card. */}
-            <span className="flex items-center justify-end gap-1">
-              {d.arquivo_url ? (
-                <a
-                  href={d.arquivo_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  title="Abrir no Frame.io"
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-primary hover:bg-primary/10"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : (
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/projetos/${projectId}/entregaveis/${d.id}`); }}
-                  title="Sem link do Frame — adicione dentro do entregável"
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground/40 hover:text-muted-foreground"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                onClick={(e) => { e.stopPropagation(); onAbrirConversa(d.id); }}
-                title="Abrir a conversa deste entregável"
-                className="flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  excluir.mutate(d.id);
-                }}
-                title="Excluir entregável"
-                className="flex h-6 w-6 items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:border-destructive/40 hover:text-destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          </div>
-        ))}
+        {grupos
+          ? grupos.map((g) => (
+              <div key={g.chave} className="space-y-1">
+                <div className="flex min-w-[680px] items-center gap-2 px-3 pt-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+                    {g.label}
+                  </span>
+                  <span className="rounded-full bg-muted/50 px-1.5 text-[10px] text-muted-foreground">
+                    {g.itens.length}
+                  </span>
+                  <span className="h-px flex-1 bg-border/40" />
+                </div>
+                {g.itens.map((d: any) => (
+                  <LinhaEntregavel
+                    key={d.id}
+                    d={d}
+                    projectId={projectId}
+                    nomeDe={nomeDe}
+                    navigate={navigate}
+                    onAbrirConversa={onAbrirConversa}
+                    onExcluir={(id) => excluir.mutate(id)}
+                  />
+                ))}
+              </div>
+            ))
+          : items.map((d) => (
+              <LinhaEntregavel
+                key={d.id}
+                d={d}
+                projectId={projectId}
+                nomeDe={nomeDe}
+                navigate={navigate}
+                onAbrirConversa={onAbrirConversa}
+                onExcluir={(id) => excluir.mutate(id)}
+              />
+            ))}
         </div>
 
         <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
