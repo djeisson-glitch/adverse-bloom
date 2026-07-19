@@ -1046,6 +1046,28 @@ function LinhaEntregavel({
   );
 }
 
+// Cor por grupo de semelhança — o que separa visualmente um bloco do outro.
+// Fica na ordem em que os grupos aparecem (maior primeiro), então o olho
+// aprende o padrão. "Avulsos" é sempre neutro: não é uma família, é o resto.
+const CORES_GRUPO = [
+  { borda: "border-l-primary", chip: "bg-primary/15 text-primary" },
+  { borda: "border-l-blue-500", chip: "bg-blue-500/15 text-blue-500" },
+  { borda: "border-l-emerald-500", chip: "bg-emerald-500/15 text-emerald-500" },
+  { borda: "border-l-purple-500", chip: "bg-purple-500/15 text-purple-500" },
+  { borda: "border-l-amber-500", chip: "bg-amber-500/15 text-amber-500" },
+  { borda: "border-l-cyan-500", chip: "bg-cyan-500/15 text-cyan-500" },
+] as const;
+
+const COR_AVULSOS = {
+  borda: "border-l-border",
+  chip: "bg-muted/60 text-muted-foreground",
+} as const;
+
+function corDoGrupo(chave: string, indice: number) {
+  if (chave === "__avulsos__") return COR_AVULSOS;
+  return CORES_GRUPO[indice % CORES_GRUPO.length];
+}
+
 // Status do entregável em português. O valor cru do banco ("em_edicao",
 // "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
 const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
@@ -1159,7 +1181,7 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
 
         {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
             lixeira ficava pra fora do card. */}
-        <div className="-mx-1 space-y-2 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 space-y-4 overflow-x-auto px-1 pb-1">
         {items.length > 0 && (
           <div className="grid min-w-[680px] grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Entregável</span>
@@ -1172,30 +1194,37 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
           </div>
         )}
         {grupos
-          ? grupos.map((g) => (
-              <div key={g.chave} className="space-y-1">
-                <div className="flex min-w-[680px] items-center gap-2 px-3 pt-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-                    {g.label}
-                  </span>
-                  <span className="rounded-full bg-muted/50 px-1.5 text-[10px] text-muted-foreground">
-                    {g.itens.length}
-                  </span>
-                  <span className="h-px flex-1 bg-border/40" />
+          ? grupos.map((g, i) => {
+              const cor = corDoGrupo(g.chave, i);
+              return (
+                <div
+                  key={g.chave}
+                  className={`min-w-[680px] space-y-1.5 border-l-[3px] py-1 pl-3 ${cor.borda}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cor.chip}`}
+                    >
+                      {g.label}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {g.itens.length} {g.itens.length === 1 ? "item" : "itens"}
+                    </span>
+                  </div>
+                  {g.itens.map((d: any) => (
+                    <LinhaEntregavel
+                      key={d.id}
+                      d={d}
+                      projectId={projectId}
+                      nomeDe={nomeDe}
+                      navigate={navigate}
+                      onAbrirConversa={onAbrirConversa}
+                      onExcluir={(id) => excluir.mutate(id)}
+                    />
+                  ))}
                 </div>
-                {g.itens.map((d: any) => (
-                  <LinhaEntregavel
-                    key={d.id}
-                    d={d}
-                    projectId={projectId}
-                    nomeDe={nomeDe}
-                    navigate={navigate}
-                    onAbrirConversa={onAbrirConversa}
-                    onExcluir={(id) => excluir.mutate(id)}
-                  />
-                ))}
-              </div>
-            ))
+              );
+            })
           : items.map((d) => (
               <LinhaEntregavel
                 key={d.id}
