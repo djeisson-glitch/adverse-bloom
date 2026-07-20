@@ -85,6 +85,9 @@ serve(async (req) => {
         corpo: n.corpo || "",
         link: n.link || "/notificacoes",
         tipo: n.tipo,
+        // Tag única = o id da notificação. Sem isso o SW usa o tipo como tag e
+        // uma notificação some por cima da outra sem alertar.
+        tag: n.id,
         prioridade: n.prioridade,
       });
 

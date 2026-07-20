@@ -47,20 +47,41 @@ export default function Notificacoes() {
   const testar = async () => {
     setTestando(true);
     try {
-      // Se a permissão ainda não foi dada, pede agora — senão o balão de
-      // primeiro plano nunca aparece por mais que a notificação chegue.
-      if (permissaoAtual() === "default" && typeof Notification !== "undefined") {
-        await Notification.requestPermission();
+      // Pede a permissão se ainda não foi dada.
+      let permissao = permissaoAtual();
+      if (permissao === "default" && typeof Notification !== "undefined") {
+        permissao = await Notification.requestPermission();
       }
+
+      // Mostra o balão NA HORA, mesmo com a aba em foco. É teste explícito: a
+      // pessoa quer ver agora, não trocar de aba. (No fluxo real o balão só
+      // aparece quando a aba não está em foco, pra não virar ruído.)
+      if (permissao === "granted" && typeof Notification !== "undefined") {
+        try {
+          new Notification("Notificação de teste ✅", {
+            body: "Se você está vendo isto, as notificações estão funcionando.",
+            icon: "/favicon.ico",
+            tag: `teste-${Date.now()}`, // única: dois testes seguidos não se sobrepõem
+          });
+        } catch {
+          /* alguns navegadores só via service worker — aí vale o push */
+        }
+      }
+
+      // E cria a notificação de verdade (exercita banco → realtime → sino, e o
+      // push pra quem tem a aba fechada).
       const { error } = await (supabase as any).rpc("notificar_teste");
       if (error) {
         toast.error("Não deu pra testar", { description: error.message });
+      } else if (permissao === "granted") {
+        toast.success("Balão disparado — apareceu na área de trabalho?");
+      } else if (permissao === "denied") {
+        toast.error("Notificações bloqueadas", {
+          description: "Libere no cadeado da barra de endereço (e no macOS: Ajustes → Notificações → o navegador).",
+        });
       } else {
-        toast.success("Teste enviado", {
-          description:
-            permissaoAtual() === "granted"
-              ? "Troque de aba ou minimize por 1s — o balão de desktop aparece. Ele também caiu no sino."
-              : "Caiu no sino aqui embaixo. Pra ver o balão na área de trabalho, ligue as notificações.",
+        toast.success("Caiu no sino aqui embaixo", {
+          description: "Pra ver o balão na área de trabalho, clique em Ligar.",
         });
       }
     } finally {

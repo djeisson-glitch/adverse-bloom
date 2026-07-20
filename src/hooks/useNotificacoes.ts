@@ -67,7 +67,11 @@ export function useNotificacoes(limite = 30) {
               const balao = new Notification(n.titulo, {
                 body: n.corpo || "",
                 icon: "/favicon.ico",
-                tag: n.tipo || "adverse",
+                // Tag ÚNICA por notificação (o id). Com a tag repetida (era o
+                // tipo), a 2ª notificação do mesmo tipo substituía a 1ª em
+                // silêncio — daí "funcionou uma vez e depois não". Cada linha
+                // do banco já é um evento distinto (o dedupe é na criação).
+                tag: n.id,
               });
               balao.onclick = () => {
                 window.focus();

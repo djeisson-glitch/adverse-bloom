@@ -26,9 +26,11 @@ self.addEventListener("push", (event) => {
       // Crítico não some sozinho e vibra: prazo estourado / cliente pediu alteração.
       requireInteraction: critico,
       vibrate: critico ? [200, 100, 200] : undefined,
-      // Mesma tag = substitui em vez de empilhar (não vira spam na bandeja).
-      tag: dados.tipo || "adverse",
-      renotify: critico,
+      // Tag ÚNICA por notificação (o id que o servidor manda). Com a tag pelo
+      // tipo, a 2ª do mesmo tipo substituía a 1ª em SILÊNCIO — "funcionou uma
+      // vez e depois não". renotify:true garante o alerta mesmo se repetir.
+      tag: dados.tag || dados.tipo || "adverse",
+      renotify: true,
       data: { link: dados.link || "/notificacoes" },
     }),
   );
