@@ -16,7 +16,7 @@ import {
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy, Wrench, Upload, Image as ImageIcon,
+  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -906,15 +906,13 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
     setEnviando(true);
     try {
       for (const file of lista) {
-        const ehMidia = file.type.startsWith("image/") || file.type.startsWith("video/");
-        if (!ehMidia) { toast.error(`"${file.name}" não é foto nem vídeo`); continue; }
         const safe = file.name.replace(/[^\w.\-]+/g, "_");
         const path = `${did}/${crypto.randomUUID()}-${safe}`;
         const { error: upErr } = await supabase.storage.from("entregaveis")
           .upload(path, file, { cacheControl: "3600", contentType: file.type || undefined });
         if (upErr) throw new Error(`Falha ao subir "${file.name}": ${upErr.message}`);
         const { data: pub } = supabase.storage.from("entregaveis").getPublicUrl(path);
-        const tipo = file.type.startsWith("image/") ? "foto" : "video";
+        const tipo = file.type.startsWith("image/") ? "foto" : file.type.startsWith("video/") ? "video" : "arquivo";
         const { error: insErr } = await (supabase as any).from("deliverable_anexos").insert({
           deliverable_id: did, project_id: projectId, nome: file.name, tipo,
           url: pub.publicUrl, storage_path: path, mime: file.type || null, tamanho: file.size,
@@ -942,6 +940,10 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
 
   const fmtTam = (b?: number | null) =>
     !b ? "" : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+  const ext = (nome?: string) => {
+    const m = (nome || "").match(/\.([a-z0-9]{1,6})$/i);
+    return m ? m[1].toUpperCase() : "ARQUIVO";
+  };
 
   return (
     <Card className="glass-card">
@@ -953,15 +955,15 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold text-foreground">Fotos & vídeos</p>
-            <p className="text-xs text-muted-foreground">Arquivos subidos direto — imagens e vídeos (até 500 MB)</p>
+            <p className="text-sm font-semibold text-foreground">Anexos</p>
+            <p className="text-xs text-muted-foreground">Qualquer arquivo — fotos, vídeos, PDF, docs… (até 500 MB)</p>
           </div>
           <Button size="sm" onClick={() => inputRef.current?.click()} disabled={enviando}>
             {enviando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1 h-3.5 w-3.5" />}
             {enviando ? "Enviando…" : "Enviar arquivo"}
           </Button>
           <input
-            ref={inputRef} type="file" accept="image/*,video/*" multiple className="hidden"
+            ref={inputRef} type="file" multiple className="hidden"
             onChange={(e) => enviarArquivos(e.target.files)}
           />
         </div>
@@ -974,8 +976,8 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
               arrastando ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40"
             }`}
           >
-            <ImageIcon className="h-5 w-5" />
-            Arraste fotos/vídeos aqui ou clique para enviar
+            <Paperclip className="h-5 w-5" />
+            Arraste arquivos aqui ou clique para enviar
           </button>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -988,8 +990,10 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
                 ) : a.tipo === "video" ? (
                   <video src={a.url} className="h-28 w-full bg-black object-contain" controls preload="metadata" />
                 ) : (
-                  <a href={a.url} target="_blank" rel="noreferrer" className="flex h-28 w-full items-center justify-center text-muted-foreground">
-                    <Film className="h-6 w-6" />
+                  <a href={a.url} target="_blank" rel="noreferrer" download title="Abrir / baixar"
+                    className="flex h-28 w-full flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary">
+                    <FileText className="h-7 w-7" />
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide">{ext(a.nome)}</span>
                   </a>
                 )}
                 {a.tamanho ? (
