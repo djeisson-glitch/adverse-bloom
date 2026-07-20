@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowLeft, Loader2, Trash2, Trophy, StickyNote, Mail, MessageCircle, Phone, Users, Plus,
@@ -29,6 +30,7 @@ export default function LeadDetalhe() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const confirmar = useConfirm();
 
   const { data: lead, isLoading, isError } = useQuery({
     queryKey: ["lead", id],
@@ -146,7 +148,7 @@ export default function LeadDetalhe() {
         </button>
         <button
           onClick={async () => {
-            if (!window.confirm("Excluir este lead?")) return;
+            if (!(await confirmar({ title: "Excluir este lead?", confirmText: "Excluir", destructive: true }))) return;
             const { error } = await (supabase as any).from("leads").delete().eq("id", id);
             if (error) return toast.error("Não excluiu", { description: error.message });
             toast.success("Lead excluído");

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useConfirm } from "@/components/ui/confirm";
 import { CalendarRange, ChevronLeft, ChevronRight, Trophy, Frown, Check, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ function firstDow(y: number, m: number) {
 
 export default function FollowUps() {
   const qc = useQueryClient();
+  const confirmar = useConfirm();
   const [cursor, setCursor] = useState(() => new Date());
 
   const y = cursor.getFullYear();
@@ -245,7 +247,7 @@ export default function FollowUps() {
                     title="Excluir follow-up"
                     className="text-muted-foreground hover:text-destructive"
                     onClick={async () => {
-                      if (!window.confirm("Excluir este follow-up?")) return;
+                      if (!(await confirmar({ title: "Excluir follow-up?", confirmText: "Excluir", destructive: true }))) return;
                       const { error } = await (supabase as any).from("follow_ups").delete().eq("id", f.id);
                       if (error) return toast.error("Não excluiu", { description: error.message });
                       qc.invalidateQueries();

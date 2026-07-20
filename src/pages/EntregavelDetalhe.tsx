@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
+import { useConfirm } from "@/components/ui/confirm";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import {
   STATUS_ENTREGAVEL, statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
@@ -95,6 +96,7 @@ export default function EntregavelDetalhe() {
   const { user } = useAuth();
   const { start } = useTimer();
   const { isAdmin, isCoordenadora, canSeeHours } = usePermissions();
+  const confirmar = useConfirm();
 
   const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
@@ -333,7 +335,11 @@ export default function EntregavelDetalhe() {
                 className="text-destructive hover:text-destructive"
                 title="Excluir entregável"
                 onClick={async () => {
-                  if (!window.confirm("Excluir este entregável? Remove o timesheet e as alterações ligadas a ele.")) return;
+                  if (!(await confirmar({
+                    title: "Excluir entregável?",
+                    description: "Remove o timesheet e as alterações ligadas a ele. Não dá pra desfazer.",
+                    confirmText: "Excluir", destructive: true,
+                  }))) return;
                   const { error } = await (supabase as any).from("deliverables").delete().eq("id", did);
                   if (error) return toast.error("Não excluiu", { description: error.message });
                   toast.success("Entregável excluído");
@@ -542,6 +548,7 @@ function FluxoCard({
 }) {
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
+  const confirmar = useConfirm();
   const status = entregavel.status || "pendente";
   const retrab = !!entregavel.retrabalho;
   const rodandoAqui = sessao?.deliverable_id === did;
@@ -575,7 +582,11 @@ function FluxoCard({
   const forcarEtapa = async (novo: string) => {
     if (novo === status) return;
     const alvo = statusLabel(novo);
-    if (!window.confirm(`Forçar a etapa para "${alvo}"? Isso pula o fluxo normal — use só pra corrigir.`)) return;
+    if (!(await confirmar({
+      title: `Corrigir etapa para "${alvo}"?`,
+      description: "Isso pula o fluxo normal — use só pra destravar uma peça que ficou na etapa errada.",
+      confirmText: "Forçar etapa",
+    }))) return;
     if (rodandoAqui && novo !== "em_edicao") await stop();   // não deixa o cronômetro solto
     await upd({ status: novo }, `Etapa corrigida para "${alvo}"`);
   };
