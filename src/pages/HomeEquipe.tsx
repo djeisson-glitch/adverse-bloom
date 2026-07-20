@@ -14,12 +14,9 @@ import {
  * Home de quem não vê dinheiro. DUAS visões, pelo que a pessoa faz:
  *
  *  • Editor/equipe (vê horas) → a fila DELE: tarefas, vídeos na mão, horas.
- *  • Coordenação (não vê horas, ex.: Maiara) → o PANORAMA do time: quantos
- *    entregáveis em cada etapa (a iniciar, em edição, aprovação interna, com o
- *    cliente), o que está atrasado e o que vence primeiro — sem nada de horas.
- *
- * É panorama, não lista: a lista onde se opera é a Minha mesa. Aqui orienta e
- * manda pra lá.
+ *  • Coordenação (não vê horas, ex.: Maiara) → o trabalho DELA à mão: contadores
+ *    rápidos do fluxo + a FILA de revisão e envio (clica e abre o entregável pra
+ *    revisar ou mandar pro cliente) + o que está com o cliente. Sem horas.
  */
 
 function inicioDaSemana() {
@@ -234,50 +231,60 @@ function PainelCoordenacao() {
   const comCliente = porEtapa("cliente");
   const atrasados = entregaveis.filter((d: any) => prazoDe(d) && prazoDe(d) < hoje);
 
-  const proximos = entregaveis
-    .filter((d: any) => prazoDe(d))
-    .sort((a: any, b: any) => (prazoDe(a) < prazoDe(b) ? -1 : 1))
-    .slice(0, 6)
-    .map((d: any) => ({
-      id: `d-${d.id}`,
-      tipo: "entrega" as const,
-      titulo: d.titulo,
-      prazo: prazoDe(d),
-      projeto: nomeDe(d.responsavel_id),
-      url: `/projetos/${d.project_id}/entregaveis/${d.id}`,
-    }));
+  // "Pronto pra enviar" (status pronto) merece destaque dentro da revisão: é o
+  // passo em que ela clica "enviar para o cliente".
+  const prontos = entregaveis.filter((d: any) => d.status === "pronto");
+
+  const linkEntreg = (d: any) => `/projetos/${d.project_id}/entregaveis/${d.id}`;
 
   return (
     <>
-      {/* Panorama por etapa — o coração do que a coordenação precisa ver. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <EtapaCard to="/projetos" icon={Hourglass} label="A iniciar" valor={naFila.length} tom="text-slate-400" />
-        <EtapaCard to="/projetos" icon={Film} label="Em edição" valor={emEdicao.length} tom="text-primary" />
-        <EtapaCard to="/minha-mesa" icon={UserCheck} label="Aprovação interna" valor={aprovacao.length} tom="text-amber-400" />
-        <EtapaCard to="/projetos" icon={Send} label="Com o cliente" valor={comCliente.length} tom="text-cyan-400" />
+      {/* Contadores rápidos do fluxo (informativo). Os dois que ela AGE viram
+          listas logo abaixo. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <MiniStat icon={Hourglass} label="A iniciar" valor={naFila.length} tom="text-slate-400" />
+        <MiniStat icon={Film} label="Em edição" valor={emEdicao.length} tom="text-primary" />
+        <MiniStat icon={AlertTriangle} label="Atrasados" valor={atrasados.length} tom="text-destructive" destaque={atrasados.length > 0} />
+        <MiniStat icon={MessageSquarePlus} label="Alterações" valor={alteracoesAbertas as number} tom="text-amber-400" destaque={(alteracoesAbertas as number) > 0} />
       </div>
 
-      {/* Precisa de atenção: atrasados + alterações abertas. */}
-      {(atrasados.length > 0 || alteracoesAbertas > 0) && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Resumo
-            to="/minha-mesa"
-            icon={AlertTriangle}
-            label="Entregas atrasadas"
-            valor={atrasados.length}
-            alerta={atrasados.length > 0 ? "precisam de você" : undefined}
-          />
-          <Resumo
-            to="/minha-mesa"
-            icon={MessageSquarePlus}
-            label="Alterações abertas"
-            valor={alteracoesAbertas as number}
-            alerta={alteracoesAbertas > 0 ? "pedidas pelo cliente" : undefined}
-          />
-        </div>
-      )}
+      {/* Fila de REVISÃO E ENVIO — o trabalho da Maiara, direto na tela.
+          Aprovação interna + os prontos-pra-enviar, cada um abre o entregável
+          onde ela revisa ou clica "enviar para o cliente". */}
+      <ListaAcao
+        icon={UserCheck}
+        titulo="Precisa da sua revisão"
+        cor="text-amber-400"
+        vazio="Nada pra revisar agora 🎉"
+        itens={aprovacao.map((d: any) => ({
+          id: d.id,
+          titulo: d.titulo,
+          sub: nomeDe(d.responsavel_id),
+          prazo: prazoDe(d),
+          url: linkEntreg(d),
+          badge: d.status === "pronto" ? "pronto p/ enviar" : "revisar",
+          badgeTom: d.status === "pronto" ? "bg-success/15 text-success" : "bg-amber-500/15 text-amber-500",
+        }))}
+        hoje={hoje}
+      />
 
-      <VencePrimeiro proximos={proximos} hoje={hoje} comResponsavel />
+      {/* Com o cliente — acompanhamento do que já foi enviado. */}
+      <ListaAcao
+        icon={Send}
+        titulo="Com o cliente"
+        cor="text-cyan-400"
+        vazio="Nada aguardando o cliente agora."
+        itens={comCliente.map((d: any) => ({
+          id: d.id,
+          titulo: d.titulo,
+          sub: nomeDe(d.responsavel_id),
+          prazo: prazoDe(d),
+          url: linkEntreg(d),
+          badge: "aguardando",
+          badgeTom: "bg-cyan-500/15 text-cyan-500",
+        }))}
+        hoje={hoje}
+      />
 
       <div className="grid gap-2 sm:grid-cols-4">
         <Atalho to="/minha-mesa" icon={ListChecks} label="Minha mesa" />
@@ -286,6 +293,78 @@ function PainelCoordenacao() {
         <Atalho to="/calendario" icon={CalendarDays} label="Calendário" />
       </div>
     </>
+  );
+}
+
+/** Lista acionável de entregáveis (cada linha abre a peça). Corta em 8 e diz
+ *  quantos ficaram de fora — nada some sem avisar. */
+function ListaAcao({
+  icon: Icon, titulo, cor, vazio, itens, hoje,
+}: {
+  icon: any; titulo: string; cor: string; vazio: string;
+  itens: { id: string; titulo: string; sub?: string; prazo: string | null; url: string; badge: string; badgeTom: string }[];
+  hoje: string;
+}) {
+  const visiveis = itens.slice(0, 8);
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Icon className={`h-4 w-4 ${cor}`} />
+          <p className="text-sm font-semibold text-foreground">{titulo}</p>
+          <span className="rounded-full bg-muted/60 px-1.5 text-[11px] text-muted-foreground">{itens.length}</span>
+        </div>
+        {itens.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">{vazio}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {visiveis.map((it) => {
+              const atrasado = it.prazo && it.prazo < hoje;
+              return (
+                <Link key={it.id} to={it.url} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/40">
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${it.badgeTom}`}>
+                    {it.badge}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">
+                    {it.titulo}
+                    {it.sub && <span className="text-muted-foreground"> · {it.sub}</span>}
+                  </span>
+                  {it.prazo && (
+                    <span className={`shrink-0 text-xs ${atrasado ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+                      {atrasado && <AlertTriangle className="mr-1 inline h-3 w-3" />}
+                      {fmtDia(it.prazo)}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+            {itens.length > visiveis.length && (
+              <p className="pt-1 text-center text-[11px] text-muted-foreground">
+                + {itens.length - visiveis.length} mais
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniStat({
+  icon: Icon, label, valor, tom, destaque,
+}: {
+  icon: any; label: string; valor: number; tom: string; destaque?: boolean;
+}) {
+  return (
+    <Card className="glass-card">
+      <CardContent className="flex items-center gap-2.5 p-3">
+        <Icon className={`h-4 w-4 shrink-0 ${tom}`} />
+        <div className="min-w-0">
+          <p className={`text-lg font-semibold leading-none ${destaque && valor > 0 ? "text-destructive" : "text-foreground"}`}>{valor}</p>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -337,25 +416,6 @@ function VencePrimeiro({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function EtapaCard({
-  to, icon: Icon, label, valor, tom,
-}: {
-  to: string; icon: any; label: string; valor: number; tom: string;
-}) {
-  return (
-    <Link to={to} className="block">
-      <Card className="glass-card h-full transition hover:border-primary/40">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Icon className={`h-3.5 w-3.5 ${tom}`} /> {label}
-          </div>
-          <p className={`mt-1 text-2xl font-semibold ${valor > 0 ? "text-foreground" : "text-muted-foreground"}`}>{valor}</p>
-        </CardContent>
-      </Card>
-    </Link>
   );
 }
 
