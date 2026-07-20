@@ -5,13 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateProject, PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
-import { useClients } from "@/hooks/useDeals";
+import { useClientesPublico } from "@/hooks/useDeals";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export function NewProjectModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const create = useCreateProject();
-  const { clients } = useClients();
+  // Lista pública (só nome) — o time escolhe o cliente sem acessar a ficha.
+  const { clientes: clients } = useClientesPublico();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",

@@ -102,6 +102,27 @@ export function useDeals() {
   return { ...query, deals: query.data || [], createDeal, updateDeal, deleteDeal };
 }
 
+/**
+ * Lista PÚBLICA de clientes — só nome/identidade, via a view clientes_publico.
+ * Serve pra quem NÃO tem o módulo Clientes ver e escolher o cliente num projeto
+ * sem alcançar contato/faturamento (a tabela clients é trancada por RLS).
+ */
+export function useClientesPublico() {
+  const query = useQuery({
+    queryKey: ["clientes-publico"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("clientes_publico")
+        .select("id, name, trade_name, type")
+        .eq("type", "cliente")
+        .order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; trade_name: string | null; type: string }[];
+    },
+  });
+  return { clientes: query.data || [], ...query };
+}
+
 export function useClients() {
   const qc = useQueryClient();
 

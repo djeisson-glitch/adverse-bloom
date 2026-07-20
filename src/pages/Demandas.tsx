@@ -52,10 +52,19 @@ export default function Demandas() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("demandas")
-        .select("*, client:clients(name)")
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Demanda[];
+      const rows = (data || []) as Demanda[];
+      // Nome do cliente vem da view pública (a tabela clients é trancada; a
+      // coordenadora vê o nome, não a informação).
+      const ids = [...new Set(rows.map((d) => d.client_id).filter(Boolean))] as string[];
+      let nomes: Record<string, string> = {};
+      if (ids.length) {
+        const { data: cs } = await (supabase as any).from("clientes_publico").select("id, name").in("id", ids);
+        nomes = Object.fromEntries((cs || []).map((c: any) => [c.id, c.name]));
+      }
+      return rows.map((d) => ({ ...d, client: d.client_id ? { name: nomes[d.client_id] || "" } : null }));
     },
   });
 
@@ -110,7 +119,7 @@ export default function Demandas() {
       let clientName = d.client?.name || "";
       if (d.client_id) {
         const { data: cli } = await (supabase as any)
-          .from("clients").select("name, intake_editor_id").eq("id", d.client_id).maybeSingle();
+          .from("clientes_publico").select("name, intake_editor_id").eq("id", d.client_id).maybeSingle();
         editorId = cli?.intake_editor_id ?? null;
         clientName = cli?.name || clientName;
       }

@@ -147,9 +147,20 @@ export default function MinhaMesa() {
   const { data: demandas = [] } = useQuery({
     queryKey: ["minha-mesa-demandas"],
     enabled: podeDemandas,
-    queryFn: async () => (await (supabase as any).from("demandas")
-      .select("id, nome_projeto, solicitante_nome, prazo_desejado, client:clients(name)")
-      .eq("status", "nova")).data || [],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("demandas")
+        .select("id, nome_projeto, solicitante_nome, prazo_desejado, client_id")
+        .eq("status", "nova");
+      const rows = data || [];
+      // Nome do cliente pela view pública (a tabela clients é trancada).
+      const ids = [...new Set(rows.map((d: any) => d.client_id).filter(Boolean))] as string[];
+      let nomes: Record<string, string> = {};
+      if (ids.length) {
+        const { data: cs } = await (supabase as any).from("clientes_publico").select("id, name").in("id", ids);
+        nomes = Object.fromEntries((cs || []).map((c: any) => [c.id, c.name]));
+      }
+      return rows.map((d: any) => ({ ...d, client: d.client_id ? { name: nomes[d.client_id] || "" } : null }));
+    },
   });
 
   const { data: profiles = [] } = useQuery({
