@@ -279,6 +279,13 @@ export default function EntregavelDetalhe() {
     setForm({ ...form, ...patch });
     auto.agendar(patch);
   };
+  // Escolha em Select é discreta — grava NA HORA. Sem isto, mudar status ou
+  // responsável e dar F5 em menos de 0,8s (o debounce) perdia a alteração.
+  const setJa = (patch: any) => {
+    setForm({ ...form, ...patch });
+    auto.agendar(patch);
+    auto.gravarAgora();
+  };
 
   // Config efetiva de aprovação (override por projeto > global)
   const n1 = proj?.aprovador_n1_id ?? config?.nivel1_user_id ?? null;
@@ -339,7 +346,7 @@ export default function EntregavelDetalhe() {
               />
             </div>
             <div className="flex gap-2">
-              <Select value={form.status} onValueChange={(v) => set({ status: v })}>
+              <Select value={form.status} onValueChange={(v) => setJa({ status: v })}>
                 <SelectTrigger className="h-9 w-48">
                   <SelectValue />
                 </SelectTrigger>
@@ -384,7 +391,7 @@ export default function EntregavelDetalhe() {
               </div>
             </Campo>
             <Campo label="Responsável">
-              <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => set({ responsavel_id: v === "__none__" ? "" : v })}>
+              <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
                 <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">— sem responsável —</SelectItem>
