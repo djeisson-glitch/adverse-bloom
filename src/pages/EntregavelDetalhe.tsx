@@ -10,12 +10,12 @@ import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import {
-  statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
+  STATUS_ENTREGAVEL, statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
 } from "@/lib/statusEntregavel";
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy,
+  PanelRightClose, MessageSquare, Copy, Wrench,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -419,6 +419,7 @@ export default function EntregavelDetalhe() {
         isN1={isN1}
         isN2={isN2}
         isRevisor={isRevisor}
+        podeForcar={podeRevisar}
         alteracaoAberta={alteracaoAberta}
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["entregavel", did] });
@@ -532,12 +533,12 @@ export default function EntregavelDetalhe() {
 
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
-  isEditor, isN1, isN2, isRevisor, alteracaoAberta, onChanged,
+  isEditor, isN1, isN2, isRevisor, podeForcar, alteracaoAberta, onChanged,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
   n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
   isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
-  alteracaoAberta: any; onChanged: () => void;
+  podeForcar: boolean; alteracaoAberta: any; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
@@ -567,6 +568,17 @@ function FluxoCard({
 
   // Prompt do motivo do ajuste (o editor recebe pela conversa). null = cancelou.
   const promptAjuste = () => window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
+
+  // OVERRIDE de etapa — só admin/coordenadora. É um atalho de CORREÇÃO (pula o
+  // fluxo), pra destravar peça que ficou na etapa errada. O time normal segue
+  // pelos botões; aqui é a exceção controlada.
+  const forcarEtapa = async (novo: string) => {
+    if (novo === status) return;
+    const alvo = statusLabel(novo);
+    if (!window.confirm(`Forçar a etapa para "${alvo}"? Isso pula o fluxo normal — use só pra corrigir.`)) return;
+    if (rodandoAqui && novo !== "em_edicao") await stop();   // não deixa o cronômetro solto
+    await upd({ status: novo }, `Etapa corrigida para "${alvo}"`);
+  };
 
   // ---- EDITOR: um botão que faz status + timesheet ----
   const editar = async () => {
@@ -699,6 +711,25 @@ function FluxoCard({
               : status === "pronto" ? "Aguardando alguém enviar ao cliente."
               : "Sem ação sua nesta etapa."}
           </p>
+        )}
+
+        {/* Override de etapa — só admin/coordenadora. Correção manual pra
+            destravar peça na etapa errada; o resto do time segue pelos botões. */}
+        {podeForcar && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Wrench className="h-3 w-3" /> Corrigir etapa (admin/coord.)
+            </span>
+            <Select value={status} onValueChange={forcarEtapa}>
+              <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {STATUS_ENTREGAVEL.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[10px] text-muted-foreground/70">pula o fluxo — use só pra destravar</span>
+          </div>
         )}
       </CardContent>
     </Card>
