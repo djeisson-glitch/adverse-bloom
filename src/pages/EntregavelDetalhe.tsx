@@ -8,6 +8,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
+import * as Fluxo from "@/lib/fluxoEntregavel";
+import {
+  statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
+} from "@/lib/statusEntregavel";
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
@@ -28,65 +32,6 @@ import { ComentariosSection } from "./ProjetoDetalhe";
  * aprovação em 2 níveis (config global + override por projeto) e card de
  * análise de horas (edição pura × alteração do cliente).
  */
-
-const STATUS_ENTREGAVEL = [
-  { id: "pendente", label: "Pendente", tone: "muted" },
-  { id: "em_edicao", label: "Em edição", tone: "primary" },
-  { id: "em_pausa", label: "Em pausa", tone: "muted" },
-  { id: "revisao_n1", label: "Revisão N1", tone: "warning" },
-  { id: "revisao_n2", label: "Revisão N2", tone: "warning" },
-  { id: "revisao", label: "Revisão", tone: "warning" },
-  { id: "pronto", label: "Pronto pra enviar", tone: "success" },
-  { id: "com_cliente", label: "Com o cliente", tone: "info" },
-  { id: "ajuste_solicitado", label: "Ajuste do cliente", tone: "destructive" },
-  { id: "ajuste_interno", label: "Ajuste interno", tone: "destructive" },
-  { id: "aprovado", label: "Aprovado", tone: "success" },
-  { id: "entregue", label: "Entregue", tone: "success" },
-] as const;
-
-function statusTone(id: string) {
-  const s = STATUS_ENTREGAVEL.find((x) => x.id === id);
-  const map: Record<string, string> = {
-    success: "bg-success/15 text-success",
-    warning: "bg-warning/15 text-warning",
-    destructive: "bg-destructive/15 text-destructive",
-    primary: "bg-primary/15 text-primary",
-    info: "bg-cyan-500/15 text-cyan-400",
-    // Antes muted-foreground somia no fundo. Texto na cor do foreground lê bem.
-    muted: "bg-foreground/10 text-foreground",
-  };
-  return map[s?.tone || "muted"];
-}
-
-// Visual FORTE do status — o destaque da tela: ícone da etapa, pílula grande e
-// borda colorida no card, pra bater o olho e saber onde o vídeo está.
-const STATUS_ICON: Record<string, any> = {
-  pendente: Clock, em_edicao: Film, em_pausa: Pause,
-  revisao_n1: UserCheck, revisao_n2: UserCheck, revisao: UserCheck,
-  pronto: ThumbsUp, com_cliente: ExternalLink,
-  ajuste_interno: RefreshCw, ajuste_solicitado: RefreshCw,
-  aprovado: CheckCircle2, entregue: CheckCircle2,
-};
-function statusTom(id: string): string {
-  return STATUS_ENTREGAVEL.find((x) => x.id === id)?.tone || "muted";
-}
-function statusPill(id: string): string {
-  return {
-    primary: "bg-primary/25 text-primary border-primary/50",
-    warning: "bg-warning/25 text-warning border-warning/50",
-    destructive: "bg-destructive/25 text-destructive border-destructive/50",
-    success: "bg-success/25 text-success border-success/50",
-    info: "bg-cyan-500/25 text-cyan-300 border-cyan-500/50",
-    muted: "bg-foreground/15 text-foreground border-foreground/30",
-  }[statusTom(id)] || "bg-foreground/15 text-foreground border-foreground/30";
-}
-function statusBorda(id: string): string {
-  return {
-    primary: "border-l-primary", warning: "border-l-warning",
-    destructive: "border-l-destructive", success: "border-l-success",
-    info: "border-l-cyan-500", muted: "border-l-foreground/40",
-  }[statusTom(id)] || "border-l-foreground/40";
-}
 
 function nomeDe(profiles: any[], uid: string | null | undefined) {
   if (!uid) return "—";
@@ -137,7 +82,7 @@ async function copiarTexto(texto: string, oque: string) {
 
 // Rótulo do status deixando explícito QUEM revisa em cada nível.
 function labelStatus(status: string, n1Nome: string, n2Nome: string) {
-  const base = STATUS_ENTREGAVEL.find((s) => s.id === status)?.label || status;
+  const base = statusLabel(status);
   if (status === "revisao_n1") return `${base} · ${n1Nome}`;
   if (status === "revisao_n2") return `${base} · ${n2Nome}`;
   return base;
@@ -599,7 +544,6 @@ function FluxoCard({
   const status = entregavel.status || "pendente";
   const retrab = !!entregavel.retrabalho;
   const rodandoAqui = sessao?.deliverable_id === did;
-  const agora = () => new Date().toISOString();
 
   const upd = async (patch: any, msg?: string) => {
     const { error } = await (supabase as any).from("deliverables").update(patch).eq("id", did);
@@ -608,17 +552,21 @@ function FluxoCard({
     if (msg) toast.success(msg);
   };
 
-  // Anota o que precisa ajustar (o editor recebe pela conversa). Devolve false
-  // se a pessoa cancelou o prompt — aí a transição não acontece.
-  const anotarAjuste = async () => {
-    const motivo = window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
-    if (motivo === null) return false;
-    await (supabase as any).from("comments").insert({
-      entity_type: "deliverable", entity_id: did, user_id: user?.id,
-      body: `🔧 Ajuste: ${motivo.trim() || "(sem detalhe)"}`, mentions: [],
-    });
-    return true;
+  // Toda transição do fluxo passa pela fonte única (lib/fluxoEntregavel) — aqui e
+  // na Minha mesa é o MESMO código, pra não divergir. `run` só embrulha com
+  // refresh + toast + tratamento de erro.
+  const run = async (fn: () => Promise<string>) => {
+    try {
+      const msg = await fn();
+      onChanged();
+      if (msg) toast.success(msg);
+    } catch (e: any) {
+      toast.error("Erro", { description: e.message });
+    }
   };
+
+  // Prompt do motivo do ajuste (o editor recebe pela conversa). null = cancelou.
+  const promptAjuste = () => window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
 
   // ---- EDITOR: um botão que faz status + timesheet ----
   const editar = async () => {
@@ -635,65 +583,42 @@ function FluxoCard({
   };
   const enviarRevisao = async () => {
     if (rodandoAqui) await stop();          // para o timesheet
-    if (alteracaoAberta) {
-      await (supabase as any).from("deliverable_alteracoes")
-        .update({ status: "resolvida", resolved_at: agora() }).eq("id", alteracaoAberta.id);
-    }
-    // 1ª vez → duas aprovações (N1→N2). Retrabalho → uma só (N1).
-    await upd({ status: retrab ? "revisao" : "revisao_n1", rev_ajuste_pendente: false },
-      retrab ? "Enviado para revisão (Aprovação 1)" : "Enviado para revisão (Aprovação 1 → 2)");
+    await run(() => Fluxo.enviarParaRevisao(entregavel, alteracaoAberta?.id));
   };
 
   // ---- APROVAÇÃO 1 (1ª vez): sempre segue pra Ap.2, com ou sem ajuste ----
-  const n1AprovaSegue = () =>
-    upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2" }, "Aprovado → segue pra Aprovação 2");
+  const n1AprovaSegue = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
   const n1AjusteSegue = async () => {
-    if (!(await anotarAjuste())) return;
-    await upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2", rev_ajuste_pendente: true },
-      "Ajuste anotado → segue pra Aprovação 2");
+    const motivo = promptAjuste();
+    if (motivo === null) return;
+    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
   };
 
-  // ---- APROVAÇÃO 2: fecha a 1ª volta. Se acumulou ajuste (N1 ou N2), volta pro
-  //      editor; senão, pronto pra enviar. ----
-  const fecharN2 = (ajusteAgora: boolean) => {
-    const temAjuste = ajusteAgora || !!entregavel.rev_ajuste_pendente;
-    if (temAjuste) {
-      return upd({
-        aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "ajuste_interno",
-        retrabalho: true, rev_ajuste_pendente: false,
-        revisoes_internas: (entregavel.revisoes_internas || 0) + 1,
-      }, "Volta pro editor com os ajustes");
-    }
-    return upd({ aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "pronto" },
-      "Aprovado — pronto pra enviar ao cliente");
+  // ---- APROVAÇÃO 2: aprovarEtapa fecha a 1ª volta (respeita ajuste acumulado);
+  //      pedirAjuste força a volta pro editor. ----
+  const n2Aprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
+  const n2Ajuste = async () => {
+    const motivo = promptAjuste();
+    if (motivo === null) return;
+    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
   };
-  const n2Aprova = () => fecharN2(false);
-  const n2Ajuste = async () => { if (!(await anotarAjuste())) return; await fecharN2(true); };
 
   // ---- REVISÃO ÚNICA (retrabalho, só N1) ----
-  const revUnicaAprova = () =>
-    upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "pronto" }, "Aprovado — pronto pra enviar");
+  const revUnicaAprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
   const revUnicaAjuste = async () => {
-    if (!(await anotarAjuste())) return;
-    await upd({ status: "ajuste_interno", revisoes_internas: (entregavel.revisoes_internas || 0) + 1 },
-      "Volta pro editor com os ajustes");
+    const motivo = promptAjuste();
+    if (motivo === null) return;
+    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
   };
-  const revUnicaEscala = () =>
-    upd({ status: "revisao_n2", rev_ajuste_pendente: false }, "Escalado para Aprovação 2");
+  const revUnicaEscala = () => run(() => Fluxo.escalarAprovacao2(entregavel));
 
   // ---- ENVIO E CLIENTE ----
-  const enviarCliente = () => upd({ status: "com_cliente" }, "Enviado para aprovação do cliente");
-  const clienteAprovou = () => upd({ status: "entregue", aprovado_cliente_em: agora() }, "Cliente aprovou 🎉");
+  const enviarCliente = () => run(() => Fluxo.enviarAoCliente(entregavel));
+  const clienteAprovou = () => run(() => Fluxo.clienteAprovou(entregavel));
   const alteracaoCliente = async () => {
     const titulo = window.prompt("Resumo do que o cliente pediu de alteração:");
     if (!titulo || !titulo.trim()) return;
-    const { error } = await (supabase as any).from("deliverable_alteracoes").insert({
-      deliverable_id: did, titulo: titulo.trim(), origem: "cliente",
-      criado_por: "Cliente", responsavel_id: entregavel.responsavel_id || null,
-    });
-    if (error) return toast.error("Erro", { description: error.message });
-    // Volta pro editor; como retrabalho, o próximo ciclo tem só a Aprovação 1.
-    await upd({ status: "ajuste_interno", retrabalho: true }, "Alteração do cliente registrada — voltou pro editor");
+    await run(() => Fluxo.registrarAlteracaoCliente(entregavel, titulo));
   };
 
   const botoes: React.ReactNode[] = [];
@@ -738,7 +663,7 @@ function FluxoCard({
     B("alt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
   }
 
-  const StatusIcon = STATUS_ICON[status] || Clock;
+  const StatusIcon = iconeStatus(status);
   return (
     <Card className={`glass-card border-l-4 ${statusBorda(status)}`}>
       <CardContent className="space-y-3 p-5">

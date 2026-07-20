@@ -1,23 +1,30 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTimer } from "@/contexts/TimerContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Link } from "react-router-dom";
 import {
-  Clapperboard, Film, ThumbsUp, ChevronRight, Loader2, ListChecks,
-  RefreshCw, Inbox, AlertTriangle, Clock, CalendarDays, Sparkles, Users,
+  Clapperboard, ListChecks, ChevronRight, Loader2, Inbox, AlertTriangle,
+  Clock, CalendarDays, Sparkles, Users, Play, ThumbsUp, RefreshCw,
+  CheckCircle2, ExternalLink, MessageSquarePlus,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import * as Fluxo from "@/lib/fluxoEntregavel";
+import { iconeStatus, statusPill, statusTone, statusLabel } from "@/lib/statusEntregavel";
 
 /**
- * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo
- * que precisa dela — sem aba escondendo nada. E, pra quem coordena
- * (admin/produtor), um painel "No sistema" com o radar do time todo, pra
- * nada se perder em nenhum projeto.
+ * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo que
+ * precisa dela — e RESOLVE ali mesmo. Cada item traz os botões do fluxo (os
+ * mesmos de dentro do entregável, via lib/fluxoEntregavel): Editar, Enviar pra
+ * revisão, Aprovar, Pedir ajuste, Enviar ao cliente. Pra quem coordena, um
+ * painel "No sistema" com o radar do time todo.
  */
 
-type Tipo = "editar" | "aprovar" | "alteracao" | "tarefa" | "demanda";
+type Tipo = "editar" | "aprovar" | "enviar" | "cliente" | "tarefa" | "demanda";
 type Bucket = "atrasado" | "espera" | "semana" | "andamento";
 
 type Item = {
@@ -25,18 +32,13 @@ type Item = {
   tipo: Tipo;
   titulo: string;
   contexto: string;
+  nota?: string;          // 2ª linha extra (ex.: alteração do cliente aberta)
   acao: string;
   link: string;
   due: string | null;
   bloqueante: boolean;
-  etapa?: string;
-};
-
-const ETAPA_LABEL: Record<string, string> = {
-  pendente: "Pendente", em_edicao: "Em edição", em_pausa: "Em pausa", revisao_n1: "Revisão N1",
-  revisao_n2: "Revisão N2", revisao: "Revisão", pronto: "Pronto pra enviar",
-  com_cliente: "Com o cliente", ajuste_solicitado: "Ajuste do cliente", ajuste_interno: "Ajuste interno",
-  aprovado: "Aprovado", entregue: "Entregue",
+  d?: any;                // entregável cru — pras ações de fluxo
+  alt?: any;              // alteração do cliente aberta ligada ao entregável
 };
 
 type SistItem = {
@@ -52,10 +54,9 @@ type SistItem = {
   etapa?: string;
 };
 
-const TIPO_ICON: Record<Tipo, any> = { editar: Film, aprovar: ThumbsUp, alteracao: RefreshCw, tarefa: ListChecks, demanda: Inbox };
-const TIPO_COR: Record<Tipo, string> = {
-  editar: "text-primary", aprovar: "text-emerald-400", alteracao: "text-amber-400",
-  tarefa: "text-blue-400", demanda: "text-purple-400",
+const TIPO_ICON: Record<Tipo, any> = {
+  editar: Play, aprovar: ThumbsUp, enviar: ExternalLink, cliente: CheckCircle2,
+  tarefa: ListChecks, demanda: Inbox,
 };
 
 const SECOES: { id: Bucket; label: string; hint: string; icon: any; cor: string }[] = [
@@ -71,16 +72,45 @@ const TONE_CHIP: Record<string, string> = {
   purple: "bg-purple-500/15 text-purple-400 border-purple-500/30",
 };
 
+// Botões de fluxo por item — mesma linguagem visual dos de dentro do entregável.
+type BtnCfg = { kind: string; label: string; Icon: any; cls: string; outline?: boolean };
+const CLS_PRIMARY = "bg-primary text-primary-foreground hover:bg-primary/90";
+const CLS_SUCCESS = "bg-success text-white hover:bg-success/90";
+const CLS_AJUSTE = "text-destructive hover:text-destructive";
+const CLS_ALTER = "text-amber-500 hover:text-amber-500";
+
+function botoesDoItem(it: Item): BtnCfg[] {
+  const s = it.d?.status;
+  if (it.tipo === "editar") {
+    if (s === "em_edicao") return [{ kind: "enviarRevisao", label: "Enviar p/ revisão", Icon: ThumbsUp, cls: CLS_PRIMARY }];
+    return [{ kind: "editar", label: s === "em_pausa" ? "Retomar" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
+  }
+  if (it.tipo === "aprovar") return [
+    { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_SUCCESS },
+    { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_AJUSTE, outline: true },
+  ];
+  if (it.tipo === "enviar") return [{ kind: "enviarCliente", label: "Enviar ao cliente", Icon: ExternalLink, cls: CLS_PRIMARY }];
+  if (it.tipo === "cliente") return [
+    { kind: "clienteAprovou", label: "Cliente aprovou", Icon: CheckCircle2, cls: CLS_SUCCESS },
+    { kind: "alteracaoCliente", label: "Alteração", Icon: MessageSquarePlus, cls: CLS_ALTER, outline: true },
+  ];
+  return [];
+}
+
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
 const ATIVO = (s: string) => !["aprovado", "entregue", "cancelado", "reprovado"].includes(s);
 
 export default function MinhaMesa() {
   const { user } = useAuth();
-  const { can, isAdmin, isProdutor } = usePermissions();
+  const { can, isAdmin, isProdutor, isCoordenadora } = usePermissions();
+  const { sessao, start, stop } = useTimer();
+  const qc = useQueryClient();
   const coordena = isAdmin || isProdutor;
+  const podeCliente = isAdmin || isProdutor || isCoordenadora;   // quem envia/fecha com o cliente
   const hoje = iso(new Date());
   const em7 = iso(new Date(Date.now() + 7 * 86400000));
   const podeDemandas = can("demandas");
+  const [busy, setBusy] = useState<string | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["approval-settings"],
@@ -92,7 +122,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, aprovador_n1_id, aprovador_n2_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, aprovador_n1_id, aprovador_n2_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -129,29 +159,76 @@ export default function MinhaMesa() {
   });
   const nomeDe = (uid: string | null | undefined) => (uid ? (profiles.find((p: any) => p.id === uid)?.full_name || "—") : "—");
 
+  // Alteração do cliente aberta de um entregável (pra dobrar dentro do item do editor).
+  const altAbertaDe = (did: string) => alteracoes.find((a: any) => a.deliverable?.id === did);
+
+  // ---------- Ação: dispara o fluxo (mesma lib do FluxoCard) ----------
+  const agir = async (kind: string, it: Item) => {
+    const d = it.d;
+    if (!d) return;
+    setBusy(it.key);
+    try {
+      if (kind === "editar") {
+        if (sessao?.deliverable_id !== d.id) {
+          const base = { project_id: d.project?.id, project_name: d.project?.name, deliverable_id: d.id };
+          start(it.alt ? { ...base, alteracao_id: it.alt.id } : base);
+        }
+        if (d.status !== "em_edicao") await Fluxo.aplicarPatch(d.id, Fluxo.PATCH_EM_EDICAO);
+        toast.success("Edição iniciada — cronômetro rodando");
+      } else if (kind === "enviarRevisao") {
+        if (sessao?.deliverable_id === d.id) await stop();
+        toast.success(await Fluxo.enviarParaRevisao(d, it.alt?.id));
+      } else if (kind === "aprovar") {
+        toast.success(await Fluxo.aprovarEtapa(d, user?.id));
+      } else if (kind === "ajuste") {
+        const motivo = window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
+        if (motivo === null) { setBusy(null); return; }
+        toast.success(await Fluxo.pedirAjuste(d, user?.id, motivo));
+      } else if (kind === "enviarCliente") {
+        toast.success(await Fluxo.enviarAoCliente(d));
+      } else if (kind === "clienteAprovou") {
+        toast.success(await Fluxo.clienteAprovou(d));
+      } else if (kind === "alteracaoCliente") {
+        const titulo = window.prompt("Resumo do que o cliente pediu de alteração:");
+        if (!titulo || !titulo.trim()) { setBusy(null); return; }
+        toast.success(await Fluxo.registrarAlteracaoCliente(d, titulo));
+      }
+      await qc.invalidateQueries({ queryKey: ["minha-mesa-deliverables"] });
+      await qc.invalidateQueries({ queryKey: ["minha-mesa-alteracoes"] });
+    } catch (e: any) {
+      toast.error("Erro", { description: e.message });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // ---------- Feed pessoal ----------
   const itens = useMemo<Item[]>(() => {
     if (!user?.id) return [];
     const out: Item[] = [];
 
+    // EDITOR: meus entregáveis abertos. Alteração do cliente entra DENTRO do item
+    // (não como linha separada) — some a duplicidade.
     deliverables
       .filter((d) => d.responsavel_id === user.id && ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
       .forEach((d) => {
-        // Ajuste (interno ou do cliente) = a bola voltou com ele; é bloqueante.
+        const alt = altAbertaDe(d.id);
         const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
         out.push({
           key: `edit-${d.id}`, tipo: "editar", titulo: d.titulo,
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          nota: alt ? `Alteração do cliente: ${alt.titulo}` : undefined,
           acao: ajuste
             ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
             : d.status === "pendente" ? "Começar edição"
             : d.status === "em_pausa" ? "Retomar edição"
-            : "Continuar edição",
+            : d.status === "em_edicao" ? "Editando" : "Continuar",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: ajuste,
-          etapa: ETAPA_LABEL[d.status] || d.status,
+          d, alt,
         });
       });
 
+    // APROVAÇÃO: sou o aprovador designado (N1 ou N2).
     deliverables.forEach((d) => {
       const effN1 = d.project?.aprovador_n1_id ?? settings?.nivel1_user_id ?? null;
       const effN2 = d.project?.aprovador_n2_id ?? settings?.nivel2_user_id ?? null;
@@ -162,23 +239,30 @@ export default function MinhaMesa() {
           key: `aprov-${d.id}`, tipo: "aprovar", titulo: d.titulo,
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
           acao: souN1 ? "Aprovar N1" : "Aprovar N2",
-          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true,
-          etapa: ETAPA_LABEL[d.status] || d.status,
+          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true, d,
         });
       }
     });
 
-    alteracoes
-      .filter((a: any) => a.responsavel_id === user.id || a.deliverable?.responsavel_id === user.id)
-      .forEach((a: any) => {
+    // ENVIAR AO CLIENTE / FECHAR COM O CLIENTE (coordenação).
+    if (podeCliente) {
+      deliverables.filter((d) => d.status === "pronto").forEach((d) => {
         out.push({
-          key: `alt-${a.id}`, tipo: "alteracao", titulo: `${a.titulo} — ${a.deliverable?.titulo || "entregável"}`,
-          contexto: `${a.deliverable?.project?.numero || ""} · ${a.deliverable?.project?.name || ""}`,
-          acao: "Responder alteração do cliente",
-          link: a.deliverable?.id ? `/projetos/${a.deliverable?.project?.id}/entregaveis/${a.deliverable.id}` : "#",
-          due: a.prazo || a.deliverable?.data_entrega || null, bloqueante: true,
+          key: `env-${d.id}`, tipo: "enviar", titulo: d.titulo,
+          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          acao: "Enviar ao cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: d.data_entrega || null, bloqueante: true, d,
         });
       });
+      deliverables.filter((d) => d.status === "com_cliente").forEach((d) => {
+        out.push({
+          key: `cli-${d.id}`, tipo: "cliente", titulo: d.titulo,
+          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          acao: "Aguardando o cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: d.data_entrega || null, bloqueante: false, d,
+        });
+      });
+    }
 
     tarefas.forEach((t: any) => {
       out.push({
@@ -198,7 +282,7 @@ export default function MinhaMesa() {
     });
 
     return out;
-  }, [deliverables, tarefas, alteracoes, demandas, settings, user?.id]);
+  }, [deliverables, tarefas, alteracoes, demandas, settings, user?.id, podeCliente]);
 
   const porBucket = useMemo(() => {
     const bucketDe = (it: Item): Bucket => {
@@ -225,7 +309,7 @@ export default function MinhaMesa() {
     deliverables.forEach((d) => {
       const ctx = `${d.project?.numero || ""} · ${d.project?.name || ""}`;
       const link = `/projetos/${d.project?.id}/entregaveis/${d.id}`;
-      const etapa = ETAPA_LABEL[d.status] || d.status;
+      const etapa = statusLabel(d.status);
       if (d.data_entrega && d.data_entrega < hoje && ATIVO(d.status)) {
         out.push({ key: `s-atr-${d.id}`, tag: "Atrasado", tone: "red", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 0, etapa });
       } else if (["revisao_n1", "revisao_n2", "revisao"].includes(d.status)) {
@@ -282,7 +366,7 @@ export default function MinhaMesa() {
             </div>
             <Card className={`glass-card overflow-hidden ${s.id === "atrasado" ? "border-destructive/30" : ""}`}>
               <CardContent className="p-0">
-                {lista.map((it) => <ItemRow key={it.key} it={it} hoje={hoje} />)}
+                {lista.map((it) => <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key} onAgir={agir} />)}
               </CardContent>
             </Card>
           </div>
@@ -298,7 +382,7 @@ export default function MinhaMesa() {
           <Clapperboard className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
-            <p className="text-sm text-muted-foreground">O que precisa de você — em ordem de prioridade.</p>
+            <p className="text-sm text-muted-foreground">O que precisa de você — resolva direto por aqui.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -324,33 +408,63 @@ function Chip({ cor, n, label }: { cor: string; n: number; label: string }) {
   return <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${cor}`}>{n} {label}</span>;
 }
 
-function ItemRow({ it, hoje }: { it: Item; hoje: string }) {
-  const Icon = TIPO_ICON[it.tipo];
+function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boolean; onAgir: (kind: string, it: Item) => void }) {
   const atrasado = it.due && it.due < hoje;
+  const ehEntreg = !!it.d;
+  const Icon = ehEntreg ? iconeStatus(it.d.status) : TIPO_ICON[it.tipo];
+  const iconBox = ehEntreg ? statusTone(it.d.status) : "bg-muted/40 text-muted-foreground";
+  const botoes = botoesDoItem(it);
+
   return (
-    <Link to={it.link} className="flex items-start gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40">
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/40 ${TIPO_COR[it.tipo]}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
-            {it.titulo}
-          </p>
-          {it.etapa && <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{it.etapa}</span>}
+    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40">
+      <Link to={it.link} className="flex min-w-0 flex-1 items-start gap-3">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBox}`}>
+          <Icon className="h-4 w-4" />
         </div>
-        <p className="truncate text-xs text-muted-foreground" title={it.contexto}>{it.contexto}</p>
-      </div>
-      <div className="hidden shrink-0 pt-0.5 text-right sm:block">
-        <p className={`text-xs font-medium ${it.bloqueante ? "text-amber-400" : "text-muted-foreground"}`}>{it.acao}</p>
-        {it.due && (
-          <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-            {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{atrasado ? " · atrasado" : ""}
-          </p>
-        )}
-      </div>
-      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-    </Link>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
+              {it.titulo}
+            </p>
+            {ehEntreg && (
+              <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${statusPill(it.d.status)}`}>
+                {statusLabel(it.d.status)}
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-muted-foreground" title={it.contexto}>{it.contexto}</p>
+          {it.nota && <p className="mt-0.5 truncate text-[11px] font-medium text-amber-400" title={it.nota}>↻ {it.nota}</p>}
+          {it.due && (
+            <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+              {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{atrasado ? " · atrasado" : ""}
+            </p>
+          )}
+        </div>
+      </Link>
+
+      {botoes.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {botoes.map((b) => (
+            <Button
+              key={b.kind}
+              size="sm"
+              variant={b.outline ? "outline" : "default"}
+              disabled={busy}
+              onClick={() => onAgir(b.kind, it)}
+              className={`h-7 px-2.5 text-xs ${b.cls}`}
+            >
+              {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <b.Icon className="mr-1 h-3.5 w-3.5" />}
+              {b.label}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        <Link to={it.link} className="flex shrink-0 items-center gap-1 self-center text-xs font-medium text-muted-foreground hover:text-foreground">
+          <span className="hidden sm:inline">{it.acao}</span>
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
+    </div>
   );
 }
 
