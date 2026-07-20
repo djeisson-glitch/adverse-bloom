@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle, ChevronDown } from "lucide-react";
 
 /** ISO (timestamptz) -> string do input datetime-local (horário local). */
 function toLocalInput(iso: string) {
@@ -90,6 +90,8 @@ export default function SolicitarDemanda() {
   const [entregas, setEntregas] = useState<Entrega[]>([entregaVazia()]);
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [hp, setHp] = useState(""); // honeypot anti-spam
+  // No celular a ilha começa recolhida; no desktop o CSS mostra sempre.
+  const [verAndamento, setVerAndamento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -237,45 +239,88 @@ export default function SolicitarDemanda() {
     return <Sucesso nome={form.nome} resultado={resultado} clienteNome={cfg.nome} />;
   }
 
+  // Quantas peças dependem do cliente — é o número que importa no resumo
+  // recolhido do celular. Vêm sempre no topo da lista, então não escapam do teto.
+  const aguardandoCliente = (cfg.andamento || []).filter((a) => a.etapa === "com_cliente").length;
+
   return (
     <div className="min-h-screen bg-[#0f0f10] text-[#E8E1D0]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <div className="mx-auto max-w-2xl px-5 py-10">
+      <div className="mx-auto max-w-2xl px-5 py-10 lg:max-w-5xl">
         <header className="mb-8">
           <span className="text-lg font-extrabold tracking-tight">adverse.rec <span className="text-[#E53500]">//</span></span>
           <h1 className="mt-4 text-2xl font-bold">Solicitar demanda</h1>
           <p className="text-sm text-[#9A968C]">{cfg.nome} · conte o que você precisa e a gente já estima o prazo.</p>
         </header>
 
-        {/* Resumo do que já está rolando — pra não abrir demanda repetida */}
+        {/* Duas colunas no desktop; no celular volta a empilhar.
+            Uso col-start/row-start em vez de ordem no DOM: assim a ilha vem
+            ANTES do formulário no celular (é lembrete, tem que ser vista
+            antes de pedir) e mesmo assim fica à direita no desktop. */}
+        <div className="lg:grid lg:grid-cols-[1fr_20rem] lg:items-start lg:gap-8">
+
+        {/* Ilha do que já está rolando — pra não abrir demanda repetida.
+            No desktop acompanha a rolagem; no celular fica recolhida pra não
+            empurrar o formulário pra fora da tela. */}
         {Array.isArray(cfg.andamento) && cfg.andamento.length > 0 && (
-          <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">Já em andamento com a gente</p>
-            <div className="mt-2.5 space-y-1.5">
-              {cfg.andamento.slice(0, 6).map((a, i) => {
+          <aside className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 lg:sticky lg:top-10 lg:col-start-2 lg:row-start-1 lg:mb-0">
+            {/* O resumo fica DENTRO do botão: no celular é nele que o dedo
+                vai, não no título. Fora dele, "ver todas" não abria nada. */}
+            <button
+              type="button"
+              onClick={() => setVerAndamento((v) => !v)}
+              className="w-full text-left lg:cursor-default"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">
+                  Já em andamento com a gente
+                </span>
+                <ChevronDown
+                  className={`ml-auto h-4 w-4 shrink-0 text-[#6b675f] transition-transform lg:hidden ${verAndamento ? "rotate-180" : ""}`}
+                />
+              </span>
+              {/* Recolhido, o resumo já entrega o que importa: quanto tem e
+                  quanto depende do cliente. */}
+              {!verAndamento && (
+                <span className="mt-1 block text-[11px] text-[#6b675f] lg:hidden">
+                  {cfg.andamento_total ?? cfg.andamento.length} peças
+                  {aguardandoCliente > 0 && ` · ${aguardandoCliente} aguardando você`}
+                  {" · ver todas"}
+                </span>
+              )}
+            </button>
+
+            <div
+              className={`mt-2.5 space-y-2 lg:block lg:max-h-[70vh] lg:overflow-y-auto ${verAndamento ? "" : "hidden"}`}
+            >
+              {cfg.andamento.map((a, i) => {
                 const et = etapaDe(a.etapa);
                 return (
-                  <div key={i} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 flex-1 truncate text-[#E8E1D0]" title={a.nome}>
+                  <div key={i} className="text-sm">
+                    {/* Na coluna estreita o truncate comia o nome inteiro
+                        depois do código — 2 linhas resolvem sem virar parede. */}
+                    <span className="block break-words leading-snug text-[#E8E1D0] line-clamp-2" title={a.nome}>
                       {a.nome}
                     </span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${et.classe}`}>
-                      {et.label}
-                    </span>
-                    {a.prazo && <span className="hidden shrink-0 text-[11px] text-[#6b675f] sm:inline">{fmtDia(a.prazo)}</span>}
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${et.classe}`}>
+                        {et.label}
+                      </span>
+                      {a.prazo && <span className="text-[11px] text-[#6b675f]">{fmtDia(a.prazo)}</span>}
+                    </div>
                   </div>
                 );
               })}
-              {/* A lista é cortada no banco; sem isso, some peça sem avisar. */}
-              {typeof cfg.andamento_total === "number" && cfg.andamento_total > 6 && (
+              {/* A lista tem teto no banco; sem isso, some peça sem avisar. */}
+              {typeof cfg.andamento_total === "number" && cfg.andamento_total > cfg.andamento.length && (
                 <p className="pt-1 text-[11px] text-[#6b675f]">
-                  + {cfg.andamento_total - 6} outras peças em andamento
+                  + {cfg.andamento_total - cfg.andamento.length} outras peças
                 </p>
               )}
             </div>
-          </div>
+          </aside>
         )}
 
-        <div className="space-y-5">
+        <div className="space-y-5 lg:col-start-1 lg:row-start-1">
           {/* Contatos pré-definidos: um clique preenche nome + e-mail */}
           {Array.isArray(cfg.contatos) && cfg.contatos.length > 0 && (
             <div>
@@ -465,6 +510,8 @@ export default function SolicitarDemanda() {
               ? "Esse prazo está sem disponibilidade — escolha o horário sugerido acima pra enviar."
               : "Ao enviar, você recebe uma estimativa de prazo. Nosso time confirma com você em seguida."}
           </p>
+        </div>
+
         </div>
       </div>
     </div>
