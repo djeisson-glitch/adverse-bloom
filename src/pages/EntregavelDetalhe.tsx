@@ -64,22 +64,31 @@ function normFormato(formato: string | null | undefined): string {
   return (formato || "").trim().replace(/\s+/g, "").replace(/[×:]/g, "x").toLowerCase();
 }
 
-// Nome-padrão pra pasta/projeto no DaVinci — cada bloco entre colchetes:
-// [COD] [2-3 primeiras palavras] [FORMATO] [V1]
-// ex.: "[ADVR-4010] [Vídeo Completo Podcast] [16x9] [V1]"
-function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
-  const cod = (codigo || "").trim();
-  const palavras = (titulo || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
-  const f = normFormato(formato);
-  return [cod && `[${cod}]`, palavras && `[${palavras}]`, f && `[${f}]`, "[V1]"].filter(Boolean).join(" ");
+// Caixa de nome de pasta: tudo maiúsculo e sem acento, no mesmo padrão dos
+// nomes de projeto (CAMPANHA_PME_UNIMED). Acento em nome de pasta dá dor de
+// cabeça no DaVinci e no sistema de arquivos.
+function caixaPasta(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 }
 
-// Nome-padrão do projeto: [NNNN]_NOME (NNNN = número do orçamento, 4 dígitos).
-// Sem orçamento vinculado, devolve só o nome limpo (sem prefixo antigo #data/[..]).
-function nomeProjetoPadrao(budgetNumber: number | null | undefined, name: string | null | undefined): string {
-  const limpo = (name || "").replace(/^(#[0-9]+_|\[[0-9A-Za-z-]+\]_)/, "");
-  if (budgetNumber != null) return `[${String(budgetNumber).padStart(4, "0")}]_${limpo}`;
-  return limpo;
+// Nome-padrão pra pasta/projeto no DaVinci — cada bloco entre colchetes:
+// [COD] [NOME COMPLETO] [FORMATO] [V1]
+// ex.: "[ADVR-4036] [SPOT DE RADIO 01 - FILME MAE] [16X9] [V1]"
+// Sem formato preenchido, saem 3 blocos — o bloco não vira placeholder.
+function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
+  const cod = (codigo || "").trim();
+  // O prefixo interno ("PÓS | ") fica de fora: ele contava como palavra e o
+  // nome saía truncado em "[PÓS | Spot]".
+  const nome = caixaPasta((titulo || "").replace(/^\s*(PÓS|POS|PROD|DESL)\s*\|\s*/i, "").trim());
+  const f = caixaPasta(normFormato(formato));
+  return [cod && `[${cod}]`, nome && `[${nome}]`, f && `[${f}]`, "[V1]"].filter(Boolean).join(" ");
+}
+
+// Nome do projeto pra copiar: o nome INTEIRO, como está cadastrado. A versão
+// anterior tirava o prefixo (#20260601_) e o que era copiado não batia com o
+// nome da pasta. O padrão de nome mora no cadastro do projeto, não aqui.
+function nomeProjetoCopia(name: string | null | undefined): string {
+  return (name || "").trim();
 }
 
 async function copiarTexto(texto: string, oque: string) {
@@ -361,8 +370,8 @@ export default function EntregavelDetalhe() {
                   {proj?.numero} · {proj?.name}
                 </Link>
                 <button
-                  onClick={() => copiarTexto(nomeProjetoPadrao(proj?.budget?.budget_number, proj?.name), "Nome do projeto")}
-                  title={`Copiar: ${nomeProjetoPadrao(proj?.budget?.budget_number, proj?.name)}`}
+                  onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
+                  title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
                   className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Copy className="h-3.5 w-3.5" />
