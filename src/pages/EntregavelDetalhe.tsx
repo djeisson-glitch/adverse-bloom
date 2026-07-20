@@ -36,7 +36,7 @@ const STATUS_ENTREGAVEL = [
   { id: "revisao_n2", label: "Revisão N2", tone: "warning" },
   { id: "revisao", label: "Revisão", tone: "warning" },
   { id: "pronto", label: "Pronto pra enviar", tone: "success" },
-  { id: "com_cliente", label: "Com o cliente", tone: "primary" },
+  { id: "com_cliente", label: "Com o cliente", tone: "info" },
   { id: "ajuste_solicitado", label: "Ajuste do cliente", tone: "destructive" },
   { id: "ajuste_interno", label: "Ajuste interno", tone: "destructive" },
   { id: "aprovado", label: "Aprovado", tone: "success" },
@@ -50,10 +50,41 @@ function statusTone(id: string) {
     warning: "bg-warning/15 text-warning",
     destructive: "bg-destructive/15 text-destructive",
     primary: "bg-primary/15 text-primary",
+    info: "bg-cyan-500/15 text-cyan-400",
     // Antes muted-foreground somia no fundo. Texto na cor do foreground lê bem.
     muted: "bg-foreground/10 text-foreground",
   };
   return map[s?.tone || "muted"];
+}
+
+// Visual FORTE do status — o destaque da tela: ícone da etapa, pílula grande e
+// borda colorida no card, pra bater o olho e saber onde o vídeo está.
+const STATUS_ICON: Record<string, any> = {
+  pendente: Clock, em_edicao: Film, em_pausa: Pause,
+  revisao_n1: UserCheck, revisao_n2: UserCheck, revisao: UserCheck,
+  pronto: ThumbsUp, com_cliente: ExternalLink,
+  ajuste_interno: RefreshCw, ajuste_solicitado: RefreshCw,
+  aprovado: CheckCircle2, entregue: CheckCircle2,
+};
+function statusTom(id: string): string {
+  return STATUS_ENTREGAVEL.find((x) => x.id === id)?.tone || "muted";
+}
+function statusPill(id: string): string {
+  return {
+    primary: "bg-primary/25 text-primary border-primary/50",
+    warning: "bg-warning/25 text-warning border-warning/50",
+    destructive: "bg-destructive/25 text-destructive border-destructive/50",
+    success: "bg-success/25 text-success border-success/50",
+    info: "bg-cyan-500/25 text-cyan-300 border-cyan-500/50",
+    muted: "bg-foreground/15 text-foreground border-foreground/30",
+  }[statusTom(id)] || "bg-foreground/15 text-foreground border-foreground/30";
+}
+function statusBorda(id: string): string {
+  return {
+    primary: "border-l-primary", warning: "border-l-warning",
+    destructive: "border-l-destructive", success: "border-l-success",
+    info: "border-l-cyan-500", muted: "border-l-foreground/40",
+  }[statusTom(id)] || "border-l-foreground/40";
 }
 
 function nomeDe(profiles: any[], uid: string | null | undefined) {
@@ -696,15 +727,16 @@ function FluxoCard({
     B("alt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
   }
 
+  const StatusIcon = STATUS_ICON[status] || Clock;
   return (
-    <Card className="glass-card">
+    <Card className={`glass-card border-l-4 ${statusBorda(status)}`}>
       <CardContent className="space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Status em destaque, com rótulo — é o "onde a tarefa está". */}
+            {/* Status é o DESTAQUE da tela — pílula grande, ícone e cor da etapa. */}
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</span>
-            <span className={`inline-flex items-center gap-1.5 rounded-md border border-current/20 px-2.5 py-1 text-sm font-semibold ${statusTone(status)}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            <span className={`inline-flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-base font-bold ${statusPill(status)}`}>
+              <StatusIcon className="h-4 w-4" />
               {labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}
             </span>
             {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-400" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
