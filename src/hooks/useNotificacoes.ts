@@ -40,7 +40,11 @@ export function useNotificacoes(limite = 30) {
     refetchOnWindowFocus: true,
   });
 
-  // Realtime: chegou notificação nova, o sino acende na hora.
+  // Realtime: chegou notificação nova, o sino acende na hora — E, se a aba
+  // estiver aberta (mesmo em outra janela/app), o balão de desktop dispara
+  // DAQUI, direto pela API Notification. É o caminho mais robusto: não passa
+  // por servidor, VAPID nem service worker, então quase não falha. O web push
+  // (servidor → SW) só é necessário quando a aba está FECHADA.
   useEffect(() => {
     if (!user?.id) return;
     const canal = supabase
@@ -48,7 +52,33 @@ export function useNotificacoes(limite = 30) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notificacoes", filter: `user_id=eq.${user.id}` },
-        () => qc.invalidateQueries({ queryKey: ["notificacoes", user.id] }),
+        (payload) => {
+          qc.invalidateQueries({ queryKey: ["notificacoes", user.id] });
+          const n = payload.new as Notificacao;
+          // Só quando a pessoa NÃO está com a aba em foco — se está olhando o
+          // sistema, o sino já basta; balão em cima viraria ruído.
+          if (
+            typeof Notification !== "undefined" &&
+            Notification.permission === "granted" &&
+            typeof document !== "undefined" &&
+            !document.hasFocus()
+          ) {
+            try {
+              const balao = new Notification(n.titulo, {
+                body: n.corpo || "",
+                icon: "/favicon.ico",
+                tag: n.tipo || "adverse",
+              });
+              balao.onclick = () => {
+                window.focus();
+                if (n.link) window.location.href = n.link;
+                balao.close();
+              };
+            } catch {
+              /* alguns navegadores exigem o SW pra Notification; aí fica o web push */
+            }
+          }
+        },
       )
       .subscribe();
     return () => {
