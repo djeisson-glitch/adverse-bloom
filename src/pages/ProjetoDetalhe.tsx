@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
-  ArrowLeft, Loader2, Play, Plus, Trash2, Table2, BarChart3, Send, Save, X,
+  ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
   FileText, Link2, ExternalLink, MessageSquare, Rows3,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,7 @@ import { MergulhoForm } from "@/components/MergulhoForm";
 /**
  * Ficha de projeto no layout Catalunya OS (single-page) — modelado a partir
  * da exploração ao vivo do catalunyaos.com em 2026-07-02:
- * header c/ Peças · Horas por pessoa/tarefa · Apontar no projeto, tarefas
+ * header c/ Horas por pessoa/tarefa (admin) · Apontar no projeto, tarefas
  * inline com timer e 6 status, entregáveis c/ Frame.io, Fechamento
  * Orçado × Realizado, custo da equipe, custos diretos, faturamento e
  * comentários com @menção.
@@ -95,7 +95,7 @@ export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { canSeeMoney } = usePermissions();
+  const { canSeeMoney, canSeeHours, isAdmin } = usePermissions();
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
   // Contexto do painel de comentários (levantado pra cá pra o botão "conversa"
   // de cada entregável poder focar o painel sem sair da lista).
@@ -200,18 +200,16 @@ export default function ProjetoDetalhe() {
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to={`/projetos/${project.id}/pecas`}>
-                <Button variant="outline" size="sm" title="Controle de peças (cartelas, versões, locutor)">
-                  <Table2 className="mr-1.5 h-3.5 w-3.5" />
-                  Peças
-                </Button>
-              </Link>
-              <Link to={`/relatorios/projeto/${project.id}`}>
-                <Button variant="outline" size="sm" title="Horas mapeadas por pessoa e por tarefa">
-                  <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-                  Horas por pessoa/tarefa
-                </Button>
-              </Link>
+              {/* Horas por pessoa/tarefa é dado sensível (produtividade
+                  individual): fica só pro admin. */}
+              {isAdmin && (
+                <Link to={`/relatorios/projeto/${project.id}`}>
+                  <Button variant="outline" size="sm" title="Horas mapeadas por pessoa e por tarefa">
+                    <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
+                    Horas por pessoa/tarefa
+                  </Button>
+                </Link>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -231,14 +229,20 @@ export default function ProjetoDetalhe() {
             </div>
           </div>
 
-          <div className="grid gap-3 text-sm md:grid-cols-5">
+          {/* flex-wrap em vez de grid fixo: quando o cartão de horas ou de
+              valor some (coordenadora), o resto não fica com buraco. */}
+          <div className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
             <HeaderInfo label="Cliente" value={project.client_name || "—"} />
             <HeaderInfo label="Status" value={project.status || "—"} />
-            <HeaderInfo label="Valor" value={canSeeMoney ? formatCurrency(project.sold_value || 0) : "—"} />
-            <HeaderInfo
-              label="Horas rastreadas"
-              value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
-            />
+            {canSeeMoney && (
+              <HeaderInfo label="Valor" value={formatCurrency(project.sold_value || 0)} />
+            )}
+            {canSeeHours && (
+              <HeaderInfo
+                label="Horas rastreadas"
+                value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
+              />
+            )}
             <FaturamentoProjeto
               projectId={project.id}
               valor={project.faturamento || "mensal"}
@@ -933,6 +937,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
         .from("project_documents")
         .select("*")
         .eq("project_id", projectId)
+        .is("deliverable_id", null)   // docs do projeto; os de entregável vivem na peça
         .order("created_at");
       if (error) throw error;
       return data as any[];

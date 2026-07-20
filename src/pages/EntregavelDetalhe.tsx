@@ -114,7 +114,7 @@ export default function EntregavelDetalhe() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { start } = useTimer();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, canSeeHours } = usePermissions();
 
   const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
@@ -413,12 +413,18 @@ export default function EntregavelDetalhe() {
         </CardContent>
       </Card>
 
-      {/* Indicadores */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Indicadores. Revisões e alterações ficam pra todo mundo (a
+          coordenadora acompanha quantos ajustes rolaram); as horas só pra quem
+          pode ver tempo. */}
+      <div className={`grid gap-4 ${canSeeHours ? "md:grid-cols-4" : "md:grid-cols-2"}`}>
         <IndicadorCard label="Revisões internas" value={String(entregavel.revisoes_internas || 0)} icon={RefreshCw} hint="N1/N2 pediram ajuste" />
         <IndicadorCard label="Alterações do cliente" value={String(alteracoes.length)} icon={MessageSquarePlus} hint={`${alteracoes.filter((a) => a.status === "aberta").length} abertas`} tone="destructive" />
-        <IndicadorCard label="Horas — edição pura" value={`${horas.pura.toFixed(1)}h`} icon={Scissors} />
-        <IndicadorCard label="Horas — alteração cliente" value={`${horas.alt.toFixed(1)}h`} icon={MessageSquarePlus} tone="warning" />
+        {canSeeHours && (
+          <>
+            <IndicadorCard label="Horas — edição pura" value={`${horas.pura.toFixed(1)}h`} icon={Scissors} />
+            <IndicadorCard label="Horas — alteração cliente" value={`${horas.alt.toFixed(1)}h`} icon={MessageSquarePlus} tone="warning" />
+          </>
+        )}
       </div>
 
       <FluxoCard
@@ -444,15 +450,21 @@ export default function EntregavelDetalhe() {
 
       <div>
         <div className="min-w-0 space-y-5">
-          {/* Timesheet do entregável */}
-          <TimesheetEntregavel
-            did={did!}
-            projectId={projectId!}
-            entries={entries}
-            horasTotal={horas.total}
-            onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
-            onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel-horas", did] })}
-          />
+          {/* Anexos: roteiro, referências, PDF do cliente. Aberto a todo mundo
+              que abre o entregável — a coordenadora precisa do roteiro à mão. */}
+          <DocumentosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Timesheet do entregável — some pra quem não vê horas */}
+          {canSeeHours && (
+            <TimesheetEntregavel
+              did={did!}
+              projectId={projectId!}
+              entries={entries}
+              horasTotal={horas.total}
+              onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel-horas", did] })}
+            />
+          )}
 
           {/* Alterações do cliente */}
           <AlteracoesSection
@@ -460,6 +472,7 @@ export default function EntregavelDetalhe() {
             projectId={projectId!}
             projectName={proj?.name || ""}
             alteracoes={alteracoes}
+            podeHoras={canSeeHours}
             horasPorAlteracao={horas.porAlteracao}
             onStart={(alteracaoId) =>
               start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did!, alteracao_id: alteracaoId })
@@ -661,6 +674,120 @@ function Nivel({ ok, label, quem }: { ok: boolean; label: string; quem: string }
 
 /* ------------------------------------------------ Timesheet do entregável */
 
+const TIPO_DOC = [
+  { id: "roteiro", label: "Roteiro", cor: "bg-primary/15 text-primary" },
+  { id: "referencia", label: "Referência", cor: "bg-blue-500/15 text-blue-500" },
+  { id: "briefing", label: "Briefing", cor: "bg-amber-500/15 text-amber-500" },
+  { id: "outro", label: "Outro", cor: "bg-muted text-muted-foreground" },
+];
+
+/**
+ * Documentos presos ao entregável: roteiro, referências, PDF do cliente.
+ * Reusa project_documents com deliverable_id preenchido — o roteiro fica junto
+ * da peça, não perdido nos documentos do projeto inteiro.
+ */
+function DocumentosEntregavel({ did, projectId }: { did: string; projectId: string }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [novo, setNovo] = useState({ titulo: "", url: "", tipo: "roteiro" });
+
+  const { data: docs = [] } = useQuery({
+    queryKey: ["deliverable-documents", did],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("project_documents")
+        .select("*")
+        .eq("deliverable_id", did)
+        .order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const criar = useMutation({
+    mutationFn: async () => {
+      if (!novo.titulo.trim() || !novo.url.trim()) throw new Error("Informe título e link");
+      const url = novo.url.startsWith("http") ? novo.url : `https://${novo.url}`;
+      const { error } = await (supabase as any).from("project_documents").insert({
+        project_id: projectId,
+        deliverable_id: did,
+        titulo: novo.titulo.trim(),
+        url,
+        tipo: novo.tipo,
+        created_by: user?.id || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNovo({ titulo: "", url: "", tipo: "roteiro" });
+      qc.invalidateQueries({ queryKey: ["deliverable-documents", did] });
+      toast.success("Documento anexado");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  const excluir = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("project_documents").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["deliverable-documents", did] }),
+  });
+
+  const tipoDe = (t: string) => TIPO_DOC.find((x) => x.id === t) || TIPO_DOC[3];
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="space-y-3 p-6">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Roteiro & documentos</p>
+          <p className="text-xs text-muted-foreground">
+            Roteiro, referências ou PDF do cliente — anexados a este entregável
+          </p>
+        </div>
+
+        {docs.map((d) => {
+          const t = tipoDe(d.tipo);
+          return (
+            <div key={d.id} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${t.cor}`}>{t.label}</span>
+              <span className="text-sm font-medium text-foreground">{d.titulo}</span>
+              <a href={d.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-xs text-muted-foreground hover:text-primary">
+                {d.url}
+              </a>
+              <a href={d.url} target="_blank" rel="noreferrer" className="shrink-0 text-muted-foreground hover:text-primary" title="Abrir">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <button onClick={() => excluir.mutate(d.id)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Remover">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        })}
+        {docs.length === 0 && (
+          <p className="py-1 text-xs text-muted-foreground">Nenhum documento anexado ainda.</p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border/60 p-3">
+          <Select value={novo.tipo} onValueChange={(v) => setNovo({ ...novo, tipo: v })}>
+            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TIPO_DOC.map((t) => (
+                <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input value={novo.titulo} onChange={(e) => setNovo({ ...novo, titulo: e.target.value })} placeholder="Título (ex.: Roteiro v2)" className="h-8 w-44" />
+          <Input value={novo.url} onChange={(e) => setNovo({ ...novo, url: e.target.value })} placeholder="Link (Docs, Drive, Frame…)" className="h-8 flex-1" />
+          <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Anexar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function TimesheetEntregavel({
   did, projectId, entries, horasTotal, onStart, onChanged,
 }: {
@@ -770,9 +897,9 @@ function TimesheetEntregavel({
 /* ------------------------------------------------ Alterações do cliente */
 
 function AlteracoesSection({
-  did, projectId, projectName, alteracoes, horasPorAlteracao, onStart, onChanged,
+  did, projectId, projectName, alteracoes, podeHoras, horasPorAlteracao, onStart, onChanged,
 }: {
-  did: string; projectId: string; projectName: string; alteracoes: any[];
+  did: string; projectId: string; projectName: string; alteracoes: any[]; podeHoras: boolean;
   horasPorAlteracao: Record<string, number>; onStart: (alteracaoId: string) => void; onChanged: () => void;
 }) {
   const { user } = useAuth();
@@ -847,32 +974,37 @@ function AlteracoesSection({
               <div className="flex items-center gap-2">
                 <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">R{a.numero}</span>
                 <span className="flex-1 truncate text-sm font-medium text-foreground">{a.titulo}</span>
-                <span className="text-xs text-muted-foreground">{((horasPorAlteracao[a.id] || 0) / 60).toFixed(1)}h</span>
+                {podeHoras && (
+                  <span className="text-xs text-muted-foreground">{((horasPorAlteracao[a.id] || 0) / 60).toFixed(1)}h</span>
+                )}
                 <span className={`rounded px-1.5 py-0.5 text-[10px] ${a.status === "resolvida" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
                   {a.status}
                 </span>
               </div>
               {a.descricao && <p className="mt-1 text-xs text-muted-foreground">{a.descricao}</p>}
               <div className="mt-2 flex items-center gap-2">
-                {sessao?.deliverable_id === did && sessao?.alteracao_id === a.id ? (
-                  <Button
-                    size="sm"
-                    className="h-7 bg-warning text-warning-foreground hover:bg-warning/90"
-                    onClick={async () => { await stop(); onChanged(); }}
-                    title="Pausar e lançar as horas desta alteração"
-                  >
-                    <Pause className="mr-1 h-3 w-3 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7"
-                    onClick={async () => { if (sessao) await stop(); onStart(a.id); }}
-                    title="Dar play no timer desta alteração"
-                  >
-                    <Play className="mr-1 h-3 w-3 fill-current" /> Play
-                  </Button>
+                {/* Timer só pra quem aponta horas; a coordenadora só acompanha. */}
+                {podeHoras && (
+                  sessao?.deliverable_id === did && sessao?.alteracao_id === a.id ? (
+                    <Button
+                      size="sm"
+                      className="h-7 bg-warning text-warning-foreground hover:bg-warning/90"
+                      onClick={async () => { await stop(); onChanged(); }}
+                      title="Pausar e lançar as horas desta alteração"
+                    >
+                      <Pause className="mr-1 h-3 w-3 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      onClick={async () => { if (sessao) await stop(); onStart(a.id); }}
+                      title="Dar play no timer desta alteração"
+                    >
+                      <Play className="mr-1 h-3 w-3 fill-current" /> Play
+                    </Button>
+                  )
                 )}
                 <Button size="sm" variant="ghost" className="h-7" onClick={() => resolver.mutate(a)}>
                   {a.status === "resolvida" ? "Reabrir" : "Marcar resolvida"}
