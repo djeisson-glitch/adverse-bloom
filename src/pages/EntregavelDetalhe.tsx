@@ -345,19 +345,9 @@ export default function EntregavelDetalhe() {
                 className="border-transparent bg-transparent px-0 text-2xl font-semibold tracking-tight hover:border-border focus:border-border"
               />
             </div>
+            {/* O status NÃO é mais escolhido à mão aqui — quem muda é o fluxo
+                (botões logo abaixo). O selo do status fica no topo à esquerda. */}
             <div className="flex gap-2">
-              <Select value={form.status} onValueChange={(v) => setJa({ status: v })}>
-                <SelectTrigger className="h-9 w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_ENTREGAVEL.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Button
                 variant="outline"
                 className="text-destructive hover:text-destructive"
@@ -425,6 +415,30 @@ export default function EntregavelDetalhe() {
         </CardContent>
       </Card>
 
+      {/* Fluxo do entregável — os BOTÕES que tocam o processo (editar,
+          enviar pra revisão, aprovar, enviar ao cliente). Logo no topo
+          porque é a ação principal da tela. */}
+      <FluxoCard
+        entregavel={entregavel}
+        did={did!}
+        projectId={projectId!}
+        projName={proj?.name || ""}
+        n1={n1}
+        n2={n2}
+        clienteAprova={clienteAprova}
+        profiles={profiles}
+        isEditor={isEditor}
+        isN1={isN1}
+        isN2={isN2}
+        isRevisor={isRevisor}
+        alteracaoAberta={alteracaoAberta}
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["entregavel", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
+        }}
+      />
+
       {/* Briefing logo no topo, depois do cabeçalho: é o direcionamento da
           peça — quem abre o entregável quer isso primeiro, não no fim. */}
       <Card className="glass-card">
@@ -451,26 +465,6 @@ export default function EntregavelDetalhe() {
         )}
       </div>
 
-      <FluxoCard
-        entregavel={entregavel}
-        did={did!}
-        projectId={projectId!}
-        projName={proj?.name || ""}
-        n1={n1}
-        n2={n2}
-        clienteAprova={clienteAprova}
-        profiles={profiles}
-        isEditor={isEditor}
-        isN1={isN1}
-        isN2={isN2}
-        isRevisor={isRevisor}
-        alteracaoAberta={alteracaoAberta}
-        onChanged={() => {
-          qc.invalidateQueries({ queryKey: ["entregavel", did] });
-          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
-          qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
-        }}
-      />
 
       <div>
         <div className="min-w-0 space-y-5">
@@ -722,6 +716,10 @@ function FluxoCard({
           <p className="text-xs text-muted-foreground">
             {["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
               : status === "com_cliente" ? "Está com o cliente — fora do seu controle por enquanto."
+              // Sem responsável, os botões de edição não aparecem pra ninguém —
+              // avisa pra definir um (o campo Responsável, acima).
+              : !entregavel.responsavel_id && ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status)
+                ? "Defina o responsável (campo acima) para o fluxo começar."
               : status.startsWith("revisao") ? "Aguardando o revisor deste entregável."
               : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
               : status === "pronto" ? "Aguardando alguém enviar ao cliente."
