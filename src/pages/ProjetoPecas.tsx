@@ -39,7 +39,8 @@ export default function ProjetoPecas() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("tasks")
-        .select("*, assigned:profiles!tasks_assigned_user_id_fkey(full_name, email)")
+        .select("*")  // sem embed: tasks_assigned_user_id_fkey aponta pra auth.users,
+        // não pra profiles — o embed derruba a consulta inteira (ver Pauta.tsx)
         .eq("project_id", id!)
         .order("ordem")
         .order("created_at");
@@ -49,6 +50,22 @@ export default function ProjetoPecas() {
   });
 
   // Horas rastreadas por tarefa
+  // Responsável resolvido aqui, já que o embed não é possível (ver acima).
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["pecas-profiles"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, email");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+  const nomePessoa = (uid: string | null | undefined) => {
+    const p = profiles.find((x: any) => x.id === uid);
+    return p?.full_name || p?.email || "—";
+  };
+
   const { data: horasPorTask = {} } = useQuery({
     queryKey: ["projeto-pecas-horas", id],
     enabled: !!id,
@@ -144,7 +161,7 @@ export default function ProjetoPecas() {
                   {horasPorTask[t.id] ? `${(horasPorTask[t.id] / 60).toFixed(1)}h` : "—"}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {t.assigned?.full_name || "—"}
+                  {nomePessoa(t.assigned_user_id)}
                 </span>
               </div>
             ))

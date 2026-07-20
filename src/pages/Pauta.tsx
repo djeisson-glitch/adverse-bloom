@@ -33,12 +33,16 @@ export default function Pauta() {
   const [projetoFiltro, setProjetoFiltro] = useState<string>("__all__");
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
 
-  const { data: tasks = [] } = useQuery({
+  // ATENÇÃO: nada de embed `profiles!tasks_assigned_user_id_fkey`. Esse FK
+  // aponta pra auth.users, não pra profiles — o PostgREST não resolve, a
+  // consulta INTEIRA falha e a tela mostrava "nenhuma tarefa" sem dizer o
+  // motivo. O responsável é resolvido no cliente, pela lista de profiles.
+  const { data: tasks = [], isError: tasksErro, error: tasksErroMsg } = useQuery({
     queryKey: ["pauta-tasks", periodo, status],
     queryFn: async () => {
       let q = (supabase as any)
         .from("tasks")
-        .select("*, project:projects(id, name, client_name, status), assigned:profiles!tasks_assigned_user_id_fkey(id, full_name, email)")
+        .select("*, project:projects(id, name, client_name, status)")
         .not("project_id", "is", null);
 
       if (status === "pendentes") q = q.eq("completed", false);
@@ -61,6 +65,11 @@ export default function Pauta() {
       return data;
     },
   });
+
+  const nomePessoa = useMemo(() => {
+    const m = new Map(profiles.map((p: any) => [p.id, p.full_name || p.email]));
+    return (uid: string | null | undefined) => (uid && m.get(uid)) || "Sem responsável";
+  }, [profiles]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["pauta-projects"],
@@ -92,7 +101,7 @@ export default function Pauta() {
       let key: string, label: string, sub: string | undefined;
       if (agrupamento === "pessoa") {
         key = t.assigned_user_id || "__sem__";
-        label = t.assigned?.full_name || t.assigned?.email || "Sem responsável";
+        label = nomePessoa(t.assigned_user_id);
       } else {
         key = t.project_id;
         label = t.project?.name || "Projeto";
@@ -186,7 +195,18 @@ export default function Pauta() {
       </Card>
 
       <div className="space-y-3">
-        {grupos.length === 0 ? (
+        {/* Consulta que falha não pode se passar por "lista vazia": foi assim
+            que esta tela ficou muda por semanas. */}
+        {tasksErro ? (
+          <Card className="glass-card border-destructive/30">
+            <CardContent className="space-y-1 px-6 py-10 text-center">
+              <p className="text-sm font-medium text-foreground">Não consegui carregar as tarefas</p>
+              <p className="text-xs text-muted-foreground">
+                {(tasksErroMsg as any)?.message || "Erro desconhecido ao consultar."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : grupos.length === 0 ? (
           <Card className="glass-card">
             <CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
               Nenhuma tarefa nos filtros escolhidos.
@@ -222,7 +242,7 @@ export default function Pauta() {
                             {t.title}
                           </span>
                           <span className="truncate text-muted-foreground">
-                            {agrupamento === "pessoa" ? t.project?.name : t.assigned?.full_name || "Sem responsável"}
+                            {agrupamento === "pessoa" ? t.project?.name : nomePessoa(t.assigned_user_id)}
                           </span>
                           <span className="text-right text-muted-foreground">
                             {t.due_date ? new Date(t.due_date).toLocaleDateString("pt-BR") : "sem prazo"}
