@@ -31,12 +31,14 @@ import { ComentariosSection } from "./ProjetoDetalhe";
 const STATUS_ENTREGAVEL = [
   { id: "pendente", label: "Pendente", tone: "muted" },
   { id: "em_edicao", label: "Em edição", tone: "primary" },
+  { id: "em_pausa", label: "Em pausa", tone: "muted" },
   { id: "revisao_n1", label: "Revisão N1", tone: "warning" },
   { id: "revisao_n2", label: "Revisão N2", tone: "warning" },
   { id: "revisao", label: "Revisão", tone: "warning" },
   { id: "pronto", label: "Pronto pra enviar", tone: "success" },
   { id: "com_cliente", label: "Com o cliente", tone: "primary" },
-  { id: "ajuste_solicitado", label: "Ajuste solicitado", tone: "destructive" },
+  { id: "ajuste_solicitado", label: "Ajuste do cliente", tone: "destructive" },
+  { id: "ajuste_interno", label: "Ajuste interno", tone: "destructive" },
   { id: "aprovado", label: "Aprovado", tone: "success" },
   { id: "entregue", label: "Entregue", tone: "success" },
 ] as const;
@@ -562,45 +564,83 @@ function FluxoCard({
     if (msg) toast.success(msg);
   };
 
-  const iniciarEdicao = async () => {
+  // Anota o que precisa ajustar (o editor recebe pela conversa). Devolve false
+  // se a pessoa cancelou o prompt — aí a transição não acontece.
+  const anotarAjuste = async () => {
+    const motivo = window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
+    if (motivo === null) return false;
+    await (supabase as any).from("comments").insert({
+      entity_type: "deliverable", entity_id: did, user_id: user?.id,
+      body: `🔧 Ajuste: ${motivo.trim() || "(sem detalhe)"}`, mentions: [],
+    });
+    return true;
+  };
+
+  // ---- EDITOR: um botão que faz status + timesheet ----
+  const editar = async () => {
     if (!rodandoAqui) {
       // Com alteração do cliente aberta, cronometra nela (conta como hora de alteração).
       if (alteracaoAberta) start({ project_id: projectId, project_name: projName, deliverable_id: did, alteracao_id: alteracaoAberta.id });
       else start({ project_id: projectId, project_name: projName, deliverable_id: did });
     }
-    if (status !== "em_edicao") await upd({ status: "em_edicao" }, "Edição iniciada");
+    if (status !== "em_edicao") await upd({ status: "em_edicao" });
   };
-  const pararEdicao = async () => { if (rodandoAqui) await stop(); };
-
-  const entregarRevisao = async () => {
+  const pausar = async () => {
+    if (rodandoAqui) await stop();          // para o timesheet
+    await upd({ status: "em_pausa" }, "Edição pausada");
+  };
+  const enviarRevisao = async () => {
+    if (rodandoAqui) await stop();          // para o timesheet
     if (alteracaoAberta) {
       await (supabase as any).from("deliverable_alteracoes")
         .update({ status: "resolvida", resolved_at: agora() }).eq("id", alteracaoAberta.id);
     }
-    await upd({ status: retrab ? "revisao" : "revisao_n1" }, "Entregue pra revisão");
+    // 1ª vez → duas aprovações (N1→N2). Retrabalho → uma só (N1).
+    await upd({ status: retrab ? "revisao" : "revisao_n1", rev_ajuste_pendente: false },
+      retrab ? "Enviado para revisão (Aprovação 1)" : "Enviado para revisão (Aprovação 1 → 2)");
   };
 
-  const revisaoOk = async () => {
-    if (status === "revisao_n1") return upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2" }, "Revisão 1 feita → segue pra N2");
-    // revisao_n2 (normal) ou revisao (retrabalho, qualquer revisor) → pronto
-    return upd({ aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "pronto" }, "Revisão feita → pronto pra enviar");
+  // ---- APROVAÇÃO 1 (1ª vez): sempre segue pra Ap.2, com ou sem ajuste ----
+  const n1AprovaSegue = () =>
+    upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2" }, "Aprovado → segue pra Aprovação 2");
+  const n1AjusteSegue = async () => {
+    if (!(await anotarAjuste())) return;
+    await upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "revisao_n2", rev_ajuste_pendente: true },
+      "Ajuste anotado → segue pra Aprovação 2");
   };
 
-  const pedirAjuste = async () => {
-    const motivo = window.prompt("O que precisa de ajuste interno? (o editor recebe a mensagem)");
-    if (motivo === null) return;
-    await (supabase as any).from("comments").insert({
-      entity_type: "deliverable", entity_id: did, user_id: user?.id,
-      body: `🔧 Ajuste interno: ${motivo.trim() || "(sem detalhe)"}`, mentions: [],
-    });
-    await upd({ revisoes_internas: (entregavel.revisoes_internas || 0) + 1, status: "em_edicao", retrabalho: true },
-      "Ajuste interno registrado — voltou pra edição");
+  // ---- APROVAÇÃO 2: fecha a 1ª volta. Se acumulou ajuste (N1 ou N2), volta pro
+  //      editor; senão, pronto pra enviar. ----
+  const fecharN2 = (ajusteAgora: boolean) => {
+    const temAjuste = ajusteAgora || !!entregavel.rev_ajuste_pendente;
+    if (temAjuste) {
+      return upd({
+        aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "ajuste_interno",
+        retrabalho: true, rev_ajuste_pendente: false,
+        revisoes_internas: (entregavel.revisoes_internas || 0) + 1,
+      }, "Volta pro editor com os ajustes");
+    }
+    return upd({ aprovado_n2_por: user?.id, aprovado_n2_em: agora(), status: "pronto" },
+      "Aprovado — pronto pra enviar ao cliente");
   };
+  const n2Aprova = () => fecharN2(false);
+  const n2Ajuste = async () => { if (!(await anotarAjuste())) return; await fecharN2(true); };
 
-  const enviarCliente = () => upd({ status: "com_cliente" }, "Enviado ao cliente");
+  // ---- REVISÃO ÚNICA (retrabalho, só N1) ----
+  const revUnicaAprova = () =>
+    upd({ aprovado_n1_por: user?.id, aprovado_n1_em: agora(), status: "pronto" }, "Aprovado — pronto pra enviar");
+  const revUnicaAjuste = async () => {
+    if (!(await anotarAjuste())) return;
+    await upd({ status: "ajuste_interno", revisoes_internas: (entregavel.revisoes_internas || 0) + 1 },
+      "Volta pro editor com os ajustes");
+  };
+  const revUnicaEscala = () =>
+    upd({ status: "revisao_n2", rev_ajuste_pendente: false }, "Escalado para Aprovação 2");
+
+  // ---- ENVIO E CLIENTE ----
+  const enviarCliente = () => upd({ status: "com_cliente" }, "Enviado para aprovação do cliente");
   const clienteAprovou = () => upd({ status: "entregue", aprovado_cliente_em: agora() }, "Cliente aprovou 🎉");
-
-  const pedidoAlteracao = async () => {
+  const alteracaoCliente = async () => {
     const titulo = window.prompt("Resumo do que o cliente pediu de alteração:");
     if (!titulo || !titulo.trim()) return;
     const { error } = await (supabase as any).from("deliverable_alteracoes").insert({
@@ -608,31 +648,50 @@ function FluxoCard({
       criado_por: "Cliente", responsavel_id: entregavel.responsavel_id || null,
     });
     if (error) return toast.error("Erro", { description: error.message });
-    await upd({ status: "ajuste_solicitado", retrabalho: true }, "Alteração registrada — voltou pra edição");
+    // Volta pro editor; como retrabalho, o próximo ciclo tem só a Aprovação 1.
+    await upd({ status: "ajuste_interno", retrabalho: true }, "Alteração do cliente registrada — voltou pro editor");
   };
 
   const botoes: React.ReactNode[] = [];
   const B = (key: string, node: React.ReactNode) => botoes.push(<span key={key}>{node}</span>);
-  const emRev1 = status === "revisao_n1", emRev2 = status === "revisao_n2", emRevU = status === "revisao";
+  const editorTrabalha = ["pendente", "em_pausa", "ajuste_interno", "ajuste_solicitado", "em_edicao"].includes(status);
 
-  if ((status === "pendente" || status === "ajuste_solicitado") && isEditor) {
-    B("ini", <Button size="sm" onClick={iniciarEdicao} className="bg-primary text-primary-foreground"><Play className="mr-1 h-3.5 w-3.5" /> Iniciar edição</Button>);
+  // EDITOR: botão único Editar⇄Parar + Enviar para revisão
+  if (editorTrabalha && isEditor) {
+    if (status === "em_edicao" && rodandoAqui) {
+      B("par", <Button size="sm" variant="outline" onClick={pausar}><Pause className="mr-1 h-3.5 w-3.5" /> Parar edição</Button>);
+    } else {
+      B("edt", <Button size="sm" onClick={editar} className="bg-primary text-primary-foreground"><Play className="mr-1 h-3.5 w-3.5" /> {status === "em_edicao" ? "Retomar edição" : "Editar"}</Button>);
+    }
+    if (status === "em_edicao" || status === "em_pausa") {
+      B("env", <Button size="sm" onClick={enviarRevisao} className="bg-primary text-primary-foreground"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Enviar para revisão</Button>);
+    }
   }
-  if (status === "em_edicao" && isEditor) {
-    if (rodandoAqui) B("par", <Button size="sm" variant="outline" onClick={pararEdicao}><Pause className="mr-1 h-3.5 w-3.5" /> Parar edição</Button>);
-    else B("ret", <Button size="sm" variant="outline" onClick={iniciarEdicao}><Play className="mr-1 h-3.5 w-3.5" /> Retomar edição</Button>);
-    B("ent", <Button size="sm" onClick={entregarRevisao} className="bg-primary text-primary-foreground"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Entregar para revisão</Button>);
+
+  // APROVAÇÃO 1 (1ª vez)
+  if (status === "revisao_n1" && isN1) {
+    B("n1a", <Button size="sm" onClick={n1AprovaSegue} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar → Aprovação 2</Button>);
+    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste → Aprovação 2</Button>);
   }
-  if ((emRev1 && isN1) || (emRev2 && isN2) || (emRevU && isRevisor)) {
-    B("rev", <Button size="sm" onClick={revisaoOk} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> {emRev1 ? "Revisão 1 feita" : emRev2 ? "Revisão 2 feita" : "Revisão feita"}</Button>);
-    B("aj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={pedirAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste interno</Button>);
+  // APROVAÇÃO 2
+  if (status === "revisao_n2" && isN2) {
+    B("n2a", <Button size="sm" onClick={n2Aprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
+    B("n2j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n2Ajuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
   }
+  // REVISÃO ÚNICA (retrabalho, só N1) — com escalar pra N2 opcional
+  if (status === "revisao" && isRevisor) {
+    B("rua", <Button size="sm" onClick={revUnicaAprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
+    B("ruj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={revUnicaAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
+    B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda aprovação"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir aprovação 2</Button>);
+  }
+  // ENVIAR AO CLIENTE
   if (status === "pronto" && isRevisor) {
-    B("env", <Button size="sm" onClick={enviarCliente} className="bg-primary text-primary-foreground"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Enviar para o cliente</Button>);
+    B("env", <Button size="sm" onClick={enviarCliente} className="bg-primary text-primary-foreground"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Enviar para aprovação do cliente</Button>);
   }
-  if (status === "com_cliente" && (isRevisor || isEditor)) {
+  // COM O CLIENTE — coordenação registra alteração ou aprovação
+  if (status === "com_cliente" && isRevisor) {
     B("apr", <Button size="sm" onClick={clienteAprovou} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Cliente aprovou</Button>);
-    B("palt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={pedidoAlteracao}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Pedido de alteração do cliente</Button>);
+    B("alt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
   }
 
   return (
@@ -655,8 +714,9 @@ function FluxoCard({
         ) : (
           <p className="text-xs text-muted-foreground">
             {["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
+              : status === "com_cliente" ? "Está com o cliente — fora do seu controle por enquanto."
               : status.startsWith("revisao") ? "Aguardando o revisor deste entregável."
-              : ["em_edicao", "pendente", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
+              : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
               : status === "pronto" ? "Aguardando alguém enviar ao cliente."
               : "Sem ação sua nesta etapa."}
           </p>

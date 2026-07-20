@@ -33,9 +33,9 @@ type Item = {
 };
 
 const ETAPA_LABEL: Record<string, string> = {
-  pendente: "Pendente", em_edicao: "Em edição", revisao_n1: "Revisão N1",
+  pendente: "Pendente", em_edicao: "Em edição", em_pausa: "Em pausa", revisao_n1: "Revisão N1",
   revisao_n2: "Revisão N2", revisao: "Revisão", pronto: "Pronto pra enviar",
-  com_cliente: "Com o cliente", ajuste_solicitado: "Ajuste do cliente",
+  com_cliente: "Com o cliente", ajuste_solicitado: "Ajuste do cliente", ajuste_interno: "Ajuste interno",
   aprovado: "Aprovado", entregue: "Entregue",
 };
 
@@ -135,13 +135,18 @@ export default function MinhaMesa() {
     const out: Item[] = [];
 
     deliverables
-      .filter((d) => d.responsavel_id === user.id && ["pendente", "em_edicao", "ajuste_solicitado"].includes(d.status))
+      .filter((d) => d.responsavel_id === user.id && ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
       .forEach((d) => {
-        const ajuste = d.status === "ajuste_solicitado";
+        // Ajuste (interno ou do cliente) = a bola voltou com ele; é bloqueante.
+        const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
         out.push({
           key: `edit-${d.id}`, tipo: "editar", titulo: d.titulo,
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
-          acao: ajuste ? "Refazer — ajuste do cliente" : d.status === "pendente" ? "Começar edição" : "Continuar edição",
+          acao: ajuste
+            ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
+            : d.status === "pendente" ? "Começar edição"
+            : d.status === "em_pausa" ? "Retomar edição"
+            : "Continuar edição",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: ajuste,
           etapa: ETAPA_LABEL[d.status] || d.status,
         });
