@@ -275,9 +275,21 @@ function ListaVista({
                 >
                   <span className="font-mono text-xs text-muted-foreground">{(p as any).numero || "—"}</span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground" title={p.name}>
-                      {p.name}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium text-foreground" title={p.name}>
+                        {p.name}
+                      </p>
+                      {/* Avulso é a exceção: só ele ganha marca, pra não poluir
+                          a lista com um selo em cada linha. */}
+                      {(p as any).faturamento === "avulso" && (
+                        <span
+                          className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-500"
+                          title="Fora do fechamento mensal — faturado à parte"
+                        >
+                          avulso
+                        </span>
+                      )}
+                    </div>
                     {/* Agrupado por cliente, repetir o cliente na linha é ruído:
                         mostra a etapa, que é a informação que falta ali. */}
                     <p className="truncate text-xs text-muted-foreground">

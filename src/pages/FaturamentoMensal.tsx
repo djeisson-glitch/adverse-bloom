@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Receipt, ChevronLeft, ChevronRight, RefreshCw, ChevronDown, TrendingUp, TrendingDown,
-  Clock, FileText, MessageSquareWarning, Users,
+  Clock, FileText, MessageSquareWarning, Users, AlertTriangle,
 } from "lucide-react";
 
 type Fatura = {
@@ -225,6 +225,34 @@ export default function FaturamentoMensal() {
                               <div key={i} className="flex items-center justify-between text-xs">
                                 <span className="truncate text-muted-foreground">{p.projeto}</span>
                                 <span className="text-foreground">{fmtHoras(p.horas)} <span className="text-muted-foreground">(ed {fmtHoras(p.horas_edicao)} · alt {fmtHoras(p.horas_alteracao)})</span></span>
+                              </div>
+                            ))}
+                          </div>
+                        </Bloco>
+                      )}
+
+                      {/* Avulsos: NÃO entram no total acima. Ficam em destaque
+                          porque é justamente o que se esquece de cobrar. */}
+                      {Array.isArray(f.detalhe?.avulsos) && f.detalhe.avulsos.length > 0 && (
+                        <Bloco
+                          icon={<AlertTriangle className="h-3.5 w-3.5" />}
+                          titulo={`Fora do fechamento — faturar à parte (${f.detalhe.avulsos.length})`}
+                        >
+                          <div className="space-y-1 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
+                            <p className="text-[11px] text-amber-500">
+                              Estes projetos NÃO estão somados no total deste rascunho.
+                            </p>
+                            {f.detalhe.avulsos.map((a: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="truncate text-muted-foreground">
+                                  {a.numero ? `${a.numero} · ` : ""}{a.projeto}
+                                </span>
+                                <span className="shrink-0 text-foreground">
+                                  {fmtHoras(a.horas)}
+                                  {a.entregas > 0 && (
+                                    <span className="text-muted-foreground"> · {a.entregas} entrega{a.entregas > 1 ? "s" : ""}</span>
+                                  )}
+                                </span>
                               </div>
                             ))}
                           </div>
