@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,7 @@ import {
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy, Wrench,
+  PanelRightClose, MessageSquare, Copy, Wrench, Upload, Image as ImageIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -463,9 +463,12 @@ export default function EntregavelDetalhe() {
 
       <div>
         <div className="min-w-0 space-y-5">
-          {/* Anexos: roteiro, referências, PDF do cliente. Aberto a todo mundo
+          {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
               que abre o entregável — a coordenadora precisa do roteiro à mão. */}
           <DocumentosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
+          <AnexosEntregavel did={did!} projectId={projectId!} />
 
           {/* Timesheet do entregável — some pra quem não vê horas */}
           {canSeeHours && (
@@ -868,6 +871,148 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
             <Plus className="mr-1 h-3.5 w-3.5" /> Anexar
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Anexos de MÍDIA do entregável: fotos e vídeos subidos de verdade pro Storage
+ * (bucket "entregaveis"), com preview em grade. Diferente do card de links acima.
+ * Arraste os arquivos pra cá ou use o botão. Vídeo muito grande → melhor link do
+ * Frame.io (no card de cima).
+ */
+function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const confirmar = useConfirm();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [arrastando, setArrastando] = useState(false);
+
+  const { data: anexos = [] } = useQuery({
+    queryKey: ["entregavel-anexos", did],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverable_anexos").select("*").eq("deliverable_id", did).order("created_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const enviarArquivos = async (files: FileList | null) => {
+    const lista = files ? Array.from(files) : [];
+    if (!lista.length) return;
+    setEnviando(true);
+    try {
+      for (const file of lista) {
+        const ehMidia = file.type.startsWith("image/") || file.type.startsWith("video/");
+        if (!ehMidia) { toast.error(`"${file.name}" não é foto nem vídeo`); continue; }
+        const safe = file.name.replace(/[^\w.\-]+/g, "_");
+        const path = `${did}/${crypto.randomUUID()}-${safe}`;
+        const { error: upErr } = await supabase.storage.from("entregaveis")
+          .upload(path, file, { cacheControl: "3600", contentType: file.type || undefined });
+        if (upErr) throw new Error(`Falha ao subir "${file.name}": ${upErr.message}`);
+        const { data: pub } = supabase.storage.from("entregaveis").getPublicUrl(path);
+        const tipo = file.type.startsWith("image/") ? "foto" : "video";
+        const { error: insErr } = await (supabase as any).from("deliverable_anexos").insert({
+          deliverable_id: did, project_id: projectId, nome: file.name, tipo,
+          url: pub.publicUrl, storage_path: path, mime: file.type || null, tamanho: file.size,
+          created_by: user?.id || null,
+        });
+        if (insErr) throw insErr;
+      }
+      qc.invalidateQueries({ queryKey: ["entregavel-anexos", did] });
+      toast.success("Enviado");
+    } catch (e: any) {
+      toast.error("Erro no upload", { description: e.message });
+    } finally {
+      setEnviando(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const excluir = async (a: any) => {
+    if (!(await confirmar({ title: `Remover "${a.nome}"?`, confirmText: "Remover", destructive: true }))) return;
+    await supabase.storage.from("entregaveis").remove([a.storage_path]);
+    const { error } = await (supabase as any).from("deliverable_anexos").delete().eq("id", a.id);
+    if (error) return toast.error("Não removeu", { description: error.message });
+    qc.invalidateQueries({ queryKey: ["entregavel-anexos", did] });
+  };
+
+  const fmtTam = (b?: number | null) =>
+    !b ? "" : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+
+  return (
+    <Card className="glass-card">
+      <CardContent
+        className="space-y-3 p-6"
+        onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+        onDragLeave={() => setArrastando(false)}
+        onDrop={(e) => { e.preventDefault(); setArrastando(false); enviarArquivos(e.dataTransfer.files); }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Fotos & vídeos</p>
+            <p className="text-xs text-muted-foreground">Arquivos subidos direto — imagens e vídeos (até 500 MB)</p>
+          </div>
+          <Button size="sm" onClick={() => inputRef.current?.click()} disabled={enviando}>
+            {enviando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1 h-3.5 w-3.5" />}
+            {enviando ? "Enviando…" : "Enviar arquivo"}
+          </Button>
+          <input
+            ref={inputRef} type="file" accept="image/*,video/*" multiple className="hidden"
+            onChange={(e) => enviarArquivos(e.target.files)}
+          />
+        </div>
+
+        {anexos.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className={`flex w-full flex-col items-center gap-1 rounded-md border border-dashed p-6 text-center text-xs transition-colors ${
+              arrastando ? "border-primary bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:border-primary/40"
+            }`}
+          >
+            <ImageIcon className="h-5 w-5" />
+            Arraste fotos/vídeos aqui ou clique para enviar
+          </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {anexos.map((a) => (
+              <div key={a.id} className="group relative overflow-hidden rounded-md border border-border/40 bg-black/30">
+                {a.tipo === "foto" ? (
+                  <a href={a.url} target="_blank" rel="noreferrer">
+                    <img src={a.url} alt={a.nome} loading="lazy" className="h-28 w-full object-cover" />
+                  </a>
+                ) : a.tipo === "video" ? (
+                  <video src={a.url} className="h-28 w-full bg-black object-contain" controls preload="metadata" />
+                ) : (
+                  <a href={a.url} target="_blank" rel="noreferrer" className="flex h-28 w-full items-center justify-center text-muted-foreground">
+                    <Film className="h-6 w-6" />
+                  </a>
+                )}
+                {a.tamanho ? (
+                  <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                    {fmtTam(a.tamanho)}
+                  </span>
+                ) : null}
+                <div className="flex items-center justify-between gap-1 px-2 py-1">
+                  <a href={a.url} target="_blank" rel="noreferrer" className="truncate text-[11px] text-foreground hover:text-primary" title={a.nome}>
+                    {a.nome}
+                  </a>
+                  <button
+                    onClick={() => excluir(a)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Remover"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
