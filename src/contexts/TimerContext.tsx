@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ const TimerCtx = createContext<Ctx | null>(null);
 
 export function TimerProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [sessao, setSessao] = useState<Sessao | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -84,12 +86,27 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       });
       if (error) throw error;
       toast.success(`Lançado · ${duration_min} min em ${sessao.project_name}`);
+      // Faz o timesheet e os totais de horas atualizarem NA HORA, por qualquer
+      // caminho de parada (botão do fluxo OU Apontar do topo). Antes o stop não
+      // invalidava nada — o tempo só aparecia depois de recarregar a página.
+      if (sessao.deliverable_id) {
+        qc.invalidateQueries({ queryKey: ["entregavel-horas", sessao.deliverable_id] });
+        qc.invalidateQueries({ queryKey: ["entregavel", sessao.deliverable_id] });
+      }
+      if (sessao.project_id) {
+        qc.invalidateQueries({ queryKey: ["projeto-horas-total", sessao.project_id] });
+      }
+      // Grades de horas gerais (timesheet semanal, minhas horas, home).
+      qc.invalidateQueries({ predicate: (q) => {
+        const k = String(q.queryKey?.[0] ?? "");
+        return k.includes("hora") || k.includes("timesheet") || k.startsWith("home");
+      }});
     } catch (e: any) {
       toast.error("Erro ao lançar horas", { description: e.message });
     } finally {
       setSessao(null);
     }
-  }, [sessao, user]);
+  }, [sessao, user, qc]);
 
   const elapsedSec = sessao
     ? Math.floor((Date.now() - new Date(sessao.start_at).getTime()) / 1000) + tick * 0
