@@ -173,7 +173,9 @@ function PainelEditor() {
 const ETAPAS: Record<string, "fila" | "edicao" | "aprovacao" | "cliente"> = {
   pendente: "fila",
   em_edicao: "edicao",
+  em_pausa: "edicao",
   ajuste_solicitado: "edicao",
+  ajuste_interno: "edicao",
   revisao_n1: "aprovacao",
   revisao_n2: "aprovacao",
   revisao: "aprovacao",

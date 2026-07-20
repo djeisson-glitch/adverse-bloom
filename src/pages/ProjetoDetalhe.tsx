@@ -1151,12 +1151,14 @@ function corDoGrupo(chave: string, indice: number) {
 const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
   pendente: "Pendente",
   em_edicao: "Em edição",
+  em_pausa: "Em pausa",
   revisao_n1: "Revisão N1",
   revisao_n2: "Revisão N2",
   revisao: "Revisão",
   pronto: "Pronto",
   com_cliente: "Com o cliente",
-  ajuste_solicitado: "Ajuste pedido",
+  ajuste_solicitado: "Ajuste do cliente",
+  ajuste_interno: "Ajuste interno",
   aprovado: "Aprovado",
   entregue: "Entregue",
 };
