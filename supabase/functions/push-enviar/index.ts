@@ -35,10 +35,13 @@ serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    const MAX_TENTATIVAS = 5;   // depois disso desiste: já está no sino de qualquer forma
+
     const { data: pendentes, error } = await admin
       .from("notificacoes")
-      .select("id, user_id, tipo, prioridade, titulo, corpo, link")
+      .select("id, user_id, tipo, prioridade, titulo, corpo, link, push_tentativas")
       .is("push_em", null)
+      .lt("push_tentativas", MAX_TENTATIVAS)
       .in("prioridade", ["critico", "importante"])
       .order("created_at", { ascending: true })
       .limit(100);
@@ -65,14 +68,17 @@ serve(async (req) => {
 
     let enviadas = 0;
     const mortas: string[] = [];
-    const marcar: string[] = [];
+    const marcar: string[] = [];     // deu certo (ou não há o que tentar) → fecha
+    const reagendar: { id: string; tentativas: number }[] = [];  // falha transitória → tenta de novo
 
     for (const n of pendentes as any[]) {
       const alvos = porUsuario.get(n.user_id) || [];
-      // Sem navegador registrado? Marca como "enviada" mesmo assim — ela já
-      // está no sino; não faz sentido tentar pra sempre.
-      marcar.push(n.id);
-      if (alvos.length === 0) continue;
+      // Sem navegador registrado? Fecha: ela já está no sino, não adianta
+      // reter esperando uma assinatura que não existe.
+      if (alvos.length === 0) {
+        marcar.push(n.id);
+        continue;
+      }
 
       const payload = JSON.stringify({
         titulo: n.titulo,
@@ -82,6 +88,8 @@ serve(async (req) => {
         prioridade: n.prioridade,
       });
 
+      let algumOk = false;
+      let sobrouVivo = false;   // alvo que falhou mas não está morto → vale re-tentar
       for (const s of alvos) {
         try {
           await webpush.sendNotification(
@@ -89,25 +97,45 @@ serve(async (req) => {
             payload,
           );
           enviadas++;
+          algumOk = true;
         } catch (e: any) {
           const code = e?.statusCode;
           if (code === 404 || code === 410) {
             mortas.push(s.id);   // navegador desinstalou / permissão revogada
           } else {
+            sobrouVivo = true;   // rede, 5xx, timeout — transitório, tenta de novo
             console.error("push falhou:", code, e?.body || e?.message);
           }
         }
       }
+
+      // Só fecha a notificação se entregou a alguém OU se os que falharam
+      // estavam todos mortos (nada vivo pra re-tentar). Se sobrou alvo vivo que
+      // deu erro transitório, deixa pendente e conta a tentativa — antes isso
+      // era marcado como "enviada" e a falha sumia sem ninguém ver.
+      if (algumOk || !sobrouVivo) marcar.push(n.id);
+      else reagendar.push({ id: n.id, tentativas: (n.push_tentativas || 0) + 1 });
     }
 
     if (marcar.length) {
       await admin.from("notificacoes").update({ push_em: new Date().toISOString() }).in("id", marcar);
     }
+    // Conta a tentativa dos que ficaram pendentes (o MAX_TENTATIVAS no SELECT
+    // é o freio: depois de 5 ciclos falhos, para de tentar).
+    for (const r of reagendar) {
+      await admin.from("notificacoes").update({ push_tentativas: r.tentativas }).eq("id", r.id);
+    }
     if (mortas.length) {
       await admin.from("push_subscriptions").delete().in("id", mortas);
     }
 
-    return json({ ok: true, notificacoes: marcar.length, enviadas, assinaturas_removidas: mortas.length });
+    return json({
+      ok: true,
+      fechadas: marcar.length,
+      reagendadas: reagendar.length,
+      enviadas,
+      assinaturas_removidas: mortas.length,
+    });
   } catch (e) {
     console.error("push-enviar error:", e);
     return json({ error: e instanceof Error ? e.message : "Erro desconhecido" }, 500);

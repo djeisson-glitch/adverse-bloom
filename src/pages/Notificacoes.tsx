@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNotificacoes } from "@/hooks/useNotificacoes";
 import { ItemNotificacao } from "@/components/NotificacoesSino";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ativarPush, desativarPush, pushAtivo, pushSuportado, pushConfigurado, permissaoAtual,
 } from "@/lib/push";
@@ -15,6 +16,7 @@ export default function Notificacoes() {
   const { notificacoes, total, isLoading, marcarLidas } = useNotificacoes(100);
   const [pushLigado, setPushLigado] = useState<boolean | null>(null);
   const [mexendo, setMexendo] = useState(false);
+  const [testando, setTestando] = useState(false);
   const [filtro, setFiltro] = useState<"todas" | "nao_lidas">("todas");
 
   useEffect(() => {
@@ -39,6 +41,30 @@ export default function Notificacoes() {
       }
     } finally {
       setMexendo(false);
+    }
+  };
+
+  const testar = async () => {
+    setTestando(true);
+    try {
+      // Se a permissão ainda não foi dada, pede agora — senão o balão de
+      // primeiro plano nunca aparece por mais que a notificação chegue.
+      if (permissaoAtual() === "default" && typeof Notification !== "undefined") {
+        await Notification.requestPermission();
+      }
+      const { error } = await (supabase as any).rpc("notificar_teste");
+      if (error) {
+        toast.error("Não deu pra testar", { description: error.message });
+      } else {
+        toast.success("Teste enviado", {
+          description:
+            permissaoAtual() === "granted"
+              ? "Troque de aba ou minimize por 1s — o balão de desktop aparece. Ele também caiu no sino."
+              : "Caiu no sino aqui embaixo. Pra ver o balão na área de trabalho, ligue as notificações.",
+        });
+      }
+    } finally {
+      setTestando(false);
     }
   };
 
@@ -83,12 +109,20 @@ export default function Notificacoes() {
                 </p>
               </div>
             </div>
-            {!bloqueado && (
-              <Button size="sm" variant={pushLigado ? "outline" : "default"} onClick={alternarPush} disabled={mexendo}>
-                {mexendo && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
-                {pushLigado ? "Desligar aqui" : "Ligar"}
+            <div className="flex items-center gap-2">
+              {/* Teste de um clique: dispara uma notificação pra você mesmo e
+                  confere se o balão aparece. Some a dúvida "será que funciona". */}
+              <Button size="sm" variant="ghost" onClick={testar} disabled={testando}>
+                {testando && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                Testar
               </Button>
-            )}
+              {!bloqueado && (
+                <Button size="sm" variant={pushLigado ? "outline" : "default"} onClick={alternarPush} disabled={mexendo}>
+                  {mexendo && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                  {pushLigado ? "Desligar aqui" : "Ligar"}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
