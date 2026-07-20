@@ -413,6 +413,18 @@ export default function EntregavelDetalhe() {
         </CardContent>
       </Card>
 
+      {/* Briefing logo no topo, depois do cabeçalho: é o direcionamento da
+          peça — quem abre o entregável quer isso primeiro, não no fim. */}
+      <Card className="glass-card">
+        <CardContent className="space-y-2 p-6">
+          <div className="flex items-center justify-between">
+            <Label>Briefing / observações deste entregável</Label>
+            <IndicadorAutosave status={auto.status} />
+          </div>
+          <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
+        </CardContent>
+      </Card>
+
       {/* Indicadores. Revisões e alterações ficam pra todo mundo (a
           coordenadora acompanha quantos ajustes rolaram); as horas só pra quem
           pode ver tempo. */}
@@ -483,17 +495,6 @@ export default function EntregavelDetalhe() {
               qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
             }}
           />
-
-          {/* Briefing do entregável (responsável, prazos e link foram pro cabeçalho) */}
-          <Card className="glass-card">
-            <CardContent className="space-y-2 p-6">
-              <div className="flex items-center justify-between">
-                <Label>Briefing / observações deste entregável</Label>
-                <IndicadorAutosave status={auto.status} />
-              </div>
-              <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
-            </CardContent>
-          </Card>
         </div>
 
       </div>

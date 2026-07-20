@@ -31,7 +31,9 @@ export default function Pauta() {
   const [status, setStatus] = useState<StatusFiltro>("pendentes");
   const [pessoaFiltro, setPessoaFiltro] = useState<string>("__all__");
   const [projetoFiltro, setProjetoFiltro] = useState<string>("__all__");
-  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
+  // Grupos começam ABERTOS (rastreia os recolhidos): com o Set vazio a
+  // pauta parecia sem conteúdo, só cabeçalhos fechados.
+  const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set());
 
   // ATENÇÃO: nada de embed `profiles!tasks_assigned_user_id_fkey`. Esse FK
   // aponta pra auth.users, não pra profiles — o PostgREST não resolve, a
@@ -115,9 +117,9 @@ export default function Pauta() {
   }, [filtradas, agrupamento]);
 
   const toggle = (key: string) => {
-    const s = new Set(expandidos);
+    const s = new Set(recolhidos);
     s.has(key) ? s.delete(key) : s.add(key);
-    setExpandidos(s);
+    setRecolhidos(s);
   };
 
   return (
@@ -214,7 +216,7 @@ export default function Pauta() {
           </Card>
         ) : (
           grupos.map(([key, g]) => {
-            const isOpen = expandidos.has(key);
+            const isOpen = !recolhidos.has(key);
             return (
               <Card key={key} className="glass-card">
                 <CardContent className="p-0">
