@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { useLocalPref } from "@/hooks/useLocalPref";
+import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
 import { agruparEntregaveis } from "@/lib/familiaEntregavel";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
@@ -1073,7 +1074,9 @@ function LinhaEntregavel({
         className="text-xs text-muted-foreground"
         title={d.prazo_interno ? "Prazo interno" : d.data_entrega ? "Sem prazo interno — mostrando o prazo do cliente" : ""}
       >
-        {formatDate(d.prazo_interno || d.data_entrega || null)}
+        {d.prazo_interno
+          ? formatPrazoHora(d.prazo_interno, d.prazo_interno_hora)
+          : formatPrazoHora(d.data_entrega || null, d.data_entrega_hora)}
       </span>
       {/* Status em português — "em_edicao" cru não diz nada pra quem olha rápido */}
       <span

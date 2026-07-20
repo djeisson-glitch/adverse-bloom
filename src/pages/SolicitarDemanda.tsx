@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { HORARIOS_COMERCIAIS } from "@/components/prazo/SeletorPrazo";
 import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle, ChevronDown } from "lucide-react";
 
 /** ISO (timestamptz) -> string do input datetime-local (horário local). */
@@ -442,7 +443,31 @@ export default function SolicitarDemanda() {
               </>
             ) : (
               <>
-                <input type="datetime-local" className={inputCls} value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} />
+                {/* Data + horário comercial (nada de "prazo às 3h"). O form.prazo
+                    fica "YYYY-MM-DDTHH:MM" — o resto do fluxo (disponibilidade,
+                    envio) continua igual. */}
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    className={`${inputCls} flex-1`}
+                    value={form.prazo.slice(0, 10)}
+                    onChange={(e) => {
+                      const hora = form.prazo.slice(11) || "12:00";
+                      setForm({ ...form, prazo: e.target.value ? `${e.target.value}T${hora}` : "" });
+                    }}
+                  />
+                  <select
+                    className={`${inputCls} w-32`}
+                    value={form.prazo.slice(11) || ""}
+                    disabled={!form.prazo.slice(0, 10)}
+                    onChange={(e) => setForm({ ...form, prazo: `${form.prazo.slice(0, 10)}T${e.target.value}` })}
+                  >
+                    <option value="">Horário</option>
+                    {HORARIOS_COMERCIAIS.map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                </div>
                 {slots.length > 0 && (
                   <button type="button" onClick={() => setModoData("slots")} className="mt-1 text-[11px] text-[#E53500] underline hover:opacity-80">
                     Ver horários sugeridos
