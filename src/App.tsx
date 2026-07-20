@@ -32,7 +32,6 @@ import Leads from "./pages/Leads";
 import LeadDetalhe from "./pages/LeadDetalhe";
 import CatalogoItens from "./pages/CatalogoItens";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
-import ProjetoPecas from "./pages/ProjetoPecas";
 import EntregavelDetalhe from "./pages/EntregavelDetalhe";
 import RelatorioProjeto from "./pages/RelatorioProjeto";
 import ProjetosLegado from "./pages/ProjetosLegado";
@@ -174,7 +173,6 @@ const App = () => (
               <Route path="/orcamentos-legado" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentosLegado /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="projetos"><Projetos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos/:id" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoDetalhe /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/projetos/:id/pecas" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoPecas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos/:id/entregaveis/:did" element={<ProtectedRoute><ModuleGuard module="projetos"><EntregavelDetalhe /></ModuleGuard></ProtectedRoute>} />
               <Route path="/relatorios/projeto/:id" element={<ProtectedRoute><ModuleGuard module="relatorios"><RelatorioProjeto /></ModuleGuard></ProtectedRoute>} />
               {/* Legado: mostra valor vendido/custos/faturado sem gate — é tela de gestão, não da equipe. */}

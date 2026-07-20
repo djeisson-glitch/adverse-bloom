@@ -46,6 +46,7 @@ export type AppRole =
   | "manager"    // legado ≈ admin
   | "operator"   // legado ≈ equipe
   | "produtor"
+  | "coordenadora" // coordena produção; não vê dinheiro nem horas
   | "equipe"
   | "edicao"
   | "cliente";
@@ -106,6 +107,7 @@ export function usePermissions() {
   const roles = userRoles ?? [];
   const isAdmin = roles.includes("admin") || roles.includes("manager");
   const isProdutor = roles.includes("produtor");
+  const isCoordenadora = roles.includes("coordenadora");
   const isEquipe = roles.includes("equipe") || roles.includes("operator");
   const isEdicao = roles.includes("edicao");
   const isCliente = roles.includes("cliente");
@@ -154,14 +156,23 @@ export function usePermissions() {
   // painel, o produtor deixa de ver — "o painel manda" (espelha pode_ver_dinheiro).
   const canSeeMoney = isAdmin || MONEY_MODULES.some((m) => concedido(m, "view"));
 
+  // Vê horas = quem trabalha com tempo (aponta ou gere) OU tem acesso a horas/
+  // fechamento/faturamento no painel. A coordenadora NÃO entra por nenhuma via:
+  // acompanha produção sem ver quanto tempo cada peça consumiu.
+  const canSeeHours =
+    isAdmin || isProdutor || isEquipe || isEdicao ||
+    concedido("horas", "view") || concedido("fechamento", "view") || concedido("faturamento", "view");
+
   return {
     can,
     isAdmin,
     isProdutor,
+    isCoordenadora,
     isEquipe,
     isEdicao,
     isCliente,
     canSeeMoney,
+    canSeeHours,
     canApontarHoras,
     roles,
     permissions,

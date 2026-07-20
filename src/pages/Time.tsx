@@ -26,6 +26,7 @@ import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 const PAPEIS: { value: string; label: string; hint: string }[] = [
   { value: "admin", label: "Admin", hint: "Acesso total, vê valores em R$" },
   { value: "produtor", label: "Produtor", hint: "Coordena produção, vê valores" },
+  { value: "coordenadora", label: "Coordenadora", hint: "Coordena produção; não vê valores nem horas" },
   { value: "equipe", label: "Equipe", hint: "Aponta horas, não vê R$" },
   { value: "edicao", label: "Edição", hint: "Time de pós — capacidade produtiva" },
   { value: "cliente", label: "Cliente", hint: "Só o próprio portal" },
