@@ -66,16 +66,22 @@ function fmtDia(s: string) {
   const d = new Date(s.length <= 10 ? `${s}T12:00:00` : s);
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
-/** Status técnico do projeto → rótulo que o cliente entende. */
-function labelEtapa(etapa: string): string {
-  const e = (etapa || "").toLowerCase();
-  if (e === "na fila") return "na fila";
-  if (e.includes("briefing")) return "briefing";
-  if (e.includes("pré") || e.includes("pre")) return "pré-produção";
-  if (e.includes("produ")) return "em produção";
-  if (e.includes("revis")) return "em revisão";
-  if (e.includes("entreg")) return "entregue";
-  return etapa || "em andamento";
+/**
+ * Etapa do entregável em linguagem de cliente, com uma cor cada.
+ *
+ * A hierarquia é de propósito: só "aguardando você" usa o laranja da marca,
+ * porque é a única etapa em que a bola está com quem está lendo. O resto fica
+ * discreto — informa sem gritar.
+ */
+const ETAPAS: Record<string, { label: string; classe: string }> = {
+  na_fila: { label: "na fila", classe: "bg-white/[0.06] text-[#9A968C]" },
+  edicao: { label: "em edição", classe: "bg-[#7FA6C9]/[0.12] text-[#7FA6C9]" },
+  revisao_interna: { label: "aprovação interna", classe: "bg-[#D9A441]/[0.12] text-[#D9A441]" },
+  com_cliente: { label: "aguardando você", classe: "bg-[#E53500]/[0.15] text-[#FF7A4D]" },
+};
+
+function etapaDe(etapa: string) {
+  return ETAPAS[etapa] || ETAPAS.na_fila;
 }
 
 export default function SolicitarDemanda() {
@@ -100,6 +106,7 @@ export default function SolicitarDemanda() {
         nome: string; ativo: boolean;
         contatos?: { nome: string; email: string }[];
         andamento?: { nome: string; tipo: string; etapa: string; prazo: string | null }[];
+        andamento_total?: number;
       } | null;
     },
   });
@@ -244,13 +251,26 @@ export default function SolicitarDemanda() {
           <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">Já em andamento com a gente</p>
             <div className="mt-2.5 space-y-1.5">
-              {cfg.andamento.map((a, i) => (
-                <div key={i} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 flex-1 truncate text-[#E8E1D0]">{a.nome}</span>
-                  <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[#9A968C]">{labelEtapa(a.etapa)}</span>
-                  {a.prazo && <span className="hidden shrink-0 text-[11px] text-[#6b675f] sm:inline">{fmtDia(a.prazo)}</span>}
-                </div>
-              ))}
+              {cfg.andamento.slice(0, 6).map((a, i) => {
+                const et = etapaDe(a.etapa);
+                return (
+                  <div key={i} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate text-[#E8E1D0]" title={a.nome}>
+                      {a.nome}
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${et.classe}`}>
+                      {et.label}
+                    </span>
+                    {a.prazo && <span className="hidden shrink-0 text-[11px] text-[#6b675f] sm:inline">{fmtDia(a.prazo)}</span>}
+                  </div>
+                );
+              })}
+              {/* A lista é cortada no banco; sem isso, some peça sem avisar. */}
+              {typeof cfg.andamento_total === "number" && cfg.andamento_total > 6 && (
+                <p className="pt-1 text-[11px] text-[#6b675f]">
+                  + {cfg.andamento_total - 6} outras peças em andamento
+                </p>
+              )}
             </div>
           </div>
         )}
