@@ -114,7 +114,7 @@ export default function EntregavelDetalhe() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { start } = useTimer();
-  const { isAdmin, canSeeHours } = usePermissions();
+  const { isAdmin, isCoordenadora, canSeeHours } = usePermissions();
 
   const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
@@ -285,11 +285,14 @@ export default function EntregavelDetalhe() {
   const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
-  // Papéis pra máquina de estados (admin/manager faz tudo).
+  // Papéis pra máquina de estados. A coordenadora revisa e envia por PAPEL —
+  // é a função dela (revisar e mandar pro cliente), então não precisa estar
+  // configurada como N1/N2 em cada projeto. Admin/manager faz tudo.
   const eu = user?.id;
-  const isN1 = !!eu && (eu === n1 || isAdmin);
-  const isN2 = !!eu && (eu === n2 || isAdmin);
-  const isRevisor = !!eu && (eu === n1 || eu === n2 || isAdmin);
+  const podeRevisar = isAdmin || isCoordenadora;
+  const isN1 = !!eu && (eu === n1 || podeRevisar);
+  const isN2 = !!eu && (eu === n2 || podeRevisar);
+  const isRevisor = !!eu && (eu === n1 || eu === n2 || podeRevisar);
   const isEditor = !!eu && (entregavel.responsavel_id === eu || isAdmin);
   const alteracaoAberta = (alteracoes as any[]).find((a: any) => a.status === "aberta") || null;
 
