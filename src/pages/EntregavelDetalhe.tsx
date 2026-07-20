@@ -7,6 +7,7 @@ import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
+import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
@@ -230,7 +231,9 @@ export default function EntregavelDetalhe() {
       responsavel_id: entregavel.responsavel_id || "",
       aprovador_id: entregavel.aprovador_id || "",
       data_entrega: entregavel.data_entrega || "",
+      data_entrega_hora: (entregavel.data_entrega_hora || "").slice(0, 5),
       prazo_interno: entregavel.prazo_interno || "",
+      prazo_interno_hora: (entregavel.prazo_interno_hora || "").slice(0, 5),
       arquivo_url: entregavel.arquivo_url || "",
       descricao: entregavel.descricao || "",
     });
@@ -428,10 +431,18 @@ export default function EntregavelDetalhe() {
               <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
             </Campo>
             <Campo label="Prazo interno">
-              <Input type="date" value={form.prazo_interno} onChange={(e) => set({ prazo_interno: e.target.value })} className="h-8" />
+              <SeletorPrazo
+                data={form.prazo_interno}
+                hora={form.prazo_interno_hora}
+                onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
+              />
             </Campo>
             <Campo label="Prazo do cliente">
-              <Input type="date" value={form.data_entrega} onChange={(e) => set({ data_entrega: e.target.value })} className="h-8" />
+              <SeletorPrazo
+                data={form.data_entrega}
+                hora={form.data_entrega_hora}
+                onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
+              />
             </Campo>
             <Campo label="Link do arquivo / Frame.io" className="sm:col-span-2 lg:col-span-4">
               <div className="flex gap-2">
