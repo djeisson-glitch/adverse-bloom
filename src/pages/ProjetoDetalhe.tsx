@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useConfirm } from "@/components/ui/confirm";
+import { statusPill, iconeStatus } from "@/lib/statusEntregavel";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
@@ -98,6 +100,7 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { canSeeMoney, canSeeHours, isAdmin } = usePermissions();
+  const confirmar = useConfirm();
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
   // Contexto do painel de comentários (levantado pra cá pra o botão "conversa"
   // de cada entregável poder focar o painel sem sair da lista).
@@ -218,7 +221,11 @@ export default function ProjetoDetalhe() {
                 className="text-destructive hover:text-destructive"
                 title="Excluir projeto"
                 onClick={async () => {
-                  if (!window.confirm("Excluir este projeto? Isso remove entregáveis, tarefas e apontamentos ligados a ele. Não dá pra desfazer.")) return;
+                  if (!(await confirmar({
+                    title: "Excluir projeto?",
+                    description: "Remove entregáveis, tarefas e apontamentos ligados a ele. Não dá pra desfazer.",
+                    confirmText: "Excluir", destructive: true,
+                  }))) return;
                   const { error } = await (supabase as any).from("projects").delete().eq("id", project.id);
                   if (error) return toast.error("Não excluiu", { description: error.message });
                   toast.success("Projeto excluído");
@@ -1078,12 +1085,14 @@ function LinhaEntregavel({
           ? formatPrazoHora(d.prazo_interno, d.prazo_interno_hora)
           : formatPrazoHora(d.data_entrega || null, d.data_entrega_hora)}
       </span>
-      {/* Status em português — "em_edicao" cru não diz nada pra quem olha rápido */}
+      {/* Status colorido — ícone + cor da etapa pra bater o olho na lista
+          (mesma linguagem do card do entregável e da Minha mesa). */}
       <span
-        className="truncate rounded bg-muted/60 px-1.5 py-0.5 text-center text-[10px] text-muted-foreground"
+        className={`flex items-center justify-center gap-1 truncate rounded border px-1.5 py-0.5 text-[10px] font-medium ${statusPill(d.status)}`}
         title={rotuloStatus(d.status)}
       >
-        {rotuloStatus(d.status)}
+        {(() => { const I = iconeStatus(d.status); return <I className="h-3 w-3 shrink-0" />; })()}
+        <span className="truncate">{rotuloStatus(d.status)}</span>
       </span>
       {/* Ações rápidas — Frame, conversa e excluir deste entregável.
           A lixeira mora aqui (e não em coluna própria) pra linha não estourar a largura do card. */}

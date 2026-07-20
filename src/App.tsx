@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PeriodProvider } from "@/contexts/PeriodContext";
 import { TimerProvider } from "@/contexts/TimerContext";
+import { ConfirmProvider } from "@/components/ui/confirm";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 import Login from "./pages/Login";
@@ -147,6 +148,7 @@ const App = () => (
         <AuthProvider>
           <TimerProvider>
             <PeriodProvider>
+            <ConfirmProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<ProtectedRoute><HomeSwitch /></ProtectedRoute>} />
@@ -224,6 +226,7 @@ const App = () => (
               <Route path="/preview-onda-0" element={<PreviewOnda0 />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </ConfirmProvider>
             </PeriodProvider>
           </TimerProvider>
         </AuthProvider>

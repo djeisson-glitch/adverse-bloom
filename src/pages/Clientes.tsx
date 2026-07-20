@@ -12,6 +12,7 @@ import { NewClientModal } from "@/components/clientes/NewClientModal";
 import { ImportClientsModal } from "@/components/clientes/ImportClientsModal";
 import { Users, Plus, Search, Loader2, ExternalLink, Upload, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useConfirm } from "@/components/ui/confirm";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -23,6 +24,7 @@ export default function Clientes() {
   const { deals } = useDeals();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const confirmar = useConfirm();
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState("Todos");
   const [newOpen, setNewOpen] = useState(false);
@@ -254,7 +256,10 @@ export default function Clientes() {
                         description: "Exclua ou mova eles antes de remover o cliente.",
                       });
                     }
-                    if (!window.confirm(`Excluir o cliente "${(c as any).trade_name || c.name}"?`)) return;
+                    if (!(await confirmar({
+                      title: `Excluir o cliente "${(c as any).trade_name || c.name}"?`,
+                      confirmText: "Excluir", destructive: true,
+                    }))) return;
                     const { error } = await (supabase as any).from("clients").delete().eq("id", c.id);
                     if (error) return toast.error("Não excluiu", { description: error.message });
                     toast.success("Cliente excluído");

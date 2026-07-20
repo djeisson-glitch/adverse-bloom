@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { FileText, CheckCircle2, Clock, Wallet, AlertCircle, Trash2 } from "lucide-react";
@@ -27,6 +28,7 @@ type Invoice = {
 
 export default function Faturamento() {
   const qc = useQueryClient();
+  const confirmar = useConfirm();
   const { user } = useAuth();
   const { canSeeMoney } = usePermissions();
 
@@ -227,7 +229,7 @@ export default function Faturamento() {
                 invoice={i}
                 onChangeStatus={(status) => mudarStatus.mutate({ id: i.id, status })}
                 onDelete={async () => {
-                  if (!window.confirm("Excluir esta fatura?")) return;
+                  if (!(await confirmar({ title: "Excluir esta fatura?", confirmText: "Excluir", destructive: true }))) return;
                   const { error } = await (supabase as any).from("invoices").delete().eq("id", i.id);
                   if (error) return toast.error("Não excluiu", { description: error.message });
                   qc.invalidateQueries({ queryKey: ["invoices"] });
