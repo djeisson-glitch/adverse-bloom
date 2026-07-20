@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 
 /**
  * Textarea com autocomplete de @menção.
@@ -9,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
  * "@Nome " no texto. Antes o @ só era reconhecido DEPOIS de enviar (tinha que
  * acertar o nome de cabeça) — agora o sistema mostra quem dá pra mencionar.
  *
- * Ctrl/⌘+Enter envia (quando onSubmit é passado), sem conflitar com o Enter
- * que escolhe a menção enquanto a lista está aberta.
+ * Enter envia (quando onSubmit é passado); Shift+Enter quebra linha. Enquanto a
+ * lista de menção está aberta, o Enter escolhe a pessoa (não envia).
  */
 export type PessoaMencionavel = { id: string; full_name?: string | null; email?: string | null };
 
@@ -113,10 +114,11 @@ export function MentionTextarea({
         return;
       }
     }
-    // ⌘/Ctrl+Enter envia (só quando a lista não está capturando o Enter).
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+    // Enter envia (a lista fechada aqui). Shift+Enter cai fora e quebra linha,
+    // como no WhatsApp. ⌘/Ctrl+Enter também envia, por hábito.
+    if (e.key === "Enter" && !e.shiftKey && onSubmit) {
       e.preventDefault();
-      onSubmit();
+      if (value.trim()) onSubmit();
     }
   }
 
@@ -148,13 +150,17 @@ export function MentionTextarea({
               }}
               onMouseEnter={() => setAtivo(i)}
               className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
-                i === ativo ? "bg-primary/15 text-primary" : "text-foreground hover:bg-muted"
+                i === ativo ? "bg-muted" : "hover:bg-muted"
               }`}
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] text-primary">
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
+                style={{ backgroundColor: `${corDoUsuario(p.id)}26`, color: corDoUsuario(p.id) }}
+              >
                 {rotulo(p).slice(0, 2).toUpperCase()}
               </span>
-              <span className="truncate">{rotulo(p)}</span>
+              <span className="font-medium" style={{ color: corDoUsuario(p.id) }}>@{handleUsuario(rotulo(p))}</span>
+              <span className="truncate text-xs text-muted-foreground">{rotulo(p)}</span>
             </button>
           ))}
         </div>

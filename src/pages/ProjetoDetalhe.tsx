@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
+import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
 import { agruparEntregaveis } from "@/lib/familiaEntregavel";
@@ -1786,6 +1787,20 @@ function FaturamentoSection({ project }: { project: any }) {
 
 type CommentEntity = "project" | "deal" | "task" | "deliverable";
 
+// Colore as @menções dentro do texto na cor da pessoa mencionada (estilo
+// WhatsApp). Casa o token @nome com o 1º nome de cada profile (sem acento).
+function corpoComMencoes(body: string, profiles: any[]) {
+  const semAcento = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return body.split(/(@[\p{L}0-9._-]+)/u).map((parte, i) => {
+    if (parte.startsWith("@")) {
+      const nome = semAcento(parte.slice(1));
+      const p = profiles.find((x) => semAcento(handleUsuario(x.full_name || x.email)) === nome);
+      if (p) return <strong key={i} className="font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
+    }
+    return <span key={i}>{parte}</span>;
+  });
+}
+
 export function ComentariosSection({
   entityType, entityId, profiles, titulo = "Comentários", vazio, compact, fill,
 }: {
@@ -1871,24 +1886,26 @@ export function ComentariosSection({
         </p>
       ) : (
         <div className={corpoCls}>
-          {comments.map((c) => (
+          {comments.map((c) => {
+            const cor = corDoUsuario(c.user_id);
+            return (
             <div key={c.id} className="flex gap-2">
               <Avatar className="h-7 w-7 shrink-0">
-                <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
+                <AvatarFallback className="text-[10px] font-semibold" style={{ backgroundColor: `${cor}26`, color: cor }}>
                   {autorDe(c.user_id).slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {autorDe(c.user_id)}
+                  <span className="font-semibold" style={{ color: cor }} title={autorDe(c.user_id)}>
+                    @{handleUsuario(autorDe(c.user_id))}
                   </span>{" "}
                   · {new Date(c.created_at).toLocaleString("pt-BR")}
                 </p>
-                <p className="whitespace-pre-wrap text-sm text-foreground">{c.body}</p>
+                <p className="whitespace-pre-wrap text-sm text-foreground">{corpoComMencoes(c.body, profiles)}</p>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       )}
       <div className="flex gap-2">
