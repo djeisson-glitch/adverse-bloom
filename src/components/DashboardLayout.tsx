@@ -1,15 +1,15 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Play, Square, Search, LogOut, ShieldCheck, XCircle } from "lucide-react";
+import { Play, Square, LogOut, ShieldCheck, XCircle } from "lucide-react";
 import { NotificacoesSino } from "@/components/NotificacoesSino";
+import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import { StartTimerModal } from "@/components/timer/StartTimerModal";
 import { AssistenteFlutuante } from "@/components/AssistenteFlutuante";
-import { toast } from "sonner";
 
 function TimerButton() {
   const { sessao, stop, cancel, elapsedSec } = useTimer();
@@ -55,26 +55,6 @@ function TimerButton() {
       </button>
       <StartTimerModal open={open} onOpenChange={setOpen} />
     </>
-  );
-}
-
-function SearchBox() {
-  return (
-    <div className="relative hidden max-w-md flex-1 md:block">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        type="text"
-        placeholder="Buscar projeto, cliente, orçamento…"
-        className="w-full rounded-lg border border-border bg-muted/40 py-1.5 pl-9 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-        onFocus={(e) => {
-          e.target.blur();
-          toast.info("Busca global chega em melhoria futura");
-        }}
-      />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-        ⌘K
-      </span>
-    </div>
   );
 }
 
@@ -157,7 +137,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
             <SidebarTrigger />
-            <SearchBox />
+            <BuscaGlobal />
             <div className="ml-auto flex items-center gap-2">
               <TimerButton />
               <NotificacoesSino />
