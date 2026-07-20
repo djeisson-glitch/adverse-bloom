@@ -45,8 +45,10 @@ export default function Projetos() {
   const { data: projects = [], isLoading } = useProjects();
   const { canSeeMoney } = usePermissions();
   const navigate = useNavigate();
-  // A última escolha vira a padrão: quem volta pra tela cai na visão que usa.
-  const [vista, setVista] = useLocalPref<Vista>("projetos:vista", "lista", VISTA_IDS);
+  // Board é a visão padrão — é ela que mostra o andamento da produção de
+  // relance. A última escolha sobrescreve e fica salva: quem prefere lista
+  // volta pra lista.
+  const [vista, setVista] = useLocalPref<Vista>("projetos:vista", "board", VISTA_IDS);
   const [ordem, setOrdem] = useLocalPref<Ordem>("projetos:ordem", "recentes", [
     "recentes",
     "nome",
