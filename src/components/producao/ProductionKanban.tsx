@@ -13,6 +13,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, FileText, Handshake } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +43,7 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
   // drop também, então medimos o deslocamento do ponteiro pra distinguir.
   const downPos = useRef<{ x: number; y: number } | null>(null);
 
+  const { canSeeMoney } = usePermissions();
   const isOverdue = project.delivery_date && new Date(project.delivery_date) < new Date();
   const billing = billingBadge[(project as any).billing_status] || billingBadge.pending;
 
@@ -65,22 +67,30 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
       <p className="line-clamp-2 break-all text-sm font-medium leading-tight text-foreground" title={project.name}>{project.name}</p>
       <p className="truncate text-xs text-muted-foreground">{project.client_name || "—"}</p>
       
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-primary font-semibold">
-          {formatCurrency((project as any).contract_value || project.sold_value || 0)}
-        </span>
-        {project.delivery_date && (
-          <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
-            {formatDate(project.delivery_date)}
-            {isOverdue && " ⚠"}
-          </span>
-        )}
-      </div>
+      {/* Valor e status de faturamento só pra quem vê dinheiro. Sem canSeeMoney
+          o card mostra só nome, cliente e prazo. */}
+      {(canSeeMoney || project.delivery_date) && (
+        <div className="flex items-center justify-between text-xs">
+          {canSeeMoney ? (
+            <span className="text-primary font-semibold">
+              {formatCurrency((project as any).contract_value || project.sold_value || 0)}
+            </span>
+          ) : <span />}
+          {project.delivery_date && (
+            <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
+              {formatDate(project.delivery_date)}
+              {isOverdue && " ⚠"}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-1">
-        <Badge variant="outline" className={`text-[10px] px-1.5 h-4 ${billing.className}`}>
-          {billing.label}
-        </Badge>
+        {canSeeMoney ? (
+          <Badge variant="outline" className={`text-[10px] px-1.5 h-4 ${billing.className}`}>
+            {billing.label}
+          </Badge>
+        ) : <span />}
         <div className="flex gap-1">
           {(project as any).budget_id && (
             <button
@@ -120,6 +130,7 @@ function ProductionColumn({ stage, projects, onEditProject }: {
   projects: Project[];
   onEditProject?: (project: Project) => void;
 }) {
+  const { canSeeMoney } = usePermissions();
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const total = projects.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0);
 
@@ -137,7 +148,7 @@ function ProductionColumn({ stage, projects, onEditProject }: {
             {projects.length}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{formatCurrency(total)}</p>
+        {canSeeMoney && <p className="text-xs text-muted-foreground mt-1">{formatCurrency(total)}</p>}
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-350px)]">
         {projects.map((project) => (

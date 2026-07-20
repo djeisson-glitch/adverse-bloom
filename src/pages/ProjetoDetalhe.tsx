@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { agruparEntregaveis } from "@/lib/familiaEntregavel";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
@@ -1815,11 +1816,14 @@ export function ComentariosSection({
   const enviar = useMutation({
     mutationFn: async () => {
       if (!body.trim()) throw new Error("Escreva algo");
-      // Extrai @menções pelo nome (primeiro nome, case-insensitive)
+      // Extrai os tokens @Nome do texto e casa com o 1º nome de cada pessoa
+      // (comparação por token inteiro, sem acento — "@ana" não pega "anaildo").
+      const semAcento = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const tokens = new Set((body.match(/@([\p{L}0-9._-]+)/gu) || []).map((t) => semAcento(t.slice(1))));
       const mentions = profiles
         .filter((p) => {
-          const nome = (p.full_name || "").split(" ")[0].toLowerCase();
-          return nome && body.toLowerCase().includes(`@${nome}`);
+          const nome = semAcento((p.full_name || p.email || "").split(" ")[0]);
+          return nome && tokens.has(nome);
         })
         .map((p) => p.id);
       const { error } = await (supabase as any).from("comments").insert({
@@ -1874,12 +1878,13 @@ export function ComentariosSection({
         </div>
       )}
       <div className="flex gap-2">
-        <Textarea
+        <MentionTextarea
           rows={2}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Escreva uma mensagem…  use @nome para mencionar"
-          className="flex-1"
+          onChange={setBody}
+          profiles={profiles}
+          placeholder="Escreva uma mensagem…  digite @ para mencionar"
+          onSubmit={() => enviar.mutate()}
         />
         <Button
           onClick={() => enviar.mutate()}
