@@ -21,6 +21,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
+import { useClientesPublico } from "@/hooks/useDeals";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
@@ -102,6 +104,13 @@ export default function ProjetoDetalhe() {
   const qc = useQueryClient();
   const { canSeeMoney, canSeeHours, isAdmin } = usePermissions();
   const confirmar = useConfirm();
+  const { clientes } = useClientesPublico();   // lista pública (só nome) pro seletor do header
+  const salvarProjeto = async (patch: Record<string, unknown>, msg?: string) => {
+    const { error } = await (supabase as any).from("projects").update(patch).eq("id", id);
+    if (error) return toast.error("Não salvou", { description: error.message });
+    qc.invalidateQueries({ queryKey: ["projeto", id] });
+    if (msg) toast.success(msg);
+  };
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
   // Contexto do painel de comentários (levantado pra cá pra o botão "conversa"
   // de cada entregável poder focar o painel sem sair da lista).
@@ -242,8 +251,30 @@ export default function ProjetoDetalhe() {
           {/* flex-wrap em vez de grid fixo: quando o cartão de horas ou de
               valor some (coordenadora), o resto não fica com buraco. */}
           <div className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
-            <HeaderInfo label="Cliente" value={project.client_name || "—"} />
-            <HeaderInfo label="Status" value={project.status || "—"} />
+            <HeaderSelect
+              label="Cliente"
+              value={project.client_id || ""}
+              editable={isAdmin}
+              displayFallback={project.client_name || "—"}
+              options={[
+                ...(project.client_id && !clientes.some((c) => c.id === project.client_id)
+                  ? [{ value: project.client_id, label: project.client_name || "Cliente" }]
+                  : []),
+                ...clientes.map((c) => ({ value: c.id, label: c.trade_name || c.name })),
+              ]}
+              onChange={(v) => {
+                const c = clientes.find((x) => x.id === v);
+                salvarProjeto({ client_id: v, client_name: c?.name || project.client_name || "" }, "Cliente atualizado");
+              }}
+            />
+            <HeaderSelect
+              label="Status"
+              value={project.status || ""}
+              editable={isAdmin}
+              displayFallback={project.status || "—"}
+              options={PRODUCTION_STAGES_NEW.map((s) => ({ value: s.id, label: s.label }))}
+              onChange={(v) => salvarProjeto({ status: v }, "Status atualizado")}
+            />
             {canSeeMoney && (
               <HeaderInfo label="Valor" value={formatCurrency(project.sold_value || 0)} />
             )}
@@ -417,6 +448,39 @@ function HeaderInfo({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-sm text-foreground">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * Campo do header que vira Select quando `editable` — pra trocar cliente/status
+ * ali mesmo. Sem editar, cai no HeaderInfo (só texto). Salva na hora.
+ */
+function HeaderSelect({
+  label, value, options, editable, onChange, displayFallback,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  editable: boolean;
+  onChange: (v: string) => void;
+  displayFallback?: string;
+}) {
+  const atual = options.find((o) => o.value === value);
+  if (!editable) return <HeaderInfo label={label} value={atual?.label || displayFallback || "—"} />;
+  return (
+    <div className="min-w-[140px]">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger className="h-7 border-0 bg-transparent px-0 text-sm font-normal text-foreground shadow-none hover:text-primary focus:ring-0 [&>svg]:opacity-60">
+          <SelectValue placeholder={displayFallback || "—"} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} className="text-sm">{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
