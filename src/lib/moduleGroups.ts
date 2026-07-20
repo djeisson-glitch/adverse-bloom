@@ -20,7 +20,7 @@ export const BASE_MODULES: ModuleId[] = ["inicio", "minha_mesa"];
  */
 export const ACCESS_GROUPS: AccessGroup[] = [
   // Comercial
-  { id: "demandas",     section: "Comercial",  label: "Demandas",              dinheiro: true,  hint: "As solicitações que chegam dos clientes", modules: ["demandas"] },
+  { id: "demandas",     section: "Comercial",  label: "Demandas",              dinheiro: false, hint: "As solicitações que chegam dos clientes (sem valores)", modules: ["demandas"] },
   { id: "orcamentos",   section: "Comercial",  label: "Orçamentos & Propostas", dinheiro: true, hint: "Orçar e enviar proposta",                modules: ["orcamentos", "propostas"] },
   { id: "clientes",     section: "Comercial",  label: "Clientes & Leads",      dinheiro: true,  hint: "Cadastro de clientes, leads, follow-ups", modules: ["clientes", "leads", "follow_ups"] },
   // Produção
@@ -47,6 +47,9 @@ export const ACCESS_SECTIONS = ["Comercial", "Produção", "Tempo", "Financeiro"
 export const MONEY_MODULES: ModuleId[] = [
   // Só módulos GERIDOS pelo painel. Legados fora da lista (ex.: "crm") de
   // propósito: concessão-fantasma a eles não pode mais abrir o financeiro.
-  "demandas", "leads", "orcamentos", "clientes", "follow_ups", "propostas",
+  // "demandas" saiu: a tela não mostra R$ (a tabela nem tem coluna de valor),
+  // então ver demanda não pode mais destravar o financeiro. Mantém em sincronia
+  // com pode_ver_dinheiro no banco.
+  "leads", "orcamentos", "clientes", "follow_ups", "propostas",
   "faturamento", "fechamento", "contas_fees", "relatorios", "financeiro", "fornecedores",
 ];
