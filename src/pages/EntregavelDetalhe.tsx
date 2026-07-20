@@ -50,7 +50,8 @@ function statusTone(id: string) {
     warning: "bg-warning/15 text-warning",
     destructive: "bg-destructive/15 text-destructive",
     primary: "bg-primary/15 text-primary",
-    muted: "bg-muted text-muted-foreground",
+    // Antes muted-foreground somia no fundo. Texto na cor do foreground lê bem.
+    muted: "bg-foreground/10 text-foreground",
   };
   return map[s?.tone || "muted"];
 }
@@ -700,7 +701,12 @@ function FluxoCard({
       <CardContent className="space-y-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${statusTone(status)}`}>{labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}</span>
+            {/* Status em destaque, com rótulo — é o "onde a tarefa está". */}
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-md border border-current/20 px-2.5 py-1 text-sm font-semibold ${statusTone(status)}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}
+            </span>
             {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-400" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
