@@ -231,13 +231,19 @@ export default function ProjetoDetalhe() {
             </div>
           </div>
 
-          <div className="grid gap-3 text-sm md:grid-cols-4">
+          <div className="grid gap-3 text-sm md:grid-cols-5">
             <HeaderInfo label="Cliente" value={project.client_name || "—"} />
             <HeaderInfo label="Status" value={project.status || "—"} />
             <HeaderInfo label="Valor" value={canSeeMoney ? formatCurrency(project.sold_value || 0) : "—"} />
             <HeaderInfo
               label="Horas rastreadas"
               value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
+            />
+            <FaturamentoProjeto
+              projectId={project.id}
+              valor={project.faturamento || "mensal"}
+              podeEditar={canSeeMoney}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
             />
           </div>
 
@@ -322,6 +328,72 @@ export default function ProjetoDetalhe() {
           setContexto={setComentContexto}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Como ESTE projeto é faturado. "Mensal" entra no fechamento do mês do
+ * cliente; "avulso" fica fora de toda a soma e é cobrado à parte — inclusive
+ * as horas apontadas nele.
+ *
+ * Só quem enxerga dinheiro troca; o resto do time vê a marcação (precisa
+ * saber que aquele job é cobrado separado), mas não mexe.
+ */
+function FaturamentoProjeto({
+  projectId,
+  valor,
+  podeEditar,
+  onChanged,
+}: {
+  projectId: string;
+  valor: string;
+  podeEditar: boolean;
+  onChanged: () => void;
+}) {
+  const auto = useFormAutosave<Record<string, unknown>>(
+    async (patch) => {
+      const { error } = await (supabase as any).from("projects").update(patch).eq("id", projectId);
+      if (error) {
+        toast.error("Não salvou o faturamento", { description: error.message });
+        throw error;
+      }
+      onChanged();
+    },
+    { delay: 150 },
+  );
+  const [v, setV] = useState(valor);
+
+  if (!podeEditar) {
+    return (
+      <HeaderInfo
+        label="Faturamento"
+        value={valor === "avulso" ? "Avulso (à parte)" : "No fechamento do mês"}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Faturamento
+        <IndicadorAutosave status={auto.status} />
+      </p>
+      <Select
+        value={v}
+        onValueChange={(nv) => {
+          setV(nv);
+          auto.agendar({ faturamento: nv });
+        }}
+      >
+        <SelectTrigger className="mt-0.5 h-7 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="mensal" className="text-xs">No fechamento do mês</SelectItem>
+          <SelectItem value="avulso" className="text-xs">Avulso — faturo à parte</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
