@@ -399,8 +399,15 @@ export default function EntregavelDetalhe() {
               <div className="flex gap-2">
                 <Input value={form.arquivo_url} onChange={(e) => set({ arquivo_url: e.target.value })} placeholder="https://frame.io/…" className="h-8" />
                 {form.arquivo_url && (
-                  <a href={form.arquivo_url} target="_blank" rel="noreferrer" className="flex items-center rounded-md border border-border px-3 text-muted-foreground hover:text-primary">
+                  <a
+                    href={form.arquivo_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Abrir o link em nova aba"
+                    className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                  >
                     <ExternalLink className="h-4 w-4" />
+                    Abrir
                   </a>
                 )}
               </div>
