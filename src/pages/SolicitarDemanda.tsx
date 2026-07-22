@@ -29,9 +29,10 @@ function fmtSlot(iso: string) {
 // esquecia metade. Cada campo puxa uma parte do que a gente precisa saber.
 type GC = { nome: string; cargo: string };
 type Entrega = {
-  titulo: string; formato: string; duracao: string;
+  titulo: string; formatos: string[]; duracao: string;
   objetivo: string; mensagem: string; referencias: string;
-  tem_gc: "" | "sim" | "nao"; gcs: GC[]; lettering: string;
+  tem_gc: "" | "sim" | "nao"; gcs: GC[];
+  tem_lettering: "" | "sim" | "nao"; lettering: string;
   nao_pode_faltar: string;
 };
 type Anexo = { nome: string; path: string; url: string };
@@ -39,41 +40,54 @@ type Anexo = { nome: string; path: string; url: string };
 const FORMATOS = ["16x9", "9x16", "1x1", "4x5", "Outro"];
 const gcVazio = (): GC => ({ nome: "", cargo: "" });
 const entregaVazia = (): Entrega => ({
-  titulo: "", formato: "16x9", duracao: "",
+  titulo: "", formatos: [], duracao: "",
   objetivo: "", mensagem: "", referencias: "",
-  tem_gc: "", gcs: [], lettering: "",
+  tem_gc: "", gcs: [],
+  tem_lettering: "", lettering: "",
   nao_pode_faltar: "",
 });
 
-// Campos de texto livre do briefing. GC e lettering ficam de fora porque têm
-// forma própria (o GC é condicional e vira lista de nome+cargo).
-type CampoTexto = { key: "objetivo" | "mensagem" | "referencias" | "lettering" | "nao_pode_faltar"; label: string; ph: string; area?: boolean };
+// Campos de texto livre — todos OPCIONAIS. O que é obrigatório (título,
+// formato, duração, GC e lettering) tem forma própria: ou é escolha, ou é
+// pergunta condicional. Ninguém deveria ter que digitar "não tem".
+type CampoTexto = { key: "objetivo" | "mensagem" | "referencias" | "nao_pode_faltar"; label: string; ph: string; area?: boolean };
 const CAMPOS_TOPO: CampoTexto[] = [
   { key: "objetivo", label: "Objetivo do vídeo", ph: "O que ele precisa provocar / pra que serve", area: true },
   { key: "mensagem", label: "Mensagem-chave", ph: "A ideia que não pode se perder" },
   { key: "referencias", label: "Referências", ph: "Links, campanhas, algo parecido que curtiu" },
 ];
-const CAMPO_LETTERING: CampoTexto = {
-  key: "lettering", label: "Letterings", ph: "Textos/frases na tela, legendas, créditos",
-};
 const CAMPOS_FIM: CampoTexto[] = [
   { key: "nao_pode_faltar", label: "O que não pode faltar", ph: "Logo, produto, pessoa, frase obrigatória…", area: true },
 ];
-const CAMPOS_TEXTO: CampoTexto[] = [...CAMPOS_TOPO, CAMPO_LETTERING, ...CAMPOS_FIM];
+const CAMPOS_TEXTO: CampoTexto[] = [...CAMPOS_TOPO, ...CAMPOS_FIM];
 
-/** GCs que a pessoa realmente preencheu (linha em branco não conta). */
+/** GCs que a pessoa realmente preencheu (nome E cargo — meio GC não serve). */
 function gcsPreenchidos(e: Entrega): GC[] {
-  return (e.gcs || []).filter((g) => g.nome.trim() || g.cargo.trim());
+  return (e.gcs || []).filter((g) => g.nome.trim() && g.cargo.trim());
 }
 
 /** A linha de GC do briefing — "não vai ter" também é informação útil. */
 function linhaGC(e: Entrega): string {
   if (e.tem_gc === "nao") return "GC: não vai ter";
-  const lista = gcsPreenchidos(e);
+  const lista = (e.gcs || []).filter((g) => g.nome.trim() || g.cargo.trim());
   if (lista.length) {
     return `GC:\n${lista.map((g) => `  • ${g.nome.trim() || "(sem nome)"} — ${g.cargo.trim() || "(sem cargo)"}`).join("\n")}`;
   }
   return e.tem_gc === "sim" ? "GC: sim, mas os nomes/cargos não foram informados" : "";
+}
+
+/** Mesma ideia do GC: o "não vai ter" vale tanto quanto o texto. */
+function linhaLettering(e: Entrega): string {
+  if (e.tem_lettering === "nao") return "Lettering: não vai ter";
+  if (e.tem_lettering !== "sim") return "";
+  const v = e.lettering.trim();
+  return v ? `Lettering: ${v}` : "Lettering: sim, mas os textos não foram informados";
+}
+
+/** Formato virou múltipla escolha (o mesmo vídeo costuma sair em 16x9 e 9x16),
+ *  mas o resto do sistema lê `formato` como texto — então vai junto. */
+function formatoTexto(e: Entrega): string {
+  return (e.formatos || []).join(" + ");
 }
 
 // Junta os campos num texto só — o downstream (entregável, exibição) lê `briefing`.
@@ -86,15 +100,20 @@ function comporBriefing(e: Entrega): string {
   CAMPOS_TOPO.forEach(add);
   const gc = linhaGC(e);
   if (gc) linhas.push(gc);
-  add(CAMPO_LETTERING);
+  const lt = linhaLettering(e);
+  if (lt) linhas.push(lt);
   CAMPOS_FIM.forEach(add);
   return linhas.join("\n");
 }
 function entregaPreenchida(e: Entrega): boolean {
   return !!(
     e.titulo.trim() ||
+    e.duracao.trim() ||
+    (e.formatos || []).length ||
     e.tem_gc ||
-    gcsPreenchidos(e).length ||
+    e.tem_lettering ||
+    e.lettering.trim() ||
+    (e.gcs || []).some((g) => g.nome.trim() || g.cargo.trim()) ||
     CAMPOS_TEXTO.some(({ key }) => (e[key] || "").toString().trim())
   );
 }
@@ -105,24 +124,30 @@ function entregaPreenchida(e: Entrega): boolean {
    2) a leitura da IA, que pega o que é vago sem estar em branco ("um vídeo
       bonito" no objetivo) e devolve a pergunta que resolveria.
    As duas viram a mesma lista no pop-up de confirmação. */
-type Falta = { entrega: string; campo: string; pergunta: string };
+type Falta = { entrega: string; campo: string; pergunta: string; obrigatorio?: boolean };
 
 function rotuloEntrega(e: Entrega, i: number) {
   return e.titulo.trim() || `Vídeo ${i + 1}`;
 }
 
-function faltasLocais(entregas: Entrega[]): Falta[] {
+/** O que é obrigatório e ainda não está lá. Isso SEGURA o envio. */
+function faltasObrigatorias(entregas: Entrega[]): Falta[] {
   const out: Falta[] = [];
   entregas.forEach((e, i) => {
     const entrega = rotuloEntrega(e, i);
-    if (!e.titulo.trim()) out.push({ entrega, campo: "Título", pergunta: "Como esse vídeo se chama?" });
-    if (!e.duracao.trim()) out.push({ entrega, campo: "Duração", pergunta: "Quanto tempo ele precisa ter?" });
-    if (!e.objetivo.trim()) out.push({ entrega, campo: "Objetivo", pergunta: "Pra que serve esse vídeo / o que ele precisa provocar?" });
-    if (!e.tem_gc) {
-      out.push({ entrega, campo: "GC", pergunta: "Vai ter nome e cargo na tela? Responda sim ou não." });
-    } else if (e.tem_gc === "sim" && !gcsPreenchidos(e).length) {
-      out.push({ entrega, campo: "GC", pergunta: "Você marcou que vai ter GC — falta o nome e o cargo de quem aparece." });
-    }
+    const falta = (campo: string, pergunta: string) => out.push({ entrega, campo, pergunta, obrigatorio: true });
+
+    if (!e.titulo.trim()) falta("Título", "Como esse vídeo se chama?");
+    if (!(e.formatos || []).length) falta("Formato", "Em que formato ele sai? Pode marcar mais de um.");
+    if (!e.duracao.trim()) falta("Duração", "Quanto tempo ele precisa ter?");
+
+    if (!e.tem_gc) falta("GC", "Vai ter nome e cargo na tela? Responda sim ou não.");
+    else if (e.tem_gc === "sim" && !gcsPreenchidos(e).length)
+      falta("GC", "Você marcou que vai ter GC — falta o nome e o cargo de quem aparece.");
+
+    if (!e.tem_lettering) falta("Lettering", "Vai ter texto na tela? Responda sim ou não.");
+    else if (e.tem_lettering === "sim" && !e.lettering.trim())
+      falta("Lettering", "Você marcou que vai ter lettering — escreva os textos que entram.");
   });
   return out;
 }
@@ -208,7 +233,7 @@ export default function SolicitarDemanda() {
   // — é justamente aí que ela tem mais o que apontar.
   const entregasConferir = entregasReais.length ? entregasReais : [entregas[0]];
   const entregasCalc = entregasConferir.map((e) => ({
-    titulo: e.titulo, formato: e.formato, duracao: e.duracao, briefing: comporBriefing(e),
+    titulo: e.titulo, formato: formatoTexto(e), duracao: e.duracao, briefing: comporBriefing(e),
   }));
   const dispoKey = entregasCalc.map((e) => `${e.duracao}|${e.formato}`).join(",");
   const { data: dispo, isFetching: checando } = useQuery({
@@ -274,6 +299,19 @@ export default function SolicitarDemanda() {
       ),
     );
 
+  // "Não" limpa o texto — senão fica um lettering fantasma no briefing.
+  const responderLettering = (i: number, v: "sim" | "nao") =>
+    setEntrega(i, v === "nao" ? { tem_lettering: v, lettering: "" } : { tem_lettering: v });
+
+  const alternarFormato = (i: number, f: string) =>
+    setEntregas((arr) =>
+      arr.map((e, idx) =>
+        idx === i
+          ? { ...e, formatos: e.formatos.includes(f) ? e.formatos.filter((x) => x !== f) : [...e.formatos, f] }
+          : e,
+      ),
+    );
+
   const campoLivre = (i: number, e: Entrega, c: CampoTexto) => (
     <div key={c.key}>
       <span className={campoLabel}>{c.label}</span>
@@ -312,6 +350,12 @@ export default function SolicitarDemanda() {
     }
     setErro(null);
     setConfirmando(true);
+    // Faltando obrigatório, não tem por que gastar a IA: o pop-up já abre
+    // dizendo o que completar.
+    if (faltasObrigatorias(entregasConferir).length) {
+      setIa({ carregando: false, faltas: [], resumo: "" });
+      return;
+    }
     setIa({ carregando: true, faltas: [], resumo: "" });
     try {
       const chamada = supabase.functions.invoke("intake-revisao", {
@@ -319,7 +363,7 @@ export default function SolicitarDemanda() {
           slug,
           projeto: form.projeto.trim(),
           entregas: entregasConferir.map((e, i) => ({
-            titulo: rotuloEntrega(e, i), formato: e.formato, duracao: e.duracao, briefing: comporBriefing(e),
+            titulo: rotuloEntrega(e, i), formato: formatoTexto(e), duracao: e.duracao, briefing: comporBriefing(e),
           })),
         },
       });
@@ -366,7 +410,11 @@ export default function SolicitarDemanda() {
         _email: form.email.trim(),
         _projeto: form.projeto.trim(),
         // manda os campos separados + o briefing composto (o downstream lê `briefing`)
-        _entregas: entregas.filter(entregaPreenchida).map((e) => ({ ...e, briefing: comporBriefing(e) })),
+        // `formato` texto pro resto do sistema (entregável, faturamento) e
+        // `formatos` array pra não perder a informação de múltipla escolha.
+        _entregas: entregas
+          .filter(entregaPreenchida)
+          .map((e) => ({ ...e, formato: formatoTexto(e), briefing: comporBriefing(e) })),
         _prazo: form.prazo ? new Date(form.prazo).toISOString() : null,
         _anexos: anexos,
       });
@@ -528,20 +576,27 @@ export default function SolicitarDemanda() {
                       <button onClick={() => removeEntrega(i)} className="text-[#9A968C] hover:text-[#E53500]"><Trash2 className="h-3.5 w-3.5" /></button>
                     )}
                   </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px_130px]">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_140px]">
                     <div>
-                      <span className={campoLabel}>Título</span>
+                      <span className={campoLabel}>Título *</span>
                       <input className={`${inputSm} w-full`} value={e.titulo} onChange={(ev) => setEntrega(i, { titulo: ev.target.value })} placeholder="Nome do vídeo" />
                     </div>
                     <div>
-                      <span className={campoLabel}>Formato</span>
-                      <select className={`${inputSm} w-full`} value={e.formato} onChange={(ev) => setEntrega(i, { formato: ev.target.value })}>
-                        {FORMATOS.map((f) => <option key={f} value={f} className="bg-[#17171a]">{f}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <span className={campoLabel}>Duração</span>
+                      <span className={campoLabel}>Duração *</span>
                       <input className={`${inputSm} w-full`} value={e.duracao} onChange={(ev) => setEntrega(i, { duracao: ev.target.value })} placeholder='ex.: 30" / 3min' />
+                    </div>
+                  </div>
+                  {/* Formato virou múltipla escolha: o mesmo vídeo costuma sair
+                      em 16x9 pro YouTube e 9x16 pro story, e cada versão é
+                      trabalho — precisa aparecer no pedido, não na surpresa. */}
+                  <div className="mt-2">
+                    <span className={campoLabel}>Formato * (pode marcar mais de um)</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {FORMATOS.map((f) => (
+                        <button key={f} type="button" onClick={() => alternarFormato(i, f)} className={chipCls(e.formatos.includes(f))}>
+                          {f}
+                        </button>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
@@ -552,19 +607,10 @@ export default function SolicitarDemanda() {
                         descobria que faltava o cargo. Agora ou é "não vai ter",
                         ou é nome + cargo de cada pessoa que aparece. */}
                     <div className="rounded-md border border-white/10 bg-white/[0.02] p-2.5">
-                      <span className={campoLabel}>Vai ter GC? (nome e cargo na tela)</span>
+                      <span className={campoLabel}>Vai ter GC? (nome e cargo na tela) *</span>
                       <div className="flex gap-2">
                         {(["sim", "nao"] as const).map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => responderGC(i, v)}
-                            className={`rounded-full border px-3 py-1 text-xs transition ${
-                              e.tem_gc === v
-                                ? "border-[#E53500] bg-[#E53500]/10 text-[#E8E1D0]"
-                                : "border-white/12 bg-white/[0.03] text-[#9A968C] hover:border-white/30"
-                            }`}
-                          >
+                          <button key={v} type="button" onClick={() => responderGC(i, v)} className={chipCls(e.tem_gc === v)}>
                             {v === "sim" ? "Sim" : "Não"}
                           </button>
                         ))}
@@ -606,7 +652,28 @@ export default function SolicitarDemanda() {
                       )}
                     </div>
 
-                    {campoLivre(i, e, CAMPO_LETTERING)}
+                    {/* Lettering na mesma forma do GC: pergunta obrigatória, e o
+                        campo de texto só abre no "sim". Assim ninguém precisa
+                        escrever "não tem" pra conseguir enviar. */}
+                    <div className="rounded-md border border-white/10 bg-white/[0.02] p-2.5">
+                      <span className={campoLabel}>Vai ter lettering? (texto na tela) *</span>
+                      <div className="flex gap-2">
+                        {(["sim", "nao"] as const).map((v) => (
+                          <button key={v} type="button" onClick={() => responderLettering(i, v)} className={chipCls(e.tem_lettering === v)}>
+                            {v === "sim" ? "Sim" : "Não"}
+                          </button>
+                        ))}
+                      </div>
+                      {e.tem_lettering === "sim" && (
+                        <textarea
+                          className={`${inputSm} mt-2 min-h-[52px] w-full py-1.5`}
+                          value={e.lettering}
+                          onChange={(ev) => setEntrega(i, { lettering: ev.target.value })}
+                          placeholder="Escreva os textos que entram na tela (frases, legendas, créditos)"
+                        />
+                      )}
+                    </div>
+
                     {CAMPOS_FIM.map((c) => campoLivre(i, e, c))}
                   </div>
                 </div>
@@ -758,7 +825,7 @@ export default function SolicitarDemanda() {
       {confirmando && (
         <ModalConferencia
           carregando={ia.carregando}
-          faltas={juntarFaltas(faltasLocais(entregasConferir), ia.faltas)}
+          faltas={juntarFaltas(faltasObrigatorias(entregasConferir), ia.faltas)}
           resumo={ia.resumo}
           enviando={enviando}
           onVoltar={() => setConfirmando(false)}
@@ -771,8 +838,11 @@ export default function SolicitarDemanda() {
 
 /**
  * Pop-up de conferência: a última chance de completar o briefing antes que a
- * falta vire alteração — e alteração fora do combinado vira custo. Não é
- * bloqueio: quem quiser enviar assim mesmo, envia.
+ * falta vire alteração — e alteração fora do combinado vira custo.
+ *
+ * Dois pesos. O que é obrigatório (título, formato, duração, GC, lettering)
+ * SEGURA o envio — sem isso o entregável não existe direito. O resto é
+ * sugestão da IA: mostra, avisa do custo, mas deixa enviar.
  */
 function ModalConferencia({
   carregando, faltas, resumo, enviando, onVoltar, onEnviar,
@@ -784,6 +854,9 @@ function ModalConferencia({
   onVoltar: () => void;
   onEnviar: () => void;
 }) {
+  const obrigatorias = faltas.filter((f) => f.obrigatorio);
+  const sugestoes = faltas.filter((f) => !f.obrigatorio);
+  const travado = obrigatorias.length > 0;
   return (
     <div
       role="dialog"
@@ -797,7 +870,9 @@ function ModalConferencia({
             {faltas.length ? <AlertTriangle className="h-4 w-4 text-[#f59e0b]" /> : <CheckCircle2 className="h-4 w-4 text-[#10b981]" />}
           </div>
           <div>
-            <h2 className="text-base font-bold text-[#E8E1D0]">Antes de enviar: está tudo aí?</h2>
+            <h2 className="text-base font-bold text-[#E8E1D0]">
+              {travado ? "Falta preencher pra enviar" : "Antes de enviar: está tudo aí?"}
+            </h2>
             <p className="mt-1 text-xs leading-relaxed text-[#9A968C]">
               O que faltar agora costuma voltar depois como alteração — e alteração fora do que
               foi briefado pode entrar como custo extra.
@@ -805,49 +880,73 @@ function ModalConferencia({
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-          {carregando ? (
-            <p className="flex items-center gap-2 text-xs text-[#9A968C]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo seu briefing…
+        {travado && (
+          <div className="mt-4 rounded-lg border border-[#E53500]/35 bg-[#E53500]/[0.07] p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#ff9a7d]">
+              Obrigatório · {obrigatorias.length === 1 ? "1 item" : `${obrigatorias.length} itens`}
             </p>
-          ) : faltas.length ? (
-            <>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">
-                {faltas.length === 1 ? "1 ponto pra conferir" : `${faltas.length} pontos pra conferir`}
+            <ul className="mt-2 space-y-2">
+              {obrigatorias.map((f, i) => (
+                <li key={i} className="text-xs leading-snug">
+                  <span className="text-[#ff9a7d]">{f.entrega} · {f.campo}</span>
+                  <span className="mt-0.5 block text-[#CFC9BC]">{f.pergunta}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!travado && (
+          <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+            {carregando ? (
+              <p className="flex items-center gap-2 text-xs text-[#9A968C]">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo seu briefing…
               </p>
-              <ul className="mt-2 space-y-2">
-                {faltas.map((f, i) => (
-                  <li key={i} className="text-xs leading-snug">
-                    <span className="text-[#f5c37a]">{f.entrega}{f.campo ? ` · ${f.campo}` : ""}</span>
-                    <span className="mt-0.5 block text-[#CFC9BC]">{f.pergunta}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="text-xs text-[#8fe7c4]">Não achamos nada faltando. Pode mandar.</p>
-          )}
-          {!carregando && resumo && <p className="mt-3 border-t border-white/10 pt-2 text-[11px] leading-snug text-[#6b675f]">{resumo}</p>}
-        </div>
+            ) : sugestoes.length ? (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">
+                  {sugestoes.length === 1 ? "1 ponto pra conferir" : `${sugestoes.length} pontos pra conferir`}
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {sugestoes.map((f, i) => (
+                    <li key={i} className="text-xs leading-snug">
+                      <span className="text-[#f5c37a]">{f.entrega}{f.campo ? ` · ${f.campo}` : ""}</span>
+                      <span className="mt-0.5 block text-[#CFC9BC]">{f.pergunta}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-xs text-[#8fe7c4]">Não achamos nada faltando. Pode mandar.</p>
+            )}
+            {!carregando && resumo && <p className="mt-3 border-t border-white/10 pt-2 text-[11px] leading-snug text-[#6b675f]">{resumo}</p>}
+          </div>
+        )}
 
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
           <button
             type="button"
             onClick={onVoltar}
             disabled={enviando}
-            className="h-10 flex-1 rounded-md border border-white/15 bg-white/[0.03] text-sm font-medium text-[#CFC9BC] transition hover:border-white/30 disabled:opacity-40"
+            className={`h-10 flex-1 rounded-md text-sm font-medium transition disabled:opacity-40 ${
+              travado
+                ? "bg-[#E53500] font-semibold text-white hover:bg-[#E53500]/90"
+                : "border border-white/15 bg-white/[0.03] text-[#CFC9BC] hover:border-white/30"
+            }`}
           >
             Voltar e completar
           </button>
-          <button
-            type="button"
-            onClick={onEnviar}
-            disabled={enviando || carregando}
-            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {faltas.length ? "Enviar assim mesmo" : "Enviar demanda"}
-          </button>
+          {!travado && (
+            <button
+              type="button"
+              onClick={onEnviar}
+              disabled={enviando || carregando}
+              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {sugestoes.length ? "Enviar assim mesmo" : "Enviar demanda"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -899,3 +998,10 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 const inputCls = "h-10 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-[#E8E1D0] placeholder:text-[#6b675f] focus:border-[#E53500]/50 focus:outline-none";
 const inputSm = "h-9 rounded-md border border-white/15 bg-white/5 px-2.5 text-sm text-[#E8E1D0] placeholder:text-[#6b675f] focus:border-[#E53500]/50 focus:outline-none";
 const campoLabel = "mb-0.5 block text-[10px] uppercase tracking-wider text-[#6b675f]";
+/** Botão-pílula de escolha (formato, sim/não). Ligado = laranja da marca. */
+const chipCls = (ativo: boolean) =>
+  `rounded-full border px-3 py-1 text-xs transition ${
+    ativo
+      ? "border-[#E53500] bg-[#E53500]/10 text-[#E8E1D0]"
+      : "border-white/12 bg-white/[0.03] text-[#9A968C] hover:border-white/30"
+  }`;
