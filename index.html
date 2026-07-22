@@ -7,6 +7,16 @@
     <meta name="description" content="Sistema interno da Adverse">
     <meta name="author" content="Adverse" />
 
+    <!-- PWA: sem isto o app não é instalável — e no iPhone o push SÓ funciona
+         com o app instalado na tela de início (iOS 16.4+). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0d0d0d" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Adverse OS" />
+
     
     
     <meta property="og:type" content="website" />
