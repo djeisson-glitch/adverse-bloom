@@ -21,3 +21,8 @@ verify_jwt = false
 
 [functions.sheets-sync]
 verify_jwt = false
+
+# Conferência do briefing no formulário público: quem preenche não tem login.
+# O portão é o slug do cliente (mesmo do intake_submit), validado na função.
+[functions.intake-revisao]
+verify_jwt = false

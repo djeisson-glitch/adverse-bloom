@@ -27,36 +27,117 @@ function fmtSlot(iso: string) {
 
 // Briefing quebrado em campos separados — antes era um textarea só e a pessoa
 // esquecia metade. Cada campo puxa uma parte do que a gente precisa saber.
+type GC = { nome: string; cargo: string };
 type Entrega = {
   titulo: string; formato: string; duracao: string;
-  objetivo: string; mensagem: string; referencias: string; gc: string; nao_pode_faltar: string;
+  objetivo: string; mensagem: string; referencias: string;
+  tem_gc: "" | "sim" | "nao"; gcs: GC[]; lettering: string;
+  nao_pode_faltar: string;
 };
 type Anexo = { nome: string; path: string; url: string };
 
 const FORMATOS = ["16x9", "9x16", "1x1", "4x5", "Outro"];
+const gcVazio = (): GC => ({ nome: "", cargo: "" });
 const entregaVazia = (): Entrega => ({
   titulo: "", formato: "16x9", duracao: "",
-  objetivo: "", mensagem: "", referencias: "", gc: "", nao_pode_faltar: "",
+  objetivo: "", mensagem: "", referencias: "",
+  tem_gc: "", gcs: [], lettering: "",
+  nao_pode_faltar: "",
 });
 
-// Campos do briefing separado, na ordem em que aparecem.
-const CAMPOS_BRIEFING: { key: keyof Entrega; label: string; ph: string; area?: boolean }[] = [
+// Campos de texto livre do briefing. GC e lettering ficam de fora porque têm
+// forma própria (o GC é condicional e vira lista de nome+cargo).
+type CampoTexto = { key: "objetivo" | "mensagem" | "referencias" | "lettering" | "nao_pode_faltar"; label: string; ph: string; area?: boolean };
+const CAMPOS_TOPO: CampoTexto[] = [
   { key: "objetivo", label: "Objetivo do vídeo", ph: "O que ele precisa provocar / pra que serve", area: true },
   { key: "mensagem", label: "Mensagem-chave", ph: "A ideia que não pode se perder" },
   { key: "referencias", label: "Referências", ph: "Links, campanhas, algo parecido que curtiu" },
-  { key: "gc", label: "GC / Letterings", ph: "Textos na tela, legendas, créditos" },
+];
+const CAMPO_LETTERING: CampoTexto = {
+  key: "lettering", label: "Letterings", ph: "Textos/frases na tela, legendas, créditos",
+};
+const CAMPOS_FIM: CampoTexto[] = [
   { key: "nao_pode_faltar", label: "O que não pode faltar", ph: "Logo, produto, pessoa, frase obrigatória…", area: true },
 ];
+const CAMPOS_TEXTO: CampoTexto[] = [...CAMPOS_TOPO, CAMPO_LETTERING, ...CAMPOS_FIM];
+
+/** GCs que a pessoa realmente preencheu (linha em branco não conta). */
+function gcsPreenchidos(e: Entrega): GC[] {
+  return (e.gcs || []).filter((g) => g.nome.trim() || g.cargo.trim());
+}
+
+/** A linha de GC do briefing — "não vai ter" também é informação útil. */
+function linhaGC(e: Entrega): string {
+  if (e.tem_gc === "nao") return "GC: não vai ter";
+  const lista = gcsPreenchidos(e);
+  if (lista.length) {
+    return `GC:\n${lista.map((g) => `  • ${g.nome.trim() || "(sem nome)"} — ${g.cargo.trim() || "(sem cargo)"}`).join("\n")}`;
+  }
+  return e.tem_gc === "sim" ? "GC: sim, mas os nomes/cargos não foram informados" : "";
+}
 
 // Junta os campos num texto só — o downstream (entregável, exibição) lê `briefing`.
 function comporBriefing(e: Entrega): string {
-  return CAMPOS_BRIEFING
-    .map(({ key, label }) => { const v = (e[key] || "").toString().trim(); return v ? `${label}: ${v}` : ""; })
-    .filter(Boolean)
-    .join("\n");
+  const linhas: string[] = [];
+  const add = (c: CampoTexto) => {
+    const v = (e[c.key] || "").toString().trim();
+    if (v) linhas.push(`${c.label}: ${v}`);
+  };
+  CAMPOS_TOPO.forEach(add);
+  const gc = linhaGC(e);
+  if (gc) linhas.push(gc);
+  add(CAMPO_LETTERING);
+  CAMPOS_FIM.forEach(add);
+  return linhas.join("\n");
 }
 function entregaPreenchida(e: Entrega): boolean {
-  return !!(e.titulo.trim() || CAMPOS_BRIEFING.some(({ key }) => (e[key] || "").toString().trim()));
+  return !!(
+    e.titulo.trim() ||
+    e.tem_gc ||
+    gcsPreenchidos(e).length ||
+    CAMPOS_TEXTO.some(({ key }) => (e[key] || "").toString().trim())
+  );
+}
+
+/* ----------------------------------------------------------------- LACUNAS
+   O que ficou faltando no briefing. Duas camadas:
+   1) a checagem local (campo vazio é campo vazio — funciona sempre, offline);
+   2) a leitura da IA, que pega o que é vago sem estar em branco ("um vídeo
+      bonito" no objetivo) e devolve a pergunta que resolveria.
+   As duas viram a mesma lista no pop-up de confirmação. */
+type Falta = { entrega: string; campo: string; pergunta: string };
+
+function rotuloEntrega(e: Entrega, i: number) {
+  return e.titulo.trim() || `Vídeo ${i + 1}`;
+}
+
+function faltasLocais(entregas: Entrega[]): Falta[] {
+  const out: Falta[] = [];
+  entregas.forEach((e, i) => {
+    const entrega = rotuloEntrega(e, i);
+    if (!e.titulo.trim()) out.push({ entrega, campo: "Título", pergunta: "Como esse vídeo se chama?" });
+    if (!e.duracao.trim()) out.push({ entrega, campo: "Duração", pergunta: "Quanto tempo ele precisa ter?" });
+    if (!e.objetivo.trim()) out.push({ entrega, campo: "Objetivo", pergunta: "Pra que serve esse vídeo / o que ele precisa provocar?" });
+    if (!e.tem_gc) {
+      out.push({ entrega, campo: "GC", pergunta: "Vai ter nome e cargo na tela? Responda sim ou não." });
+    } else if (e.tem_gc === "sim" && !gcsPreenchidos(e).length) {
+      out.push({ entrega, campo: "GC", pergunta: "Você marcou que vai ter GC — falta o nome e o cargo de quem aparece." });
+    }
+  });
+  return out;
+}
+
+/** Mesma lacuna vinda das duas camadas não aparece duas vezes. */
+function juntarFaltas(...listas: Falta[][]): Falta[] {
+  const vistos = new Set<string>();
+  const out: Falta[] = [];
+  for (const f of listas.flat()) {
+    const chave = `${f.entrega}|${f.campo}`.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    out.push(f);
+  }
+  return out;
 }
 
 function fmtEarliest(iso: string) {
@@ -98,6 +179,11 @@ export default function SolicitarDemanda() {
   const [erro, setErro] = useState<string | null>(null);
   const [modoData, setModoData] = useState<"slots" | "custom">("slots");
   const preSelRef = useRef(false);
+  // Pop-up de conferência antes de enviar (+ o que a IA achou faltando).
+  const [confirmando, setConfirmando] = useState(false);
+  const [ia, setIa] = useState<{ carregando: boolean; faltas: Falta[]; resumo: string }>({
+    carregando: false, faltas: [], resumo: "",
+  });
 
   const { data: cfg, isLoading } = useQuery({
     queryKey: ["intake-config", slug],
@@ -118,7 +204,10 @@ export default function SolicitarDemanda() {
   // Agora manda as entregas (com duração) — o prazo escala pela complexidade.
   const prazoIso = form.prazo ? new Date(form.prazo).toISOString() : null;
   const entregasReais = entregas.filter(entregaPreenchida);
-  const entregasCalc = (entregasReais.length ? entregasReais : [entregas[0]]).map((e) => ({
+  // Se nada foi preenchido ainda, a conferência olha a primeira ficha em branco
+  // — é justamente aí que ela tem mais o que apontar.
+  const entregasConferir = entregasReais.length ? entregasReais : [entregas[0]];
+  const entregasCalc = entregasConferir.map((e) => ({
     titulo: e.titulo, formato: e.formato, duracao: e.duracao, briefing: comporBriefing(e),
   }));
   const dispoKey = entregasCalc.map((e) => `${e.duracao}|${e.formato}`).join(",");
@@ -174,9 +263,81 @@ export default function SolicitarDemanda() {
   const addEntrega = () => setEntregas((a) => [...a, entregaVazia()]);
   const removeEntrega = (i: number) => setEntregas((a) => (a.length > 1 ? a.filter((_, idx) => idx !== i) : a));
 
+  const mexerGCs = (i: number, fn: (gcs: GC[]) => GC[]) =>
+    setEntregas((arr) => arr.map((e, idx) => (idx === i ? { ...e, gcs: fn(e.gcs || []) } : e)));
+  // Marcar "sim" já abre a primeira linha — senão a pessoa clica em sim e não
+  // aparece nada pra preencher.
+  const responderGC = (i: number, v: "sim" | "nao") =>
+    setEntregas((arr) =>
+      arr.map((e, idx) =>
+        idx === i ? { ...e, tem_gc: v, gcs: v === "sim" ? (e.gcs?.length ? e.gcs : [gcVazio()]) : [] } : e,
+      ),
+    );
+
+  const campoLivre = (i: number, e: Entrega, c: CampoTexto) => (
+    <div key={c.key}>
+      <span className={campoLabel}>{c.label}</span>
+      {c.area ? (
+        <textarea
+          className={`${inputSm} min-h-[52px] w-full py-1.5`}
+          value={e[c.key]}
+          onChange={(ev) => setEntrega(i, { [c.key]: ev.target.value })}
+          placeholder={c.ph}
+        />
+      ) : (
+        <input
+          className={`${inputSm} w-full`}
+          value={e[c.key]}
+          onChange={(ev) => setEntrega(i, { [c.key]: ev.target.value })}
+          placeholder={c.ph}
+        />
+      )}
+    </div>
+  );
+
   const onFiles = (files: FileList | null) => {
     if (!files) return;
     setArquivos((a) => [...a, ...Array.from(files)]);
+  };
+
+  /**
+   * Abre a conferência final. A IA lê o briefing junto, mas nunca trava o
+   * envio: se a função não responder (não publicada, sem chave, lenta demais),
+   * o pop-up abre do mesmo jeito com a checagem local.
+   */
+  const conferir = async () => {
+    if (!form.nome.trim() || !form.email.trim() || !form.projeto.trim()) {
+      setErro("Preencha seu nome, e-mail e o nome do projeto.");
+      return;
+    }
+    setErro(null);
+    setConfirmando(true);
+    setIa({ carregando: true, faltas: [], resumo: "" });
+    try {
+      const chamada = supabase.functions.invoke("intake-revisao", {
+        body: {
+          slug,
+          projeto: form.projeto.trim(),
+          entregas: entregasConferir.map((e, i) => ({
+            titulo: rotuloEntrega(e, i), formato: e.formato, duracao: e.duracao, briefing: comporBriefing(e),
+          })),
+        },
+      });
+      const limite = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000));
+      const { data, error } = (await Promise.race([chamada, limite])) as any;
+      if (error) throw error;
+      const faltas: Falta[] = (Array.isArray(data?.faltas) ? data.faltas : [])
+        .slice(0, 8)
+        .map((f: any) => ({
+          entrega: String(f?.entrega ?? "").slice(0, 80),
+          campo: String(f?.campo ?? "").slice(0, 40),
+          pergunta: String(f?.pergunta ?? "").slice(0, 240),
+        }))
+        .filter((f: Falta) => f.pergunta);
+      setIa({ carregando: false, faltas, resumo: String(data?.resumo ?? "") });
+    } catch {
+      setIa({ carregando: false, faltas: [], resumo: "" });
+    }
   };
 
   const enviar = useMutation({
@@ -213,9 +374,10 @@ export default function SolicitarDemanda() {
       return data;
     },
     onMutate: () => { setEnviando(true); setErro(null); },
-    onSuccess: (data) => { setEnviando(false); setResultado(data); },
+    onSuccess: (data) => { setEnviando(false); setConfirmando(false); setResultado(data); },
     onError: (e: any) => {
       setEnviando(false);
+      setConfirmando(false); // fecha o pop-up pra pessoa ver o erro no formulário
       setErro(/intake_submit|does not exist|function/i.test(e.message || "")
         ? "O formulário ainda não está disponível. Fale com a Adverse."
         : e.message);
@@ -383,16 +545,69 @@ export default function SolicitarDemanda() {
                     </div>
                   </div>
                   <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                    {CAMPOS_BRIEFING.map(({ key, label, ph, area }) => (
-                      <div key={key}>
-                        <span className={campoLabel}>{label}</span>
-                        {area ? (
-                          <textarea className={`${inputSm} min-h-[52px] w-full py-1.5`} value={e[key] as string} onChange={(ev) => setEntrega(i, { [key]: ev.target.value })} placeholder={ph} />
-                        ) : (
-                          <input className={`${inputSm} w-full`} value={e[key] as string} onChange={(ev) => setEntrega(i, { [key]: ev.target.value })} placeholder={ph} />
-                        )}
+                    {CAMPOS_TOPO.map((c) => campoLivre(i, e, c))}
+
+                    {/* GC condicional. Antes era um campo de texto junto do
+                        lettering: chegava "GC do João" e só na edição a gente
+                        descobria que faltava o cargo. Agora ou é "não vai ter",
+                        ou é nome + cargo de cada pessoa que aparece. */}
+                    <div className="rounded-md border border-white/10 bg-white/[0.02] p-2.5">
+                      <span className={campoLabel}>Vai ter GC? (nome e cargo na tela)</span>
+                      <div className="flex gap-2">
+                        {(["sim", "nao"] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => responderGC(i, v)}
+                            className={`rounded-full border px-3 py-1 text-xs transition ${
+                              e.tem_gc === v
+                                ? "border-[#E53500] bg-[#E53500]/10 text-[#E8E1D0]"
+                                : "border-white/12 bg-white/[0.03] text-[#9A968C] hover:border-white/30"
+                            }`}
+                          >
+                            {v === "sim" ? "Sim" : "Não"}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                      {e.tem_gc === "sim" && (
+                        <div className="mt-2 space-y-1.5">
+                          {(e.gcs || []).map((g, gi) => (
+                            <div key={gi} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
+                              <input
+                                className={inputSm}
+                                value={g.nome}
+                                onChange={(ev) => mexerGCs(i, (gs) => gs.map((x, j) => (j === gi ? { ...x, nome: ev.target.value } : x)))}
+                                placeholder="Nome na tela"
+                              />
+                              <input
+                                className={inputSm}
+                                value={g.cargo}
+                                onChange={(ev) => mexerGCs(i, (gs) => gs.map((x, j) => (j === gi ? { ...x, cargo: ev.target.value } : x)))}
+                                placeholder="Cargo / função"
+                              />
+                              <button
+                                type="button"
+                                aria-label="Remover GC"
+                                onClick={() => mexerGCs(i, (gs) => gs.filter((_, j) => j !== gi))}
+                                className="px-1 text-[#9A968C] hover:text-[#E53500]"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => mexerGCs(i, (gs) => [...gs, gcVazio()])}
+                            className="flex items-center gap-1 text-xs text-[#E53500] hover:underline"
+                          >
+                            <Plus className="h-3 w-3" /> Adicionar GC
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {campoLivre(i, e, CAMPO_LETTERING)}
+                    {CAMPOS_FIM.map((c) => campoLivre(i, e, c))}
                   </div>
                 </div>
               ))}
@@ -523,7 +738,7 @@ export default function SolicitarDemanda() {
           {erro && <p className="rounded-md border border-[#E53500]/40 bg-[#E53500]/10 px-3 py-2 text-sm text-[#ffb4a1]">{erro}</p>}
 
           <button
-            onClick={() => enviar.mutate()}
+            onClick={conferir}
             disabled={enviando || inviavel}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -537,6 +752,102 @@ export default function SolicitarDemanda() {
           </p>
         </div>
 
+        </div>
+      </div>
+
+      {confirmando && (
+        <ModalConferencia
+          carregando={ia.carregando}
+          faltas={juntarFaltas(faltasLocais(entregasConferir), ia.faltas)}
+          resumo={ia.resumo}
+          enviando={enviando}
+          onVoltar={() => setConfirmando(false)}
+          onEnviar={() => enviar.mutate()}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pop-up de conferência: a última chance de completar o briefing antes que a
+ * falta vire alteração — e alteração fora do combinado vira custo. Não é
+ * bloqueio: quem quiser enviar assim mesmo, envia.
+ */
+function ModalConferencia({
+  carregando, faltas, resumo, enviando, onVoltar, onEnviar,
+}: {
+  carregando: boolean;
+  faltas: Falta[];
+  resumo: string;
+  enviando: boolean;
+  onVoltar: () => void;
+  onEnviar: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+      style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+    >
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/12 bg-[#141416] p-5 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${faltas.length ? "bg-[#f59e0b]/15" : "bg-[#10b981]/15"}`}>
+            {faltas.length ? <AlertTriangle className="h-4 w-4 text-[#f59e0b]" /> : <CheckCircle2 className="h-4 w-4 text-[#10b981]" />}
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[#E8E1D0]">Antes de enviar: está tudo aí?</h2>
+            <p className="mt-1 text-xs leading-relaxed text-[#9A968C]">
+              O que faltar agora costuma voltar depois como alteração — e alteração fora do que
+              foi briefado pode entrar como custo extra.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          {carregando ? (
+            <p className="flex items-center gap-2 text-xs text-[#9A968C]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo seu briefing…
+            </p>
+          ) : faltas.length ? (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">
+                {faltas.length === 1 ? "1 ponto pra conferir" : `${faltas.length} pontos pra conferir`}
+              </p>
+              <ul className="mt-2 space-y-2">
+                {faltas.map((f, i) => (
+                  <li key={i} className="text-xs leading-snug">
+                    <span className="text-[#f5c37a]">{f.entrega}{f.campo ? ` · ${f.campo}` : ""}</span>
+                    <span className="mt-0.5 block text-[#CFC9BC]">{f.pergunta}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-xs text-[#8fe7c4]">Não achamos nada faltando. Pode mandar.</p>
+          )}
+          {!carregando && resumo && <p className="mt-3 border-t border-white/10 pt-2 text-[11px] leading-snug text-[#6b675f]">{resumo}</p>}
+        </div>
+
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onVoltar}
+            disabled={enviando}
+            className="h-10 flex-1 rounded-md border border-white/15 bg-white/[0.03] text-sm font-medium text-[#CFC9BC] transition hover:border-white/30 disabled:opacity-40"
+          >
+            Voltar e completar
+          </button>
+          <button
+            type="button"
+            onClick={onEnviar}
+            disabled={enviando || carregando}
+            className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {faltas.length ? "Enviar assim mesmo" : "Enviar demanda"}
+          </button>
         </div>
       </div>
     </div>
