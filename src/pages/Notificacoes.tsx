@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, BellRing, BellOff, Check, Loader2 } from "lucide-react";
+import { Bell, BellRing, BellOff, Check, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useNotificacoes } from "@/hooks/useNotificacoes";
+import { useNotificacoes, SOM_CHAVE, somLigado, tocarAviso } from "@/hooks/useNotificacoes";
 import { ItemNotificacao } from "@/components/NotificacoesSino";
 import { InstalarApp } from "@/components/InstalarApp";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ export default function Notificacoes() {
   const [mexendo, setMexendo] = useState(false);
   const [testando, setTestando] = useState(false);
   const [filtro, setFiltro] = useState<"todas" | "nao_lidas">("todas");
+  const [som, setSom] = useState(somLigado());
 
   useEffect(() => {
     pushAtivo().then(setPushLigado).catch(() => setPushLigado(false));
@@ -110,8 +111,38 @@ export default function Notificacoes() {
         )}
       </div>
 
-      {/* Instalar como app — é o que faz o aviso chegar no celular */}
+      {/* Instalar como app — no computador vira janela própria com ícone no dock */}
       <InstalarApp />
+
+      {/* Som: no computador é o que mais chama quando a pessoa está em outra janela */}
+      <Card className="glass-card">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="flex items-start gap-2">
+            {som ? <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <VolumeX className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
+            <div>
+              <p className="text-sm font-medium text-foreground">Som ao chegar notificação</p>
+              <p className="text-xs text-muted-foreground">Toque curto quando algo importante chega. Só nesta máquina.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { localStorage.setItem(SOM_CHAVE, "on"); tocarAviso(); }}>
+              Ouvir
+            </Button>
+            <Button
+              size="sm"
+              variant={som ? "outline" : "default"}
+              onClick={() => {
+                const novo = !som;
+                localStorage.setItem(SOM_CHAVE, novo ? "on" : "off");
+                setSom(novo);
+                if (novo) tocarAviso();
+              }}
+            >
+              {som ? "Silenciar" : "Ativar som"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Área de trabalho */}
       {pushSuportado() && pushConfigurado() && (

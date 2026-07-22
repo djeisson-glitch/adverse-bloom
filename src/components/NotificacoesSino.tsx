@@ -5,6 +5,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
 import { useNotificacoes, type Notificacao } from "@/hooks/useNotificacoes";
+import { useSinalAba } from "@/hooks/useSinalAba";
 import { ativarPush, pushAtivo, pushSuportado, pushConfigurado, permissaoAtual } from "@/lib/push";
 import { toast } from "sonner";
 
@@ -13,6 +14,8 @@ export function NotificacoesSino() {
   const navigate = useNavigate();
   const { notificacoes, total, marcarLidas } = useNotificacoes(10);
   const [pushLigado, setPushLigado] = useState<boolean | null>(null);
+  // Marca a aba (título + favicon) — o sino mora no header de todas as telas.
+  useSinalAba(total);
 
   useEffect(() => {
     pushAtivo().then(setPushLigado).catch(() => setPushLigado(false));
