@@ -154,12 +154,12 @@ export function MentionTextarea({
               }`}
             >
               <span
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
+                className="cor-usuario flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
                 style={{ backgroundColor: `${corDoUsuario(p.id)}26`, color: corDoUsuario(p.id) }}
               >
                 {rotulo(p).slice(0, 2).toUpperCase()}
               </span>
-              <span className="font-medium" style={{ color: corDoUsuario(p.id) }}>@{handleUsuario(rotulo(p))}</span>
+              <span className="cor-usuario font-medium" style={{ color: corDoUsuario(p.id) }}>@{handleUsuario(rotulo(p))}</span>
               <span className="truncate text-xs text-muted-foreground">{rotulo(p)}</span>
             </button>
           ))}
