@@ -74,9 +74,9 @@ Projeto: ${corta(body?.projeto, 160) || "(sem nome)"}
 ENTREGAS:
 ${lista}
 
-O formulário já obriga título, formato, duração, GC (com nome e cargo) e lettering — não gaste item da lista com isso, já veio conferido. Objetivo, mensagem-chave, referências e "o que não pode faltar" são opcionais no formulário: é aí que mora o que costuma virar alteração depois.
+O formulário já obriga título, formato, duração, GC (com nome e cargo) e lettering — não gaste item da lista com isso, já veio conferido. Descrição, referências e "o que não pode faltar" são opcionais no formulário: é aí que mora o que costuma virar alteração depois.
 
-Aponte só lacunas REAIS que atrapalhariam a produção: informação ausente, ou presente mas vaga demais pra executar ("um vídeo bonito" não é objetivo; "referências: várias" não é referência). Se o briefing está bom, devolva a lista vazia — não invente problema pra parecer útil.
+Aponte só lacunas REAIS que atrapalhariam a produção: informação ausente, ou presente mas vaga demais pra executar ("um vídeo bonito" não é descrição; "referências: várias" não é referência). Se o briefing está bom, devolva a lista vazia — não invente problema pra parecer útil.
 
 Regras da resposta:
 - No máximo 5 lacunas, as mais caras primeiro.
