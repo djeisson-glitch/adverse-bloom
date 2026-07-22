@@ -150,7 +150,11 @@ function ProductionColumn({ stage, projects, onEditProject }: {
         </div>
         {canSeeMoney && <p className="text-xs text-muted-foreground mt-1">{formatCurrency(total)}</p>}
       </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-350px)]">
+      {/* Sem teto e sem rolagem por dentro: a coluna cresce com o conteúdo e
+          quem rola é a PÁGINA. Com 12 projetos numa coluna, a rolagem interna
+          escondia tudo menos o primeiro card — dava a impressão de que o
+          projeto não estava lá. */}
+      <div className="flex-1 p-2 space-y-2">
         {projects.map((project) => (
           <div key={project.id} data-id={project.id}>
             <ProjectCard project={project} onEdit={onEditProject ? () => onEditProject(project) : undefined} />

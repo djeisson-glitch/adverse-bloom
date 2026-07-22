@@ -19,7 +19,7 @@ export function NewProjectModal({ open, onOpenChange }: { open: boolean; onOpenC
     client_id: "",
     client_name: "",
     sold_value: "",
-    status: "briefing",
+    status: "novo",
     start_date: "",
     delivery_date: "",
   });

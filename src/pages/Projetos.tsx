@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProjects, useUpdateProject, PRODUCTION_STAGES_NEW, type Project } from "@/hooks/useProjects";
+import {
+  useProjects,
+  useUpdateProject,
+  PRODUCTION_STAGES_NEW,
+  STATUS_FINALIZADO,
+  type Project,
+} from "@/hooks/useProjects";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { LayoutGrid, Plus, Loader2, ArrowUpDown, Rows3 } from "lucide-react";
@@ -16,9 +22,6 @@ import {
 import { ProductionKanban } from "@/components/producao/ProductionKanban";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { NewProjectModal } from "@/components/producao/NewProjectModal";
-
-/** Etapas que tiram o projeto de "em andamento" e mandam pra aba Finalizados. */
-const STATUS_FINALIZADO = ["entregue", "faturado"];
 
 type Vista = "lista" | "board" | "calendario" | "gantt" | "finalizados";
 type Ordem = "recentes" | "nome" | "prazo";
@@ -219,7 +222,7 @@ function ListaVista({
     const map = new Map<string, Project[]>();
     projects.forEach((p) => {
       const chave =
-        agrupar === "cliente" ? p.client_name || "Sem cliente" : p.status || "briefing";
+        agrupar === "cliente" ? p.client_name || "Sem cliente" : p.status || "novo";
       map.set(chave, [...(map.get(chave) || []), p]);
     });
     const entradas = Array.from(map.entries());

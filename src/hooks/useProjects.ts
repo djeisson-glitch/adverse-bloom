@@ -18,14 +18,29 @@ export type Project = Tables<"projects"> & {
   gross_margin_percent: number | null;
 };
 
+/**
+ * As etapas do projeto — e só elas viram coluna no board.
+ *
+ * "Entregue" e "Faturado" saíram daqui: eram etapa e marca de arquivo ao mesmo
+ * tempo, então projeto acabado ocupava coluna. Agora acabar é uma AÇÃO
+ * (Finalizar projeto), não uma etapa — quem finaliza sai do board e vai pra
+ * aba Finalizados.
+ */
 export const PRODUCTION_STAGES_NEW = [
-  { id: "briefing", label: "Briefing", color: "border-slate-500/40" },
+  { id: "novo", label: "Novo projeto", color: "border-slate-500/40" },
   { id: "pre-producao", label: "Pré-produção", color: "border-amber-500/40" },
-  { id: "producao", label: "Em Produção", color: "border-blue-500/40" },
-  { id: "revisao", label: "Revisão Cliente", color: "border-purple-500/40" },
-  { id: "entregue", label: "Entregue", color: "border-cyan-500/40" },
-  { id: "faturado", label: "Faturado", color: "border-emerald-500/40" },
+  { id: "producao", label: "Produção", color: "border-blue-500/40" },
+  { id: "pos-producao", label: "Pós-produção", color: "border-purple-500/40" },
+  { id: "fechamento", label: "Fechamento", color: "border-emerald-500/40" },
 ] as const;
+
+/**
+ * Projeto fora do board. `finalizado` é o novo (botão Finalizar); `entregue` e
+ * `faturado` são o legado — 174 projetos importados estão assim e continuam
+ * valendo como finalizados.
+ */
+export const STATUS_FINALIZADO = ["finalizado", "entregue", "faturado"];
+export const isFinalizado = (status?: string | null) => STATUS_FINALIZADO.includes(status || "");
 
 export function useProjects() {
   return useQuery({

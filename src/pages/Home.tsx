@@ -6,7 +6,7 @@ import { usePeriod } from "@/contexts/PeriodContext";
 import { PeriodFilter } from "@/components/PeriodFilter";
 import { useDeals } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
-import { useProjects } from "@/hooks/useProjects";
+import { useProjects, isFinalizado } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems, useSyncContaAzul } from "@/hooks/useContaAzulCache";
 import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
 import { useMRR } from "@/hooks/useContratos";
@@ -153,7 +153,7 @@ export default function Home() {
   // Production metrics
   const productionMetrics = useMemo(() => {
     const projects = allProjectsData || [];
-    const active = projects.filter((p) => p.status !== "faturado");
+    const active = projects.filter((p) => !isFinalizado(p.status));
     const receitaAberto = active.reduce((s, p) => s + ((p as any).contract_value || p.sold_value || 0), 0);
     const last90 = new Date(Date.now() - 90 * 86400000);
     const recent = projects.filter((p) => new Date(p.created_at) >= last90);
