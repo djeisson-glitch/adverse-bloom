@@ -30,7 +30,7 @@ function fmtSlot(iso: string) {
 type GC = { nome: string; cargo: string };
 type Entrega = {
   titulo: string; formatos: string[]; duracao: string;
-  objetivo: string; mensagem: string; referencias: string;
+  objetivo: string; referencias: string;
   tem_gc: "" | "sim" | "nao"; gcs: GC[];
   tem_lettering: "" | "sim" | "nao"; lettering: string;
   nao_pode_faltar: string;
@@ -41,7 +41,7 @@ const FORMATOS = ["16x9", "9x16", "1x1", "4x5", "Outro"];
 const gcVazio = (): GC => ({ nome: "", cargo: "" });
 const entregaVazia = (): Entrega => ({
   titulo: "", formatos: [], duracao: "",
-  objetivo: "", mensagem: "", referencias: "",
+  objetivo: "", referencias: "",
   tem_gc: "", gcs: [],
   tem_lettering: "", lettering: "",
   nao_pode_faltar: "",
@@ -50,10 +50,12 @@ const entregaVazia = (): Entrega => ({
 // Campos de texto livre — todos OPCIONAIS. O que é obrigatório (título,
 // formato, duração, GC e lettering) tem forma própria: ou é escolha, ou é
 // pergunta condicional. Ninguém deveria ter que digitar "não tem".
-type CampoTexto = { key: "objetivo" | "mensagem" | "referencias" | "nao_pode_faltar"; label: string; ph: string; area?: boolean };
+type CampoTexto = { key: "objetivo" | "referencias" | "nao_pode_faltar"; label: string; ph: string; area?: boolean };
 const CAMPOS_TOPO: CampoTexto[] = [
-  { key: "objetivo", label: "Objetivo do vídeo", ph: "O que ele precisa provocar / pra que serve", area: true },
-  { key: "mensagem", label: "Mensagem-chave", ph: "A ideia que não pode se perder" },
+  // "Mensagem-chave" era um campo à parte e virava resposta de uma linha. O
+  // que ela pegava agora cabe aqui, na descrição — um campo a menos pra
+  // preencher e o mesmo tanto de informação.
+  { key: "objetivo", label: "Descrição", ph: "O que é o vídeo, pra que serve e a ideia que não pode se perder", area: true },
   { key: "referencias", label: "Referências", ph: "Links, campanhas, algo parecido que curtiu" },
 ];
 const CAMPOS_FIM: CampoTexto[] = [
