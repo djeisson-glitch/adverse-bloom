@@ -17,6 +17,9 @@ import { ProductionKanban } from "@/components/producao/ProductionKanban";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { NewProjectModal } from "@/components/producao/NewProjectModal";
 
+/** Etapas que tiram o projeto de "em andamento" e mandam pra aba Finalizados. */
+const STATUS_FINALIZADO = ["entregue", "faturado"];
+
 type Vista = "lista" | "board" | "calendario" | "gantt" | "finalizados";
 type Ordem = "recentes" | "nome" | "prazo";
 type Agrupar = "etapa" | "cliente" | "nenhum";
@@ -61,12 +64,16 @@ export default function Projetos() {
   ]);
   const [openNew, setOpenNew] = useState(false);
 
+  // Projeto ENTREGUE já saiu da produção — junto com o faturado, vai pra aba
+  // Finalizados. Antes só "faturado" saía, e a lista de "em andamento" carregava
+  // tudo que já tinha sido entregue (ficavam ~190 itens e o que estava rodando
+  // de verdade se perdia no meio).
   const emAndamento = useMemo(
-    () => projects.filter((p) => p.status !== "faturado"),
+    () => projects.filter((p) => !STATUS_FINALIZADO.includes(p.status || "")),
     [projects],
   );
   const finalizados = useMemo(
-    () => projects.filter((p) => p.status === "faturado"),
+    () => projects.filter((p) => STATUS_FINALIZADO.includes(p.status || "")),
     [projects],
   );
 
