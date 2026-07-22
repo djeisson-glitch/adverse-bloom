@@ -102,7 +102,10 @@ export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { canSeeMoney, canSeeHours, isAdmin } = usePermissions();
+  const { canSeeMoney, canSeeHours, isAdmin, isCoordenadora } = usePermissions();
+  // Quem cuida da produção define de quem é o projeto — e o cliente desce
+  // sozinho pros entregáveis e tarefas (trigger no banco).
+  const podeTrocarCliente = isAdmin || isCoordenadora;
   const confirmar = useConfirm();
   const { clientes } = useClientesPublico();   // lista pública (só nome) pro seletor do header
   const salvarProjeto = async (patch: Record<string, unknown>, msg?: string) => {
@@ -254,7 +257,7 @@ export default function ProjetoDetalhe() {
             <HeaderSelect
               label="Cliente"
               value={project.client_id || ""}
-              editable={isAdmin}
+              editable={podeTrocarCliente}
               displayFallback={project.client_name || "—"}
               options={[
                 ...(project.client_id && !clientes.some((c) => c.id === project.client_id)
@@ -264,7 +267,10 @@ export default function ProjetoDetalhe() {
               ]}
               onChange={(v) => {
                 const c = clientes.find((x) => x.id === v);
-                salvarProjeto({ client_id: v, client_name: c?.name || project.client_name || "" }, "Cliente atualizado");
+                salvarProjeto(
+                  { client_id: v, client_name: c?.name || project.client_name || "" },
+                  "Cliente atualizado — entregáveis e tarefas acompanharam",
+                );
               }}
             />
             <HeaderSelect
