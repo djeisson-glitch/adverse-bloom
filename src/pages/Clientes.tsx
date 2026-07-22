@@ -10,9 +10,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientAvatar } from "@/components/clientes/ClientAvatar";
 import { NewClientModal } from "@/components/clientes/NewClientModal";
 import { ImportClientsModal } from "@/components/clientes/ImportClientsModal";
-import { Users, Plus, Search, Loader2, ExternalLink, Upload, Trash2 } from "lucide-react";
+import { Users, Plus, Search, Loader2, ExternalLink, Upload, Trash2, Merge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ui/confirm";
+import { UnificarClienteDialog } from "@/components/clientes/UnificarClienteDialog";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -25,6 +26,7 @@ export default function Clientes() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const confirmar = useConfirm();
+  const [unificar, setUnificar] = useState<{ id: string; name: string; trade_name?: string | null } | null>(null);
   const [search, setSearch] = useState("");
   const [segment, setSegment] = useState("Todos");
   const [newOpen, setNewOpen] = useState(false);
@@ -211,7 +213,7 @@ export default function Clientes() {
       {/* Tabela Catalunya-style */}
       <Card className="glass-card">
         <CardContent className="p-0">
-          <div className="grid grid-cols-[1fr_150px_120px_100px_140px_40px] items-center gap-2 border-b border-border/50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_150px_120px_100px_140px_76px] items-center gap-2 border-b border-border/50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Cliente</span>
             <span className="text-right">Faturado</span>
             <span className="text-center">Projetos</span>
@@ -227,7 +229,7 @@ export default function Clientes() {
             filtered.map((c) => (
               <div
                 key={c.id}
-                className="grid cursor-pointer grid-cols-[1fr_150px_120px_100px_140px_40px] items-center gap-2 border-b border-border/40 px-5 py-3 last:border-0 hover:bg-sidebar-accent/40"
+                className="grid cursor-pointer grid-cols-[1fr_150px_120px_100px_140px_76px] items-center gap-2 border-b border-border/40 px-5 py-3 last:border-0 hover:bg-sidebar-accent/40"
                 onClick={() => navigate(`/clientes/${c.id}`)}
               >
                 <div className="flex items-center gap-3">
@@ -246,9 +248,20 @@ export default function Clientes() {
                 <span className="text-xs text-muted-foreground">
                   {c.lastContact ? new Date(c.lastContact).toLocaleDateString("pt-BR") : "—"}
                 </span>
+                <div className="flex items-center justify-end gap-2 justify-self-end">
+                <button
+                  title="Unificar com outro cliente (duplicado)"
+                  className="text-muted-foreground hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setUnificar({ id: c.id, name: c.name, trade_name: (c as any).trade_name });
+                  }}
+                >
+                  <Merge className="h-4 w-4" />
+                </button>
                 <button
                   title="Excluir cliente"
-                  className="justify-self-end text-muted-foreground hover:text-destructive"
+                  className="text-muted-foreground hover:text-destructive"
                   onClick={async (e) => {
                     e.stopPropagation();
                     if (Number(c.numProjetos) > 0 || Number(c.numOrcamentos) > 0) {
@@ -268,6 +281,7 @@ export default function Clientes() {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                </div>
               </div>
             ))
           )}
@@ -276,6 +290,12 @@ export default function Clientes() {
 
       <NewClientModal open={newOpen} onOpenChange={setNewOpen} onCreated={(id) => navigate(`/clientes/${id}`)} />
       <ImportClientsModal open={importOpen} onOpenChange={setImportOpen} />
+      <UnificarClienteDialog
+        duplicado={unificar}
+        clientes={clients as any}
+        onClose={() => setUnificar(null)}
+        onDone={() => qc.invalidateQueries()}
+      />
     </div>
   );
 }
