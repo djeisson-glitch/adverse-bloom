@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNotificacoes } from "@/hooks/useNotificacoes";
 import { ItemNotificacao } from "@/components/NotificacoesSino";
+import { InstalarApp } from "@/components/InstalarApp";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ativarPush, desativarPush, pushAtivo, pushSuportado, pushConfigurado, permissaoAtual,
@@ -108,6 +109,9 @@ export default function Notificacoes() {
           </Button>
         )}
       </div>
+
+      {/* Instalar como app — é o que faz o aviso chegar no celular */}
+      <InstalarApp />
 
       {/* Área de trabalho */}
       {pushSuportado() && pushConfigurado() && (

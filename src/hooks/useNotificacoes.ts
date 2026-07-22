@@ -66,7 +66,10 @@ export function useNotificacoes(limite = 30) {
             try {
               const balao = new Notification(n.titulo, {
                 body: n.corpo || "",
-                icon: "/favicon.ico",
+                icon: "/icon-192.png",
+                // Fica na tela até dispensar — antes sumia em segundos e
+                // passava despercebida.
+                requireInteraction: true,
                 // Tag ÚNICA por notificação (o id). Com a tag repetida (era o
                 // tipo), a 2ª notificação do mesmo tipo substituía a 1ª em
                 // silêncio — daí "funcionou uma vez e depois não". Cada linha
