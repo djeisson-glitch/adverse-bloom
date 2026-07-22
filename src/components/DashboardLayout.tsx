@@ -1,9 +1,10 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Play, Square, LogOut, ShieldCheck, XCircle } from "lucide-react";
+import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon } from "lucide-react";
 import { NotificacoesSino } from "@/components/NotificacoesSino";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
+import { useTema } from "@/hooks/useTema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -55,6 +56,20 @@ function TimerButton() {
       </button>
       <StartTimerModal open={open} onOpenChange={setOpen} />
     </>
+  );
+}
+
+/** Alterna claro/escuro. Fica salvo por máquina. */
+function TemaBotao() {
+  const { claro, alternar } = useTema();
+  return (
+    <button
+      onClick={alternar}
+      title={claro ? "Mudar para o modo escuro" : "Mudar para o modo claro"}
+      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted/40 text-muted-foreground hover:text-foreground"
+    >
+      {claro ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 
@@ -140,6 +155,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <BuscaGlobal />
             <div className="ml-auto flex items-center gap-2">
               <TimerButton />
+              <TemaBotao />
               <NotificacoesSino />
               <UserChip />
             </div>

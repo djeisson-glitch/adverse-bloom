@@ -1865,7 +1865,7 @@ function corpoComMencoes(body: string, profiles: any[]) {
     if (parte.startsWith("@")) {
       const nome = semAcento(parte.slice(1));
       const p = profiles.find((x) => semAcento(handleUsuario(x.full_name || x.email)) === nome);
-      if (p) return <strong key={i} className="font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
+      if (p) return <strong key={i} className="cor-usuario font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
     }
     return <span key={i}>{parte}</span>;
   });
@@ -1961,13 +1961,13 @@ export function ComentariosSection({
             return (
             <div key={c.id} className="flex gap-2">
               <Avatar className="h-7 w-7 shrink-0">
-                <AvatarFallback className="text-[10px] font-semibold" style={{ backgroundColor: `${cor}26`, color: cor }}>
+                <AvatarFallback className="cor-usuario text-[10px] font-semibold" style={{ backgroundColor: `${cor}26`, color: cor }}>
                   {autorDe(c.user_id).slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
-                  <span className="font-semibold" style={{ color: cor }} title={autorDe(c.user_id)}>
+                  <span className="cor-usuario font-semibold" style={{ color: cor }} title={autorDe(c.user_id)}>
                     @{handleUsuario(autorDe(c.user_id))}
                   </span>{" "}
                   · {new Date(c.created_at).toLocaleString("pt-BR")}

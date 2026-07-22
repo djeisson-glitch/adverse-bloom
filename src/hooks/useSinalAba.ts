@@ -19,6 +19,15 @@ export function useSinalAba(naoLidas: number) {
     return () => { document.title = TITULO_BASE; };
   }, [naoLidas]);
 
+  // Badge no ÍCONE do app instalado (bolinha com o número no dock/barra de
+  // tarefas). Só existe em PWA instalado — no navegador comum é ignorado.
+  useEffect(() => {
+    const nav = navigator as any;
+    if (!nav?.setAppBadge) return;
+    if (naoLidas > 0) nav.setAppBadge(naoLidas).catch(() => {});
+    else nav.clearAppBadge?.().catch(() => {});
+  }, [naoLidas]);
+
   // Bolinha no favicon
   useEffect(() => {
     let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
