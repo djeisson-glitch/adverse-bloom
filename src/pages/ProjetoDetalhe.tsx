@@ -103,9 +103,11 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { canSeeMoney, canSeeHours, isAdmin, isCoordenadora } = usePermissions();
-  // Quem cuida da produção define de quem é o projeto — e o cliente desce
-  // sozinho pros entregáveis e tarefas (trigger no banco).
-  const podeTrocarCliente = isAdmin || isCoordenadora;
+  // Quem cuida da produção mexe no cabeçalho do projeto: cliente e status.
+  // O cliente desce sozinho pros entregáveis e tarefas (trigger no banco); o
+  // status é a coordenadora quem sabe (ela é quem toca a produção — deixar só
+  // no admin fazia ela pedir pra alguém trocar uma etapa que é dela).
+  const podeEditarProjeto = isAdmin || isCoordenadora;
   const confirmar = useConfirm();
   const { clientes } = useClientesPublico();   // lista pública (só nome) pro seletor do header
   const salvarProjeto = async (patch: Record<string, unknown>, msg?: string) => {
@@ -257,7 +259,7 @@ export default function ProjetoDetalhe() {
             <HeaderSelect
               label="Cliente"
               value={project.client_id || ""}
-              editable={podeTrocarCliente}
+              editable={podeEditarProjeto}
               displayFallback={project.client_name || "—"}
               options={[
                 ...(project.client_id && !clientes.some((c) => c.id === project.client_id)
@@ -276,7 +278,7 @@ export default function ProjetoDetalhe() {
             <HeaderSelect
               label="Status"
               value={project.status || ""}
-              editable={isAdmin}
+              editable={podeEditarProjeto}
               displayFallback={project.status || "—"}
               options={PRODUCTION_STAGES_NEW.map((s) => ({ value: s.id, label: s.label }))}
               onChange={(v) => salvarProjeto({ status: v }, "Status atualizado")}
