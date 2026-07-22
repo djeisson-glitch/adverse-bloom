@@ -14,6 +14,41 @@ export type Notificacao = {
   created_at: string;
 };
 
+export const SOM_CHAVE = "notif:som";
+export const somLigado = () => localStorage.getItem(SOM_CHAVE) !== "off";
+
+/**
+ * Toque curto de aviso, sintetizado na hora (sem arquivo de áudio pra carregar).
+ * Duas notas rápidas — o suficiente pra puxar a atenção de quem está em outra
+ * janela no computador, sem parecer alarme.
+ */
+export function tocarAviso() {
+  if (!somLigado()) return;
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const t0 = ctx.currentTime;
+    [880, 1245].forEach((hz, i) => {
+      const ini = t0 + i * 0.11;
+      const osc = ctx.createOscillator();
+      const vol = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = hz;
+      vol.gain.setValueAtTime(0.0001, ini);
+      vol.gain.exponentialRampToValueAtTime(0.12, ini + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, ini + 0.16);
+      osc.connect(vol);
+      vol.connect(ctx.destination);
+      osc.start(ini);
+      osc.stop(ini + 0.18);
+    });
+    setTimeout(() => ctx.close?.(), 900);
+  } catch {
+    /* som é bônus — nunca atrapalha o resto */
+  }
+}
+
 /**
  * Caixa de notificações da pessoa logada.
  * O sino atualiza sozinho: escuta a tabela via Realtime, não fica dando poll.
@@ -55,6 +90,9 @@ export function useNotificacoes(limite = 30) {
         (payload) => {
           qc.invalidateQueries({ queryKey: ["notificacoes", user.id] });
           const n = payload.new as Notificacao;
+          // Aviso sonoro curto: no computador é o que mais pega quando a
+          // pessoa está em outra janela. Silenciável nas Notificações.
+          if (n.prioridade !== "info") tocarAviso();
           // Só quando a pessoa NÃO está com a aba em foco — se está olhando o
           // sistema, o sino já basta; balão em cima viraria ruído.
           if (

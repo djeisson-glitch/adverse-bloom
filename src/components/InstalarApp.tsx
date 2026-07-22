@@ -50,10 +50,11 @@ export function InstalarApp() {
         <div className="flex items-start gap-2">
           <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">Instale o app no celular</p>
+            <p className="text-sm font-semibold text-foreground">Instale o Adverse OS como app</p>
             <p className="text-xs text-muted-foreground">
-              Instalado, o aviso chega no telefone mesmo com o computador desligado.
-              {ehIOS && " No iPhone, é o único jeito de receber notificação."}
+              No computador vira uma janela própria com ícone no dock, e o aviso continua
+              chegando mesmo com a janela fechada — não fica preso a uma aba perdida.
+              {ehIOS && " No iPhone, instalar é o único jeito de receber notificação."}
             </p>
           </div>
         </div>
@@ -72,8 +73,9 @@ export function InstalarApp() {
           </p>
         ) : (
           <p className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            No Chrome do celular: menu <b className="text-foreground">⋮</b> → <b className="text-foreground">Instalar app</b>.
-            No computador, o ícone de instalar aparece na barra de endereço.
+            No Chrome do computador: ícone de <b className="text-foreground">instalar</b> na barra de endereço,
+            ou menu <b className="text-foreground">⋮</b> → <b className="text-foreground">Transmitir, salvar e compartilhar</b> →
+            <b className="text-foreground"> Instalar página como app</b>.
           </p>
         )}
       </CardContent>
