@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -167,6 +167,13 @@ function ProductionColumn({ stage, projects, onEditProject }: {
 export function ProductionKanban({ projects, onMoveProject, onEditProject }: Props) {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
+  // Quem não bate com etapa nenhuma. Sem isso o projeto simplesmente não é
+  // desenhado — some do board sem erro, sem aviso, sem lugar nenhum.
+  const orfaos = useMemo(
+    () => projects.filter((p) => !PRODUCTION_STAGES.some((s) => s.id === p.status)),
+    [projects],
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
@@ -205,6 +212,17 @@ export function ProductionKanban({ projects, onMoveProject, onEditProject }: Pro
             />
           );
         })}
+        {/* Projeto com status fora da lista de etapas não batia com coluna
+            nenhuma e sumia do board — dava pra abrir pelo link, mas não
+            existia aqui. Agora ele aparece num balde visível (e arrastar pra
+            uma coluna conserta). A coluna só existe se houver órfão. */}
+        {orfaos.length > 0 && (
+          <ProductionColumn
+            stage={{ id: "__sem_etapa", label: "Sem etapa", color: "border-destructive/40" }}
+            projects={orfaos}
+            onEditProject={onEditProject}
+          />
+        )}
       </div>
       <DragOverlay>
         {activeProject ? <ProjectCard project={activeProject} isDragging /> : null}

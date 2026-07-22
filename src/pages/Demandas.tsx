@@ -130,7 +130,10 @@ export default function Demandas() {
           name: d.nome_projeto,
           client_name: clientName,
           client_id: d.client_id,
-          status: "Pré-produção",
+          // ID da etapa, não o rótulo: o board filtra por id, e "Pré-produção"
+          // fazia o projeto nascer sem coluna nenhuma — invisível na lista,
+          // acessível só por link.
+          status: "pre-producao",
           sold_date: new Date().toISOString().slice(0, 10),
           delivery_date: prazoDate,
         })
