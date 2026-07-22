@@ -9,7 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare, Rows3,
+  FileText, Link2, ExternalLink, MessageSquare, Rows3, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
-import { PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
+import { PRODUCTION_STAGES_NEW, isFinalizado } from "@/hooks/useProjects";
 import { useClientesPublico } from "@/hooks/useDeals";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
@@ -220,6 +220,33 @@ export default function ProjetoDetalhe() {
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* Acabar o projeto é AÇÃO, não etapa: ele fica em Fechamento o
+                  tempo que precisar e só sai do board quando alguém disser que
+                  acabou. Reabrir devolve pra Fechamento — clique errado não
+                  vira uma ida ao banco. */}
+              {podeEditarProjeto && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (isFinalizado(project.status)) {
+                      return salvarProjeto({ status: "fechamento" }, "Projeto reaberto em Fechamento");
+                    }
+                    if (!(await confirmar({
+                      title: "Finalizar projeto?",
+                      description: "Ele sai do board de produção e vai pra aba Finalizados. Dá pra reabrir depois.",
+                      confirmText: "Finalizar",
+                    }))) return;
+                    salvarProjeto({ status: "finalizado" }, "Projeto finalizado");
+                  }}
+                >
+                  {isFinalizado(project.status) ? (
+                    <><RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reabrir</>
+                  ) : (
+                    <><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Finalizar projeto</>
+                  )}
+                </Button>
+              )}
               {/* Horas por pessoa/tarefa é dado sensível (produtividade
                   individual): fica só pro admin. */}
               {isAdmin && (
@@ -279,8 +306,15 @@ export default function ProjetoDetalhe() {
               label="Status"
               value={project.status || ""}
               editable={podeEditarProjeto}
-              displayFallback={project.status || "—"}
-              options={PRODUCTION_STAGES_NEW.map((s) => ({ value: s.id, label: s.label }))}
+              displayFallback={isFinalizado(project.status) ? "Finalizado" : project.status || "—"}
+              // Projeto finalizado (ou com status antigo) não é etapa do board
+              // — sem isso o seletor abriria vazio e pareceria sem status.
+              options={[
+                ...(project.status && !PRODUCTION_STAGES_NEW.some((s) => s.id === project.status)
+                  ? [{ value: project.status, label: isFinalizado(project.status) ? "Finalizado" : project.status }]
+                  : []),
+                ...PRODUCTION_STAGES_NEW.map((s) => ({ value: s.id, label: s.label })),
+              ]}
               onChange={(v) => salvarProjeto({ status: v }, "Status atualizado")}
             />
             {canSeeMoney && (

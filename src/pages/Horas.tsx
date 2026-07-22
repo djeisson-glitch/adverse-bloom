@@ -83,7 +83,7 @@ export default function Horas() {
       const { data, error } = await supabase
         .from("projects")
         .select("id, name, client_name")
-        .neq("status", "faturado")
+        .not("status", "in", "(finalizado,entregue,faturado)")
         .order("name");
       if (error) throw error;
       return data as any[];

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Info } from "lucide-react";
+import { isFinalizado } from "@/hooks/useProjects";
 
 type DeliverableOpt = {
   id: string;
@@ -39,7 +40,7 @@ export function StartTimerModal({ open, onOpenChange }: { open: boolean; onOpenC
       return (data as DeliverableOpt[]).filter(
         (d) =>
           d.project &&
-          d.project.status !== "faturado" &&
+          !isFinalizado(d.project.status) &&
           d.status !== "entregue" &&
           d.status !== "aprovado",
       );
