@@ -194,9 +194,8 @@ export default function MinhaMesa() {
       } else if (kind === "aprovar") {
         toast.success(await Fluxo.aprovarEtapa(d, user?.id));
       } else if (kind === "ajuste") {
-        const motivo = window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
-        if (motivo === null) { setBusy(null); return; }
-        toast.success(await Fluxo.pedirAjuste(d, user?.id, motivo));
+        // Um clique só: a mensagem única sai quando volta pro editor, apontando o Frame.io.
+        toast.success(await Fluxo.pedirAjuste(d, user?.id));
       } else if (kind === "enviarCliente") {
         toast.success(await Fluxo.enviarAoCliente(d));
       } else if (kind === "clienteAprovou") {
