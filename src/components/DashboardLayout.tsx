@@ -1,7 +1,8 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon } from "lucide-react";
+import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon, Eye, EyeOff } from "lucide-react";
+import { useValoresOcultos } from "@/contexts/PrivacidadeContext";
 import { NotificacoesSino } from "@/components/NotificacoesSino";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { useTema } from "@/hooks/useTema";
@@ -56,6 +57,26 @@ function TimerButton() {
       </button>
       <StartTimerModal open={open} onOpenChange={setOpen} />
     </>
+  );
+}
+
+/** Só admin: esconde/mostra TODOS os valores em R$ (modo apresentação p/ o time). */
+function ValoresBotao() {
+  const { isAdmin } = usePermissions();
+  const { ocultar, alternar } = useValoresOcultos();
+  if (!isAdmin) return null;
+  return (
+    <button
+      onClick={alternar}
+      title={ocultar ? "Valores ocultos — clique pra mostrar" : "Ocultar valores (modo apresentação)"}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+        ocultar
+          ? "border-amber-500/40 bg-amber-500/15 text-amber-400"
+          : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {ocultar ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 
@@ -155,6 +176,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <BuscaGlobal />
             <div className="ml-auto flex items-center gap-2">
               <TimerButton />
+              <ValoresBotao />
               <TemaBotao />
               <NotificacoesSino />
               <UserChip />
