@@ -480,27 +480,9 @@ export default function EntregavelDetalhe() {
 
       <div>
         <div className="min-w-0 space-y-5">
-          {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
-              que abre o entregável — a coordenadora precisa do roteiro à mão. */}
-          <DocumentosEntregavel did={did!} projectId={projectId!} />
-
-          {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
-          <AnexosEntregavel did={did!} projectId={projectId!} />
-
-          {/* Timesheet do entregável — some pra quem não vê horas */}
-          {canSeeHours && (
-            <TimesheetEntregavel
-              did={did!}
-              projectId={projectId!}
-              entries={entries}
-              profiles={profiles}
-              horasTotal={horas.total}
-              onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
-              onChanged={recarregarHoras}
-            />
-          )}
-
-          {/* Alterações do cliente */}
+          {/* Alterações do cliente logo abaixo dos cards: é o que muda o rumo
+              do entregável e onde as horas de alteração são apontadas — precisa
+              estar na cara, não no fim da página. */}
           <AlteracoesSection
             did={did!}
             projectId={projectId!}
@@ -517,6 +499,27 @@ export default function EntregavelDetalhe() {
               recarregarHoras();
             }}
           />
+
+          {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
+              que abre o entregável — a coordenadora precisa do roteiro à mão. */}
+          <DocumentosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
+          <AnexosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Timesheet do entregável — some pra quem não vê horas */}
+          {canSeeHours && (
+            <TimesheetEntregavel
+              did={did!}
+              projectId={projectId!}
+              entries={entries}
+              profiles={profiles}
+              horasTotal={horas.total}
+              temAlteracaoAberta={!!alteracaoAberta}
+              onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
+              onChanged={recarregarHoras}
+            />
+          )}
         </div>
 
       </div>
@@ -1041,10 +1044,10 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
 }
 
 function TimesheetEntregavel({
-  did, projectId, entries, profiles, horasTotal, onStart, onChanged,
+  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, onStart, onChanged,
 }: {
   did: string; projectId: string; entries: any[]; profiles: any[]; horasTotal: number;
-  onStart: () => void; onChanged: () => void;
+  temAlteracaoAberta: boolean; onStart: () => void; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
@@ -1102,7 +1105,7 @@ function TimesheetEntregavel({
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Timesheet do entregável</p>
+            <p className="text-sm font-semibold text-foreground">Timesheet do entregável <span className="font-normal text-muted-foreground">· edição pura</span></p>
             <p className="text-xs text-muted-foreground">Total rastreado: <strong>{horasTotal.toFixed(1)}h</strong></p>
           </div>
           {rodando ? (
@@ -1120,6 +1123,19 @@ function TimesheetEntregavel({
             </Button>
           )}
         </div>
+
+        {/* Tem alteração aberta: quem está mexendo por causa do cliente NÃO
+            deve apontar aqui (isso é edição pura) — deve apontar na alteração,
+            senão a hora de alteração fica invisível e o custo se perde. */}
+        {temAlteracaoAberta && (
+          <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+            <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Este entregável tem <strong>alteração do cliente aberta</strong>. Se você está mexendo por causa
+              dela, aponte as horas <strong>na alteração</strong> (lá em cima), não aqui — aqui é só edição pura.
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-32">
@@ -1177,6 +1193,7 @@ function AlteracoesSection({
   const { sessao, stop, elapsedSec } = useTimer();
   const [nova, setNova] = useState({ titulo: "", descricao: "" });
   const [aberto, setAberto] = useState(false);
+  const abertas = (alteracoes || []).filter((a: any) => a.status === "aberta");
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -1215,17 +1232,30 @@ function AlteracoesSection({
   });
 
   return (
-    <Card className="glass-card">
+    // Card ganha borda âmbar quando há alteração aberta — pra saltar aos olhos
+    // que este entregável está em ajuste do cliente.
+    <Card className={`glass-card ${abertas.length ? "border-warning/50 bg-warning/[0.04]" : ""}`}>
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">Alterações do cliente</p>
-            <p className="text-xs text-muted-foreground">Pedidos do cliente (portal ou registrados aqui). Cada uma rastreia horas próprias.</p>
+            <p className="text-xs text-muted-foreground">Pedidos do cliente (portal ou registrados aqui). Cada uma rastreia horas próprias — o editor dá play na alteração.</p>
           </div>
           <Button size="sm" onClick={() => setAberto((v) => !v)} className="bg-primary text-primary-foreground">
             <MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente
           </Button>
         </div>
+
+        {/* Banner gritante enquanto houver alteração aberta. */}
+        {abertas.length > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-warning/50 bg-warning/15 px-3 py-2 text-xs font-medium text-warning">
+            <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {abertas.length === 1 ? "1 alteração do cliente aberta" : `${abertas.length} alterações do cliente abertas`} —
+              o trabalho por causa dela conta como <strong>hora de alteração</strong>. Dê play na alteração abaixo (não no timesheet de edição pura).
+            </span>
+          </div>
+        )}
 
         {aberto && (
           <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
@@ -1241,7 +1271,7 @@ function AlteracoesSection({
           <p className="py-2 text-xs text-muted-foreground">Nenhuma alteração do cliente ainda.</p>
         ) : (
           alteracoes.map((a) => (
-            <div key={a.id} className="rounded-md border border-border/40 bg-muted/10 p-3">
+            <div key={a.id} className={`rounded-md border p-3 ${a.status === "aberta" ? "border-warning/50 bg-warning/[0.06]" : "border-border/40 bg-muted/10"}`}>
               <div className="flex items-center gap-2">
                 <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">R{a.numero}</span>
                 <span className="flex-1 truncate text-sm font-medium text-foreground">{a.titulo}</span>
