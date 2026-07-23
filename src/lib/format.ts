@@ -1,4 +1,12 @@
+// "Modo apresentação": esconde os valores em R$ na tela, pra mostrar o sistema
+// pro time sem expor números. Flag de módulo que formatCurrency consulta — quem
+// liga/desliga é o PrivacidadeProvider (que força o re-render pra reavaliar).
+let _ocultarValores = false;
+export function setOcultarValores(v: boolean) { _ocultarValores = v; }
+export function getOcultarValores() { return _ocultarValores; }
+
 export function formatCurrency(value: number): string {
+  if (_ocultarValores) return "R$ •••••";
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
