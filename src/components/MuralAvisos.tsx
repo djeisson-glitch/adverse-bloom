@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Megaphone, Pin, PinOff, X, Plus, Loader2 } from "lucide-react";
+import { Megaphone, Pin, PinOff, X, Plus, Loader2, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ export function MuralAvisos() {
   const [titulo, setTitulo] = useState("");
   const [corpo, setCorpo] = useState("");
   const [fixar, setFixar] = useState(false);
+  const [dataEvento, setDataEvento] = useState("");   // datetime-local (opcional)
 
   // Nome de quem publicou (autor_id → auth.users, resolvido pelos profiles).
   const { data: profiles = [] } = useQuery({
@@ -38,15 +39,14 @@ export function MuralAvisos() {
     return p?.full_name?.split(" ")[0] || p?.email?.split("@")[0] || "";
   };
 
+  const limpar = () => { setTitulo(""); setCorpo(""); setFixar(false); setDataEvento(""); setCompondo(false); };
+
   const enviar = () => {
     publicar.mutate(
-      { titulo, corpo, fixado: fixar },
+      // datetime-local vem sem fuso; new Date() interpreta no fuso local e vira ISO.
+      { titulo, corpo, fixado: fixar, data_evento: dataEvento ? new Date(dataEvento).toISOString() : null },
       {
-        onSuccess: () => {
-          setTitulo(""); setCorpo(""); setFixar(false); setCompondo(false);
-          toast.success("Aviso publicado");
-        },
-        onError: (e: any) => toast.error("Erro", { description: e.message }),
+        onSuccess: () => { limpar(); toast.success("Aviso publicado"); },
       }
     );
   };
@@ -95,12 +95,23 @@ export function MuralAvisos() {
               placeholder="Detalhe (opcional)"
               rows={2}
             />
+            <div>
+              <label className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                <CalendarClock className="h-3 w-3" /> Data do evento (opcional)
+              </label>
+              <Input
+                type="datetime-local"
+                value={dataEvento}
+                onChange={(e) => setDataEvento(e.target.value)}
+                className="h-9"
+              />
+            </div>
             <div className="flex items-center justify-between">
               <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                 <Checkbox checked={fixar} onCheckedChange={(v) => setFixar(!!v)} /> Fixar no topo
               </label>
               <div className="flex gap-2">
-                <Button size="sm" variant="ghost" className="h-8" onClick={() => { setCompondo(false); setTitulo(""); setCorpo(""); setFixar(false); }}>
+                <Button size="sm" variant="ghost" className="h-8" onClick={limpar}>
                   Cancelar
                 </Button>
                 <Button size="sm" className="h-8 bg-amber-500 text-white hover:bg-amber-600" onClick={enviar} disabled={publicar.isPending || !titulo.trim()}>
@@ -125,8 +136,13 @@ export function MuralAvisos() {
                     {a.titulo}
                   </p>
                   {a.corpo && <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{a.corpo}</p>}
+                  {a.data_evento && (
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+                      <CalendarClock className="h-3 w-3" /> {fmtEvento(a.data_evento)}
+                    </span>
+                  )}
                   <p className="mt-1 text-[11px] text-muted-foreground/70">
-                    {autorDe(a.autor_id) && <>{autorDe(a.autor_id)} · </>}
+                    registrado {autorDe(a.autor_id) && <>por {autorDe(a.autor_id)} · </>}
                     {new Date(a.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -155,4 +171,13 @@ export function MuralAvisos() {
       </CardContent>
     </Card>
   );
+}
+
+// Data do evento: "sex, 25 de jul · 10:00" (esconde a hora se for meia-noite).
+function fmtEvento(iso: string) {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+  const temHora = d.getHours() !== 0 || d.getMinutes() !== 0;
+  const hora = temHora ? " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+  return dia + hora;
 }
