@@ -12,7 +12,7 @@ import { useProjetosRealizados } from "@/hooks/useProjetosRealizados";
 import { useMRR } from "@/hooks/useContratos";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
+import { formatCurrency, formatPercent, formatDate, getOcultarValores } from "@/lib/format";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotificacoesCard } from "@/components/NotificacoesCard";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
@@ -471,6 +471,7 @@ export default function Home() {
   const fatAnterior = useMemo(() => calcReceitaTotal(recItems, periodoAnterior), [recItems, periodoAnterior.from, periodoAnterior.to]);
   const resultadoAnterior = useMemo(() => calcLucroLiquido(fatAnterior, calcDespesasOperacionais(payItems, periodoAnterior)).valor, [payItems, fatAnterior, periodoAnterior.from, periodoAnterior.to]);
   const compactBRL = (n: number) => {
+    if (getOcultarValores()) return "R$ •••••";
     const a = Math.abs(n);
     return a >= 1000 ? `R$ ${(n / 1000).toFixed(a >= 10000 ? 0 : 1).replace(".", ",")}k` : formatCurrency(n);
   };
