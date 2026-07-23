@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
 import { toast } from "sonner";
 
 type Entry = {
@@ -32,44 +33,6 @@ function rotuloMes(ym: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-/**
- * Duração em vários formatos -> minutos. Número puro continua sendo MINUTOS
- * (o campo sempre foi assim, e o default é 60). Pra horas, use "h" ou ":".
- *   "2h10" / "2h10min" -> 130   "2h" -> 120   "2:10" -> 130
- *   "1h30" -> 90   "1,5h" -> 90   "90min" / "90m" -> 90   "130" -> 130
- * Retorna null quando não dá pra entender (não grava errado calado).
- */
-export function parseDuracaoMin(raw: string): number | null {
-  const s = (raw || "").trim().toLowerCase().replace(/\s+/g, "");
-  if (!s) return null;
-  let m: RegExpMatchArray | null;
-
-  // hh:mm
-  if ((m = s.match(/^(\d+):([0-5]?\d)$/))) return +m[1] * 60 + +m[2];
-  // horas decimais: 1,5h / 1.5h
-  if ((m = s.match(/^(\d+(?:[.,]\d+)?)h$/))) return Math.round(parseFloat(m[1].replace(",", ".")) * 60);
-  // 2h10 / 2h10min / 1h30m / 2h
-  if ((m = s.match(/^(\d+)h([0-5]?\d)?(?:m(?:in)?)?$/))) return +m[1] * 60 + (m[2] ? +m[2] : 0);
-  // 90min / 90m
-  if ((m = s.match(/^(\d+)m(?:in)?$/))) return +m[1];
-  // número puro = minutos (comportamento histórico)
-  if ((m = s.match(/^(\d+)$/))) return +m[1];
-
-  return null;
-}
-
-// Etapas de trabalho — a "descrição" virou escolha em vez de texto livre, pra
-// o apontamento ser padronizado e depois dar pra somar hora por etapa.
-const ETAPAS_TRABALHO = ["Montagem", "Edição", "Color grading", "Finalização", "Motion / VFX"];
-
-/** Minutos -> "2h10" / "45min" (pro feedback ao vivo e a lista). */
-export function fmtDuracao(min: number): string {
-  const h = Math.floor(min / 60);
-  const mm = min % 60;
-  if (h && mm) return `${h}h${String(mm).padStart(2, "0")}`;
-  if (h) return `${h}h`;
-  return `${mm}min`;
-}
 
 export default function Horas() {
   const qc = useQueryClient();
