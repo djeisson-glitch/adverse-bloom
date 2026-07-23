@@ -18,7 +18,9 @@ serve(async (req) => {
 
   try {
     const key = Deno.env.get("GIPHY_API_KEY");
-    if (!key) return json({ error: "GIF não configurado (falta GIPHY_API_KEY).", gifs: [] }, 503);
+    // Chave ausente é ESTADO de configuração, não erro de servidor — devolve 200
+    // pra o front mostrar a mensagem específica (invoke() só lança em não-2xx).
+    if (!key) return json({ error: "GIF não configurado — falta a chave GIPHY_API_KEY.", gifs: [] }, 200);
 
     const body = await req.json().catch(() => ({}));
     const q = (body?.q || "").toString().trim().slice(0, 60);
