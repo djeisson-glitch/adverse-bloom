@@ -1190,7 +1190,13 @@ function LinhaEntregavel({
       className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
     >
       <span className="min-w-0">
-        <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>
+        {/* Código (ADVR-xxxx) na frente: quando se tem o código em mãos, bate o
+            olho e vai direto — mesma marcação da ficha e da busca. */}
+        <span
+          className="line-clamp-2 break-words font-medium leading-tight text-foreground"
+          title={d.codigo ? `${d.codigo} · ${d.titulo}` : d.titulo}
+        >
+          {d.codigo && <span className="mr-1.5 font-mono text-[10px] font-normal text-primary">{d.codigo}</span>}
           {d.titulo}
         </span>
         {/* Marca de alteração do cliente: âmbar e forte quando há aberta;
