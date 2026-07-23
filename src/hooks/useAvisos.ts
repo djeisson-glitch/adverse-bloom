@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 
 // Mural de avisos internos. Admin/coordenadora publica; todo mundo lê (a RLS
 // garante o gate no banco — aqui a flag só decide o que a UI mostra).
@@ -12,6 +13,7 @@ export type Aviso = {
   autor_id: string | null;
   fixado: boolean;
   ativo: boolean;
+  data_evento: string | null;   // quando é o evento (opcional), além do created_at
   created_at: string;
 };
 
@@ -40,19 +42,23 @@ export function useAvisos() {
 
   const invalidar = () => qc.invalidateQueries({ queryKey: ["avisos"] });
 
+  const aoErrar = (e: any) => toast.error("Não deu", { description: e?.message || "Erro no mural" });
+
   const publicar = useMutation({
-    mutationFn: async (v: { titulo: string; corpo?: string; fixado?: boolean }) => {
+    mutationFn: async (v: { titulo: string; corpo?: string; fixado?: boolean; data_evento?: string | null }) => {
       const titulo = v.titulo.trim();
       if (!titulo) throw new Error("Escreva o aviso");
       const { error } = await (supabase as any).from("avisos").insert({
         titulo,
         corpo: (v.corpo || "").trim() || null,
         fixado: !!v.fixado,
+        data_evento: v.data_evento || null,
         autor_id: user?.id,
       });
       if (error) throw error;
     },
     onSuccess: invalidar,
+    onError: aoErrar,
   });
 
   const alternarFixado = useMutation({
@@ -64,6 +70,7 @@ export function useAvisos() {
       if (error) throw error;
     },
     onSuccess: invalidar,
+    onError: aoErrar,
   });
 
   const remover = useMutation({
@@ -75,6 +82,7 @@ export function useAvisos() {
       if (error) throw error;
     },
     onSuccess: invalidar,
+    onError: aoErrar,
   });
 
   return { avisos, isLoading, podePublicar, publicar, alternarFixado, remover };
