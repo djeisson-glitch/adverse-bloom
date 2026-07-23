@@ -1,0 +1,225 @@
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarClock, Plus, MapPin, X, Loader2, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/ui/confirm";
+import { supabase } from "@/integrations/supabase/client";
+import { useActiveTeamMembers } from "@/hooks/useTeamMembers";
+import {
+  useSalvarSaida, useCancelarSaida, STATUS_SAIDA_META, type SaidaProducao,
+} from "@/hooks/useSaidasProducao";
+import { toast } from "sonner";
+
+/**
+ * Diárias de gravação do projeto. As diárias vêm do orçamento como um SALDO
+ * (diarias_contratadas) que a produção agenda em datas reais aqui. Cada diária
+ * é uma producao_saidas (tipo='diaria'): aparece no Calendário e nas Saídas,
+ * publica no Google Agenda e desconta a capacidade da semana da equipe escalada.
+ */
+export function DiariasProjeto({
+  projectId, projectName, diariasContratadas,
+}: {
+  projectId: string;
+  projectName: string;
+  diariasContratadas: number;
+}) {
+  const qc = useQueryClient();
+  const confirmar = useConfirm();
+  const { data: membros = [] } = useActiveTeamMembers();
+  const salvar = useSalvarSaida();
+  const cancelar = useCancelarSaida();
+
+  const [abrindo, setAbrindo] = useState(false);
+  const [data, setData] = useState("");
+  const [local, setLocal] = useState("");
+  const [equipe, setEquipe] = useState<string[]>([]);
+
+  const { data: diarias = [], isLoading } = useQuery({
+    queryKey: ["projeto-diarias", projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("producao_saidas")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("tipo", "diaria")
+        .order("data", { ascending: true });
+      if (error) throw error;
+      return data as SaidaProducao[];
+    },
+  });
+
+  const nomeMembro = useMemo(() => {
+    const m = new Map(membros.map((x: any) => [x.id, x.name]));
+    return (id: string) => m.get(id) || "—";
+  }, [membros]);
+
+  const agendadas = diarias.filter((d) => d.status !== "cancelada");
+  const contratadas = diariasContratadas || 0;
+  const restam = Math.max(0, contratadas - agendadas.length);
+
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ["projeto-diarias", projectId] });
+    qc.invalidateQueries({ queryKey: ["producao_saidas"] });
+  };
+
+  const toggleMembro = (id: string) =>
+    setEquipe((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id]));
+
+  const agendar = () => {
+    if (!data) { toast.error("Escolha a data da diária"); return; }
+    salvar.mutate(
+      {
+        tipo: "diaria",
+        titulo: `Diária — ${projectName}`,
+        project_id: projectId,
+        data,
+        dia_inteiro: true,
+        local: local.trim() || null,
+        equipe,
+        status: "agendada",
+      },
+      {
+        onSuccess: () => {
+          setData(""); setLocal(""); setEquipe([]); setAbrindo(false);
+          invalidar();
+          toast.success("Diária agendada");
+        },
+        onError: (e: any) => toast.error("Erro", { description: e.message }),
+      },
+    );
+  };
+
+  const removerDiaria = async (d: SaidaProducao) => {
+    if (!(await confirmar({
+      title: "Cancelar diária?",
+      description: `${fmtData(d.data)}${d.local ? ` · ${d.local}` : ""}`,
+      destructive: true, confirmText: "Cancelar diária",
+    }))) return;
+    cancelar.mutate(d.id, { onSuccess: invalidar });
+  };
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-amber-400" />
+            <p className="text-sm font-semibold text-foreground">Diárias de gravação</p>
+            <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+              {agendadas.length}{contratadas > 0 ? ` de ${contratadas}` : ""} agendada{agendadas.length === 1 ? "" : "s"}
+              {restam > 0 ? ` · faltam ${restam}` : ""}
+            </span>
+          </div>
+          {!abrindo && (
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => setAbrindo(true)}>
+              <Plus className="h-3.5 w-3.5" /> Agendar diária
+            </Button>
+          )}
+        </div>
+
+        {contratadas > 0 && (
+          <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${Math.min(100, Math.round((agendadas.length / contratadas) * 100))}%` }} />
+          </div>
+        )}
+
+        {/* Agendar nova diária */}
+        {abrindo && (
+          <div className="mb-4 space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[11px] text-muted-foreground">Data</label>
+                <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="h-9" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-muted-foreground">Local (opcional)</label>
+                <Input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Onde grava" className="h-9" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Users className="h-3 w-3" /> Equipe escalada (bloqueia o dia de cada um)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {membros.length === 0 && <span className="text-xs text-muted-foreground">Cadastre a equipe em Time.</span>}
+                {membros.map((m: any) => {
+                  const on = equipe.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleMembro(m.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        on ? "border-amber-500/50 bg-amber-500/15 text-amber-300" : "border-border/60 text-muted-foreground hover:border-amber-500/30"
+                      }`}
+                    >
+                      {m.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); }}>
+                Cancelar
+              </Button>
+              <Button size="sm" className="h-8 bg-amber-500 text-white hover:bg-amber-600" onClick={agendar} disabled={salvar.isPending || !data}>
+                {salvar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Agendar"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Lista */}
+        {isLoading ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">Carregando…</p>
+        ) : diarias.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {contratadas > 0
+              ? `${contratadas} diária(s) contratada(s) no orçamento. Agende as datas.`
+              : "Nenhuma diária ainda. Agende os dias de gravação."}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {diarias.map((d) => {
+              const meta = STATUS_SAIDA_META[d.status];
+              return (
+                <li key={d.id} className={`flex items-center gap-3 py-2.5 ${d.status === "cancelada" ? "opacity-50" : ""}`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm text-foreground">
+                      <span className="font-medium">{fmtData(d.data)}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${meta.className}`}>{meta.label}</span>
+                    </p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {d.local && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{d.local}</span>}
+                      {d.equipe?.length > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="h-3 w-3" />{d.equipe.map(nomeMembro).join(", ")}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {d.status !== "cancelada" && (
+                    <button title="Cancelar diária" onClick={() => removerDiaria(d)} className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <p className="mt-3 text-[11px] text-muted-foreground/70">
+          Cada diária bloqueia o dia da equipe escalada — aparece no Calendário e nas Saídas, publica no Google Agenda e desconta a capacidade da semana.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function fmtData(iso: string) {
+  return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
+}
