@@ -13,6 +13,7 @@ type Row = {
   capacidade: number;
   horas_apontadas: number;
   horas_faturaveis: number;
+  horas_diarias: number;   // diárias de gravação da semana (dia cheio bloqueado)
   ocupacao_percent: number;
 };
 
@@ -34,13 +35,16 @@ export default function Capacidade() {
         capacidade: acc.capacidade + Number(r.capacidade || 0),
         apontadas: acc.apontadas + Number(r.horas_apontadas || 0),
         faturaveis: acc.faturaveis + Number(r.horas_faturaveis || 0),
+        diarias: acc.diarias + Number(r.horas_diarias || 0),
       }),
-      { capacidade: 0, apontadas: 0, faturaveis: 0 },
+      { capacidade: 0, apontadas: 0, faturaveis: 0, diarias: 0 },
     );
   }, [rows]);
 
-  const ocupacao = totais.capacidade > 0 ? (totais.faturaveis / totais.capacidade) * 100 : 0;
-  const livres = Math.max(0, totais.capacidade - totais.faturaveis);
+  // Diárias de gravação também ocupam o dia da pessoa — entram na ocupação.
+  const ocupado = totais.faturaveis + totais.diarias;
+  const ocupacao = totais.capacidade > 0 ? (ocupado / totais.capacidade) * 100 : 0;
+  const livres = Math.max(0, totais.capacidade - ocupado);
   const ociosos = rows.filter((r) => (Number(r.ocupacao_percent) || 0) < 60);
 
   if (!canSeeMoney) {
@@ -66,9 +70,11 @@ export default function Capacidade() {
       <div className="grid gap-3 md:grid-cols-4">
         <Kpi label="Capacidade" value={`${totais.capacidade}h`} hint="horas faturáveis" tone="primary" />
         <Kpi
-          label="Apontado (faturável)"
-          value={`${totais.faturaveis.toFixed(1)}h`}
-          hint={`${totais.apontadas.toFixed(1)}h no total`}
+          label="Ocupado"
+          value={`${ocupado.toFixed(1)}h`}
+          hint={totais.diarias > 0
+            ? `${totais.faturaveis.toFixed(1)}h faturável + ${totais.diarias.toFixed(1)}h diárias`
+            : `${totais.apontadas.toFixed(1)}h apontadas`}
           tone="success"
         />
         <Kpi
@@ -112,7 +118,7 @@ export default function Capacidade() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Ocupação = horas faturáveis apontadas ÷ capacidade do período (horas/semana). Ajuste as horas/semana em Admin → Usuários.
+        Ocupação = (horas faturáveis apontadas + diárias de gravação da semana) ÷ capacidade do período. Cada diária bloqueia um dia cheio (🎥). Ajuste as horas/semana em Admin → Usuários.
       </p>
     </div>
   );
@@ -142,7 +148,10 @@ function CapRow({ row }: { row: Row }) {
       </div>
       <span className="text-right text-xs">{oc.toFixed(0)}%</span>
       <span className="text-right text-xs text-muted-foreground">
-        {Number(row.horas_faturaveis).toFixed(1)}h / {row.capacidade}h
+        {(Number(row.horas_faturaveis) + Number(row.horas_diarias || 0)).toFixed(1)}h / {row.capacidade}h
+        {Number(row.horas_diarias) > 0 && (
+          <span className="ml-1 text-amber-400" title="inclui diárias de gravação">🎥</span>
+        )}
       </span>
     </div>
   );

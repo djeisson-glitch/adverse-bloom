@@ -25,6 +25,7 @@ import { PRODUCTION_STAGES_NEW, isFinalizado } from "@/hooks/useProjects";
 import { useClientesPublico } from "@/hooks/useDeals";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { EmojiPicker, GifPicker } from "@/components/chat/ChatExtras";
+import { DiariasProjeto } from "@/components/producao/DiariasProjeto";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
@@ -97,7 +98,7 @@ function resumirEntregas(itens: { formato: string | null; duracao: string | null
   return { total: itens.length, linhas };
 }
 
-type ProjetoTab = "entregaveis" | "tarefas" | "briefing" | "fechamento";
+type ProjetoTab = "entregaveis" | "tarefas" | "diarias" | "briefing" | "fechamento";
 
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -360,6 +361,7 @@ export default function ProjetoDetalhe() {
               [
                 { id: "entregaveis", label: "Entregáveis" },
                 { id: "tarefas", label: "Tarefas" },
+                { id: "diarias", label: "Diárias" },
                 { id: "briefing", label: "Briefing & Docs" },
                 ...(canSeeMoney ? [{ id: "fechamento", label: "Fechamento" }] : []),
               ] as { id: ProjetoTab; label: string }[]
@@ -388,6 +390,14 @@ export default function ProjetoDetalhe() {
 
           {tab === "tarefas" && (
             <TarefasSection projectId={project.id} projectName={project.name} profiles={profiles} />
+          )}
+
+          {tab === "diarias" && (
+            <DiariasProjeto
+              projectId={project.id}
+              projectName={project.name}
+              diariasContratadas={project.diarias_contratadas || 0}
+            />
           )}
 
           {tab === "briefing" && (
