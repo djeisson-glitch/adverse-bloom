@@ -44,6 +44,22 @@ export async function enviarParaRevisao(d: DelivFluxo, alteracaoAbertaId?: strin
   return d.retrabalho ? "Enviado para revisão (Aprovação 1)" : "Enviado para revisão (Aprovação 1 → 2)";
 }
 
+/**
+ * Posta a ÚNICA mensagem de ajuste no chat — só quando o entregável VOLTA pro
+ * editor. Diz em qual etapa foi pedido (Aprovação 1, 2, ambas, ou revisão) e
+ * aponta pro Frame.io, onde ficam as marcações de verdade. Não posta a cada
+ * clique: se o N1 pede e segue pra N2, a mensagem sai depois, consolidada.
+ */
+async function anotarAjuste(deliverableId: string, userId: string | undefined, origens: string[]) {
+  const onde =
+    origens.length >= 2 ? "nas Aprovações 1 e 2" :
+    origens.length === 1 ? `na ${origens[0]}` : "na revisão";
+  await (supabase as any).from("comments").insert({
+    entity_type: "deliverable", entity_id: deliverableId, user_id: userId,
+    body: `🔧 Ajuste pedido ${onde} — ver os ajustes no Frame.io`, mentions: [],
+  });
+}
+
 /** APROVAR na etapa atual: N1→N2, N2→pronto (ou volta se teve ajuste), revisão única→pronto. */
 export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<string> {
   const now = agora();
@@ -53,12 +69,14 @@ export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<stri
   }
   if (d.status === "revisao_n2") {
     if (d.rev_ajuste_pendente) {
+      // N1 pediu ajuste e o N2 aprovou: volta pro editor com UMA mensagem (N1).
       await upd(d.id, {
         aprovado_n2_por: userId, aprovado_n2_em: now, status: "ajuste_interno",
         retrabalho: true, rev_ajuste_pendente: false,
         revisoes_internas: (d.revisoes_internas || 0) + 1,
       });
-      return "Volta pro editor com os ajustes";
+      await anotarAjuste(d.id, userId, ["Aprovação 1"]);
+      return "Volta pro editor com os ajustes da Aprovação 1";
     }
     await upd(d.id, { aprovado_n2_por: userId, aprovado_n2_em: now, status: "pronto" });
     return "Aprovado — pronto pra enviar ao cliente";
@@ -68,14 +86,18 @@ export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<stri
   return "Aprovado — pronto pra enviar";
 }
 
-/** PEDIR AJUSTE na etapa atual (anota o motivo na conversa). */
-export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, motivo: string): Promise<string> {
-  await (supabase as any).from("comments").insert({
-    entity_type: "deliverable", entity_id: d.id, user_id: userId,
-    body: `🔧 Ajuste: ${motivo.trim() || "(sem detalhe)"}`, mentions: [],
-  });
+/**
+ * PEDIR AJUSTE na etapa atual. A mensagem no chat é ÚNICA e sai só quando o
+ * entregável volta pro editor (identificando a etapa). Se o N1 pede, apenas
+ * marca e segue pra N2 — a mensagem consolidada sai depois do N2.
+ * `motivo` fica no argumento por compatibilidade, mas o detalhe do que mudar
+ * vive no Frame.io (a mensagem só aponta pra lá).
+ */
+export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, _motivo?: string): Promise<string> {
   const now = agora();
   if (d.status === "revisao_n1") {
+    // N1 pediu ajuste: NÃO posta ainda — lembra (rev_ajuste_pendente) e segue
+    // pra N2, pra o editor receber tudo de uma vez numa mensagem só.
     await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, status: "revisao_n2", rev_ajuste_pendente: true });
     return "Ajuste anotado → segue pra Aprovação 2";
   }
@@ -85,9 +107,14 @@ export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, mot
       retrabalho: true, rev_ajuste_pendente: false,
       revisoes_internas: (d.revisoes_internas || 0) + 1,
     });
+    // Se o N1 também tinha pedido, a mensagem cita as duas aprovações.
+    const origens = d.rev_ajuste_pendente ? ["Aprovação 1", "Aprovação 2"] : ["Aprovação 2"];
+    await anotarAjuste(d.id, userId, origens);
     return "Volta pro editor com os ajustes";
   }
+  // revisão única (retrabalho)
   await upd(d.id, { status: "ajuste_interno", revisoes_internas: (d.revisoes_internas || 0) + 1 });
+  await anotarAjuste(d.id, userId, ["revisão"]);
   return "Volta pro editor com os ajustes";
 }
 
