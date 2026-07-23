@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
 import { toast } from "sonner";
 import { ComentariosSection } from "./ProjetoDetalhe";
 
@@ -1039,6 +1040,7 @@ function TimesheetEntregavel({
   const { sessao, stop, elapsedSec } = useTimer();
   const [dur, setDur] = useState("");
   const [desc, setDesc] = useState("");
+  const durMin = parseDuracaoMin(dur, "h");   // número puro = horas neste campo
 
   // Play/pause estilo ClickUp: rodando neste entregável (edição pura, sem alteração).
   const rodando = !!sessao && sessao.deliverable_id === did && !sessao.alteracao_id;
@@ -1053,8 +1055,10 @@ function TimesheetEntregavel({
 
   const lancar = useMutation({
     mutationFn: async () => {
-      const min = Math.round(Number(dur.replace(",", ".")) * 60);
-      if (!min || min <= 0 || Number.isNaN(min)) throw new Error("Informe as horas");
+      // Aqui o número puro é HORAS ("1.5" = 1h30) — o campo sempre foi assim.
+      // Mas agora aceita "2h10", "1:30", "90min" igual à página de horas.
+      const min = parseDuracaoMin(dur, "h");
+      if (!min || min <= 0) throw new Error('Duração não entendida — tente "2h10", "1.5", "90min" ou "1:30".');
       const { error } = await (supabase as any).from("time_entries").insert({
         user_id: user?.id,
         project_id: projectId,
@@ -1108,9 +1112,25 @@ function TimesheetEntregavel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="horas (ex.: 1.5)" className="h-8 w-32" />
-          <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="O que foi feito? (edição pura)" className="h-8 flex-1" />
-          <Button size="sm" onClick={() => lancar.mutate()} disabled={lancar.isPending}>
+          <div className="w-32">
+            <Input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="1.5, 2h10, 90min" className="h-8" />
+            {dur.trim() && (
+              durMin
+                ? <p className="mt-0.5 text-[10px] text-success">{fmtDuracao(durMin)}</p>
+                : <p className="mt-0.5 text-[10px] text-destructive">não entendi</p>
+            )}
+          </div>
+          {/* "O que foi feito" virou escolha de etapa (mesma lista da página de
+              horas) — apontamento padronizado, dá pra somar por etapa depois. */}
+          <Select value={desc || undefined} onValueChange={setDesc}>
+            <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="— etapa (edição pura) —" /></SelectTrigger>
+            <SelectContent>
+              {ETAPAS_TRABALHO.map((etapa) => (
+                <SelectItem key={etapa} value={etapa}>{etapa}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={() => lancar.mutate()} disabled={lancar.isPending || !durMin}>
             <Plus className="mr-1 h-3.5 w-3.5" /> Lançar
           </Button>
         </div>
@@ -1122,7 +1142,7 @@ function TimesheetEntregavel({
                 <span className="text-muted-foreground">{new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
                 <span className="truncate text-foreground">{e.description || (e.alteracao_id ? "alteração cliente" : "edição")}</span>
                 <span className="truncate text-muted-foreground">{e.pessoa?.full_name || "—"}</span>
-                <span className="text-right">{(e.duration_min / 60).toFixed(1)}h</span>
+                <span className="text-right">{fmtDuracao(e.duration_min)}</span>
                 <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
