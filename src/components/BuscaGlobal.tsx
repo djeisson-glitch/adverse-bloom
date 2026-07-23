@@ -64,8 +64,8 @@ export function BuscaGlobal() {
           .or(`name.ilike.${like},trade_name.ilike.${like}`).limit(6),
         (supabase as any).from("deals").select("id, numero, title, client:clients(name)")
           .or(`title.ilike.${like},numero.ilike.${like}`).limit(6),
-        (supabase as any).from("deliverables").select("id, titulo, project:projects(id, name, numero)")
-          .ilike("titulo", like).limit(6),
+        (supabase as any).from("deliverables").select("id, titulo, codigo, project:projects(id, name, numero)")
+          .or(`titulo.ilike.${like},codigo.ilike.${like}`).limit(6),
       ]);
       return {
         projetos: proj.data || [],
@@ -132,6 +132,7 @@ export function BuscaGlobal() {
                         <CommandItem key={e.id} value={`ent-${e.id}`}
                           onSelect={() => e.project?.id && ir(`/projetos/${e.project.id}/entregaveis/${e.id}`)}>
                           <Film className="mr-2 text-muted-foreground" />
+                          {e.codigo && <span className="mr-1.5 shrink-0 font-mono text-[10px] text-primary">{e.codigo}</span>}
                           <span className="truncate">{e.titulo}</span>
                           {e.project?.name && <span className="ml-auto pl-2 truncate text-xs text-muted-foreground">{e.project.name}</span>}
                         </CommandItem>
