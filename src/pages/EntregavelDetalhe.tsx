@@ -164,7 +164,11 @@ export default function EntregavelDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("time_entries")
-        .select("id, user_id, duration_min, alteracao_id, start_at, description, pessoa:profiles(full_name, email)")
+        // Sem embed pessoa:profiles — não existe FK time_entries->profiles
+        // (o user_id aponta pra auth.users), então o embed dava PGRST200 e a
+        // query INTEIRA falhava com 400: os cards e a lista ficavam vazios
+        // (0.0h) pra sempre. O nome sai do lookup local `nomeDe(profiles, ...)`.
+        .select("id, user_id, duration_min, alteracao_id, start_at, description")
         .eq("deliverable_id", did!)
         .order("start_at", { ascending: false });
       if (error) throw error;
@@ -489,6 +493,7 @@ export default function EntregavelDetalhe() {
               did={did!}
               projectId={projectId!}
               entries={entries}
+              profiles={profiles}
               horasTotal={horas.total}
               onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
               onChanged={recarregarHoras}
@@ -1036,9 +1041,9 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
 }
 
 function TimesheetEntregavel({
-  did, projectId, entries, horasTotal, onStart, onChanged,
+  did, projectId, entries, profiles, horasTotal, onStart, onChanged,
 }: {
-  did: string; projectId: string; entries: any[]; horasTotal: number;
+  did: string; projectId: string; entries: any[]; profiles: any[]; horasTotal: number;
   onStart: () => void; onChanged: () => void;
 }) {
   const { user } = useAuth();
@@ -1146,7 +1151,7 @@ function TimesheetEntregavel({
               <div key={e.id} className="grid grid-cols-[90px_1fr_120px_60px_30px] items-center gap-2 text-xs">
                 <span className="text-muted-foreground">{new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
                 <span className="truncate text-foreground">{e.description || (e.alteracao_id ? "alteração cliente" : "edição")}</span>
-                <span className="truncate text-muted-foreground">{e.pessoa?.full_name || "—"}</span>
+                <span className="truncate text-muted-foreground">{nomeDe(profiles, e.user_id) || "—"}</span>
                 <span className="text-right">{fmtDuracao(e.duration_min)}</span>
                 <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
