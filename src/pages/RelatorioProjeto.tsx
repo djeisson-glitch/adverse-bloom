@@ -33,12 +33,19 @@ export default function RelatorioProjeto() {
     queryKey: ["rel-projeto-entries", id],
     enabled: !!id,
     queryFn: async () => {
+      // Sem embed pessoa:profiles — não há FK time_entries->profiles (o
+      // user_id aponta pra auth.users), o embed dava 400 e o relatório de
+      // horas por pessoa ficava vazio. O nome vem de um lookup local.
       const { data, error } = await (supabase as any)
         .from("time_entries")
-        .select("user_id, task_id, duration_min, billable, pessoa:profiles(full_name, email), task:tasks(title)")
+        .select("user_id, task_id, duration_min, billable, task:tasks(title)")
         .eq("project_id", id!);
       if (error) throw error;
-      return data as any[];
+
+      const { data: perfis } = await (supabase as any)
+        .from("profiles").select("id, full_name, email");
+      const mapaPerfil = new Map((perfis || []).map((p: any) => [p.id, p]));
+      return (data || []).map((e: any) => ({ ...e, pessoa: mapaPerfil.get(e.user_id) || null })) as any[];
     },
   });
 

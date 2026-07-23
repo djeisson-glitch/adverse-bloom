@@ -1530,20 +1530,27 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
   const { data: members = [] } = useQuery({
     queryKey: ["projeto-members", project.id],
     queryFn: async () => {
+      // Sem embed profile:profiles — não existe FK project_members->profiles
+      // (o user_id aponta pra auth.users), e o embed dava 400, deixando a
+      // equipe do projeto vazia. O perfil vem de um lookup local.
       const { data, error } = await (supabase as any)
         .from("project_members")
-        .select("*, profile:profiles(id, full_name, email)")
+        .select("*")
         .eq("project_id", project.id);
       if (error) throw error;
+
+      const { data: perfis } = await (supabase as any)
+        .from("profiles").select("id, full_name, email");
+      const mapaPerfil = new Map<string, any>((perfis || []).map((p: any) => [p.id, p]));
 
       const { data: custos } = await (supabase as any)
         .from("profiles_custo")
         .select("user_id, custo_hora");   // RLS: vem vazio pra quem não vê dinheiro
       const porPessoa = new Map((custos || []).map((c: any) => [c.user_id, c.custo_hora]));
-      return (data || []).map((m: any) => ({
-        ...m,
-        profile: m.profile ? { ...m.profile, custo_hora: porPessoa.get(m.user_id) ?? null } : m.profile,
-      })) as any[];
+      return (data || []).map((m: any) => {
+        const p = mapaPerfil.get(m.user_id);
+        return { ...m, profile: p ? { ...p, custo_hora: porPessoa.get(m.user_id) ?? null } : null };
+      }) as any[];
     },
   });
 
