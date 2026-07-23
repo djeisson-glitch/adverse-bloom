@@ -32,6 +32,41 @@ function rotuloMes(ym: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
+/**
+ * Duração em vários formatos -> minutos. Número puro continua sendo MINUTOS
+ * (o campo sempre foi assim, e o default é 60). Pra horas, use "h" ou ":".
+ *   "2h10" / "2h10min" -> 130   "2h" -> 120   "2:10" -> 130
+ *   "1h30" -> 90   "1,5h" -> 90   "90min" / "90m" -> 90   "130" -> 130
+ * Retorna null quando não dá pra entender (não grava errado calado).
+ */
+export function parseDuracaoMin(raw: string): number | null {
+  const s = (raw || "").trim().toLowerCase().replace(/\s+/g, "");
+  if (!s) return null;
+  let m: RegExpMatchArray | null;
+
+  // hh:mm
+  if ((m = s.match(/^(\d+):([0-5]?\d)$/))) return +m[1] * 60 + +m[2];
+  // horas decimais: 1,5h / 1.5h
+  if ((m = s.match(/^(\d+(?:[.,]\d+)?)h$/))) return Math.round(parseFloat(m[1].replace(",", ".")) * 60);
+  // 2h10 / 2h10min / 1h30m / 2h
+  if ((m = s.match(/^(\d+)h([0-5]?\d)?(?:m(?:in)?)?$/))) return +m[1] * 60 + (m[2] ? +m[2] : 0);
+  // 90min / 90m
+  if ((m = s.match(/^(\d+)m(?:in)?$/))) return +m[1];
+  // número puro = minutos (comportamento histórico)
+  if ((m = s.match(/^(\d+)$/))) return +m[1];
+
+  return null;
+}
+
+/** Minutos -> "2h10" / "45min" (pro feedback ao vivo e a lista). */
+export function fmtDuracao(min: number): string {
+  const h = Math.floor(min / 60);
+  const mm = min % 60;
+  if (h && mm) return `${h}h${String(mm).padStart(2, "0")}`;
+  if (h) return `${h}h`;
+  return `${mm}min`;
+}
+
 export default function Horas() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -122,18 +157,23 @@ export default function Horas() {
     () => entries.reduce((sum, e) => sum + e.duration_min, 0) / 60,
     [entries],
   );
+  // O que o campo de duração vira em minutos, pro feedback ao vivo e pra
+  // travar o botão quando o texto não faz sentido.
+  const duracaoMin = parseDuracaoMin(form.duracao);
 
   const lancar = useMutation({
     mutationFn: async () => {
       if (!form.project_id) throw new Error("Escolha um projeto");
       if (!form.data) throw new Error("Informe a data");
+      const min = parseDuracaoMin(form.duracao);
+      if (!min || min <= 0) throw new Error('Duração não entendida — tente "2h10", "90min" ou "1:30".');
       const [h, m] = form.inicio.split(":").map(Number);
       const start = new Date(`${form.data}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
       const alvo = (isAdmin && form.pessoa) ? form.pessoa : null;   // null = eu (o RPC resolve)
       const { error } = await (supabase as any).rpc("lancar_horas_manual", {
         _project_id: form.project_id,
         _start_at: start.toISOString(),
-        _duration_min: Math.max(1, Number(form.duracao)),
+        _duration_min: min,
         _description: form.descricao || null,
         _billable: form.faturavel,
         _user_id: alvo,
@@ -245,13 +285,21 @@ export default function Horas() {
                 <Input type="time" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} />
               </div>
               <div>
-                <Label>Duração (min)</Label>
+                <Label>Duração</Label>
                 <Input
-                  type="number"
-                  min={1}
+                  type="text"
+                  inputMode="text"
+                  placeholder="2h10, 90min, 1:30"
                   value={form.duracao}
                   onChange={(e) => setForm({ ...form, duracao: e.target.value })}
                 />
+                {/* Feedback ao vivo do que o sistema entendeu — sem isso, digitar
+                    "2h10" e não saber se virou 130min ou erro é um tiro no escuro. */}
+                {form.duracao.trim() && (
+                  duracaoMin
+                    ? <p className="mt-1 text-[11px] text-success">= {fmtDuracao(duracaoMin)} · {duracaoMin} min</p>
+                    : <p className="mt-1 text-[11px] text-destructive">não entendi — tente 2h10, 90min ou 1:30</p>
+                )}
               </div>
             </div>
           </div>
@@ -273,7 +321,7 @@ export default function Horas() {
               />
               Faturável
             </label>
-            <Button onClick={() => lancar.mutate()} disabled={lancar.isPending} className="bg-primary text-primary-foreground">
+            <Button onClick={() => lancar.mutate()} disabled={lancar.isPending || !duracaoMin} className="bg-primary text-primary-foreground">
               <Plus className="mr-1 h-4 w-4" /> Lançar horas
             </Button>
           </div>
@@ -301,7 +349,7 @@ export default function Horas() {
                 </div>
                 <span className="text-xs text-muted-foreground">{e.source}</span>
                 <span className="text-right text-xs">
-                  {(e.duration_min / 60).toFixed(1)}h
+                  {fmtDuracao(e.duration_min)}
                 </span>
                 <span className={`text-xs ${e.billable ? "text-success" : "text-muted-foreground"}`}>
                   {e.billable ? "R$" : "—"}
