@@ -58,6 +58,10 @@ export function parseDuracaoMin(raw: string): number | null {
   return null;
 }
 
+// Etapas de trabalho — a "descrição" virou escolha em vez de texto livre, pra
+// o apontamento ser padronizado e depois dar pra somar hora por etapa.
+const ETAPAS_TRABALHO = ["Montagem", "Edição", "Color grading", "Finalização", "Motion / VFX"];
+
 /** Minutos -> "2h10" / "45min" (pro feedback ao vivo e a lista). */
 export function fmtDuracao(min: number): string {
   const h = Math.floor(min / 60);
@@ -304,12 +308,18 @@ export default function Horas() {
             </div>
           </div>
           <div>
-            <Label>Descrição</Label>
-            <Input
-              value={form.descricao}
-              onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-              placeholder="O que foi feito?"
-            />
+            <Label>Etapa</Label>
+            <Select
+              value={form.descricao || undefined}
+              onValueChange={(v) => setForm({ ...form, descricao: v })}
+            >
+              <SelectTrigger><SelectValue placeholder="— o que foi feito —" /></SelectTrigger>
+              <SelectContent>
+                {ETAPAS_TRABALHO.map((etapa) => (
+                  <SelectItem key={etapa} value={etapa}>{etapa}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
