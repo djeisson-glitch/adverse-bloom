@@ -3,16 +3,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
- * Confirmação bonita, no visual do sistema — substitui o window.confirm nativo
- * (que quebrava o design). Uso:
+ * Confirmação e prompt bonitos, no visual do sistema — substituem os
+ * window.confirm / window.prompt nativos (que quebravam o design). Uso:
  *
  *   const confirmar = useConfirm();
  *   if (!(await confirmar({ title: "Excluir?", description: "...", destructive: true }))) return;
  *
- * Promessa que resolve true (confirmou) ou false (cancelou/fechou).
+ *   const perguntar = usePrompt();
+ *   const texto = await perguntar({ title: "O que o cliente pediu?" });
+ *   if (texto === null) return;   // cancelou
  */
 
 type ConfirmOpts = {
@@ -23,9 +26,20 @@ type ConfirmOpts = {
   destructive?: boolean;   // botão de confirmar em vermelho (ações que apagam)
 };
 
+type PromptOpts = {
+  title?: string;
+  description?: ReactNode;
+  placeholder?: string;
+  confirmText?: string;
+  cancelText?: string;
+  obrigatorio?: boolean;   // trava o botão até ter texto (default true)
+};
+
 type ConfirmFn = (opts?: ConfirmOpts) => Promise<boolean>;
+type PromptFn = (opts?: PromptOpts) => Promise<string | null>;
 
 const ConfirmCtx = createContext<ConfirmFn | null>(null);
+const PromptCtx = createContext<PromptFn | null>(null);
 
 export function useConfirm(): ConfirmFn {
   const ctx = useContext(ConfirmCtx);
@@ -33,7 +47,14 @@ export function useConfirm(): ConfirmFn {
   return ctx;
 }
 
+export function usePrompt(): PromptFn {
+  const ctx = useContext(PromptCtx);
+  if (!ctx) throw new Error("usePrompt precisa estar dentro de <ConfirmProvider>");
+  return ctx;
+}
+
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  // --- confirmação (sim/não) ---
   const [open, setOpen] = useState(false);
   const [opts, setOpts] = useState<ConfirmOpts>({});
   const resolver = useRef<((v: boolean) => void) | null>(null);
@@ -46,8 +67,6 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     return new Promise<boolean>((resolve) => { resolver.current = resolve; });
   }, []);
 
-  // Qualquer fechamento (confirmar, cancelar, Esc, clicar fora) cai aqui e
-  // resolve a promessa com o resultado corrente.
   const aoMudar = (aberto: boolean) => {
     setOpen(aberto);
     if (!aberto) {
@@ -56,26 +75,82 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // --- prompt (campo de texto) ---
+  const [pOpen, setPOpen] = useState(false);
+  const [pOpts, setPOpts] = useState<PromptOpts>({});
+  const [pValor, setPValor] = useState("");
+  const pResolver = useRef<((v: string | null) => void) | null>(null);
+  const pConfirmado = useRef(false);   // true só se clicou em confirmar
+
+  const perguntar = useCallback<PromptFn>((o = {}) => {
+    setPOpts(o);
+    setPValor("");
+    pConfirmado.current = false;
+    setPOpen(true);
+    return new Promise<string | null>((resolve) => { pResolver.current = resolve; });
+  }, []);
+
+  const pAoMudar = (aberto: boolean) => {
+    setPOpen(aberto);
+    if (!aberto) {
+      // fechou confirmando → devolve o texto; qualquer outro fechamento → null
+      pResolver.current?.(pConfirmado.current ? pValor : null);
+      pResolver.current = null;
+    }
+  };
+
+  const pObrigatorio = pOpts.obrigatorio !== false;
+  const pOk = () => { pConfirmado.current = true; setPOpen(false); };
+
   return (
     <ConfirmCtx.Provider value={confirmar}>
-      {children}
-      <AlertDialog open={open} onOpenChange={aoMudar}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{opts.title || "Confirmar"}</AlertDialogTitle>
-            {opts.description && <AlertDialogDescription>{opts.description}</AlertDialogDescription>}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{opts.cancelText || "Cancelar"}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => { resultado.current = true; }}
-              className={cn(opts.destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
-            >
-              {opts.confirmText || "Confirmar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PromptCtx.Provider value={perguntar}>
+        {children}
+
+        <AlertDialog open={open} onOpenChange={aoMudar}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{opts.title || "Confirmar"}</AlertDialogTitle>
+              {opts.description && <AlertDialogDescription>{opts.description}</AlertDialogDescription>}
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{opts.cancelText || "Cancelar"}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => { resultado.current = true; }}
+                className={cn(opts.destructive && "bg-destructive text-destructive-foreground hover:bg-destructive/90")}
+              >
+                {opts.confirmText || "Confirmar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={pOpen} onOpenChange={pAoMudar}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{pOpts.title || "Escreva"}</AlertDialogTitle>
+              {pOpts.description && <AlertDialogDescription>{pOpts.description}</AlertDialogDescription>}
+            </AlertDialogHeader>
+            <Textarea
+              autoFocus
+              rows={3}
+              value={pValor}
+              onChange={(e) => setPValor(e.target.value)}
+              placeholder={pOpts.placeholder}
+              onKeyDown={(e) => {
+                // ⌘/Ctrl+Enter confirma; Enter puro deixa quebrar linha.
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && (!pObrigatorio || pValor.trim())) pOk();
+              }}
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel>{pOpts.cancelText || "Cancelar"}</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); pOk(); }} disabled={pObrigatorio && !pValor.trim()}>
+                {pOpts.confirmText || "Enviar"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </PromptCtx.Provider>
     </ConfirmCtx.Provider>
   );
 }
