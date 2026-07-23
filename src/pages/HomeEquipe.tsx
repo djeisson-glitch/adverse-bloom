@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { NotificacoesCard } from "@/components/NotificacoesCard";
+import { ResumoDoDia } from "@/components/ResumoDoDia";
+import { MuralAvisos } from "@/components/MuralAvisos";
 import {
   CheckCircle2, Clapperboard, Timer, AlertTriangle, ArrowRight,
   CalendarDays, CalendarCheck, ListChecks, Film, UserCheck, Send, Hourglass, MessageSquarePlus,
@@ -47,6 +49,8 @@ export default function HomeEquipe() {
         </p>
       </div>
 
+      <ResumoDoDia />
+      <MuralAvisos />
       <NotificacoesCard />
 
       {canSeeHours ? <PainelEditor /> : <PainelCoordenacao />}

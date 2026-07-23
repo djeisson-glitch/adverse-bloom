@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NotificacoesCard } from "@/components/NotificacoesCard";
+import { ResumoDoDia } from "@/components/ResumoDoDia";
+import { MuralAvisos } from "@/components/MuralAvisos";
 import {
   type CAItem, calcSaldoEmConta, calcBurnRate, calcReceitaTotal, calcReceitaRecebida,
   calcAReceberNoMes, calcAReceberVencidoNoMes, calcAPagarNoMes, calcPagamentosDoMes, pagamentosDoMesItems, calcEntradasPrevistasNoMes, calcRecebidoTotal,
@@ -599,6 +601,10 @@ export default function Home() {
           </Button>
         </div>
       </motion.div>
+
+      {/* Resumo do dia (IA) + mural de avisos — o que importa hoje, em destaque */}
+      <ResumoDoDia />
+      <MuralAvisos />
 
       {/* Notificações não lidas — direto na cara */}
       <NotificacoesCard />
