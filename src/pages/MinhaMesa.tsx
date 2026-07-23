@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import { iconeStatus, statusPill, statusTone, statusLabel } from "@/lib/statusEntregavel";
+import { ResumoDoDia } from "@/components/ResumoDoDia";
+import { MuralAvisos } from "@/components/MuralAvisos";
 
 /**
  * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo que
@@ -402,6 +404,9 @@ export default function MinhaMesa() {
           {porBucket.semana.length > 0 && <Chip cor="bg-blue-500/15 text-blue-400 border-blue-500/30" n={porBucket.semana.length} label="esta semana" />}
         </div>
       </div>
+
+      <ResumoDoDia />
+      <MuralAvisos />
 
       {coordena ? (
         <div className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,380px)] lg:items-start">
