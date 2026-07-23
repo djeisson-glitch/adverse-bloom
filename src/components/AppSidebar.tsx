@@ -33,6 +33,8 @@ import {
   LineChart,
   CreditCard,
   Truck,
+  Bell,
+  History,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -145,6 +147,8 @@ const GRUPOS: NavGrupo[] = [
     itens: [
       { title: "Time", url: "/time", icon: UsersRound, module: "time" },
       { title: "Fornecedores", url: "/fornecedores", icon: Truck, module: "fornecedores" },
+      { title: "Notificações", url: "/notificacoes", icon: Bell },
+      { title: "Log geral", url: "/atividades", icon: History, module: "admin" },
       { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
     ],
   },
