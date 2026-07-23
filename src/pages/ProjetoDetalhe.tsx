@@ -9,7 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare, Rows3, CheckCircle2, RotateCcw,
+  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1158,6 +1158,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
  *  renderizada solta OU dentro de um grupo de semelhança. */
 function LinhaEntregavel({
   d,
+  alt,
   projectId,
   nomeDe,
   navigate,
@@ -1165,6 +1166,7 @@ function LinhaEntregavel({
   onExcluir,
 }: {
   d: any;
+  alt?: { abertas: number; total: number };
   projectId: string;
   nomeDe: (id: string | null) => string;
   navigate: (to: string) => void;
@@ -1176,8 +1178,23 @@ function LinhaEntregavel({
       onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
       className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
     >
-      <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>
-        {d.titulo}
+      <span className="min-w-0">
+        <span className="line-clamp-2 break-words font-medium leading-tight text-foreground" title={d.titulo}>
+          {d.titulo}
+        </span>
+        {/* Marca de alteração do cliente: âmbar e forte quando há aberta;
+            discreta ("teve alteração") quando todas já foram resolvidas. */}
+        {alt && alt.total > 0 && (
+          alt.abertas > 0 ? (
+            <span className="mt-0.5 flex w-fit items-center gap-1 rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning" title={`${alt.abertas} alteração(ões) do cliente aberta(s)`}>
+              <MessageSquarePlus className="h-3 w-3" /> {alt.abertas} alteração{alt.abertas > 1 ? "ões" : ""} aberta{alt.abertas > 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span className="mt-0.5 flex w-fit items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground" title={`${alt.total} alteração(ões) do cliente, já resolvida(s)`}>
+              <MessageSquarePlus className="h-3 w-3" /> teve alteração
+            </span>
+          )
+        )}
       </span>
       <span className="text-xs text-muted-foreground">{d.formato || "—"}</span>
       <span className="text-xs text-muted-foreground">{d.duracao || "—"}</span>
@@ -1320,6 +1337,29 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
     },
   });
 
+  // Alterações do cliente por entregável — pra marcar na lista quais têm/tiveram
+  // ajuste (a coordenadora bate o olho e sabe onde o cliente pediu mudança).
+  const idsEntregaveis = useMemo(() => (items as any[]).map((i) => i.id), [items]);
+  const { data: mapaAlt = {} } = useQuery({
+    queryKey: ["deliverables-alteracoes", projectId, idsEntregaveis.join(",")],
+    enabled: idsEntregaveis.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverable_alteracoes")
+        .select("deliverable_id, status")
+        .in("deliverable_id", idsEntregaveis);
+      if (error) throw error;
+      const m: Record<string, { abertas: number; total: number }> = {};
+      (data as any[]).forEach((a) => {
+        const e = m[a.deliverable_id] || { abertas: 0, total: 0 };
+        e.total++;
+        if (a.status === "aberta") e.abertas++;
+        m[a.deliverable_id] = e;
+      });
+      return m;
+    },
+  });
+
   // Junta o que é parecido (formato/duração quando preenchidos; senão, o nome).
   // Devolve null quando agrupar não ajudaria — aí a lista sai reta, como antes.
   const grupos = useMemo(
@@ -1414,6 +1454,7 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
                     <LinhaEntregavel
                       key={d.id}
                       d={d}
+                      alt={(mapaAlt as any)[d.id]}
                       projectId={projectId}
                       nomeDe={nomeDe}
                       navigate={navigate}
@@ -1428,6 +1469,7 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
               <LinhaEntregavel
                 key={d.id}
                 d={d}
+                alt={(mapaAlt as any)[d.id]}
                 projectId={projectId}
                 nomeDe={nomeDe}
                 navigate={navigate}
