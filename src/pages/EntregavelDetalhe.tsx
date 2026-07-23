@@ -95,6 +95,11 @@ export default function EntregavelDetalhe() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
+  // Recarrega as horas do entregável (lista do timesheet + os 4 cards no topo).
+  // Uso refetchQueries em vez de invalidateQueries: o invalidate não estava
+  // disparando o GET aqui (a query ficava marcada stale mas não refazia), então
+  // o card seguia 0.0h até dar F5. refetch força o fetch e atualiza na hora.
+  const recarregarHoras = () => qc.refetchQueries({ queryKey: ["entregavel-horas", did] });
   const { start } = useTimer();
   const { isAdmin, isCoordenadora, canSeeHours } = usePermissions();
   const confirmar = useConfirm();
@@ -438,7 +443,7 @@ export default function EntregavelDetalhe() {
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["entregavel", did] });
           qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
-          qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
+          recarregarHoras();
         }}
       />
 
@@ -486,7 +491,7 @@ export default function EntregavelDetalhe() {
               entries={entries}
               horasTotal={horas.total}
               onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
-              onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel-horas", did] })}
+              onChanged={recarregarHoras}
             />
           )}
 
@@ -504,7 +509,7 @@ export default function EntregavelDetalhe() {
             onChanged={() => {
               qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
               qc.invalidateQueries({ queryKey: ["entregavel", did] });
-              qc.invalidateQueries({ queryKey: ["entregavel-horas", did] });
+              recarregarHoras();
             }}
           />
         </div>
