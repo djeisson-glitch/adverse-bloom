@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import HomeEquipe from "./pages/HomeEquipe";
 import Notificacoes from "./pages/Notificacoes";
+import Atividades from "./pages/Atividades";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
@@ -210,6 +211,7 @@ const App = () => (
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />
               <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
+              <Route path="/atividades" element={<ProtectedRoute><Atividades /></ProtectedRoute>} />
               <Route path="/guia" element={<ProtectedRoute><Guia /></ProtectedRoute>} />
 
               <Route path="/configuracoes" element={<ProtectedRoute><ModuleGuard module="admin"><Configuracoes /></ModuleGuard></ProtectedRoute>} />
