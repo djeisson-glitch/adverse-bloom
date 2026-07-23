@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { PRODUCTION_STAGES_NEW, isFinalizado } from "@/hooks/useProjects";
 import { useClientesPublico } from "@/hooks/useDeals";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
+import { EmojiPicker, GifPicker } from "@/components/chat/ChatExtras";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
@@ -1944,15 +1945,31 @@ type CommentEntity = "project" | "deal" | "task" | "deliverable";
 
 // Colore as @menções dentro do texto na cor da pessoa mencionada (estilo
 // WhatsApp). Casa o token @nome com o 1º nome de cada profile (sem acento).
+// URL de imagem/GIF (inclusive as do Giphy) \u2014 o que a pessoa cola ou escolhe no
+// picker vira <img> no chat, o resto continua texto com @men\u00e7\u00e3o.
+const RE_IMG = /(https?:\/\/\S+?\.(?:gif|png|jpe?g|webp)(?:\?\S*)?|https?:\/\/\S*giphy\.com\/media\/\S+)/i;
+
 function corpoComMencoes(body: string, profiles: any[]) {
   const semAcento = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return body.split(/(@[\p{L}0-9._-]+)/u).map((parte, i) => {
-    if (parte.startsWith("@")) {
-      const nome = semAcento(parte.slice(1));
-      const p = profiles.find((x) => semAcento(handleUsuario(x.full_name || x.email)) === nome);
-      if (p) return <strong key={i} className="cor-usuario font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
+  const textoComMencoes = (texto: string, k: number | string) =>
+    texto.split(/(@[\p{L}0-9._-]+)/u).map((parte, i) => {
+      if (parte.startsWith("@")) {
+        const nome = semAcento(parte.slice(1));
+        const p = profiles.find((x) => semAcento(handleUsuario(x.full_name || x.email)) === nome);
+        if (p) return <strong key={`${k}-${i}`} className="cor-usuario font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
+      }
+      return <span key={`${k}-${i}`}>{parte}</span>;
+    });
+
+  return body.split(RE_IMG).map((parte, i) => {
+    if (RE_IMG.test(parte)) {
+      return (
+        <a key={i} href={parte} target="_blank" rel="noreferrer" className="mt-1 block">
+          <img src={parte} alt="gif" loading="lazy" className="max-h-60 rounded-md" />
+        </a>
+      );
     }
-    return <span key={i}>{parte}</span>;
+    return parte ? <span key={i}>{textoComMencoes(parte, i)}</span> : null;
   });
 }
 
@@ -2026,6 +2043,26 @@ export function ComentariosSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
+  // GIF escolhido no picker vai direto — como no WhatsApp, sem etapa de enviar.
+  // A URL entra como corpo da mensagem; corpoComMencoes renderiza como <img>.
+  const enviarGif = useMutation({
+    mutationFn: async (url: string) => {
+      const { error } = await (supabase as any).from("comments").insert({
+        entity_type: entityType, entity_id: entityId, user_id: user?.id, body: url, mentions: [],
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["comments", entityType, entityId] }),
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  // Auto-scroll: sempre que chega/envia mensagem, desce pro fim da conversa.
+  const listaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = listaRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [comments.length]);
+
   // No modo fill, as mensagens crescem e rolam e o input fica preso embaixo.
   const corpoCls = fill
     ? "space-y-3 min-h-0 flex-1 overflow-y-auto pr-1"
@@ -2040,7 +2077,7 @@ export function ComentariosSection({
           {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
         </p>
       ) : (
-        <div className={corpoCls}>
+        <div ref={listaRef} className={corpoCls}>
           {comments.map((c) => {
             const cor = corDoUsuario(c.user_id);
             return (
@@ -2063,7 +2100,11 @@ export function ComentariosSection({
           );})}
         </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-1 pb-0.5">
+          <EmojiPicker onPick={(e) => setBody((b) => b + e)} />
+          <GifPicker onPick={(url) => enviarGif.mutate(url)} />
+        </div>
         <MentionTextarea
           rows={2}
           value={body}
