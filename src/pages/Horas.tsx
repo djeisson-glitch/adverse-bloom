@@ -26,6 +26,12 @@ function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+/** "2026-06" -> "junho/2026" (pro toast e o rótulo do período). */
+function rotuloMes(ym: string) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
 export default function Horas() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -45,16 +51,37 @@ export default function Horas() {
   const viewUserId = (isAdmin && form.pessoa) ? form.pessoa : user?.id;
   const suasHoras = viewUserId === user?.id;
 
-  // Janela: início do mês (pra retroativos do mês aparecerem) ou 14 dias atrás,
-  // o que for mais antigo.
-  const fromDate = useMemo(() => {
-    const inicioMes = new Date();
-    inicioMes.setDate(1);
-    inicioMes.setHours(0, 0, 0, 0);
-    const d14 = new Date();
-    d14.setDate(d14.getDate() - 14);
-    return (inicioMes < d14 ? inicioMes : d14).toISOString();
+  // Mês que a lista mostra (YYYY-MM). Começa no atual. O lançamento retroativo
+  // (horas antigas do ClickUp) grava certo, mas com a janela travada no mês
+  // corrente ele SUMIA da lista — dava "registrei mas não aparece". Agora dá
+  // pra escolher o mês e conferir, e o lançamento recua a janela sozinho.
+  const mesAtual = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
+  const [verMes, setVerMes] = useState(mesAtual);
+  const ehMesAtual = verMes === mesAtual;
+
+  // Janela do mês escolhido. No mês corrente recua 14 dias pra pegar o
+  // apontamento que cruza a virada; em mês passado, o mês inteiro.
+  const fromDate = useMemo(() => {
+    const [y, m] = verMes.split("-").map(Number);
+    const inicioMes = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    if (verMes === mesAtual) {
+      const d14 = new Date();
+      d14.setDate(d14.getDate() - 14);
+      d14.setHours(0, 0, 0, 0);
+      return (inicioMes < d14 ? inicioMes : d14).toISOString();
+    }
+    return inicioMes.toISOString();
+  }, [verMes, mesAtual]);
+  // Mês passado tem teto (só aquele mês); mês atual segue em aberto (pega hoje
+  // e futuro). Sem teto, escolher junho traria junho+julho+... misturado.
+  const toDate = useMemo(() => {
+    if (verMes === mesAtual) return null;
+    const [y, m] = verMes.split("-").map(Number);
+    return new Date(y, m, 1, 0, 0, 0, 0).toISOString();
+  }, [verMes, mesAtual]);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["horas-profiles"],
@@ -63,15 +90,16 @@ export default function Horas() {
   });
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["horas-me", viewUserId],
+    queryKey: ["horas-me", viewUserId, verMes],
     enabled: !!viewUserId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("time_entries")
         .select("*, project:projects(name, client_name)")
         .eq("user_id", viewUserId)
-        .gte("start_at", fromDate)
-        .order("start_at", { ascending: false });
+        .gte("start_at", fromDate);
+      if (toDate) q = q.lt("start_at", toDate);
+      const { data, error } = await q.order("start_at", { ascending: false });
       if (error) throw error;
       return data as Entry[];
     },
@@ -113,10 +141,20 @@ export default function Horas() {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Lançou antes do mês que a lista mostra? Pula a janela pra lá, senão o
+      // registro fica invisível e parece que não gravou. (form.data sobrevive
+      // ao reset abaixo — só descrição/duração são limpos.)
+      const mesLancado = form.data?.slice(0, 7);
+      const foraDaJanela = mesLancado && mesLancado < verMes;
+      if (foraDaJanela) setVerMes(mesLancado);
       setForm({ ...form, descricao: "", duracao: "60" });
       qc.invalidateQueries({ queryKey: ["horas-me"] });
       const nome = form.pessoa ? (profiles.find((p: any) => p.id === form.pessoa)?.full_name || "a pessoa") : "você";
-      toast.success(`Horas lançadas para ${nome}`);
+      toast.success(
+        foraDaJanela
+          ? `Horas lançadas para ${nome} — mostrando ${rotuloMes(mesLancado)}`
+          : `Horas lançadas para ${nome}`,
+      );
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -139,15 +177,29 @@ export default function Horas() {
               {suasHoras ? "Minhas horas" : `Horas — ${profiles.find((p: any) => p.id === viewUserId)?.full_name || "pessoa"}`}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Este mês · total <strong>{totalHoras.toFixed(1)}h</strong>. Lance manualmente abaixo —
+              {ehMesAtual ? "Este mês" : rotuloMes(verMes)} · total <strong>{totalHoras.toFixed(1)}h</strong>. Lance manualmente abaixo —
               a <strong>data passada</strong> lança retroativo (ex.: horas do ClickUp).
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => toast.info("Importar da agenda chega em melhoria futura")}>
-          <CalendarCheck className="mr-1 h-3.5 w-3.5" />
-          Importar da agenda
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Escolher o mês pra conferir o retroativo que foi lançado. Sem
+              isso, só dava pra ver o mês corrente. */}
+          <div className="flex flex-col">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ver mês</Label>
+            <Input
+              type="month"
+              value={verMes}
+              max={mesAtual}
+              onChange={(e) => setVerMes(e.target.value || mesAtual)}
+              className="h-8 w-[150px] text-xs"
+            />
+          </div>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => toast.info("Importar da agenda chega em melhoria futura")}>
+            <CalendarCheck className="mr-1 h-3.5 w-3.5" />
+            Importar da agenda
+          </Button>
+        </div>
       </div>
 
       <Card className="glass-card">
