@@ -8,7 +8,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
-import { useConfirm } from "@/components/ui/confirm";
+import { useConfirm, usePrompt } from "@/components/ui/confirm";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import {
   STATUS_ENTREGAVEL, statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
@@ -426,6 +426,26 @@ export default function EntregavelDetalhe() {
         </CardContent>
       </Card>
 
+      {/* Alterações do cliente logo depois do cabeçalho, antes do fluxo: é o
+          que muda o rumo do entregável e onde as horas de alteração são
+          apontadas — tem que estar na cara. */}
+      <AlteracoesSection
+        did={did!}
+        projectId={projectId!}
+        projectName={proj?.name || ""}
+        alteracoes={alteracoes}
+        podeHoras={canSeeHours}
+        horasPorAlteracao={horas.porAlteracao}
+        onStart={(alteracaoId) =>
+          start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did!, alteracao_id: alteracaoId })
+        }
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel", did] });
+          recarregarHoras();
+        }}
+      />
+
       {/* Fluxo do entregável — os BOTÕES que tocam o processo (editar,
           enviar pra revisão, aprovar, enviar ao cliente). Logo no topo
           porque é a ação principal da tela. */}
@@ -480,26 +500,6 @@ export default function EntregavelDetalhe() {
 
       <div>
         <div className="min-w-0 space-y-5">
-          {/* Alterações do cliente logo abaixo dos cards: é o que muda o rumo
-              do entregável e onde as horas de alteração são apontadas — precisa
-              estar na cara, não no fim da página. */}
-          <AlteracoesSection
-            did={did!}
-            projectId={projectId!}
-            projectName={proj?.name || ""}
-            alteracoes={alteracoes}
-            podeHoras={canSeeHours}
-            horasPorAlteracao={horas.porAlteracao}
-            onStart={(alteracaoId) =>
-              start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did!, alteracao_id: alteracaoId })
-            }
-            onChanged={() => {
-              qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
-              qc.invalidateQueries({ queryKey: ["entregavel", did] });
-              recarregarHoras();
-            }}
-          />
-
           {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
               que abre o entregável — a coordenadora precisa do roteiro à mão. */}
           <DocumentosEntregavel did={did!} projectId={projectId!} />
@@ -573,6 +573,7 @@ function FluxoCard({
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
   const confirmar = useConfirm();
+  const perguntar = usePrompt();
   const status = entregavel.status || "pendente";
   const retrab = !!entregavel.retrabalho;
   const rodandoAqui = sessao?.deliverable_id === did;
@@ -597,8 +598,10 @@ function FluxoCard({
     }
   };
 
-  // Prompt do motivo do ajuste (o editor recebe pela conversa). null = cancelou.
-  const promptAjuste = () => window.prompt("O que precisa de ajuste? (o editor recebe a mensagem)");
+  // Ajuste INTERNO (N1/N2 → editor) não pede pop-up de motivo: o revisor
+  // conversa pelo canal da peça se quiser detalhar. Um clique manda de volta
+  // pro editor. (Antes abria um window.prompt feio a cada ajuste.)
+  const pedirAjusteInterno = () => run(() => Fluxo.pedirAjuste(entregavel, user?.id, ""));
 
   // OVERRIDE de etapa — só admin/coordenadora. É um atalho de CORREÇÃO (pula o
   // fluxo), pra destravar peça que ficou na etapa errada. O time normal segue
@@ -635,35 +638,31 @@ function FluxoCard({
 
   // ---- APROVAÇÃO 1 (1ª vez): sempre segue pra Ap.2, com ou sem ajuste ----
   const n1AprovaSegue = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
-  const n1AjusteSegue = async () => {
-    const motivo = promptAjuste();
-    if (motivo === null) return;
-    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
-  };
+  const n1AjusteSegue = pedirAjusteInterno;
 
   // ---- APROVAÇÃO 2: aprovarEtapa fecha a 1ª volta (respeita ajuste acumulado);
   //      pedirAjuste força a volta pro editor. ----
   const n2Aprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
-  const n2Ajuste = async () => {
-    const motivo = promptAjuste();
-    if (motivo === null) return;
-    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
-  };
+  const n2Ajuste = pedirAjusteInterno;
 
   // ---- REVISÃO ÚNICA (retrabalho, só N1) ----
   const revUnicaAprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
-  const revUnicaAjuste = async () => {
-    const motivo = promptAjuste();
-    if (motivo === null) return;
-    await run(() => Fluxo.pedirAjuste(entregavel, user?.id, motivo));
-  };
+  const revUnicaAjuste = pedirAjusteInterno;
   const revUnicaEscala = () => run(() => Fluxo.escalarAprovacao2(entregavel));
 
   // ---- ENVIO E CLIENTE ----
   const enviarCliente = () => run(() => Fluxo.enviarAoCliente(entregavel));
   const clienteAprovou = () => run(() => Fluxo.clienteAprovou(entregavel));
+  // Alteração do cliente PEDE o resumo (bonito, não window.prompt) — aqui a
+  // mensagem importa: é o que o cliente pediu de fato, e vira o item que
+  // rastreia horas de alteração.
   const alteracaoCliente = async () => {
-    const titulo = window.prompt("Resumo do que o cliente pediu de alteração:");
+    const titulo = await perguntar({
+      title: "Alteração do cliente",
+      description: "Resumo do que o cliente pediu — o editor recebe e passa a rastrear como hora de alteração.",
+      placeholder: "Ex.: Trocar a trilha, cortar a cena 3, ajustar o GC do João…",
+      confirmText: "Registrar alteração",
+    });
     if (!titulo || !titulo.trim()) return;
     await run(() => Fluxo.registrarAlteracaoCliente(entregavel, titulo));
   };
