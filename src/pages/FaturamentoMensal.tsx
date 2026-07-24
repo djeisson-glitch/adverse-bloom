@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Receipt, ChevronLeft, ChevronRight, RefreshCw, ChevronDown, TrendingUp, TrendingDown,
-  Clock, FileText, MessageSquareWarning, Users, AlertTriangle,
+  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 type Fatura = {
   id: string;
@@ -91,6 +92,22 @@ export default function FaturamentoMensal() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
+  });
+
+  // Rascunho → fatura: o balde do mês vira UMA fatura, emitida no mês seguinte.
+  // No contrato, só o excedente da franquia (o fixo é faturado por fora).
+  const faturar = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await (supabase as any).rpc("faturar_mes", { _id: id });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      toast.success("Fatura gerada", { description: "Emitida com data do mês seguinte, em Faturamento." });
+      qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] });
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: any) => toast.error("Não faturou", { description: e.message }),
   });
 
   const totalMes = faturas.reduce((s, f) => s + (f.total || 0), 0);
@@ -297,6 +314,26 @@ export default function FaturamentoMensal() {
                         {f.status !== "rascunho" && (
                           <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => mudarStatus.mutate({ id: f.id, status: "rascunho" })}>
                             Voltar a rascunho
+                          </Button>
+                        )}
+
+                        {/* O balde do mês vira UMA fatura. No contrato, só o
+                            excedente da franquia (o fixo é faturado por fora). */}
+                        {(f as any).invoice_id ? (
+                          <Link to="/faturamento">
+                            <Button size="sm" variant="ghost" className="text-emerald-500">
+                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Faturado — ver fatura
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="bg-primary text-primary-foreground"
+                            disabled={faturar.isPending}
+                            onClick={() => faturar.mutate(f.id)}
+                          >
+                            <Wallet className="mr-1.5 h-3.5 w-3.5" />
+                            {f.modelo === "contrato" ? "Faturar excedente" : "Gerar fatura"}
                           </Button>
                         )}
                       </div>

@@ -64,7 +64,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const [autoMensal, setAutoMensal] = useState(true);
   const [obs, setObs] = useState("");
   const [precos, setPrecos] = useState<Preco[]>([]);
-  const [contrato, setContrato] = useState({ nome: "Contrato", valor_mensal: "0", diarias_mes: "0", entregas_mes: "0", acumulo_meses: "2", inicio: "" });
+  const [contrato, setContrato] = useState({ nome: "Contrato", valor_mensal: "0", diarias_mes: "0", entregas_mes: "0", acumulo_meses: "2", inicio: "", valor_diaria_extra: "0", valor_entrega_extra: "0" });
 
   // Semeia o formulário UMA vez por cliente. A tela atualiza sozinha a cada 30s;
   // seguir a query a cada refetch apagaria o que a pessoa está digitando.
@@ -102,6 +102,8 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
       diarias_mes: String(contratoDB.diarias_mes ?? 0),
       entregas_mes: String(contratoDB.entregas_mes ?? 0),
       acumulo_meses: String(contratoDB.acumulo_meses ?? 2),
+      valor_diaria_extra: String(contratoDB.valor_diaria_extra ?? 0),
+      valor_entrega_extra: String(contratoDB.valor_entrega_extra ?? 0),
       inicio: contratoDB.inicio || "",
     });
   }, [contratoDB, clientId]);
@@ -158,6 +160,8 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
         diarias_mes: Number(contrato.diarias_mes) || 0,
         entregas_mes: Number(contrato.entregas_mes) || 0,
         acumulo_meses: Number(contrato.acumulo_meses) || 1,
+        valor_diaria_extra: Number(contrato.valor_diaria_extra) || 0,
+        valor_entrega_extra: Number(contrato.valor_entrega_extra) || 0,
         inicio: contrato.inicio || null,
         ativo: true,
         ...patch,
@@ -297,6 +301,32 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                   autoContrato.agendar({ acumulo_meses: Number(e.target.value) || 1 });
                 }}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Diária extra (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={contrato.valor_diaria_extra}
+                onChange={(e) => {
+                  setContrato({ ...contrato, valor_diaria_extra: e.target.value });
+                  autoContrato.agendar({ valor_diaria_extra: Number(e.target.value) || 0 });
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">Cobrado por diária além da franquia.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Entrega extra (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={contrato.valor_entrega_extra}
+                onChange={(e) => {
+                  setContrato({ ...contrato, valor_entrega_extra: e.target.value });
+                  autoContrato.agendar({ valor_entrega_extra: Number(e.target.value) || 0 });
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">Cobrado por entrega além da franquia.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Diárias / mês</Label>
