@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Secao, Linha, Campo, SeletorFuncoes, Enviado, est } from "@/components/cadastro/CamposCadastro";
+import { CabecalhoPublico, RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 
 /** Cadastro público de FREELANCER (tema claro). Mesma entrada por RPC. */
 export default function CadastroFreelancer() {
@@ -42,15 +43,11 @@ export default function CadastroFreelancer() {
   return (
     <div className={s.pagina}>
       <div className="mx-auto max-w-3xl px-4 py-10">
-        <header className="mb-8 text-center">
-          <p className="text-3xl font-black tracking-tight">
-            adverse.rec <span className="text-orange-600">//</span>
-          </p>
-          <h1 className="mt-3 text-2xl font-bold">Cadastro de Freelancer</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Preencha seus dados para se cadastrar como freelancer da <strong>Adverse</strong>
-          </p>
-        </header>
+        <CabecalhoPublico
+          tema={tema}
+          titulo="Cadastro de Freelancer"
+          subtitulo="Preencha seus dados para se cadastrar como freelancer da Adverse"
+        />
 
         <div className="space-y-5">
           <Secao titulo="Dados pessoais" tema={tema}>
@@ -169,6 +166,8 @@ export default function CadastroFreelancer() {
           </button>
           <p className={s.rodape}>Seus dados serão armazenados de forma segura e utilizados apenas pela Adverse.</p>
         </div>
+
+        <RodapeConfidencial tema={tema} />
       </div>
     </div>
   );

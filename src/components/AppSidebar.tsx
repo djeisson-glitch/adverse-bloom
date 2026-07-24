@@ -59,6 +59,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
+import { LogoAdverse } from "@/components/LogoAdverse";
 
 type NavItem = {
   title: string;
@@ -231,13 +232,14 @@ export function AppSidebar() {
       <SidebarContent className="overflow-y-auto overflow-x-hidden">
         {/* Logo */}
         <div className={`flex items-center gap-3 px-4 py-5 ${collapsed ? "justify-center" : ""}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <span className="text-lg font-bold text-primary">A</span>
-          </div>
-          {!collapsed && (
+          {collapsed ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <span className="text-lg font-bold text-primary">A</span>
+            </div>
+          ) : (
             <div className="min-w-0">
-              <h2 className="text-sm font-bold tracking-tight text-foreground">ADVERSE</h2>
-              <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+              <LogoAdverse className="h-5 text-foreground" />
+              <p className="mt-1.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
                 Operating System
               </p>
             </div>

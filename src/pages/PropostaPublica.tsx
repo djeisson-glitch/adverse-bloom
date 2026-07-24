@@ -500,6 +500,12 @@ export default function PropostaPublica() {
               Passo Fundo, RS
             </div>
           </div>
+
+          {/* Confidencialidade — obrigatório em todo link que sai da casa. */}
+          <div style={{ marginTop: 24, padding: "12px 16px", borderRadius: 8, border: "1px solid rgba(240,235,227,0.14)", background: "rgba(240,235,227,0.04)", fontSize: 12, color: "rgba(240,235,227,0.55)", textAlign: "center" }}>
+            <strong style={{ color: "rgba(240,235,227,0.8)" }}>Documento confidencial · uso interno.</strong>{" "}
+            Este link é pessoal e destinado apenas ao destinatário autorizado. Não compartilhe com terceiros sem autorização da Adverse.
+          </div>
         </div>
       </div>
     </>

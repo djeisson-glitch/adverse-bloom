@@ -4,6 +4,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { HORARIOS_COMERCIAIS } from "@/components/prazo/SeletorPrazo";
 import { Loader2, Plus, Trash2, Paperclip, X, CheckCircle2, CalendarClock, AlertTriangle, ChevronDown } from "lucide-react";
+import { LogoAdverse } from "@/components/LogoAdverse";
+import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 
 /** ISO (timestamptz) -> string do input datetime-local (horário local). */
 function toLocalInput(iso: string) {
@@ -460,7 +462,7 @@ export default function SolicitarDemanda() {
     <div className="min-h-screen bg-[#0f0f10] text-[#E8E1D0]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <div className="mx-auto max-w-2xl px-5 py-10 lg:max-w-5xl">
         <header className="mb-8">
-          <span className="text-lg font-extrabold tracking-tight">adverse.rec <span className="text-[#E53500]">//</span></span>
+          <LogoAdverse className="h-5 text-[#E8E1D0]" />
           <h1 className="mt-4 text-2xl font-bold">Solicitar demanda</h1>
           <p className="text-sm text-[#9A968C]">{cfg.nome} · conte o que você precisa e a gente já estima o prazo.</p>
         </header>
@@ -822,6 +824,8 @@ export default function SolicitarDemanda() {
         </div>
 
         </div>
+
+        <RodapeConfidencial tema="escuro" />
       </div>
 
       {confirmando && (
