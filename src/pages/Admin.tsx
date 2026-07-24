@@ -76,7 +76,7 @@ export default function Admin() {
       href: "/admin/aprovacoes",
       title: "Aprovações",
       icon: ShieldCheck,
-      count: () => "N1 / N2 dos entregáveis + cliente",
+      count: () => "Revisão 1 / 2 dos entregáveis + cliente",
     },
     {
       href: "/admin/rate-card",

@@ -250,7 +250,7 @@ export default function MinhaMesa() {
         out.push({
           key: `aprov-${d.id}`, tipo: "aprovar", titulo: d.titulo,
           contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
-          acao: souN1 ? "Aprovar N1" : "Aprovar N2",
+          acao: souN1 ? "Aprovar (Revisão 1)" : "Aprovar (Revisão 2)",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true, d,
         });
       }
