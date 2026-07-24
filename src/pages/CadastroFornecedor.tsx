@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Truck, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Secao, Linha, Campo, SeletorFuncoes, Enviado, est } from "@/components/cadastro/CamposCadastro";
+import { CabecalhoPublico, RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 
 /** Cadastro público de FORNECEDOR (tema escuro). Grava por RPC — o anônimo
  *  nunca toca nas tabelas. Dados bancários vão pra tabela lateral. */
@@ -35,15 +36,11 @@ export default function CadastroFornecedor() {
   return (
     <div className={s.pagina}>
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <header className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/20">
-            <Truck className="h-7 w-7 text-indigo-400" />
-          </div>
-          <h1 className="text-2xl font-bold">Cadastro de Fornecedor</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Preencha seus dados para se cadastrar como fornecedor da <strong className="text-zinc-200">Adverse</strong>
-          </p>
-        </header>
+        <CabecalhoPublico
+          tema={tema}
+          titulo="Cadastro de Fornecedor"
+          subtitulo="Preencha seus dados para se cadastrar como fornecedor da Adverse"
+        />
 
         <div className="space-y-5">
           <Secao titulo="Dados pessoais / empresa" tema={tema}>
@@ -110,6 +107,8 @@ export default function CadastroFornecedor() {
           </button>
           <p className={s.rodape}>Seus dados serão armazenados de forma segura e utilizados apenas pela Adverse.</p>
         </div>
+
+        <RodapeConfidencial tema={tema} />
       </div>
     </div>
   );

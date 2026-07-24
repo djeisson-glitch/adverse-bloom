@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { formatDate, formatDateShort } from "@/lib/format";
+import { LogoAdverse } from "@/components/LogoAdverse";
+import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 
 // Etapas do projeto, em linguagem de cliente
 const ETAPA_LABEL: Record<string, string> = {
@@ -157,14 +159,9 @@ export default function PortalPublico() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/60 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <span className="text-lg font-bold text-primary">A</span>
-          </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Adverse Produtora
-            </p>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">{client.name}</h1>
+            <LogoAdverse className="h-4 text-foreground" />
+            <h1 className="mt-1.5 text-lg font-semibold tracking-tight text-foreground">{client.name}</h1>
           </div>
         </div>
       </header>
@@ -299,8 +296,9 @@ export default function PortalPublico() {
 
         <div className="pt-4 text-center text-[10px] uppercase tracking-widest text-muted-foreground">
           <Send className="mx-auto mb-1 h-3 w-3" />
-          Adverse Operating System · Portal do Cliente
+          Portal do Cliente
         </div>
+        <RodapeConfidencial tema="escuro" />
       </main>
     </div>
   );

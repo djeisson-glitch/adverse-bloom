@@ -15,19 +15,15 @@ export const est = (t: Tema) => ({
   cartao: t === "escuro"
     ? "rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6"
     : "rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm",
-  seccao: t === "escuro"
-    ? "text-[11px] font-semibold uppercase tracking-wider text-indigo-400"
-    : "text-[11px] font-semibold uppercase tracking-wider text-slate-500",
+  seccao: "text-[11px] font-semibold uppercase tracking-wider text-primary",
   rotulo: t === "escuro" ? "mb-1.5 block text-sm text-zinc-300" : "mb-1.5 block text-sm text-slate-700",
   campo: t === "escuro"
-    ? "w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-indigo-500"
-    : "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500",
+    ? "w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-primary"
+    : "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-primary",
   nota: t === "escuro"
     ? "rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400"
     : "rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600",
-  botao: t === "escuro"
-    ? "w-full rounded-xl bg-indigo-600 py-3.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
-    : "w-full rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50",
+  botao: "w-full rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
   rodape: t === "escuro" ? "text-center text-xs text-zinc-600" : "text-center text-xs text-slate-500",
 });
 
@@ -112,9 +108,11 @@ export function SeletorFuncoes({
               {itens.map((f) => {
                 const on = selecionadas.includes(f.id);
                 const base = "rounded-full border px-3 py-1.5 text-xs transition";
-                const cls = tema === "escuro"
-                  ? on ? "border-indigo-500 bg-indigo-500/20 text-indigo-200" : "border-zinc-800 text-zinc-400 hover:border-zinc-700"
-                  : on ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-300 text-slate-600 hover:border-slate-400";
+                const cls = on
+                  ? "border-primary bg-primary/15 text-primary"
+                  : tema === "escuro"
+                    ? "border-zinc-800 text-zinc-400 hover:border-zinc-700"
+                    : "border-slate-300 text-slate-600 hover:border-slate-400";
                 return (
                   <button key={f.id} type="button" onClick={() => alternar(f.id)} className={`${base} ${cls}`}>
                     {f.nome}

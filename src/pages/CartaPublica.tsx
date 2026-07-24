@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, ShieldCheck, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { roundUpTo50, formatCurrency } from "@/lib/format";
+import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 import {
   CartaDocumento, CARTA_STYLE, DEFAULTS, TIPO_LABEL, parseValor,
   type Proposta,
@@ -115,6 +116,10 @@ export default function CartaPublica() {
       <style>{CARTA_STYLE}</style>
       <div className="carta-root pb-40">
         <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} />
+
+        <div className="mx-auto max-w-5xl px-6">
+          <RodapeConfidencial tema="escuro" />
+        </div>
 
         {/* Área de aprovação — fixa embaixo */}
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#131314]/95 backdrop-blur">
