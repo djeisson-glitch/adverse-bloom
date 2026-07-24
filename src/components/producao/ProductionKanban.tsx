@@ -24,9 +24,9 @@ export const PRODUCTION_STAGES = PRODUCTION_STAGES_NEW;
 
 const billingBadge: Record<string, { label: string; className: string }> = {
   pending: { label: "A faturar", className: "bg-muted text-muted-foreground" },
-  partial: { label: "Parcial", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  invoiced: { label: "Faturado", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-  paid: { label: "Recebido", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  partial: { label: "Parcial", className: "bg-amber-500/20 text-warning border-amber-500/30" },
+  invoiced: { label: "Faturado", className: "bg-blue-500/20 text-info border-blue-500/30" },
+  paid: { label: "Recebido", className: "bg-emerald-500/20 text-success border-emerald-500/30" },
 };
 
 interface Props {

@@ -71,7 +71,7 @@ function ValoresBotao() {
       title={ocultar ? "Valores ocultos — clique pra mostrar" : "Ocultar valores (modo apresentação)"}
       className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
         ocultar
-          ? "border-amber-500/40 bg-amber-500/15 text-amber-400"
+          ? "border-amber-500/40 bg-amber-500/15 text-warning"
           : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
       }`}
     >

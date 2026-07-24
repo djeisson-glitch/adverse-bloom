@@ -41,8 +41,8 @@ export function RodapeConfidencial({ tema }: { tema: TemaPublico }) {
         Este link é pessoal e destinado apenas ao destinatário autorizado. Não compartilhe com terceiros
         sem autorização da Adverse.
       </div>
-      <p className={`flex items-center justify-center gap-1.5 text-[11px] ${claro ? "text-slate-400" : "text-zinc-600"}`}>
-        <LogoAdverse className={`h-3 ${claro ? "text-slate-400" : "text-zinc-600"}`} />
+      <p className={`flex items-center justify-center gap-1.5 text-[11px] ${claro ? "text-slate-500" : "text-zinc-600"}`}>
+        <LogoAdverse className={`h-3 ${claro ? "text-slate-500" : "text-zinc-600"}`} />
         <span>· {new Date().getFullYear()}</span>
       </p>
     </footer>

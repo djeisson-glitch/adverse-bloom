@@ -11,8 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 
 export const TEMPERATURAS = [
-  { v: "frio", l: "Frio", chip: "bg-sky-500/15 text-sky-400" },
-  { v: "morno", l: "Morno", chip: "bg-amber-500/15 text-amber-400" },
+  { v: "frio", l: "Frio", chip: "bg-sky-500/15 text-info" },
+  { v: "morno", l: "Morno", chip: "bg-amber-500/15 text-warning" },
   { v: "quente", l: "Quente", chip: "bg-destructive/15 text-destructive" },
 ];
 export const STATUSES = [
@@ -116,8 +116,8 @@ export default function Leads() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Kpi label="Em nutrição" value={kpis.total} icon={Sprout} />
         <Kpi label="Quentes" value={kpis.quentes} icon={Flame} tone="text-destructive" />
-        <Kpi label="Mornos" value={kpis.mornos} icon={Thermometer} tone="text-amber-400" />
-        <Kpi label="Toque atrasado" value={kpis.atrasados} icon={CalendarClock} tone={kpis.atrasados > 0 ? "text-destructive" : "text-green-400"} />
+        <Kpi label="Mornos" value={kpis.mornos} icon={Thermometer} tone="text-warning" />
+        <Kpi label="Toque atrasado" value={kpis.atrasados} icon={CalendarClock} tone={kpis.atrasados > 0 ? "text-destructive" : "text-success"} />
       </div>
 
       {/* Novo lead */}

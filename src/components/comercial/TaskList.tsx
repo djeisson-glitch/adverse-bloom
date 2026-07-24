@@ -106,7 +106,7 @@ export function TaskList({ dealId, clientId, profiles }: Props) {
         ))}
         {completed.map((task) => (
           <div key={task.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/30 cursor-pointer opacity-50" onClick={() => toggleComplete(task)}>
-            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
             <span className="text-sm flex-1 truncate line-through">{task.title}</span>
           </div>
         ))}

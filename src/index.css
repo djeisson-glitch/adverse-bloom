@@ -52,6 +52,11 @@
     --success: 160 84% 39%;
     /* #f59e0b */
     --warning: 38 92% 50%;
+    /* Azul de informação e roxo de categoria — existem como token pra que
+       chip/ícone/ponto não precise chumbar `text-blue-400`, que só funciona
+       no fundo preto. */
+    --info: 205 90% 60%;
+    --roxo: 258 90% 74%;
 
     /* #111111 */
     --sidebar-background: 0 0% 6.7%;
@@ -82,7 +87,10 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
-    --primary: 14 100% 42%;
+    /* Laranja da marca (#E53500 = 45%) escurecido só aqui: em 42% o chip
+       `bg-primary/15 text-primary` dava 3.87 — o próprio tint do chip come o
+       contraste, porque puxa o fundo pra cor do texto. */
+    --primary: 14 100% 39%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 94%;
@@ -94,17 +102,20 @@
     --accent: 14 100% 42%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 45%;
+    --destructive: 0 72% 42%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 88%;
     --input: 0 0% 96%;
     --ring: 14 100% 45%;
 
-    --success: 160 84% 28%;
+    --success: 160 84% 22%;
     /* Âmbar precisa vir bem escuro no fundo claro: em 35% o contraste dava
        4.19, abaixo do mínimo legível (4.5). */
     --warning: 38 95% 29%;
+    /* Mesma lógica do âmbar: o azul/roxo vivo do escuro some no branco. */
+    --info: 205 90% 34%;
+    --roxo: 258 70% 45%;
 
     --sidebar-background: 0 0% 97%;
     --sidebar-foreground: 0 0% 35%;

@@ -114,7 +114,7 @@ function matchesMarginRange(margin: number, range: MarginRange): boolean {
 function getMarginColor(margin: number): string {
   if (margin >= 50) return "text-[hsl(var(--success))]";
   if (margin >= 35) return "text-[hsl(var(--warning))]";
-  if (margin >= 15) return "text-orange-400";
+  if (margin >= 15) return "text-warning";
   return "text-destructive";
 }
 

@@ -234,9 +234,9 @@ export default function FluxoDeCaixa() {
                 <tr key={r.mes} className="border-b border-border/40">
                   <td className="py-2.5">{r.mes}</td>
                   <td className="py-2.5 text-right text-muted-foreground">{formatCurrency(r.saldoAnterior)}</td>
-                  <td className="py-2.5 text-right text-green-400">{formatCurrency(r.recebimentos)}</td>
+                  <td className="py-2.5 text-right text-success">{formatCurrency(r.recebimentos)}</td>
                   <td className="py-2.5 text-right text-destructive">{formatCurrency(r.pagamentos)}</td>
-                  <td className={`py-2.5 text-right font-medium ${r.geracao >= 0 ? "text-green-400" : "text-destructive"}`}>{formatCurrency(r.geracao)}</td>
+                  <td className={`py-2.5 text-right font-medium ${r.geracao >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(r.geracao)}</td>
                   <td className={`py-2.5 text-right font-semibold ${r.saldoFim < 0 ? "text-destructive" : "text-foreground"}`}>{formatCurrency(r.saldoFim)}</td>
                 </tr>
               ))}
@@ -262,7 +262,7 @@ export default function FluxoDeCaixa() {
               {projecao.map((r) => (
                 <tr key={r.mes} className="border-b border-border/40">
                   <td className="py-2.5">{r.mes}</td>
-                  <td className="py-2.5 text-right text-green-400">{formatCurrency(r.receber)}</td>
+                  <td className="py-2.5 text-right text-success">{formatCurrency(r.receber)}</td>
                   <td className="py-2.5 text-right text-destructive">{formatCurrency(r.pagar)}</td>
                   <td className={`py-2.5 text-right font-semibold ${r.negativo ? "text-destructive" : "text-foreground"}`}>{formatCurrency(r.saldoProjetado)}</td>
                 </tr>

@@ -51,9 +51,9 @@ export function ClientContextPanel({ clientId }: Props) {
   if (stats.totalDeals === 0) return null;
 
   const healthConfig = {
-    green: { label: "Recorrente", color: "bg-green-500/20 text-green-400", dot: "bg-green-400" },
-    yellow: { label: "Em desenvolvimento", color: "bg-amber-500/20 text-amber-400", dot: "bg-amber-400" },
-    red: { label: "Atenção", color: "bg-red-500/20 text-red-400", dot: "bg-red-400" },
+    green: { label: "Recorrente", color: "bg-green-500/20 text-success", dot: "bg-success" },
+    yellow: { label: "Em desenvolvimento", color: "bg-amber-500/20 text-warning", dot: "bg-warning" },
+    red: { label: "Atenção", color: "bg-red-500/20 text-destructive", dot: "bg-destructive" },
   };
 
   const h = healthConfig[stats.health];
@@ -85,13 +85,13 @@ export function ClientContextPanel({ clientId }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Activity className="h-3.5 w-3.5 text-green-400 shrink-0" />
+            <Activity className="h-3.5 w-3.5 text-success shrink-0" />
             <div>
               <p className="text-[10px] text-muted-foreground">Ganhos / Perdidos</p>
               <p className="text-xs font-semibold">
-                <span className="text-green-400">{stats.wonCount}</span>
+                <span className="text-success">{stats.wonCount}</span>
                 {" / "}
-                <span className="text-red-400">{stats.lostCount}</span>
+                <span className="text-destructive">{stats.lostCount}</span>
               </p>
             </div>
           </div>

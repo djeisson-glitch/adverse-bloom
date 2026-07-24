@@ -180,7 +180,7 @@ export default function ConfiguracoesIntegracoes() {
                   needsReauth
                     ? "text-warning border-warning/30"
                     : contaAzulConnected
-                      ? "text-green-400 border-green-400/30"
+                      ? "text-success border-success/30"
                       : "text-destructive border-destructive/30"
                 }
               >
@@ -235,14 +235,14 @@ export default function ConfiguracoesIntegracoes() {
           {syncResults && (
             <div className="mt-4 space-y-2">
               <div className="flex gap-3 text-sm font-medium">
-                <span className="text-green-400">✓ {successCount} atualizados</span>
+                <span className="text-success">✓ {successCount} atualizados</span>
                 {errorCount > 0 && <span className="text-destructive">✗ {errorCount} falharam</span>}
               </div>
               <div className="space-y-1">
                 {Object.entries(syncResults).map(([key, r]) => (
                   <div key={key} className="flex items-center gap-2 text-xs">
                     {r.status === "ok" ? (
-                      <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                      <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
                     ) : r.status === "skipped" ? (
                       <span className="h-3 w-3 text-muted-foreground shrink-0">—</span>
                     ) : (

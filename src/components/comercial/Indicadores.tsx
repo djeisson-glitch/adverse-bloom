@@ -163,7 +163,7 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
           <Card className="bg-card border-border overflow-hidden min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <AlertTriangle className="h-4 w-4 text-warning" />
                 Tarefas vencidas ou vencendo em 7 dias
               </CardTitle>
             </CardHeader>

@@ -248,10 +248,10 @@ function PainelCoordenacao() {
       {/* Contadores rápidos do fluxo (informativo). Os dois que ela AGE viram
           listas logo abaixo. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MiniStat icon={Hourglass} label="A iniciar" valor={naFila.length} tom="text-slate-400" />
+        <MiniStat icon={Hourglass} label="A iniciar" valor={naFila.length} tom="text-muted-foreground" />
         <MiniStat icon={Film} label="Em edição" valor={emEdicao.length} tom="text-primary" />
         <MiniStat icon={AlertTriangle} label="Atrasados" valor={atrasados.length} tom="text-destructive" destaque={atrasados.length > 0} />
-        <MiniStat icon={MessageSquarePlus} label="Alterações" valor={alteracoesAbertas as number} tom="text-amber-400" destaque={(alteracoesAbertas as number) > 0} />
+        <MiniStat icon={MessageSquarePlus} label="Alterações" valor={alteracoesAbertas as number} tom="text-warning" destaque={(alteracoesAbertas as number) > 0} />
       </div>
 
       {/* Fila de REVISÃO E ENVIO — o trabalho da Maiara, direto na tela.
@@ -260,7 +260,7 @@ function PainelCoordenacao() {
       <ListaAcao
         icon={UserCheck}
         titulo="Precisa da sua revisão"
-        cor="text-amber-400"
+        cor="text-warning"
         vazio="Nada pra revisar agora 🎉"
         itens={aprovacao.map((d: any) => ({
           id: d.id,
@@ -269,7 +269,7 @@ function PainelCoordenacao() {
           prazo: prazoDe(d),
           url: linkEntreg(d),
           badge: d.status === "pronto" ? "pronto p/ enviar" : "revisar",
-          badgeTom: d.status === "pronto" ? "bg-success/15 text-success" : "bg-amber-500/15 text-amber-500",
+          badgeTom: d.status === "pronto" ? "bg-success/15 text-success" : "bg-amber-500/15 text-warning",
         }))}
         hoje={hoje}
       />
@@ -278,7 +278,7 @@ function PainelCoordenacao() {
       <ListaAcao
         icon={Send}
         titulo="Com o cliente"
-        cor="text-cyan-400"
+        cor="text-info"
         vazio="Nada aguardando o cliente agora."
         itens={comCliente.map((d: any) => ({
           id: d.id,
@@ -287,7 +287,7 @@ function PainelCoordenacao() {
           prazo: prazoDe(d),
           url: linkEntreg(d),
           badge: "aguardando",
-          badgeTom: "bg-cyan-500/15 text-cyan-500",
+          badgeTom: "bg-cyan-500/15 text-info",
         }))}
         hoje={hoje}
       />

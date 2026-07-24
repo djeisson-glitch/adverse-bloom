@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 export default {
   darkMode: ["class"],
@@ -51,6 +52,10 @@ export default {
         },
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
+        info: "hsl(var(--info))",
+        /* `roxo` e não `purple`: sobrescrever `purple` mataria a escala
+           purple-100…900 do Tailwind, que outras telas usam. */
+        roxo: "hsl(var(--roxo))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -79,5 +84,14 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // Variante `light:` — o tema claro é a classe `.light` no <html>, não o
+    // `dark:` do Tailwind. Serve pras paletas de CATEGORIA (famílias de
+    // entregável, tipos de documento), onde cada item precisa de um matiz
+    // próprio e por isso não cabe num token semântico.
+    plugin(({ addVariant }) => {
+      addVariant("light", ".light &");
+    }),
+  ],
 } satisfies Config;

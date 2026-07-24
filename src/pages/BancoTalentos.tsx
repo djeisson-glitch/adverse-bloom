@@ -193,7 +193,7 @@ function LinksCadastro() {
                 </a>
                 <button onClick={() => copiar(l.id, l.url)}
                         className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-primary" title="Copiar link">
-                  {copiado === l.id ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiado === l.id ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
             </div>

@@ -54,7 +54,7 @@ export function statusTone(id: string): string {
     warning: "bg-warning/15 text-warning",
     destructive: "bg-destructive/15 text-destructive",
     primary: "bg-primary/15 text-primary",
-    info: "bg-cyan-500/15 text-cyan-400",
+    info: "bg-cyan-500/15 text-info",
     // Antes muted-foreground somia no fundo. Texto na cor do foreground lê bem.
     muted: "bg-foreground/10 text-foreground",
   }[statusTom(id)] || "bg-foreground/10 text-foreground";
@@ -67,7 +67,7 @@ export function statusPill(id: string): string {
     warning: "bg-warning/25 text-warning border-warning/50",
     destructive: "bg-destructive/25 text-destructive border-destructive/50",
     success: "bg-success/25 text-success border-success/50",
-    info: "bg-cyan-500/25 text-cyan-300 border-cyan-500/50",
+    info: "bg-cyan-500/25 text-info border-cyan-500/50",
     muted: "bg-foreground/15 text-foreground border-foreground/30",
   }[statusTom(id)] || "bg-foreground/15 text-foreground border-foreground/30";
 }
