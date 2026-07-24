@@ -487,7 +487,7 @@ export default function EntregavelDetalhe() {
           coordenadora acompanha quantos ajustes rolaram); as horas só pra quem
           pode ver tempo. */}
       <div className={`grid gap-4 ${canSeeHours ? "md:grid-cols-4" : "md:grid-cols-2"}`}>
-        <IndicadorCard label="Revisões internas" value={String(entregavel.revisoes_internas || 0)} icon={RefreshCw} hint="N1/N2 pediram ajuste" />
+        <IndicadorCard label="Revisões internas" value={String(entregavel.revisoes_internas || 0)} icon={RefreshCw} hint="R1/R2 pediram ajuste" />
         <IndicadorCard label="Alterações do cliente" value={String(alteracoes.length)} icon={MessageSquarePlus} hint={`${alteracoes.filter((a) => a.status === "aberta").length} abertas`} tone="destructive" />
         {canSeeHours && (
           <>
@@ -683,12 +683,12 @@ function FluxoCard({
     }
   }
 
-  // APROVAÇÃO 1 (1ª vez)
+  // REVISÃO 1 (1ª vez)
   if (status === "revisao_n1" && isN1) {
-    B("n1a", <Button size="sm" onClick={n1AprovaSegue} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar → Aprovação 2</Button>);
-    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste → Aprovação 2</Button>);
+    B("n1a", <Button size="sm" onClick={n1AprovaSegue} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar → Revisão 2</Button>);
+    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste → Revisão 2</Button>);
   }
-  // APROVAÇÃO 2
+  // REVISÃO 2
   if (status === "revisao_n2" && isN2) {
     B("n2a", <Button size="sm" onClick={n2Aprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
     B("n2j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n2Ajuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
@@ -697,7 +697,7 @@ function FluxoCard({
   if (status === "revisao" && isRevisor) {
     B("rua", <Button size="sm" onClick={revUnicaAprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
     B("ruj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={revUnicaAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
-    B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda aprovação"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir aprovação 2</Button>);
+    B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda revisão"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir Revisão 2</Button>);
   }
   // ENVIAR AO CLIENTE
   if (status === "pronto" && isRevisor) {
@@ -724,8 +724,8 @@ function FluxoCard({
             {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-warning" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Nivel ok={!!entregavel.aprovado_n1_em} label="N1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
-            <Nivel ok={!!entregavel.aprovado_n2_em} label="N2" quem={nomeDe(profiles, entregavel.aprovado_n2_por)} />
+            <Nivel ok={!!entregavel.aprovado_n1_em} pediuAjuste={!!entregavel.rev_n1_ajuste} label="R1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
+            <Nivel ok={!!entregavel.aprovado_n2_em} pediuAjuste={!!entregavel.rev_n2_ajuste} label="R2" quem={nomeDe(profiles, entregavel.aprovado_n2_por)} />
             {clienteAprova && <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />}
           </div>
         </div>
@@ -770,12 +770,20 @@ function FluxoCard({
   );
 }
 
-function Nivel({ ok, label, quem }: { ok: boolean; label: string; quem: string }) {
+// Três estados por nível de revisão:
+//   pediuAjuste → âmbar "pediu ajuste" (agiu, mas mandou de volta)
+//   ok          → verde, aprovou
+//   pendente    → cinza, ainda não olhou
+// pediuAjuste vence o ok: o fluxo grava aprovado_nX_em nos dois casos, então
+// sem essa precedência quem pediu ajuste apareceria como aprovado.
+function Nivel({ ok, pediuAjuste = false, label, quem }: { ok: boolean; pediuAjuste?: boolean; label: string; quem: string }) {
+  const cor = pediuAjuste ? "bg-warning/15 text-warning" : ok ? "bg-success/15 text-success" : "bg-muted/50 text-muted-foreground";
+  const Icon = pediuAjuste ? RefreshCw : ok ? CheckCircle2 : Clock;
   return (
-    <span className={`flex items-center gap-1 rounded-md px-2 py-0.5 ${ok ? "bg-success/15 text-success" : "bg-muted/50 text-muted-foreground"}`}>
-      {ok ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+    <span className={`flex items-center gap-1 rounded-md px-2 py-0.5 ${cor}`}>
+      <Icon className="h-3 w-3" />
       {label}
-      {ok && <span className="opacity-70">· {quem}</span>}
+      {pediuAjuste ? <span className="opacity-80">· pediu ajuste{quem !== "—" ? ` (${quem})` : ""}</span> : ok && <span className="opacity-70">· {quem}</span>}
     </span>
   );
 }

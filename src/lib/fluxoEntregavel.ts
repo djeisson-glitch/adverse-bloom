@@ -18,6 +18,8 @@ export type DelivFluxo = {
   status: string;
   retrabalho?: boolean | null;
   rev_ajuste_pendente?: boolean | null;
+  rev_n1_ajuste?: boolean | null;
+  rev_n2_ajuste?: boolean | null;
   revisoes_internas?: number | null;
   responsavel_id?: string | null;
 };
@@ -40,8 +42,13 @@ export async function enviarParaRevisao(d: DelivFluxo, alteracaoAbertaId?: strin
     await (supabase as any).from("deliverable_alteracoes")
       .update({ status: "resolvida", resolved_at: agora() }).eq("id", alteracaoAbertaId);
   }
-  await upd(d.id, { status: d.retrabalho ? "revisao" : "revisao_n1", rev_ajuste_pendente: false });
-  return d.retrabalho ? "Enviado para revisão (Aprovação 1)" : "Enviado para revisão (Aprovação 1 → 2)";
+  // Ciclo novo: zera o "pediu ajuste" dos dois níveis pra o badge não carregar
+  // o âmbar do ciclo anterior.
+  await upd(d.id, {
+    status: d.retrabalho ? "revisao" : "revisao_n1",
+    rev_ajuste_pendente: false, rev_n1_ajuste: false, rev_n2_ajuste: false,
+  });
+  return d.retrabalho ? "Enviado para revisão (Revisão 1)" : "Enviado para revisão (Revisão 1 → 2)";
 }
 
 /**
@@ -64,25 +71,27 @@ async function anotarAjuste(deliverableId: string, userId: string | undefined, o
 export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<string> {
   const now = agora();
   if (d.status === "revisao_n1") {
-    await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, status: "revisao_n2" });
-    return "Aprovado → segue pra Aprovação 2";
+    await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: false, status: "revisao_n2" });
+    return "Aprovado → segue pra Revisão 2";
   }
   if (d.status === "revisao_n2") {
     if (d.rev_ajuste_pendente) {
-      // N1 pediu ajuste e o N2 aprovou: volta pro editor com UMA mensagem (N1).
+      // R1 pediu ajuste e a R2 aprovou: volta pro editor com UMA mensagem (R1).
+      // R2 aprovou (rev_n2_ajuste=false); o âmbar da R1 vem do rev_n1_ajuste
+      // que ficou marcado lá atrás.
       await upd(d.id, {
-        aprovado_n2_por: userId, aprovado_n2_em: now, status: "ajuste_interno",
+        aprovado_n2_por: userId, aprovado_n2_em: now, rev_n2_ajuste: false, status: "ajuste_interno",
         retrabalho: true, rev_ajuste_pendente: false,
         revisoes_internas: (d.revisoes_internas || 0) + 1,
       });
-      await anotarAjuste(d.id, userId, ["Aprovação 1"]);
-      return "Volta pro editor com os ajustes da Aprovação 1";
+      await anotarAjuste(d.id, userId, ["Revisão 1"]);
+      return "Volta pro editor com os ajustes da Revisão 1";
     }
-    await upd(d.id, { aprovado_n2_por: userId, aprovado_n2_em: now, status: "pronto" });
+    await upd(d.id, { aprovado_n2_por: userId, aprovado_n2_em: now, rev_n2_ajuste: false, status: "pronto" });
     return "Aprovado — pronto pra enviar ao cliente";
   }
   // revisao (retrabalho, revisão única)
-  await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, status: "pronto" });
+  await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: false, status: "pronto" });
   return "Aprovado — pronto pra enviar";
 }
 
@@ -96,19 +105,23 @@ export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<stri
 export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, _motivo?: string): Promise<string> {
   const now = agora();
   if (d.status === "revisao_n1") {
-    // N1 pediu ajuste: NÃO posta ainda — lembra (rev_ajuste_pendente) e segue
-    // pra N2, pra o editor receber tudo de uma vez numa mensagem só.
-    await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, status: "revisao_n2", rev_ajuste_pendente: true });
-    return "Ajuste anotado → segue pra Aprovação 2";
+    // R1 pediu ajuste: NÃO posta ainda — lembra (rev_ajuste_pendente) e segue
+    // pra R2, pra o editor receber tudo de uma vez numa mensagem só. Marca
+    // rev_n1_ajuste pra o badge da R1 mostrar "pediu ajuste" (âmbar).
+    await upd(d.id, {
+      aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: true,
+      status: "revisao_n2", rev_ajuste_pendente: true,
+    });
+    return "Ajuste anotado → segue pra Revisão 2";
   }
   if (d.status === "revisao_n2") {
     await upd(d.id, {
-      aprovado_n2_por: userId, aprovado_n2_em: now, status: "ajuste_interno",
+      aprovado_n2_por: userId, aprovado_n2_em: now, rev_n2_ajuste: true, status: "ajuste_interno",
       retrabalho: true, rev_ajuste_pendente: false,
       revisoes_internas: (d.revisoes_internas || 0) + 1,
     });
-    // Se o N1 também tinha pedido, a mensagem cita as duas aprovações.
-    const origens = d.rev_ajuste_pendente ? ["Aprovação 1", "Aprovação 2"] : ["Aprovação 2"];
+    // Se a R1 também tinha pedido, a mensagem cita as duas revisões.
+    const origens = d.rev_ajuste_pendente ? ["Revisão 1", "Revisão 2"] : ["Revisão 2"];
     await anotarAjuste(d.id, userId, origens);
     return "Volta pro editor com os ajustes";
   }
@@ -118,10 +131,10 @@ export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, _mo
   return "Volta pro editor com os ajustes";
 }
 
-/** Escalar a revisão única pra uma segunda aprovação (opcional). */
+/** Escalar a revisão única pra uma segunda revisão (opcional). */
 export async function escalarAprovacao2(d: DelivFluxo): Promise<string> {
-  await upd(d.id, { status: "revisao_n2", rev_ajuste_pendente: false });
-  return "Escalado para Aprovação 2";
+  await upd(d.id, { status: "revisao_n2", rev_ajuste_pendente: false, rev_n2_ajuste: false });
+  return "Escalado para Revisão 2";
 }
 
 /** ENVIAR AO CLIENTE. */
