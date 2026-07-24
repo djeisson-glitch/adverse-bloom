@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import HomeEquipe from "./pages/HomeEquipe";
 import Notificacoes from "./pages/Notificacoes";
 import Atividades from "./pages/Atividades";
+import BancoTalentos from "./pages/BancoTalentos";
 import CadastroFornecedor from "./pages/CadastroFornecedor";
 import CadastroFreelancer from "./pages/CadastroFreelancer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -214,6 +215,7 @@ const App = () => (
               <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />
               <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
               <Route path="/atividades" element={<ProtectedRoute><Atividades /></ProtectedRoute>} />
+              <Route path="/banco-talentos" element={<ProtectedRoute><BancoTalentos /></ProtectedRoute>} />
               <Route path="/guia" element={<ProtectedRoute><Guia /></ProtectedRoute>} />
 
               <Route path="/configuracoes" element={<ProtectedRoute><ModuleGuard module="admin"><Configuracoes /></ModuleGuard></ProtectedRoute>} />
