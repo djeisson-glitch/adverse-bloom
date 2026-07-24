@@ -15,17 +15,27 @@ const EMOJIS = [
 ];
 
 /** Botão 😊 que abre um grid de emojis. onPick recebe o emoji escolhido. */
-export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
+export function EmojiPicker({
+  onPick, compacto,
+}: {
+  onPick: (emoji: string) => void;
+  /** Gatilho miúdo, pra usar como "reagir" numa mensagem. */
+  compacto?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          title="Emoji"
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
+          title={compacto ? "Reagir" : "Emoji"}
+          className={
+            compacto
+              ? "flex h-6 w-6 items-center justify-center rounded-full border border-border/60 text-muted-foreground opacity-0 transition hover:border-primary/40 hover:text-primary group-hover:opacity-100"
+              : "flex h-8 w-8 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-primary hover:bg-primary/10"
+          }
         >
-          <Smile className="h-4 w-4" />
+          <Smile className={compacto ? "h-3.5 w-3.5" : "h-4 w-4"} />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2">

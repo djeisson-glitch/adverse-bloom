@@ -2072,6 +2072,53 @@ export function ComentariosSection({
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
 
+  // ---- Reações com emoji nas mensagens (tipo Slack) ----
+  const idsMsgs = comments.map((c: any) => c.id);
+  const { data: reacoes = [] } = useQuery({
+    queryKey: ["comment-reacoes", entityType, entityId, idsMsgs.length],
+    enabled: idsMsgs.length > 0,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("comment_reacoes")
+        .select("comment_id, user_id, emoji")
+        .in("comment_id", idsMsgs);
+      return (data as any[]) || [];
+    },
+    refetchInterval: 7000,
+  });
+
+  // comment_id → [{ emoji, total, eu }] (ordenado pelo que apareceu primeiro)
+  const reacoesDe = useMemo(() => {
+    const m = new Map<string, { emoji: string; total: number; eu: boolean }[]>();
+    for (const r of reacoes) {
+      const lista = m.get(r.comment_id) || [];
+      const achou = lista.find((x) => x.emoji === r.emoji);
+      if (achou) { achou.total++; achou.eu = achou.eu || r.user_id === user?.id; }
+      else lista.push({ emoji: r.emoji, total: 1, eu: r.user_id === user?.id });
+      m.set(r.comment_id, lista);
+    }
+    return m;
+  }, [reacoes, user?.id]);
+
+  const alternarReacao = useMutation({
+    mutationFn: async ({ commentId, emoji }: { commentId: string; emoji: string }) => {
+      const jaTem = reacoes.some(
+        (r: any) => r.comment_id === commentId && r.emoji === emoji && r.user_id === user?.id,
+      );
+      if (jaTem) {
+        const { error } = await (supabase as any).from("comment_reacoes").delete()
+          .eq("comment_id", commentId).eq("emoji", emoji).eq("user_id", user?.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from("comment_reacoes")
+          .insert({ comment_id: commentId, emoji, user_id: user?.id });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["comment-reacoes", entityType, entityId] }),
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
   // Auto-scroll: sempre que chega/envia mensagem, desce pro fim da conversa.
   const listaRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -2097,7 +2144,7 @@ export function ComentariosSection({
           {comments.map((c) => {
             const cor = corDoUsuario(c.user_id);
             return (
-            <div key={c.id} className="flex gap-2">
+            <div key={c.id} className="group flex gap-2">
               <Avatar className="h-7 w-7 shrink-0">
                 <AvatarFallback className="cor-usuario text-[10px] font-semibold" style={{ backgroundColor: `${cor}26`, color: cor }}>
                   {autorDe(c.user_id).slice(0, 2).toUpperCase()}
@@ -2111,6 +2158,26 @@ export function ComentariosSection({
                   · {new Date(c.created_at).toLocaleString("pt-BR")}
                 </p>
                 <p className="whitespace-pre-wrap text-sm text-foreground">{corpoComMencoes(c.body, profiles)}</p>
+                {/* Reações: pílulas com contagem (a minha fica destacada) + o
+                    botão de reagir, que só aparece ao passar o mouse. */}
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {(reacoesDe.get(c.id) || []).map((r) => (
+                    <button
+                      key={r.emoji}
+                      onClick={() => alternarReacao.mutate({ commentId: c.id, emoji: r.emoji })}
+                      title={r.eu ? "Tirar sua reação" : "Reagir com " + r.emoji}
+                      className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition ${
+                        r.eu
+                          ? "border-primary/50 bg-primary/15 text-foreground"
+                          : "border-border/60 text-muted-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      <span>{r.emoji}</span>
+                      <span className="tabular-nums text-[10px]">{r.total}</span>
+                    </button>
+                  ))}
+                  <EmojiPicker compacto onPick={(e) => alternarReacao.mutate({ commentId: c.id, emoji: e })} />
+                </div>
               </div>
             </div>
           );})}
