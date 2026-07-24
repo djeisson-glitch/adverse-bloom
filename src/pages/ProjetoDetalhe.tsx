@@ -334,6 +334,15 @@ export default function ProjetoDetalhe() {
               podeEditar={canSeeMoney}
               onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
             />
+            {/* De qual orçamento este projeto nasceu — só admin. */}
+            {isAdmin && (
+              <OrcamentoDoProjeto
+                projectId={project.id}
+                budgetId={project.budget_id}
+                dealId={project.deal_id}
+                onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
+              />
+            )}
           </div>
 
           {resumo.total > 0 && (
@@ -501,6 +510,104 @@ function HeaderInfo({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="text-sm text-foreground">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * De qual orçamento o projeto nasceu — só admin vê.
+ *
+ * Projetos criados pela conversão orçamento→projeto já vêm com deal_id/budget_id.
+ * Os que vieram da importação do ClickUp NÃO têm — por isso dá pra vincular na
+ * mão aqui, senão o campo ficaria "Sem orçamento" pra sempre no acervo antigo.
+ * A rota /orcamentos/:id é o DEAL, não o budget.
+ */
+function OrcamentoDoProjeto({
+  projectId, budgetId, dealId, onChanged,
+}: {
+  projectId: string; budgetId?: string | null; dealId?: string | null; onChanged: () => void;
+}) {
+  const [ligando, setLigando] = useState(false);
+
+  const { data: orc } = useQuery({
+    queryKey: ["projeto-orcamento", budgetId],
+    enabled: !!budgetId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("budgets").select("id, budget_number, project_name")
+        .eq("id", budgetId!).maybeSingle();
+      return data as any;
+    },
+  });
+
+  // Só busca a lista quando for vincular — não pesa a ficha à toa.
+  const { data: deals = [] } = useQuery({
+    queryKey: ["orcamentos-para-vincular"],
+    enabled: ligando,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("deals").select("id, title, client:clients(name)")
+        .order("created_at", { ascending: false }).limit(200);
+      return (data as any[]) || [];
+    },
+  });
+
+  const vincular = async (novoDealId: string) => {
+    // Pega o orçamento mais recente do deal pra amarrar os dois lados.
+    const { data: b } = await (supabase as any)
+      .from("budgets").select("id").eq("deal_id", novoDealId)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { error } = await (supabase as any)
+      .from("projects").update({ deal_id: novoDealId, budget_id: b?.id ?? null }).eq("id", projectId);
+    if (error) return toast.error("Não vinculou", { description: error.message });
+    toast.success("Orçamento vinculado");
+    setLigando(false);
+    onChanged();
+  };
+
+  const rotulo = orc?.budget_number
+    ? `#${String(orc.budget_number).padStart(4, "0")}`
+    : orc?.project_name || "Orçamento";
+
+  return (
+    <div className="min-w-[130px]">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Orçamento</p>
+
+      {ligando ? (
+        <Select value="" onValueChange={vincular}>
+          <SelectTrigger className="h-7 w-[200px] border-none bg-transparent px-0 text-sm focus:ring-0">
+            <SelectValue placeholder="Escolher orçamento…" />
+          </SelectTrigger>
+          <SelectContent>
+            {deals.map((d: any) => (
+              <SelectItem key={d.id} value={d.id} className="text-xs">
+                {d.title || "(sem título)"}{d.client?.name ? ` · ${d.client.name}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : dealId ? (
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/orcamentos/${dealId}`}
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+            title={orc?.project_name || "Abrir o orçamento de origem"}
+          >
+            {rotulo} <ExternalLink className="h-3 w-3" />
+          </Link>
+          <button onClick={() => setLigando(true)} className="text-[10px] text-muted-foreground hover:text-foreground">
+            trocar
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setLigando(true)}
+          className="text-sm text-muted-foreground hover:text-primary"
+          title="Este projeto não veio de um orçamento (ex.: importado). Clique pra vincular."
+        >
+          Sem orçamento <span className="text-[10px] underline">vincular</span>
+        </button>
+      )}
     </div>
   );
 }
