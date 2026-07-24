@@ -15,6 +15,8 @@ import Home from "./pages/Home";
 import HomeEquipe from "./pages/HomeEquipe";
 import Notificacoes from "./pages/Notificacoes";
 import Atividades from "./pages/Atividades";
+import CadastroFornecedor from "./pages/CadastroFornecedor";
+import CadastroFreelancer from "./pages/CadastroFreelancer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Clientes from "./pages/Clientes";
@@ -224,6 +226,9 @@ const App = () => (
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="/carta/:token" element={<CartaPublica />} />
               <Route path="/solicitar/:slug" element={<SolicitarDemanda />} />
+              {/* Cadastros públicos — banco de talentos e fornecedores */}
+              <Route path="/cadastro/fornecedor" element={<CadastroFornecedor />} />
+              <Route path="/cadastro/freelancer" element={<CadastroFreelancer />} />
               <Route path="/briefing/:token" element={<BriefingPublico />} />
               <Route path="/portal/:token" element={<PortalPublico />} />
               {/* Rota temporária de preview da Onda 0 (sem auth) — remover após validação */}
