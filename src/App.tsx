@@ -72,7 +72,6 @@ import TimesheetPage from "./pages/Timesheet";
 import Capacidade from "./pages/Capacidade";
 import Planejamento from "./pages/Planejamento";
 import Previsao from "./pages/Previsao";
-import Fornecedores from "./pages/Fornecedores";
 import FollowUps from "./pages/FollowUps";
 import FaturamentoPage from "./pages/Faturamento";
 import FaturamentoMensal from "./pages/FaturamentoMensal";
@@ -199,7 +198,10 @@ const App = () => (
 
               {/* Onda 0 — Gestão */}
               <Route path="/contas-fees" element={<ProtectedRoute><ModuleGuard module="contas_fees"><ContasFees /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/fornecedores" element={<ProtectedRoute><ModuleGuard module="fornecedores"><Fornecedores /></ModuleGuard></ProtectedRoute>} />
+              {/* /fornecedores (supplier_contacts) foi absorvido por /banco-talentos.
+                  A tabela continua viva: é o autocomplete de fornecedor no
+                  lançamento de custo (CostEntryTab/BudgetForm). */}
+              <Route path="/fornecedores" element={<Navigate to="/banco-talentos" replace />} />
               <Route path="/follow-ups" element={<ProtectedRoute><ModuleGuard module="follow_ups"><FollowUps /></ModuleGuard></ProtectedRoute>} />
               <Route path="/faturamento" element={<ProtectedRoute><ModuleGuard module="faturamento"><FaturamentoPage /></ModuleGuard></ProtectedRoute>} />
               <Route path="/faturamento-mensal" element={<ProtectedRoute><ModuleGuard module="faturamento"><FaturamentoMensal /></ModuleGuard></ProtectedRoute>} />

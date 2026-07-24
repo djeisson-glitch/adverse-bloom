@@ -7,7 +7,6 @@ import Guia from "./Guia";
 import Time from "./Time";
 import Admin from "./Admin";
 import AdminRateCard from "./AdminRateCard";
-import Fornecedores from "./Fornecedores";
 import ContasFees from "./ContasFees";
 import Clientes from "./Clientes";
 import Orcamentos from "./Orcamentos";
@@ -56,7 +55,6 @@ const TELAS = [
   // Onda 1 — fundação
   { id: "clientes", label: "Clientes", node: <Clientes /> },
   { id: "contas-fees", label: "Contas / Fees", node: <ContasFees /> },
-  { id: "fornecedores", label: "Fornecedores", node: <Fornecedores /> },
   { id: "time", label: "Time", node: <Time /> },
   { id: "admin", label: "Admin", node: <Admin /> },
   { id: "admin-rate-card", label: "Rate card", node: <AdminRateCard /> },
