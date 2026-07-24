@@ -706,7 +706,7 @@ function FluxoCard({
   // COM O CLIENTE — coordenação registra alteração ou aprovação
   if (status === "com_cliente" && isRevisor) {
     B("apr", <Button size="sm" onClick={clienteAprovou} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Cliente aprovou</Button>);
-    B("alt", <Button size="sm" variant="outline" className="text-amber-500 hover:text-amber-500" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
+    B("alt", <Button size="sm" variant="outline" className="text-warning hover:text-warning" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
   }
 
   const StatusIcon = iconeStatus(status);
@@ -721,7 +721,7 @@ function FluxoCard({
               <StatusIcon className="h-4 w-4" />
               {labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}
             </span>
-            {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-400" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
+            {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-warning" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Nivel ok={!!entregavel.aprovado_n1_em} label="N1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
@@ -784,8 +784,8 @@ function Nivel({ ok, label, quem }: { ok: boolean; label: string; quem: string }
 
 const TIPO_DOC = [
   { id: "roteiro", label: "Roteiro", cor: "bg-primary/15 text-primary" },
-  { id: "referencia", label: "Referência", cor: "bg-blue-500/15 text-blue-500" },
-  { id: "briefing", label: "Briefing", cor: "bg-amber-500/15 text-amber-500" },
+  { id: "referencia", label: "Referência", cor: "bg-blue-500/15 text-blue-500 light:text-blue-700" },
+  { id: "briefing", label: "Briefing", cor: "bg-amber-500/15 text-amber-500 light:text-amber-700" },
   { id: "outro", label: "Outro", cor: "bg-muted text-muted-foreground" },
 ];
 

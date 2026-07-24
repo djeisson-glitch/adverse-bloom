@@ -633,7 +633,7 @@ function TeamMemberRow({
               />
               <span className="text-xs text-muted-foreground">R$/h</span>
             </div>
-            <span className={`text-xs ${ativo ? "text-success" : "text-amber-500"}`}>
+            <span className={`text-xs ${ativo ? "text-success" : "text-warning"}`}>
               {ativo ? "ativo" : "sem acesso"}
             </span>
             <IndicadorAutosave status={status} />
@@ -660,7 +660,7 @@ function TeamMemberRow({
                             <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                               {g.label}
                               {g.dinheiro && (
-                                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-500" title="Abre dados financeiros de verdade">💰</span>
+                                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-warning" title="Abre dados financeiros de verdade">💰</span>
                               )}
                             </p>
                             <p className="truncate text-[11px] text-muted-foreground">{g.hint}</p>
@@ -686,7 +686,7 @@ function TeamMemberRow({
                   <button
                     onClick={() => setConfirmando("desativar")}
                     disabled={processando}
-                    className="flex items-center gap-1 text-muted-foreground hover:text-amber-500 disabled:opacity-50"
+                    className="flex items-center gap-1 text-muted-foreground hover:text-warning disabled:opacity-50"
                   >
                     <UserMinus className="h-3.5 w-3.5" /> Revogar acesso
                   </button>

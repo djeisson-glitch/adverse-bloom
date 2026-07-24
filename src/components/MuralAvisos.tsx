@@ -65,15 +65,15 @@ export function MuralAvisos() {
       <CardContent className="p-0">
         <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            <Megaphone className="h-4 w-4 text-amber-400" /> Mural de avisos
+            <Megaphone className="h-4 w-4 text-warning" /> Mural de avisos
             {avisos.length > 0 && (
-              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold text-amber-400">
+              <span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold text-warning">
                 {avisos.length}
               </span>
             )}
           </p>
           {podePublicar && !compondo && (
-            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => setCompondo(true)}>
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-warning hover:text-warning" onClick={() => setCompondo(true)}>
               <Plus className="h-3.5 w-3.5" /> Novo aviso
             </Button>
           )}
@@ -114,7 +114,7 @@ export function MuralAvisos() {
                 <Button size="sm" variant="ghost" className="h-8" onClick={limpar}>
                   Cancelar
                 </Button>
-                <Button size="sm" className="h-8 bg-amber-500 text-white hover:bg-amber-600" onClick={enviar} disabled={publicar.isPending || !titulo.trim()}>
+                <Button size="sm" className="h-8 bg-amber-500 text-black hover:bg-amber-600" onClick={enviar} disabled={publicar.isPending || !titulo.trim()}>
                   {publicar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Publicar"}
                 </Button>
               </div>
@@ -132,12 +132,12 @@ export function MuralAvisos() {
               <li key={a.id} className="group flex gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                    {a.fixado && <Pin className="h-3 w-3 shrink-0 text-amber-400" />}
+                    {a.fixado && <Pin className="h-3 w-3 shrink-0 text-warning" />}
                     {a.titulo}
                   </p>
                   {a.corpo && <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{a.corpo}</p>}
                   {a.data_evento && (
-                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-warning">
                       <CalendarClock className="h-3 w-3" /> {fmtEvento(a.data_evento)}
                     </span>
                   )}
@@ -151,7 +151,7 @@ export function MuralAvisos() {
                     <button
                       title={a.fixado ? "Desafixar" : "Fixar no topo"}
                       onClick={() => alternarFixado.mutate(a)}
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-amber-400"
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-warning"
                     >
                       {a.fixado ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                     </button>

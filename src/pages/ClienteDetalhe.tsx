@@ -29,11 +29,11 @@ const stageLabels: Record<string, string> = {};
 STAGES.forEach((s) => { stageLabels[s.id] = s.label; });
 
 const stageBadge: Record<string, string> = {
-  diagnostico: "bg-blue-500/20 text-blue-400",
-  orcamento: "bg-amber-500/20 text-amber-400",
-  proposta: "bg-purple-500/20 text-purple-400",
-  fechamento: "bg-green-500/20 text-green-400",
-  perdido: "bg-red-500/20 text-red-400",
+  diagnostico: "bg-blue-500/20 text-info",
+  orcamento: "bg-amber-500/20 text-warning",
+  proposta: "bg-purple-500/20 text-roxo",
+  fechamento: "bg-green-500/20 text-success",
+  perdido: "bg-red-500/20 text-destructive",
 };
 
 export default function ClienteDetalhe() {
@@ -182,10 +182,10 @@ export default function ClienteDetalhe() {
   const summaryCards = [
     { label: "LTV Total", value: formatCurrency(ltv), icon: DollarSign, color: "text-primary" },
     { label: "Ticket Médio", value: formatCurrency(ticketMedio), icon: TrendingUp, color: "text-primary" },
-    { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-green-400" },
-    { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-red-400" },
+    { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-success" },
+    { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-destructive" },
     { label: "Projetos", value: String(totalProjectCount || projects.length), icon: Briefcase, color: "text-primary" },
-    { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-green-400" : "text-amber-400" },
+    { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-success" : "text-warning" },
   ];
 
   return (
@@ -386,9 +386,9 @@ export default function ClienteDetalhe() {
                       className={`flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card ${t.completed ? "opacity-50" : ""}`}
                     >
                       {t.completed ? (
-                        <Check className="h-4 w-4 text-green-400 shrink-0" />
+                        <Check className="h-4 w-4 text-success shrink-0" />
                       ) : (
-                        <Clock className="h-4 w-4 text-amber-400 shrink-0" />
+                        <Clock className="h-4 w-4 text-warning shrink-0" />
                       )}
                       <span className={`flex-1 text-sm ${t.completed ? "line-through text-muted-foreground" : ""}`}>
                         {t.title}

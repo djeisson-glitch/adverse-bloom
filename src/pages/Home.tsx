@@ -79,7 +79,7 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
           <span className={`text-muted-foreground truncate min-w-0 ${hero ? "text-xs" : "text-[11px]"}`}>{label}</span>
           {regime && (
             <span
-              className={`ml-auto shrink-0 text-[9px] font-medium uppercase tracking-wider ${regime === "competência" ? "text-emerald-400/70" : "text-sky-400/70"}`}
+              className={`ml-auto shrink-0 text-[9px] font-medium uppercase tracking-wider ${regime === "competência" ? "text-success/70" : "text-info/70"}`}
               title={regime === "competência" ? "Regime de competência: conta no mês em que o fato aconteceu (base das margens)." : "Regime de caixa: conta no mês em que vence/paga (fluxo financeiro)."}
             >
               {regime}
@@ -94,7 +94,7 @@ function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onCli
             <div className="flex items-baseline gap-1.5 min-w-0">
               <p className={`font-heading font-bold truncate ${hero ? "text-2xl sm:text-3xl" : "text-lg"} ${valueColor || "text-foreground"}`}>{value}</p>
               {delta && (
-                <span className={`shrink-0 text-[11px] font-medium ${delta.bom ? "text-green-400" : "text-destructive"}`}>{delta.texto}</span>
+                <span className={`shrink-0 text-[11px] font-medium ${delta.bom ? "text-success" : "text-destructive"}`}>{delta.texto}</span>
               )}
             </div>
             {sub && <p className={`mt-0.5 truncate ${hero ? "text-xs" : "text-[11px]"} ${subColor || "text-muted-foreground"}`}>{sub}</p>}
@@ -225,7 +225,7 @@ export default function Home() {
   const saldoConta = useMemo(() => calcSaldoEmConta(recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data), [recItems, payItems, contexto?.saldo_inicial, contexto?.saldo_inicial_data]);
   const burnRate = useMemo(() => calcBurnRate(payItems), [payItems]);
   const runway = burnRate > 0 ? saldoConta / burnRate : Infinity;
-  const runwayColor = runway > 4 ? "text-green-400" : runway >= 2 ? "text-amber-400" : "text-destructive";
+  const runwayColor = runway > 4 ? "text-success" : runway >= 2 ? "text-warning" : "text-destructive";
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -331,9 +331,9 @@ export default function Home() {
     if (caixaCurto && (key === "saudavel" || key === "zero")) key = "atencao";
     const runwayTxt = runway === Infinity ? "∞" : `${runway.toFixed(1)}m`;
     const cfg = {
-      saudavel: { label: "Lucrando e saudável", nota: "resultado positivo no período e caixa cobre o ritmo", icon: Trophy, cls: "border-green-500/40 bg-green-500/10", color: "text-green-400" },
-      zero: { label: "No zero a zero", nota: "operação se paga no período, mas sem folga — margem ~0%", icon: Scale, cls: "border-amber-400/40 bg-amber-400/10", color: "text-amber-300" },
-      atencao: { label: "Merece atenção", nota: m >= 0 ? `resultado positivo no período, mas caixa curto (runway ${runwayTxt}) — priorize cobrança` : "margem negativa leve no período: ajuste preço/custo antes que aperte", icon: AlertTriangle, cls: "border-orange-500/40 bg-orange-500/10", color: "text-orange-400" },
+      saudavel: { label: "Lucrando e saudável", nota: "resultado positivo no período e caixa cobre o ritmo", icon: Trophy, cls: "border-green-500/40 bg-green-500/10", color: "text-success" },
+      zero: { label: "No zero a zero", nota: "operação se paga no período, mas sem folga — margem ~0%", icon: Scale, cls: "border-warning/40 bg-warning/10", color: "text-warning" },
+      atencao: { label: "Merece atenção", nota: m >= 0 ? `resultado positivo no período, mas caixa curto (runway ${runwayTxt}) — priorize cobrança` : "margem negativa leve no período: ajuste preço/custo antes que aperte", icon: AlertTriangle, cls: "border-orange-500/40 bg-orange-500/10", color: "text-warning" },
       prejuizo: { label: "No prejuízo", nota: "gastou mais do que entrou no período — corrija estrutura ou preço", icon: TrendingDown, cls: "border-destructive/40 bg-destructive/10", color: "text-destructive" },
     }[key];
     return { key, ...cfg };
@@ -389,7 +389,7 @@ export default function Home() {
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [payItems, monthPeriod.from, monthPeriod.to]);
-  const marginColor = (pct: number) => (pct >= 20 ? "text-green-400" : pct >= 0 ? "text-amber-400" : "text-destructive");
+  const marginColor = (pct: number) => (pct >= 20 ? "text-success" : pct >= 0 ? "text-warning" : "text-destructive");
 
   // Mini-insights por card (regras simples sobre os dados do período)
   const fixPctReceita = faturamentoMes > 0 ? (custosFixos / faturamentoMes) * 100 : 0;
@@ -644,7 +644,7 @@ export default function Home() {
           <MetricCard label="Orçamentos abertos" value={String(openDeals.length)} sub={formatCurrency(pipelineValue)} icon={FileText} onClick={() => navigate("/orcamentos")} />
           <MetricCard label="Projetos em andamento" value={String(productionMetrics.activeCount)} sub={formatCurrency(productionMetrics.receitaAberto)} icon={Clapperboard} onClick={() => navigate("/projetos")} />
           <MetricCard label="Entregáveis aguardando" value={String(entregaveisAguardando)} sub="revisão / aprovação" icon={Inbox} onClick={() => navigate("/minha-mesa")} />
-          <MetricCard label="Follow-ups pra hoje" value={String(followupsHoje)} sub={followupsHoje > 0 ? "pendentes" : "em dia"} subColor={followupsHoje > 0 ? "text-amber-400" : "text-green-400"} icon={CalendarDays} onClick={() => navigate("/follow-ups")} />
+          <MetricCard label="Follow-ups pra hoje" value={String(followupsHoje)} sub={followupsHoje > 0 ? "pendentes" : "em dia"} subColor={followupsHoje > 0 ? "text-warning" : "text-success"} icon={CalendarDays} onClick={() => navigate("/follow-ups")} />
         </div>
       </section>
 
@@ -671,7 +671,7 @@ export default function Home() {
           <SecHeader
             open={aberto.has("sinais")}
             onToggle={() => toggleSec("sinais")}
-            dot="bg-orange-400"
+            dot="bg-warning"
             title="Saúde do negócio & o que olhar agora"
             hint={statusSaude.label}
           />
@@ -703,7 +703,7 @@ export default function Home() {
             value={formatCurrency(faturamentoMes)}
             delta={deltaFaturamento}
             sub={`${formatPercent(faturamentoVsMeta)} da meta`}
-            subColor={faturamentoVsMeta >= 100 ? "text-green-400" : faturamentoVsMeta >= 60 ? "text-amber-400" : "text-destructive"}
+            subColor={faturamentoVsMeta >= 100 ? "text-success" : faturamentoVsMeta >= 60 ? "text-warning" : "text-destructive"}
             icon={TrendingUp}
             onClick={() => setDetalhe({ title: "Faturamento (NFs emitidas)", items: detItens.faturamento, valueField: "total" })}
             loading={financialLoading}
@@ -713,7 +713,7 @@ export default function Home() {
             label="Resultado do período"
             regime="competência"
             value={formatCurrency(margemLiquida.valor)}
-            valueColor={margemLiquida.valor >= 0 ? "text-green-400" : "text-destructive"}
+            valueColor={margemLiquida.valor >= 0 ? "text-success" : "text-destructive"}
             delta={deltaResultado}
             sub={margemLiquida.valor >= 0 ? "lucro" : "prejuízo"}
             icon={Target}
@@ -743,23 +743,23 @@ export default function Home() {
 
         {/* Resultado econômico (competência) */}
         <div>
-          <SecHeader open={aberto.has("resultado")} onToggle={() => toggleSec("resultado")} dot="bg-emerald-400" title="Resultado econômico · competência" hint={`margem líquida ${formatPercent(margemLiquida.pct)}`} />
+          <SecHeader open={aberto.has("resultado")} onToggle={() => toggleSec("resultado")} dot="bg-success" title="Resultado econômico · competência" hint={`margem líquida ${formatPercent(margemLiquida.pct)}`} />
           {aberto.has("resultado") && (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
           <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
-          <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-amber-400" : "text-green-400"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
-          <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-amber-400" : "text-green-400"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-warning" : "text-success"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-warning" : "text-success"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
+          <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-warning" : "text-success"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Sobra após custos diretos" termo="margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Sobra após variáveis" termo="margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
           <MetricCard label="Sobra no fim" termo="margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
-          <MetricCard label="Faturamento pra empatar" termo="ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-amber-400" : "text-green-400"} icon={Scale} loading={financialLoading} />
+          <MetricCard label="Faturamento pra empatar" termo="ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-warning" : "text-success"} icon={Scale} loading={financialLoading} />
           <MetricCard
             label="Custo da sua hora"
             termo="custo hora · estrutura"
             value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
             sub={custoHora != null ? `${formatCurrency(custosFixos / nMesesPeriodo)}/mês ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
-            subColor={custoHora != null ? undefined : "text-amber-400"}
+            subColor={custoHora != null ? undefined : "text-warning"}
             icon={Clock}
             onClick={custoHora == null ? () => navigate("/configuracoes/contexto") : undefined}
             loading={financialLoading}
@@ -771,17 +771,17 @@ export default function Home() {
 
         {/* Caixa (vencimento) */}
         <div>
-          <SecHeader open={aberto.has("caixa")} onToggle={() => toggleSec("caixa")} dot="bg-sky-400" title="Caixa · vencimento" hint={`geração ${formatCurrency(geracaoCaixa)}`} />
+          <SecHeader open={aberto.has("caixa")} onToggle={() => toggleSec("caixa")} dot="bg-info" title="Caixa · vencimento" hint={`geração ${formatCurrency(geracaoCaixa)}`} />
           {aberto.has("caixa") && (
           <div className="space-y-3 mt-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricCard label="A receber" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no período"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no período", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
-          <MetricCard label="Total a pagar" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-amber-400" : "text-green-400"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no período", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no período" subColor="text-green-400" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no período (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-warning" : "text-success"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no período", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no período" subColor="text-success" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no período (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-green-400" : "text-destructive"} icon={Banknote} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} sub={`período completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-green-400" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-success" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-success" : "text-destructive"} icon={Banknote} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} sub={`período completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
         </div>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">
@@ -827,7 +827,7 @@ export default function Home() {
 
         {/* Principais categorias de custo (mês) */}
         <div>
-          <SecHeader open={aberto.has("categorias")} onToggle={() => toggleSec("categorias")} dot="bg-amber-400" title="Principais categorias de custo" hint={topCategoriasCusto.length ? `${topCategoriasCusto.length} categorias` : ""} />
+          <SecHeader open={aberto.has("categorias")} onToggle={() => toggleSec("categorias")} dot="bg-warning" title="Principais categorias de custo" hint={topCategoriasCusto.length ? `${topCategoriasCusto.length} categorias` : ""} />
           {aberto.has("categorias") && (
           <div className="space-y-2 mt-2 px-1">
             {topCategoriasCusto.length === 0 ? (
@@ -879,7 +879,7 @@ export default function Home() {
       </section>
 
       <section>
-        <SecHeader open={aberto.has("tendencia")} onToggle={() => toggleSec("tendencia")} dot="bg-violet-400" title={`Tendência — 3 meses fechados${trailingLabel ? ` (${trailingLabel})` : ""}`} hint={`líquida ${formatPercent(trailing.margemLiquidaPct)}`} />
+        <SecHeader open={aberto.has("tendencia")} onToggle={() => toggleSec("tendencia")} dot="bg-roxo" title={`Tendência — 3 meses fechados${trailingLabel ? ` (${trailingLabel})` : ""}`} hint={`líquida ${formatPercent(trailing.margemLiquidaPct)}`} />
         {aberto.has("tendencia") && (
           <div className="mt-2">
             <p className="text-xs text-muted-foreground mb-3">
@@ -888,16 +888,16 @@ export default function Home() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground">Margem líquida (3m) <span className="text-[9px] uppercase text-emerald-400">comp.</span></p>
+                <p className="text-xs text-muted-foreground">Margem líquida (3m) <span className="text-[9px] uppercase text-success">comp.</span></p>
                 <p className={`text-lg font-heading font-bold ${marginColor(trailing.margemLiquidaPct)}`}>{formatPercent(trailing.margemLiquidaPct)}</p>
               </div>
               <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground">Margem de caixa (3m) <span className="text-[9px] uppercase text-sky-400">caixa</span></p>
-                <p className={`text-lg font-heading font-bold ${trailing.margemCaixaPct >= 0 ? "text-green-400" : "text-destructive"}`}>{formatPercent(trailing.margemCaixaPct)}</p>
+                <p className="text-xs text-muted-foreground">Margem de caixa (3m) <span className="text-[9px] uppercase text-info">caixa</span></p>
+                <p className={`text-lg font-heading font-bold ${trailing.margemCaixaPct >= 0 ? "text-success" : "text-destructive"}`}>{formatPercent(trailing.margemCaixaPct)}</p>
               </div>
               <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
-                <p className="text-xs text-muted-foreground">Geração de caixa média/mês <span className="text-[9px] uppercase text-sky-400">caixa</span></p>
-                <p className={`text-lg font-heading font-bold ${trailing.geracaoCaixaMedia >= 0 ? "text-green-400" : "text-destructive"}`}>{formatCurrency(trailing.geracaoCaixaMedia)}</p>
+                <p className="text-xs text-muted-foreground">Geração de caixa média/mês <span className="text-[9px] uppercase text-info">caixa</span></p>
+                <p className={`text-lg font-heading font-bold ${trailing.geracaoCaixaMedia >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(trailing.geracaoCaixaMedia)}</p>
               </div>
             </div>
           </div>

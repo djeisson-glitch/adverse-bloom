@@ -17,8 +17,8 @@ type Atividade = {
 };
 
 const ACAO_META: Record<string, { icon: any; cls: string }> = {
-  criou:     { icon: Plus,      cls: "text-emerald-400 bg-emerald-500/10" },
-  atualizou: { icon: RefreshCw, cls: "text-blue-400 bg-blue-500/10" },
+  criou:     { icon: Plus,      cls: "text-success bg-emerald-500/10" },
+  atualizou: { icon: RefreshCw, cls: "text-info bg-blue-500/10" },
   removeu:   { icon: Trash2,    cls: "text-destructive bg-destructive/10" },
 };
 

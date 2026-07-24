@@ -34,9 +34,9 @@ type Fatura = {
 const MODELO_LABEL: Record<string, string> = { horas: "Por hora", tabela: "Tabela", contrato: "Contrato" };
 const STATUS: Record<string, { label: string; cls: string; next?: string; nextLabel?: string }> = {
   rascunho: { label: "Rascunho", cls: "bg-muted text-muted-foreground", next: "revisado", nextLabel: "Marcar revisado" },
-  revisado: { label: "Revisado", cls: "bg-blue-500/20 text-blue-400 border-blue-500/30", next: "enviado", nextLabel: "Marcar enviado" },
-  enviado: { label: "Enviado", cls: "bg-amber-500/20 text-amber-400 border-amber-500/30", next: "faturado", nextLabel: "Marcar faturado" },
-  faturado: { label: "Faturado", cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  revisado: { label: "Revisado", cls: "bg-blue-500/20 text-info border-blue-500/30", next: "enviado", nextLabel: "Marcar enviado" },
+  enviado: { label: "Enviado", cls: "bg-amber-500/20 text-warning border-amber-500/30", next: "faturado", nextLabel: "Marcar faturado" },
+  faturado: { label: "Faturado", cls: "bg-emerald-500/20 text-success border-emerald-500/30" },
 };
 
 function mesPrimeiroDia(offset = 0) {
@@ -200,7 +200,7 @@ export default function FaturamentoMensal() {
 
                       {/* Saúde (contrato/tabela × nosso valor-hora) */}
                       {saude && (
-                        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${dif >= 0 ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400" : "border-destructive/30 bg-destructive/5 text-destructive"}`}>
+                        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${dif >= 0 ? "border-emerald-500/30 bg-emerald-500/5 text-success" : "border-destructive/30 bg-destructive/5 text-destructive"}`}>
                           {dif >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                           <span>
                             Cobrando <b>{formatCurrency(saude.valor_cobrado)}</b> · por horas ao nosso valor-tabela ({formatCurrency(saude.valor_hora_referencia)}/h × {fmtHoras(saude.horas_total)}) daria <b>{formatCurrency(saude.valor_equivalente_horas)}</b> → {dif >= 0 ? "acima" : "abaixo"} em <b>{formatCurrency(Math.abs(dif))}</b>
@@ -226,7 +226,7 @@ export default function FaturamentoMensal() {
                           <div className="space-y-1">
                             {f.detalhe.itens.map((it: any, i: number) => (
                               <div key={i} className="flex items-center justify-between text-xs">
-                                <span className="truncate text-muted-foreground">{it.entregavel} {it.tipo ? `· ${it.tipo}` : <span className="text-amber-400">· sem preço</span>}</span>
+                                <span className="truncate text-muted-foreground">{it.entregavel} {it.tipo ? `· ${it.tipo}` : <span className="text-warning">· sem preço</span>}</span>
                                 <span className="text-foreground">{formatCurrency(it.preco || 0)}</span>
                               </div>
                             ))}
@@ -256,7 +256,7 @@ export default function FaturamentoMensal() {
                           titulo={`Fora do fechamento — faturar à parte (${f.detalhe.avulsos.length})`}
                         >
                           <div className="space-y-1 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
-                            <p className="text-[11px] text-amber-500">
+                            <p className="text-[11px] text-warning">
                               Estes projetos NÃO estão somados no total deste rascunho.
                             </p>
                             {f.detalhe.avulsos.map((a: any, i: number) => (
@@ -321,7 +321,7 @@ export default function FaturamentoMensal() {
                             excedente da franquia (o fixo é faturado por fora). */}
                         {(f as any).invoice_id ? (
                           <Link to="/faturamento">
-                            <Button size="sm" variant="ghost" className="text-emerald-500">
+                            <Button size="sm" variant="ghost" className="text-success">
                               <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Faturado — ver fatura
                             </Button>
                           </Link>

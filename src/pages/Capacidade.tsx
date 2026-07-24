@@ -150,7 +150,7 @@ function CapRow({ row }: { row: Row }) {
       <span className="text-right text-xs text-muted-foreground">
         {(Number(row.horas_faturaveis) + Number(row.horas_diarias || 0)).toFixed(1)}h / {row.capacidade}h
         {Number(row.horas_diarias) > 0 && (
-          <span className="ml-1 text-amber-400" title="inclui diárias de gravação">🎥</span>
+          <span className="ml-1 text-warning" title="inclui diárias de gravação">🎥</span>
         )}
       </span>
     </div>

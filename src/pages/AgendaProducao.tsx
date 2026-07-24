@@ -79,7 +79,7 @@ function SyncBadge({ saida }: { saida: SaidaProducao }) {
   const s = saida.gcal_sync_status;
   if (saida.gcal_event_id && s === "ok")
     return (
-      <span className="flex items-center gap-1 text-[11px] text-emerald-400" title="Publicado no Google Agenda">
+      <span className="flex items-center gap-1 text-[11px] text-success" title="Publicado no Google Agenda">
         <CheckCircle2 className="h-3.5 w-3.5" /> Google
       </span>
     );
@@ -177,7 +177,7 @@ export default function AgendaProducao() {
         <div
           className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
             gcal.configured
-              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-success"
               : "border-warning/30 bg-warning/5 text-warning"
           }`}
         >

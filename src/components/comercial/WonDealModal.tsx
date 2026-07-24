@@ -47,7 +47,7 @@ export function WonDealModal({ open, dealTitle, clientName, profiles, followupDa
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-emerald-500" />
+            <Trophy className="h-5 w-5 text-success" />
             Fechar negócio?
           </DialogTitle>
         </DialogHeader>

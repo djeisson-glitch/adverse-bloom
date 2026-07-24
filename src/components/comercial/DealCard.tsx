@@ -68,7 +68,7 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
           {linkedProject ? (
             <Badge
               variant="outline"
-              className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer"
+              className="text-[10px] bg-emerald-500/20 text-success border-emerald-500/30 cursor-pointer"
               onClick={(e) => { e.stopPropagation(); navigate("/projetos"); }}
             >
               Em Produção →
@@ -101,7 +101,7 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
             <span />
           )}
           {pendingTaskCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[11px] text-amber-400">
+            <span className="flex items-center gap-0.5 text-[11px] text-warning">
               <ListChecks className="h-3 w-3" />
               {pendingTaskCount}
             </span>

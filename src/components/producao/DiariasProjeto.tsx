@@ -105,7 +105,7 @@ export function DiariasProjeto({
       <CardContent className="p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-amber-400" />
+            <CalendarClock className="h-4 w-4 text-warning" />
             <p className="text-sm font-semibold text-foreground">Diárias de gravação</p>
             <span className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
               {agendadas.length}{contratadas > 0 ? ` de ${contratadas}` : ""} agendada{agendadas.length === 1 ? "" : "s"}
@@ -113,7 +113,7 @@ export function DiariasProjeto({
             </span>
           </div>
           {!abrindo && (
-            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-amber-400 hover:text-amber-300" onClick={() => setAbrindo(true)}>
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-warning hover:text-warning" onClick={() => setAbrindo(true)}>
               <Plus className="h-3.5 w-3.5" /> Agendar diária
             </Button>
           )}
@@ -121,7 +121,7 @@ export function DiariasProjeto({
 
         {contratadas > 0 && (
           <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${Math.min(100, Math.round((agendadas.length / contratadas) * 100))}%` }} />
+            <div className="h-full rounded-full bg-warning transition-all" style={{ width: `${Math.min(100, Math.round((agendadas.length / contratadas) * 100))}%` }} />
           </div>
         )}
 
@@ -152,7 +152,7 @@ export function DiariasProjeto({
                       type="button"
                       onClick={() => toggleMembro(m.id)}
                       className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        on ? "border-amber-500/50 bg-amber-500/15 text-amber-300" : "border-border/60 text-muted-foreground hover:border-amber-500/30"
+                        on ? "border-amber-500/50 bg-amber-500/15 text-warning" : "border-border/60 text-muted-foreground hover:border-amber-500/30"
                       }`}
                     >
                       {m.name}
@@ -165,7 +165,7 @@ export function DiariasProjeto({
               <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); }}>
                 Cancelar
               </Button>
-              <Button size="sm" className="h-8 bg-amber-500 text-white hover:bg-amber-600" onClick={agendar} disabled={salvar.isPending || !data}>
+              <Button size="sm" className="h-8 bg-amber-500 text-black hover:bg-amber-600" onClick={agendar} disabled={salvar.isPending || !data}>
                 {salvar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Agendar"}
               </Button>
             </div>

@@ -4,11 +4,13 @@ import type { Sinal, SinalAcao, Severidade } from "@/lib/sinais";
 // Mapa visual por severidade — cor = julgamento (bom/atenção/crítico), reforçada
 // por ícone + barra lateral pra não depender só de cor (acessibilidade).
 const ESTILO: Record<Severidade, { barra: string; texto: string; badge: string; rotulo: string }> = {
-  critico:  { barra: "border-l-destructive",     texto: "text-destructive", badge: "text-destructive border-destructive/40", rotulo: "crítico" },
-  alerta:   { barra: "border-l-orange-500",      texto: "text-orange-400",  badge: "text-orange-400 border-orange-500/40",  rotulo: "atenção" },
-  leve:     { barra: "border-l-amber-400/60",    texto: "text-amber-300",   badge: "text-amber-300 border-amber-400/40",    rotulo: "de olho" },
-  destaque: { barra: "border-l-green-400",       texto: "text-green-400",   badge: "text-green-400 border-green-400/40",    rotulo: "oportunidade" },
-  normal:   { barra: "border-l-emerald-400/70",  texto: "text-emerald-400", badge: "text-emerald-400 border-emerald-400/40", rotulo: "oportunidade" },
+  critico:  { barra: "border-l-destructive",    texto: "text-destructive", badge: "text-destructive border-destructive/40", rotulo: "crítico" },
+  alerta:   { barra: "border-l-warning",        texto: "text-warning",     badge: "text-warning border-warning/40",         rotulo: "atenção" },
+  // `leve` é o mesmo âmbar de `alerta` com a barra mais fraca — quem separa os
+  // dois é o rótulo, não o matiz (dois âmbares vizinhos ninguém distingue).
+  leve:     { barra: "border-l-warning/50",     texto: "text-warning",     badge: "text-warning border-warning/40",         rotulo: "de olho" },
+  destaque: { barra: "border-l-success",        texto: "text-success",     badge: "text-success border-success/40",         rotulo: "oportunidade" },
+  normal:   { barra: "border-l-success/70",     texto: "text-success",     badge: "text-success border-success/40",         rotulo: "oportunidade" },
 };
 
 function SinalCard({ sinal, onAcao }: { sinal: Sinal; onAcao: (a: SinalAcao) => void }) {
@@ -26,7 +28,7 @@ function SinalCard({ sinal, onAcao }: { sinal: Sinal; onAcao: (a: SinalAcao) => 
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-foreground">{sinal.prova}</span>
         {sinal.regime && (
-          <span className={`shrink-0 text-[9px] font-medium uppercase tracking-wider ${sinal.regime === "competência" ? "text-emerald-400/70" : "text-sky-400/70"}`}>
+          <span className={`shrink-0 text-[9px] font-medium uppercase tracking-wider ${sinal.regime === "competência" ? "text-success/70" : "text-info/70"}`}>
             {sinal.regime}
           </span>
         )}
@@ -71,9 +73,9 @@ export function PainelSinais({ sinais, onAcao, loading }: { sinais: Sinal[]; onA
         </div>
       ) : sinais.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-green-400" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
           <div>
-            <p className="text-sm font-semibold text-green-400">Está tudo em ordem</p>
+            <p className="text-sm font-semibold text-success">Está tudo em ordem</p>
             <p className="text-xs text-muted-foreground">Nenhum ponto exige sua atenção agora no período selecionado.</p>
           </div>
         </div>

@@ -33,8 +33,8 @@ export const TIPO_SAIDA_META: Record<TipoSaida, { label: string; emoji: string; 
 
 export const STATUS_SAIDA_META: Record<StatusSaida, { label: string; className: string }> = {
   agendada: { label: "Agendada", className: "bg-muted text-muted-foreground" },
-  confirmada: { label: "Confirmada", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-  realizada: { label: "Realizada", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+  confirmada: { label: "Confirmada", className: "bg-emerald-500/20 text-success border-emerald-500/30" },
+  realizada: { label: "Realizada", className: "bg-blue-500/20 text-info border-blue-500/30" },
   cancelada: { label: "Cancelada", className: "bg-destructive/20 text-destructive border-destructive/30" },
 };
 

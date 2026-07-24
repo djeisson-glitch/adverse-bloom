@@ -63,15 +63,15 @@ const TIPO_ICON: Record<Tipo, any> = {
 
 const SECOES: { id: Bucket; label: string; hint: string; icon: any; cor: string }[] = [
   { id: "atrasado",  label: "Atrasado",        hint: "passou do prazo — resolve primeiro", icon: AlertTriangle, cor: "text-destructive" },
-  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-amber-400" },
-  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-blue-400" },
+  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-warning" },
+  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-info" },
   { id: "andamento", label: "Em andamento",    hint: "seu trabalho aberto",                icon: ListChecks,    cor: "text-muted-foreground" },
 ];
 
 const TONE_CHIP: Record<string, string> = {
   red: "bg-destructive/15 text-destructive border-destructive/30",
-  amber: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  purple: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+  amber: "bg-amber-500/15 text-warning border-amber-500/30",
+  purple: "bg-purple-500/15 text-roxo border-purple-500/30",
 };
 
 // Botões de fluxo por item — mesma linguagem visual dos de dentro do entregável.
@@ -79,7 +79,7 @@ type BtnCfg = { kind: string; label: string; Icon: any; cls: string; outline?: b
 const CLS_PRIMARY = "bg-primary text-primary-foreground hover:bg-primary/90";
 const CLS_SUCCESS = "bg-success text-white hover:bg-success/90";
 const CLS_AJUSTE = "text-destructive hover:text-destructive";
-const CLS_ALTER = "text-amber-500 hover:text-amber-500";
+const CLS_ALTER = "text-warning hover:text-warning";
 
 function botoesDoItem(it: Item): BtnCfg[] {
   const s = it.d?.status;
@@ -357,7 +357,7 @@ export default function MinhaMesa() {
   const feed = total === 0 ? (
     <Card className="glass-card">
       <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
-        <Sparkles className="h-8 w-8 text-emerald-400" />
+        <Sparkles className="h-8 w-8 text-success" />
         <p className="text-base font-medium text-foreground">Tudo em dia 🎉</p>
         <p className="text-sm text-muted-foreground">Nada precisa de você agora.</p>
       </CardContent>
@@ -400,7 +400,7 @@ export default function MinhaMesa() {
         <div className="flex flex-wrap gap-2">
           {porBucket.atrasado.length > 0 && <Chip cor={TONE_CHIP.red} n={porBucket.atrasado.length} label="atrasado" />}
           {porBucket.espera.length > 0 && <Chip cor={TONE_CHIP.amber} n={porBucket.espera.length} label="te esperando" />}
-          {porBucket.semana.length > 0 && <Chip cor="bg-blue-500/15 text-blue-400 border-blue-500/30" n={porBucket.semana.length} label="esta semana" />}
+          {porBucket.semana.length > 0 && <Chip cor="bg-blue-500/15 text-info border-blue-500/30" n={porBucket.semana.length} label="esta semana" />}
         </div>
       </div>
 
@@ -448,7 +448,7 @@ function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boo
             )}
           </div>
           <p className="truncate text-xs text-muted-foreground" title={it.contexto}>{it.contexto}</p>
-          {it.nota && <p className="mt-0.5 truncate text-[11px] font-medium text-amber-400" title={it.nota}>↻ {it.nota}</p>}
+          {it.nota && <p className="mt-0.5 truncate text-[11px] font-medium text-warning" title={it.nota}>↻ {it.nota}</p>}
           {it.due && (
             <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
               {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{atrasado ? " · atrasado" : ""}

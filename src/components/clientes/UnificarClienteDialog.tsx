@@ -82,7 +82,7 @@ export function UnificarClienteDialog({
           </Select>
 
           {manter && (
-            <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
                 Não dá pra desfazer. Depois disso vai existir só <b>{rotulo(manter)}</b>.

@@ -28,8 +28,8 @@ type Demanda = {
 
 const STATUS_BADGE: Record<string, string> = {
   nova: "bg-primary/15 text-primary",
-  aceita: "bg-blue-500/15 text-blue-400",
-  recusada: "bg-red-500/15 text-red-400",
+  aceita: "bg-blue-500/15 text-info",
+  recusada: "bg-red-500/15 text-destructive",
   virou_projeto: "bg-success/15 text-success",
 };
 const STATUS_LABEL: Record<string, string> = {
@@ -222,7 +222,7 @@ export default function Demandas() {
                       </span>
                     )}
                     {d.viabilidade?.earliest && (
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${noPrazo ? "bg-success/15 text-success" : "bg-amber-500/15 text-amber-500"}`}>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${noPrazo ? "bg-success/15 text-success" : "bg-amber-500/15 text-warning"}`}>
                         {noPrazo ? "no prazo" : "apertado"}
                       </span>
                     )}
@@ -236,7 +236,7 @@ export default function Demandas() {
                         <Info label="Recebida">{formatDate(d.created_at)}</Info>
                         <Info label="Prazo pedido">{fmtDateTime(d.prazo_desejado)}</Info>
                         <Info label="Podemos entregar até">
-                          <span className={noPrazo ? "text-success" : "text-amber-500"}>{fmtDateTime(d.viabilidade?.earliest)}</span>
+                          <span className={noPrazo ? "text-success" : "text-warning"}>{fmtDateTime(d.viabilidade?.earliest)}</span>
                         </Info>
                       </div>
 
@@ -246,8 +246,8 @@ export default function Demandas() {
                           Fila do editor {Number(d.viabilidade.carga_horas || 0)}h + edição {Number(d.viabilidade.demanda_horas || 0)}h + revisão {Number(d.viabilidade.revisao_horas || 0)}h = <strong>{Number(d.viabilidade.total_horas || 0)}h úteis</strong>.
                           {d.viabilidade.complexidade && <> · complexidade da entrega: <strong>{d.viabilidade.complexidade}</strong></>}
                           {d.viabilidade.rodadas != null && <> · alteração projetada: <strong>{d.viabilidade.rodadas}×</strong> {d.viabilidade.rodadas_hist ? "(histórico do cliente)" : "(fator manual)"}</>}
-                          {d.viabilidade.calibrado && <> · <strong className="text-amber-500">edição ×{d.viabilidade.calib_cliente}</strong> (o "simples" deste cliente costuma render mais — aprendido do timesheet)</>}
-                          {d.viabilidade.sem_editor && <span className="text-amber-500"> · Sem editor configurado pro cliente — estimativa considera só a nova demanda.</span>}
+                          {d.viabilidade.calibrado && <> · <strong className="text-warning">edição ×{d.viabilidade.calib_cliente}</strong> (o "simples" deste cliente costuma render mais — aprendido do timesheet)</>}
+                          {d.viabilidade.sem_editor && <span className="text-warning"> · Sem editor configurado pro cliente — estimativa considera só a nova demanda.</span>}
                         </div>
                       )}
 
@@ -256,7 +256,7 @@ export default function Demandas() {
                         const ia = d.ia_complexidade;
                         const analisando = analisar.isPending && analisar.variables === d.id;
                         const cor = (c: string) =>
-                          c === "alta" ? "bg-amber-500/15 text-amber-500" : c === "baixa" ? "bg-success/15 text-success" : "bg-primary/15 text-primary";
+                          c === "alta" ? "bg-amber-500/15 text-warning" : c === "baixa" ? "bg-success/15 text-success" : "bg-primary/15 text-primary";
                         return (
                           <div className="rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
                             <div className="flex items-center justify-between">
@@ -292,7 +292,7 @@ export default function Demandas() {
                                   <ul className="space-y-0.5">
                                     {ia.riscos.map((r: string, i: number) => (
                                       <li key={i} className="flex items-start gap-1">
-                                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-warning" />
                                         <span className="text-muted-foreground">{r}</span>
                                       </li>
                                     ))}

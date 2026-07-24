@@ -1387,13 +1387,15 @@ function LinhaEntregavel({
 // Cor por grupo de semelhança — o que separa visualmente um bloco do outro.
 // Fica na ordem em que os grupos aparecem (maior primeiro), então o olho
 // aprende o padrão. "Avulsos" é sempre neutro: não é uma família, é o resto.
+// O `light:` escurece o matiz no tema claro: o -500 puro fica em ~2,2:1 no
+// branco. A família continua sendo reconhecida pela cor, só que legível.
 const CORES_GRUPO = [
   { borda: "border-l-primary", chip: "bg-primary/15 text-primary" },
-  { borda: "border-l-blue-500", chip: "bg-blue-500/15 text-blue-500" },
-  { borda: "border-l-emerald-500", chip: "bg-emerald-500/15 text-emerald-500" },
-  { borda: "border-l-purple-500", chip: "bg-purple-500/15 text-purple-500" },
-  { borda: "border-l-amber-500", chip: "bg-amber-500/15 text-amber-500" },
-  { borda: "border-l-cyan-500", chip: "bg-cyan-500/15 text-cyan-500" },
+  { borda: "border-l-blue-500", chip: "bg-blue-500/15 text-blue-500 light:text-blue-700" },
+  { borda: "border-l-emerald-500", chip: "bg-emerald-500/15 text-emerald-500 light:text-emerald-700" },
+  { borda: "border-l-purple-500", chip: "bg-purple-500/15 text-purple-500 light:text-purple-700" },
+  { borda: "border-l-amber-500", chip: "bg-amber-500/15 text-amber-500 light:text-amber-700" },
+  { borda: "border-l-cyan-500", chip: "bg-cyan-500/15 text-cyan-500 light:text-cyan-700" },
 ] as const;
 
 const COR_AVULSOS = {
