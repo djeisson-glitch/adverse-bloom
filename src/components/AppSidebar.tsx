@@ -147,6 +147,7 @@ const GRUPOS: NavGrupo[] = [
     itens: [
       { title: "Time", url: "/time", icon: UsersRound, module: "time" },
       { title: "Fornecedores", url: "/fornecedores", icon: Truck, module: "fornecedores" },
+      { title: "Freelas & Fornecedores", url: "/banco-talentos", icon: UsersRound },
       { title: "Notificações", url: "/notificacoes", icon: Bell },
       { title: "Log geral", url: "/atividades", icon: History, module: "admin" },
       { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
