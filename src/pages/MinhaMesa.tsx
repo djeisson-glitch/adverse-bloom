@@ -451,19 +451,25 @@ function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boo
       <Link to={it.link} className="flex min-w-0 flex-1 items-start gap-2.5">
         <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${atrasado ? "text-destructive" : "text-muted-foreground"}`} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium leading-tight text-foreground" title={it.titulo}>
+          {/* Título QUEBRA em vez de cortar: o nome completo do entregável é
+              o que identifica a peça (pedido antigo). Só o contexto abaixo,
+              que é secundário, pode ser truncado. */}
+          <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
             {it.titulo}
           </p>
+          {/* Prazo PRIMEIRO: numa linha truncada, o que está no fim é o que
+              some — e o prazo é justamente o que não pode sumir. O código do
+              projeto, que é o mais longo, fica por último de propósito. */}
           <p className="truncate text-xs text-muted-foreground">
-            {ehEntreg && <span className="text-muted-foreground/80">{statusLabel(it.d.status)} · </span>}
-            <span title={it.contexto}>{it.contexto}</span>
             {it.due && (
-              <span className={atrasado ? "font-medium text-destructive" : ""}>
-                {" · "}
+              <span className={atrasado ? "font-medium text-destructive" : "text-foreground/70"}>
                 {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                {atrasado ? " atrasado" : ""}
+                {atrasado ? " · atrasado" : ""}
+                {" · "}
               </span>
             )}
+            {ehEntreg && <span>{statusLabel(it.d.status)} · </span>}
+            <span title={it.contexto}>{it.contexto}</span>
           </p>
           {it.nota && <p className="truncate text-[11px] text-muted-foreground" title={it.nota}>↻ {it.nota}</p>}
         </div>
