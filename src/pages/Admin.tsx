@@ -1,4 +1,4 @@
-import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package, ShieldAlert } from "lucide-react";
+import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package, ShieldAlert, BellRing } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -77,6 +77,12 @@ export default function Admin() {
       title: "Aprovações",
       icon: ShieldCheck,
       count: () => "Revisão 1 / 2 dos entregáveis + cliente",
+    },
+    {
+      href: "/admin/notificacoes",
+      title: "Notificações do time",
+      icon: BellRing,
+      count: () => "O que cada pessoa recebe",
     },
     {
       href: "/admin/rate-card",

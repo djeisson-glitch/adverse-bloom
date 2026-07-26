@@ -1,16 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, BellRing, BellOff, Check, Loader2, Volume2, VolumeX } from "lucide-react";
+import { Bell, BellRing, BellOff, Check, Loader2, Volume2, VolumeX, Monitor } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNotificacoes, SOM_CHAVE, somLigado, tocarAviso } from "@/hooks/useNotificacoes";
 import { ItemNotificacao } from "@/components/NotificacoesSino";
 import { InstalarApp } from "@/components/InstalarApp";
+import { PreferenciasNotificacao } from "@/components/notificacoes/PreferenciasNotificacao";
+import { useTiposNotif, ROTULO_NIVEL } from "@/hooks/useNotifPrefs";
 import { supabase } from "@/integrations/supabase/client";
 import {
   ativarPush, desativarPush, pushAtivo, pushSuportado, pushConfigurado, permissaoAtual,
 } from "@/lib/push";
 import { toast } from "sonner";
+
+/**
+ * Quando o push "não chega com tudo fechado", quase nunca é o Adverse OS: é o
+ * sistema operacional segurando o navegador. Detecta o SO e mostra só o passo
+ * que serve pra aquela máquina, em vez de um texto genérico.
+ */
+function AjudaSistema() {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const mac = /Macintosh|Mac OS X/i.test(ua);
+  const win = /Windows/i.test(ua);
+  if (!mac && !win) return null;
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="flex items-start gap-2 p-4">
+        <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Não está chegando com o sistema fechado?</p>
+          {mac ? (
+            <p className="text-xs text-muted-foreground">
+              No macOS, abra <strong className="text-foreground">Ajustes do Sistema → Notificações</strong>, escolha o
+              navegador (ou o <strong className="text-foreground">Adverse OS</strong>, se você instalou como app) e deixe
+              &quot;Permitir notificações&quot; ligado. Confira também se o <strong className="text-foreground">Foco</strong> /
+              Não Perturbe do Mac não está ativo — ele segura tudo antes de chegar aqui.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No Windows, abra <strong className="text-foreground">Configurações → Sistema → Notificações</strong> e deixe
+              o navegador (ou o <strong className="text-foreground">Adverse OS</strong>, se instalou como app) ligado.
+              Confira também o <strong className="text-foreground">Assistente de Foco</strong>: com ele ativo, o Windows
+              não mostra nada.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            E o essencial: o computador precisa estar <strong className="text-foreground">ligado e com o navegador
+            aberto em segundo plano</strong> (a janela pode estar fechada). Máquina desligada não recebe — a notificação
+            fica esperando aqui na central.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Notificacoes() {
   const navigate = useNavigate();
@@ -19,7 +64,10 @@ export default function Notificacoes() {
   const [mexendo, setMexendo] = useState(false);
   const [testando, setTestando] = useState(false);
   const [filtro, setFiltro] = useState<"todas" | "nao_lidas">("todas");
+  const [nivel, setNivel] = useState<number | null>(null);
+  const [tipo, setTipo] = useState<string>("");
   const [som, setSom] = useState(somLigado());
+  const { data: tipos = [] } = useTiposNotif();
 
   useEffect(() => {
     pushAtivo().then(setPushLigado).catch(() => setPushLigado(false));
@@ -91,7 +139,24 @@ export default function Notificacoes() {
     }
   };
 
-  const visiveis = filtro === "nao_lidas" ? notificacoes.filter((n) => !n.lida_em) : notificacoes;
+  // Só os tipos que realmente apareceram no feed viram opção de filtro — um
+  // select com 15 tipos onde 12 não têm nenhuma linha só atrapalha.
+  const tiposPresentes = useMemo(() => {
+    const vistos = new Set(notificacoes.map((n) => n.tipo));
+    return tipos.filter((t) => vistos.has(t.tipo));
+  }, [tipos, notificacoes]);
+
+  const visiveis = useMemo(
+    () =>
+      notificacoes.filter((n) => {
+        if (filtro === "nao_lidas" && n.lida_em) return false;
+        if (nivel && (n as any).nivel !== nivel) return false;
+        if (tipo && n.tipo !== tipo) return false;
+        return true;
+      }),
+    [notificacoes, filtro, nivel, tipo],
+  );
+  const filtrando = filtro === "nao_lidas" || nivel !== null || !!tipo;
   const bloqueado = permissaoAtual() === "denied";
 
   return (
@@ -183,7 +248,14 @@ export default function Notificacoes() {
         </Card>
       )}
 
-      <div className="flex gap-1.5">
+      {/* Por que às vezes não chega com tudo fechado: quase sempre é o
+          sistema operacional silenciando o navegador, não o Adverse OS. */}
+      <AjudaSistema />
+
+      {/* O que cada um recebe, horários do resumo e não perturbe */}
+      <PreferenciasNotificacao />
+
+      <div className="flex flex-wrap items-center gap-1.5">
         {([["todas", "Todas"], ["nao_lidas", "Não lidas"]] as const).map(([v, l]) => (
           <button
             key={v}
@@ -195,6 +267,33 @@ export default function Notificacoes() {
             {l}
           </button>
         ))}
+
+        <span className="mx-1 h-4 w-px bg-border/60" />
+
+        {[1, 2, 3].map((n) => (
+          <button
+            key={n}
+            onClick={() => setNivel(nivel === n ? null : n)}
+            className={`rounded-md px-2.5 py-1 text-xs ${
+              nivel === n ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40"
+            }`}
+          >
+            {ROTULO_NIVEL[n]}
+          </button>
+        ))}
+
+        {tiposPresentes.length > 1 && (
+          <select
+            className="ml-auto h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          >
+            <option value="">Todos os tipos</option>
+            {tiposPresentes.map((t) => (
+              <option key={t.tipo} value={t.tipo}>{t.rotulo}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <Card className="glass-card">
@@ -205,7 +304,7 @@ export default function Notificacoes() {
             </div>
           ) : visiveis.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              {filtro === "nao_lidas" ? "Nenhuma não lida 🎉" : "Nada por aqui ainda."}
+              {filtrando ? "Nada com esse filtro." : "Nada por aqui ainda."}
             </p>
           ) : (
             visiveis.map((n) => (
