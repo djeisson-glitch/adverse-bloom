@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Receipt, ChevronLeft, ChevronRight, RefreshCw, ChevronDown, TrendingUp, TrendingDown,
-  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2,
+  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2, Info,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -72,6 +72,53 @@ export default function FaturamentoMensal() {
       return data as Fatura[];
     },
   });
+
+  /**
+   * Onde estão as horas, de verdade.
+   *
+   * A tela abre no MÊS ANTERIOR (é o que se fatura). Quando esse mês está
+   * vazio — como no começo do uso do sistema — a tela mostra R$ 0,00 e parece
+   * quebrada, sem dizer que as horas existem, só que noutro mês. E pior:
+   * hora de cliente SEM faturamento configurado não entra em rascunho
+   * nenhum e some sem ninguém ver. Estes dois avisos existem por isso.
+   */
+  const { data: panorama } = useQuery({
+    queryKey: ["faturamento-panorama"],
+    queryFn: async () => {
+      const [te, proj, cli, cfg] = await Promise.all([
+        (supabase as any).from("time_entries").select("project_id, start_at, duration_min").eq("billable", true),
+        (supabase as any).from("projects").select("id, client_id"),
+        (supabase as any).from("clients").select("id, name"),
+        (supabase as any).from("client_faturamento").select("client_id, modelo"),
+      ]);
+      const clienteDoProjeto = new Map<string, string>();
+      for (const p of proj.data || []) if (p.client_id) clienteDoProjeto.set(p.id, p.client_id);
+      const nomeCliente = new Map<string, string>((cli.data || []).map((c: any) => [c.id, c.name]));
+      const configurado = new Set<string>(
+        (cfg.data || []).filter((c: any) => c.modelo && c.modelo !== "nenhum").map((c: any) => c.client_id),
+      );
+
+      const minPorMes = new Map<string, number>();
+      const semConfig = new Map<string, number>();   // cliente → minutos no mês exibido
+      for (const t of te.data || []) {
+        const mes = (t.start_at || "").slice(0, 7);
+        if (!mes) continue;
+        minPorMes.set(mes, (minPorMes.get(mes) || 0) + (t.duration_min || 0));
+
+        const cid = clienteDoProjeto.get(t.project_id);
+        if (cid && !configurado.has(cid) && mes === ref.slice(0, 7)) {
+          semConfig.set(cid, (semConfig.get(cid) || 0) + (t.duration_min || 0));
+        }
+      }
+      return {
+        meses: [...minPorMes.entries()].filter(([, m]) => m > 0).sort((a, b) => b[0].localeCompare(a[0])),
+        semConfig: [...semConfig.entries()].map(([id, min]) => ({ nome: nomeCliente.get(id) || "Cliente", horas: min / 60 })),
+      };
+    },
+  });
+
+  const mesAtualTemHora = (panorama?.meses || []).some(([m]) => m === ref.slice(0, 7));
+  const outrosMeses = (panorama?.meses || []).filter(([m]) => m !== ref.slice(0, 7));
 
   const gerar = useMutation({
     mutationFn: async () => {
@@ -141,6 +188,59 @@ export default function FaturamentoMensal() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Mês exibido sem NENHUMA hora, mas existe hora noutro mês: diz onde
+          está, em vez de mostrar R$ 0,00 e deixar parecendo defeito. */}
+      {!mesAtualTemHora && outrosMeses.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm">
+          <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            Nenhuma hora apontada em <span className="capitalize text-foreground">{mesLabel}</span>.
+            {" "}As horas estão em:
+          </span>
+          {outrosMeses.slice(0, 3).map(([m, min]) => {
+            const [y, mm] = m.split("-").map(Number);
+            const rotulo = new Date(y, mm - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+            return (
+              <Button
+                key={m}
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs capitalize"
+                onClick={() => setRef(`${m}-01`)}
+              >
+                {rotulo} · {(min / 60).toFixed(1)}h
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hora de cliente sem modelo de cobrança não entra em rascunho nenhum
+          — é dinheiro que evapora em silêncio. */}
+      {(panorama?.semConfig?.length || 0) > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            Horas que não vão virar fatura
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Estes clientes têm hora apontada em <span className="capitalize">{mesLabel}</span> mas nenhum modelo de
+            cobrança na ficha — não entram no rascunho:
+          </p>
+          <ul className="mt-1.5 space-y-0.5">
+            {panorama!.semConfig.map((c) => (
+              <li key={c.nome} className="text-xs text-foreground">
+                <span className="font-medium">{c.nome}</span>
+                <span className="text-muted-foreground"> · {c.horas.toFixed(1)}h</span>
+              </li>
+            ))}
+          </ul>
+          <Link to="/clientes" className="mt-1.5 inline-block text-[11px] text-primary hover:underline">
+            configurar na ficha do cliente →
+          </Link>
+        </div>
+      )}
 
       {isLoading ? (
         <p className="py-12 text-center text-sm text-muted-foreground">Carregando…</p>
