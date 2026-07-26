@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as Fluxo from "@/lib/fluxoEntregavel";
-import { iconeStatus, statusPill, statusTone, statusLabel } from "@/lib/statusEntregavel";
+import { iconeStatus, statusLabel } from "@/lib/statusEntregavel";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 
@@ -61,25 +61,32 @@ const TIPO_ICON: Record<Tipo, any> = {
   tarefa: ListChecks, demanda: Inbox,
 };
 
+// Só o "Atrasado" tem cor. As outras seções já se distinguem pelo título e
+// pela ordem — pintar cada uma de um tom diferente fazia a tela inteira
+// competir por atenção e, no fim, nada se destacava.
 const SECOES: { id: Bucket; label: string; hint: string; icon: any; cor: string }[] = [
   { id: "atrasado",  label: "Atrasado",        hint: "passou do prazo — resolve primeiro", icon: AlertTriangle, cor: "text-destructive" },
-  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-warning" },
-  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-info" },
+  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-foreground" },
+  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-foreground" },
   { id: "andamento", label: "Em andamento",    hint: "seu trabalho aberto",                icon: ListChecks,    cor: "text-muted-foreground" },
 ];
 
+// Etiquetas do radar do time: neutras. Antes toda linha vinha com etiqueta
+// colorida (e quase todas vermelhas) — com tudo vermelho, nada é urgente.
 const TONE_CHIP: Record<string, string> = {
-  red: "bg-destructive/15 text-destructive border-destructive/30",
-  amber: "bg-amber-500/15 text-warning border-amber-500/30",
-  purple: "bg-purple-500/15 text-roxo border-purple-500/30",
+  red: "bg-muted/60 text-muted-foreground border-border/60",
+  amber: "bg-muted/60 text-muted-foreground border-border/60",
+  purple: "bg-muted/60 text-muted-foreground border-border/60",
 };
 
-// Botões de fluxo por item — mesma linguagem visual dos de dentro do entregável.
+// Botões de fluxo por item.
+//
+// UM acento por linha: a ação principal é sólida, a secundária é texto. Antes
+// eram dois botões sólidos coloridos (verde + âmbar) em cada linha, o que
+// somado ao ícone colorido e à pílula de status dava até 7 cores numa linha só.
 type BtnCfg = { kind: string; label: string; Icon: any; cls: string; outline?: boolean };
 const CLS_PRIMARY = "bg-primary text-primary-foreground hover:bg-primary/90";
-const CLS_SUCCESS = "bg-success text-white hover:bg-success/90";
-const CLS_AJUSTE = "text-destructive hover:text-destructive";
-const CLS_ALTER = "text-warning hover:text-warning";
+const CLS_SECUNDARIO = "text-muted-foreground hover:text-foreground";
 
 function botoesDoItem(it: Item): BtnCfg[] {
   const s = it.d?.status;
@@ -88,13 +95,13 @@ function botoesDoItem(it: Item): BtnCfg[] {
     return [{ kind: "editar", label: s === "em_pausa" ? "Retomar" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
   }
   if (it.tipo === "aprovar") return [
-    { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_SUCCESS },
-    { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_AJUSTE, outline: true },
+    { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_PRIMARY },
+    { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_SECUNDARIO, outline: true },
   ];
   if (it.tipo === "enviar") return [{ kind: "enviarCliente", label: "Enviar ao cliente", Icon: ExternalLink, cls: CLS_PRIMARY }];
   if (it.tipo === "cliente") return [
-    { kind: "clienteAprovou", label: "Cliente aprovou", Icon: CheckCircle2, cls: CLS_SUCCESS },
-    { kind: "alteracaoCliente", label: "Alteração", Icon: MessageSquarePlus, cls: CLS_ALTER, outline: true },
+    { kind: "clienteAprovou", label: "Cliente aprovou", Icon: CheckCircle2, cls: CLS_PRIMARY },
+    { kind: "alteracaoCliente", label: "Alteração", Icon: MessageSquarePlus, cls: CLS_SECUNDARIO, outline: true },
   ];
   return [];
 }
@@ -397,10 +404,17 @@ export default function MinhaMesa() {
             <p className="text-sm text-muted-foreground">O que precisa de você — resolva direto por aqui.</p>
           </div>
         </div>
+        {/* Só o atrasado é vermelho. Os outros dois são contagem, não alarme. */}
         <div className="flex flex-wrap gap-2">
-          {porBucket.atrasado.length > 0 && <Chip cor={TONE_CHIP.red} n={porBucket.atrasado.length} label="atrasado" />}
-          {porBucket.espera.length > 0 && <Chip cor={TONE_CHIP.amber} n={porBucket.espera.length} label="te esperando" />}
-          {porBucket.semana.length > 0 && <Chip cor="bg-blue-500/15 text-info border-blue-500/30" n={porBucket.semana.length} label="esta semana" />}
+          {porBucket.atrasado.length > 0 && (
+            <Chip cor="bg-destructive/15 text-destructive border-destructive/30" n={porBucket.atrasado.length} label="atrasado" />
+          )}
+          {porBucket.espera.length > 0 && (
+            <Chip cor="bg-muted/60 text-muted-foreground border-border/60" n={porBucket.espera.length} label="te esperando" />
+          )}
+          {porBucket.semana.length > 0 && (
+            <Chip cor="bg-muted/60 text-muted-foreground border-border/60" n={porBucket.semana.length} label="esta semana" />
+          )}
         </div>
       </div>
 
@@ -427,33 +441,31 @@ function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boo
   const atrasado = it.due && it.due < hoje;
   const ehEntreg = !!it.d;
   const Icon = ehEntreg ? iconeStatus(it.d.status) : TIPO_ICON[it.tipo];
-  const iconBox = ehEntreg ? statusTone(it.d.status) : "bg-muted/40 text-muted-foreground";
   const botoes = botoesDoItem(it);
 
+  // Uma linha, uma informação por vez: título, contexto e — na mesma linha —
+  // etapa e prazo em texto miúdo. O ícone perdeu a caixa colorida e a etapa
+  // deixou de ser pílula: a cor agora só aparece quando está atrasado.
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-3 last:border-0 hover:bg-sidebar-accent/40">
-      <Link to={it.link} className="flex min-w-0 flex-1 items-start gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBox}`}>
-          <Icon className="h-4 w-4" />
-        </div>
+    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-2.5 last:border-0 hover:bg-sidebar-accent/40">
+      <Link to={it.link} className="flex min-w-0 flex-1 items-start gap-2.5">
+        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${atrasado ? "text-destructive" : "text-muted-foreground"}`} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
-              {it.titulo}
-            </p>
-            {ehEntreg && (
-              <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${statusPill(it.d.status)}`}>
-                {statusLabel(it.d.status)}
+          <p className="truncate text-sm font-medium leading-tight text-foreground" title={it.titulo}>
+            {it.titulo}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {ehEntreg && <span className="text-muted-foreground/80">{statusLabel(it.d.status)} · </span>}
+            <span title={it.contexto}>{it.contexto}</span>
+            {it.due && (
+              <span className={atrasado ? "font-medium text-destructive" : ""}>
+                {" · "}
+                {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                {atrasado ? " atrasado" : ""}
               </span>
             )}
-          </div>
-          <p className="truncate text-xs text-muted-foreground" title={it.contexto}>{it.contexto}</p>
-          {it.nota && <p className="mt-0.5 truncate text-[11px] font-medium text-warning" title={it.nota}>↻ {it.nota}</p>}
-          {it.due && (
-            <p className={`text-[11px] ${atrasado ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-              {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}{atrasado ? " · atrasado" : ""}
-            </p>
-          )}
+          </p>
+          {it.nota && <p className="truncate text-[11px] text-muted-foreground" title={it.nota}>↻ {it.nota}</p>}
         </div>
       </Link>
 
