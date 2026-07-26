@@ -81,6 +81,7 @@ import AdminPage from "./pages/Admin";
 import AdminRateCard from "./pages/AdminRateCard";
 import AdminWorkflows from "./pages/AdminWorkflows";
 import AdminAprovacoes from "./pages/AdminAprovacoes";
+import AdminNotificacoes from "./pages/AdminNotificacoes";
 import PortalCliente from "./pages/PortalCliente";
 import PortalPublico from "./pages/PortalPublico";
 import ContasFees from "./pages/ContasFees";
@@ -212,6 +213,7 @@ const App = () => (
               <Route path="/admin/rate-card" element={<ProtectedRoute><ModuleGuard module="admin"><AdminRateCard /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/workflows" element={<ProtectedRoute><ModuleGuard module="admin"><AdminWorkflows /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/aprovacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminAprovacoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/notificacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminNotificacoes /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />
