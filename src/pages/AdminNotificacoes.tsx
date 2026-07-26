@@ -3,10 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, BellRing, Users, Zap, Clock, Bell } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
-  useTiposNotif, useMatrizNotif, ROTULO_GRUPO, ROTULO_NIVEL,
-  type Modo, type PessoaMatriz,
+  useTiposNotif, useMatrizNotif, useHorasResumo, useSalvarHorasResumo,
+  ROTULO_GRUPO, ROTULO_NIVEL, type Modo,
 } from "@/hooks/useNotifPrefs";
 import { SeletorModo } from "@/components/notificacoes/SeletorModo";
+
+/** Horas oferecidas pro resumo — hora cheia, dentro do expediente. */
+const HORAS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
 /**
  * Painel de notificação por pessoa.
@@ -20,6 +23,8 @@ export default function AdminNotificacoes() {
   const { isAdmin } = usePermissions();   // já inclui manager
   const { data: tipos = [], isLoading: carregandoTipos } = useTiposNotif();
   const { matriz, salvar } = useMatrizNotif();
+  const { data: horas = [] } = useHorasResumo();
+  const salvarHoras = useSalvarHorasResumo();
   const [selecionado, setSelecionado] = useState<string | null>(null);
 
   const pessoas = matriz.data || [];
@@ -66,6 +71,48 @@ export default function AdminNotificacoes() {
           <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-primary" /> <strong className="text-foreground">Na hora</strong> — interrompe, mesmo com o sistema fechado</span>
           <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-primary" /> <strong className="text-foreground">No resumo</strong> — junta e chega nos horários combinados</span>
           <span className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5 text-info" /> <strong className="text-foreground">Só no sino</strong> — fica na central, sem interromper</span>
+        </CardContent>
+      </Card>
+
+      {/* Horários do resumo — decisão da gestão, vale pro sistema inteiro. */}
+      <Card className="glass-card">
+        <CardContent className="p-4">
+          <div className="mb-2 flex items-start gap-2">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Horários do resumo</p>
+              <p className="text-xs text-muted-foreground">
+                Tudo que é <strong className="text-foreground">no resumo</strong> se acumula e sai nestes horários,
+                num aviso só por pessoa. Vale pro time inteiro — ninguém escolhe o seu.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {HORAS.map((h) => {
+              const on = horas.includes(h);
+              return (
+                <button
+                  key={h}
+                  disabled={salvarHoras.isPending}
+                  onClick={() =>
+                    salvarHoras.mutate(
+                      on ? horas.filter((x) => x !== h) : [...horas, h].sort((a, b) => a - b),
+                    )
+                  }
+                  className={`rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-50 ${
+                    on ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  {String(h).padStart(2, "0")}h
+                </button>
+              );
+            })}
+          </div>
+          {horas.length === 0 && (
+            <p className="mt-1.5 text-[11px] text-warning">
+              Sem nenhum horário, o que é &quot;no resumo&quot; nunca vira push — fica só no sino.
+            </p>
+          )}
         </CardContent>
       </Card>
 

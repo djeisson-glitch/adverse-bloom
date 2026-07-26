@@ -73,19 +73,6 @@ export function useMinhasPrefs() {
     },
   });
 
-  const config = useQuery({
-    queryKey: ["notif-config", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("notificacao_config").select("digest_horas, dnd_ate")
-        .eq("user_id", user!.id).maybeSingle();
-      if (error) throw error;
-      // Sem linha = ainda não configurou; vale o padrão da coluna no banco.
-      return (data as any) || { digest_horas: [9, 14, 17], dnd_ate: null };
-    },
-  });
-
   const salvarModo = useMutation({
     mutationFn: async ({ tipo, modo }: { tipo: string; modo: Modo }) => {
       const { error } = await (supabase as any)
@@ -96,21 +83,38 @@ export function useMinhasPrefs() {
     onError: (e: any) => toast.error("Não salvou", { description: e.message }),
   });
 
-  const salvarConfig = useMutation({
-    mutationFn: async (p: { digest_horas?: number[]; dnd_ate?: string | null; limpar_dnd?: boolean }) => {
-      const { error } = await (supabase as any).rpc("notif_config_salvar", {
-        _user_id: user!.id,
-        _digest_horas: p.digest_horas ?? null,
-        _dnd_ate: p.dnd_ate ?? null,
-        _limpar_dnd: p.limpar_dnd ?? false,
-      });
+  return { prefs, salvarModo };
+}
+
+/**
+ * Horários do resumo — GLOBAIS. Quem define é a gestão; pra todo mundo mais
+ * é informação (aparece na tela como "chega às 9h, 14h e 17h").
+ */
+export function useHorasResumo() {
+  return useQuery({
+    queryKey: ["notif-horas-resumo"],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("notificacao_ajustes").select("digest_horas").maybeSingle();
+      if (error) throw error;
+      return ((data as any)?.digest_horas as number[]) || [9, 14, 17];
+    },
+  });
+}
+
+/** Só a gestão salva os horários. */
+export function useSalvarHorasResumo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (horas: number[]) => {
+      const { error } = await (supabase as any)
+        .rpc("notif_ajustes_salvar", { _digest_horas: horas });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notif-config", user?.id] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notif-horas-resumo"] }),
     onError: (e: any) => toast.error("Não salvou", { description: e.message }),
   });
-
-  return { prefs, config, salvarModo, salvarConfig };
 }
 
 /**
