@@ -82,6 +82,9 @@ import AdminRateCard from "./pages/AdminRateCard";
 import AdminWorkflows from "./pages/AdminWorkflows";
 import AdminAprovacoes from "./pages/AdminAprovacoes";
 import AdminNotificacoes from "./pages/AdminNotificacoes";
+import FrenteProducao from "./pages/FrenteProducao";
+import FrenteComercial from "./pages/FrenteComercial";
+import FrenteTime from "./pages/FrenteTime";
 import PortalCliente from "./pages/PortalCliente";
 import PortalPublico from "./pages/PortalPublico";
 import ContasFees from "./pages/ContasFees";
@@ -214,6 +217,9 @@ const App = () => (
               <Route path="/admin/workflows" element={<ProtectedRoute><ModuleGuard module="admin"><AdminWorkflows /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/aprovacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminAprovacoes /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/notificacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminNotificacoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/frentes/producao" element={<ProtectedRoute><ModuleGuard module="projetos"><FrenteProducao /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/frentes/comercial" element={<ProtectedRoute><ModuleGuard module="orcamentos"><FrenteComercial /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/frentes/time" element={<ProtectedRoute><ModuleGuard module="time"><FrenteTime /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Extras */}
               <Route path="/portal" element={<ProtectedRoute><ModuleGuard module="portal"><PortalCliente /></ModuleGuard></ProtectedRoute>} />

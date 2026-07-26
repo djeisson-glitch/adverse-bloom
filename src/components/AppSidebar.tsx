@@ -90,6 +90,18 @@ const GRUPOS: NavGrupo[] = [
     ],
   },
   {
+    // Telas de ACOMPANHAMENTO — respondem "onde trava", não "o que existe".
+    // Ficam separadas das telas operacionais de propósito: são pra olhar
+    // quando você quer o panorama, não pra trabalhar dentro.
+    id: "frentes",
+    label: "Acompanhar",
+    itens: [
+      { title: "Produção", url: "/frentes/producao", icon: Clapperboard, module: "projetos" },
+      { title: "Comercial", url: "/frentes/comercial", icon: Sprout, module: "orcamentos" },
+      { title: "Time", url: "/frentes/time", icon: UsersRound, module: "time" },
+    ],
+  },
+  {
     id: "comercial",
     label: "Comercial",
     itens: [

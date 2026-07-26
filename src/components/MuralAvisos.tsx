@@ -60,6 +60,20 @@ export function MuralAvisos() {
   if (isLoading) return null;
   if (avisos.length === 0 && !podePublicar) return null;
 
+  // Mural vazio não merece um card inteiro com borda no meio da tela mais
+  // nobre: "publique o primeiro" não é informação, é convite. Vira uma linha
+  // discreta que só cresce quando tem aviso de verdade.
+  if (avisos.length === 0 && !compondo) {
+    return (
+      <button
+        onClick={() => setCompondo(true)}
+        className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+      >
+        <Megaphone className="h-3.5 w-3.5" /> Publicar um aviso no mural
+      </button>
+    );
+  }
+
   return (
     <Card className="glass-card border-amber-500/25">
       <CardContent className="p-0">
