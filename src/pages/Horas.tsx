@@ -34,6 +34,9 @@ function rotuloMes(ym: string) {
 }
 
 
+/** Status que tiram o projeto da lista do dia a dia (mas não do retroativo). */
+const FINALIZADOS = ["finalizado", "entregue", "faturado"];
+
 export default function Horas() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -62,6 +65,8 @@ export default function Horas() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
   const [verMes, setVerMes] = useState(mesAtual);
+  // Abre a lista de projetos pros já entregues — pra apontar hora retroativa.
+  const [incluirEntregues, setIncluirEntregues] = useState(false);
   const ehMesAtual = verMes === mesAtual;
 
   // Janela do mês escolhido. No mês corrente recua 14 dias pra pegar o
@@ -107,16 +112,26 @@ export default function Horas() {
     },
   });
 
+  /**
+   * Projetos do lançamento manual.
+   *
+   * Por padrão só os EM ANDAMENTO — a lista com os 180+ do histórico seria
+   * impossível de garimpar no dia a dia. Mas apontar hora retroativa quase
+   * sempre é justamente num projeto já entregue (a pessoa lembra depois), e
+   * antes isso era impossível: o filtro escondia esses projetos e não havia
+   * como lançar. A chave abaixo abre a lista inteira quando for esse o caso.
+   */
   const { data: projects = [] } = useQuery({
-    queryKey: ["horas-projects"],
+    queryKey: ["horas-projects", incluirEntregues],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("id, name, client_name")
-        .not("status", "in", "(finalizado,entregue,faturado)")
-        .order("name");
+      let q = supabase.from("projects").select("id, name, client_name, status");
+      if (!incluirEntregues) q = q.not("status", "in", `(${FINALIZADOS.join(",")})`);
+      const { data, error } = await q.order("name");
       if (error) throw error;
-      return data as any[];
+      // Entregues no fim: o que está em andamento é o caso comum.
+      return ((data as any[]) || []).sort(
+        (a, b) => Number(FINALIZADOS.includes(a.status)) - Number(FINALIZADOS.includes(b.status)),
+      );
     },
   });
 
@@ -228,7 +243,18 @@ export default function Horas() {
           )}
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <Label>Projeto</Label>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label>Projeto</Label>
+                <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3 accent-primary"
+                    checked={incluirEntregues}
+                    onChange={(e) => setIncluirEntregues(e.target.checked)}
+                  />
+                  incluir entregues
+                </label>
+              </div>
               <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="— selecione —" />
@@ -237,6 +263,9 @@ export default function Horas() {
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} · {p.client_name || "—"}
+                      {FINALIZADOS.includes(p.status) && (
+                        <span className="ml-1 text-muted-foreground">· entregue</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>

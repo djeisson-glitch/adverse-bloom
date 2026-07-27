@@ -45,8 +45,19 @@ function mesPrimeiroDia(offset = 0) {
   d.setMonth(d.getMonth() + offset);
   return d.toISOString().slice(0, 10);
 }
+/**
+ * Hora em formato de relógio, não em decimal.
+ *
+ * "0,12h" e "3,47h" obrigam a fazer conta de cabeça pra saber que são 7min e
+ * 3h28. Abaixo de uma hora mostra só os minutos; acima, hora + minuto.
+ */
 function fmtHoras(h: number) {
-  return `${(h || 0).toFixed(2).replace(".", ",")}h`;
+  const min = Math.round((h || 0) * 60);
+  if (min === 0) return "0h";
+  if (min < 60) return `${min}min`;
+  const horas = Math.floor(min / 60);
+  const resto = min % 60;
+  return resto === 0 ? `${horas}h` : `${horas}h${String(resto).padStart(2, "0")}`;
 }
 
 export default function FaturamentoMensal() {
