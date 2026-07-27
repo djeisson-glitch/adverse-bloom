@@ -825,7 +825,11 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
       const { data, error } = await (supabase as any)
         .from("project_documents")
         .select("*")
-        .eq("deliverable_id", did)
+        // Traz os documentos DESTA peça e também os do PROJETO sem peça
+        // definida (o anexo que o cliente mandou junto da demanda, por
+        // exemplo). Antes só olhava deliverable_id: o briefing do cliente
+        // existia no projeto e a pessoa aqui não via nada.
+        .or(`deliverable_id.eq.${did},and(project_id.eq.${projectId},deliverable_id.is.null)`)
         .order("created_at");
       if (error) throw error;
       return data as any[];
