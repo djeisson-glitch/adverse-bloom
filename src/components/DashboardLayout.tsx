@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useValoresOcultos } from "@/contexts/PrivacidadeContext";
 import { NotificacoesSino } from "@/components/NotificacoesSino";
+import { AvisoNovaVersao } from "@/components/AvisoNovaVersao";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { useTema } from "@/hooks/useTema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -187,6 +188,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <AssistenteFlutuante />
+      {/* Deploy novo não chega sozinho numa aba já aberta — isto avisa. */}
+      <AvisoNovaVersao />
     </SidebarProvider>
   );
 }
