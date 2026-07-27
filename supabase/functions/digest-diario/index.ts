@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 //  Chamado pelo pg_cron às 8h05 (BRT), logo depois do job de prazos.
 //  Em vez de despejar 12 notificações, a IA lê o estado REAL da pessoa (o que
 //  vence, o que atrasou, o que pediram de alteração, o que espera o ok dela) e
-//  escreve 2–3 linhas priorizadas. Uma notificação só, que vale a pena abrir.
+//  escreve no máximo 2 frases priorizadas. Curto de propósito: a tela já\n//  lista cada item logo abaixo — o resumo diz o que priorizar, não repete.
 //
 //  Só roda pra quem tem alguma coisa. Quem está em dia não recebe nada —
 //  notificação sem motivo é como o sistema perde a credibilidade.
@@ -77,14 +77,14 @@ async function gerarPara(
 
 ${contexto}
 
-Escreva 2 a 3 frases curtas, em português, na segunda pessoa ("você"), dizendo O QUE IMPORTA HOJE — na ordem de urgência. Comece pelo que está atrasado ou vence hoje. Se o cliente pediu alteração, isso vem antes de tarefa nova. Seja direto e específico (cite o nome do vídeo/projeto), sem saudação, sem "bom dia", sem floreio, sem emoji. Se for pouca coisa, uma frase basta.
+Escreva NO MÁXIMO 2 frases, em português, na segunda pessoa ("você"), dizendo O QUE IMPORTA HOJE — na ordem de urgência. Comece pelo que está atrasado ou vence hoje. Se o cliente pediu alteração, isso vem antes de tarefa nova.\n\nSEJA CURTO: o resumo fica no topo de uma tela que JÁ LISTA cada item logo abaixo, com botão de ação. Repetir a lista em prosa é desperdício de espaço — o seu papel é dizer o que priorizar, não descrever tudo. Cite o nome da peça só quando for essencial pra identificar. Uma frase é o ideal; duas é o teto. Sem saudação, sem "bom dia", sem floreio, sem emoji, sem repetir prazos que já aparecem na lista.
 
 Responda SOMENTE com o texto do resumo, sem aspas e sem markdown.`;
 
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: 400, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model, max_tokens: 200, messages: [{ role: "user", content: prompt }] }),
   });
 
   if (!resp.ok) {
