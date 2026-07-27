@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, BellRing, Users, Zap, Clock, Bell } from "lucide-react";
+import { Loader2, BellRing, Users, Zap, Clock, Bell, BellOff, AlertTriangle } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
   useTiposNotif, useMatrizNotif, useHorasResumo, useSalvarHorasResumo,
@@ -26,6 +28,25 @@ export default function AdminNotificacoes() {
   const { data: horas = [] } = useHorasResumo();
   const salvarHoras = useSalvarHorasResumo();
   const [selecionado, setSelecionado] = useState<string | null>(null);
+
+  /**
+   * Quem de fato consegue receber push.
+   *
+   * Sem isto o painel mentia por omissão: mostrava as preferências de todo
+   * mundo como se estivesse tudo certo, enquanto 4 das 5 pessoas não tinham
+   * navegador nenhum registrado e nunca receberam nada. Configuração bonita
+   * que não entrega é pior que erro visível.
+   */
+  const { data: cobertura = [] } = useQuery({
+    queryKey: ["notif-cobertura"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("notif_cobertura_push");
+      if (error) throw error;
+      return (data as { user_id: string; nome: string; navegadores: number }[]) || [];
+    },
+  });
+  const semPush = cobertura.filter((c) => !c.navegadores);
+  const navegadoresDe = (id: string) => cobertura.find((c) => c.user_id === id)?.navegadores ?? 0;
 
   const pessoas = matriz.data || [];
   const pessoa = useMemo(
@@ -73,6 +94,26 @@ export default function AdminNotificacoes() {
           <span className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5 text-info" /> <strong className="text-foreground">Só no sino</strong> — fica na central, sem interromper</span>
         </CardContent>
       </Card>
+
+      {/* O aviso mais importante da tela: de nada adianta configurar o que
+          cada um recebe se o navegador da pessoa nunca foi registrado. */}
+      {semPush.length > 0 && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+              {semPush.length} pessoa(s) não recebem nenhuma notificação
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              <strong className="text-foreground">{semPush.map((c) => c.nome).join(", ")}</strong> não têm
+              navegador registrado — nem o que é &quot;na hora&quot; chega nelas. A permissão é do navegador
+              de cada um, então não dá pra ligar por aqui: cada pessoa precisa abrir{" "}
+              <strong className="text-foreground">Notificações</strong> no próprio computador e clicar em{" "}
+              <strong className="text-foreground">Ligar</strong>. Enquanto isso, tudo abaixo só vale pra quem já ligou.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Horários do resumo — decisão da gestão, vale pro sistema inteiro. */}
       <Card className="glass-card">
@@ -144,8 +185,14 @@ export default function AdminNotificacoes() {
                         <p className={`truncate text-sm ${ativa ? "font-medium text-foreground" : "text-foreground"}`}>
                           {p.nome}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {push} com push{off > 0 ? ` · ${off} desligada${off > 1 ? "s" : ""}` : ""}
+                        <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          {navegadoresDe(p.user_id) === 0 ? (
+                            <span className="flex items-center gap-1 text-destructive">
+                              <BellOff className="h-3 w-3" /> não recebe
+                            </span>
+                          ) : (
+                            <>{push} com push{off > 0 ? ` · ${off} desligada${off > 1 ? "s" : ""}` : ""}</>
+                          )}
                         </p>
                       </button>
                     </li>
