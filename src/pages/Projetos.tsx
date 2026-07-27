@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useProjects,
   useUpdateProject,
@@ -51,6 +53,24 @@ export default function Projetos() {
   const { data: projects = [], isLoading } = useProjects();
   const { canSeeMoney } = usePermissions();
   const navigate = useNavigate();
+
+  /**
+   * Horas rastreadas por projeto. Vem da view v_horas_projeto_total, que já
+   * soma todos os apontamentos do projeto — inclusive os lançados por
+   * entregável, porque esses também carregam project_id.
+   */
+  const { data: horasPorProjeto = {} } = useQuery({
+    queryKey: ["projetos-horas"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("v_horas_projeto_total")
+        .select("project_id, horas_total");
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      for (const r of (data as any[]) || []) m[r.project_id] = Number(r.horas_total || 0);
+      return m;
+    },
+  });
   // Board é a visão padrão — é ela que mostra o andamento da produção de
   // relance. A última escolha sobrescreve e fica salva: quem prefere lista
   // volta pra lista.
@@ -184,12 +204,15 @@ export default function Projetos() {
         </div>
       </div>
 
-      {vista === "board" && <BoardVista projects={lista} onOpen={(id) => navigate(`/projetos/${id}`)} />}
+      {vista === "board" && (
+        <BoardVista projects={lista} horas={horasPorProjeto} onOpen={(id) => navigate(`/projetos/${id}`)} />
+      )}
       {mostraLista && (
         <ListaVista
           projects={lista}
           canSeeMoney={canSeeMoney}
           agrupar={agrupar}
+          horas={horasPorProjeto}
           onOpen={(id) => navigate(`/projetos/${id}`)}
         />
       )}
@@ -203,15 +226,27 @@ export default function Projetos() {
 
 /* --------------------------------------------------------- Lista Catalunya */
 
+/** Hora em formato de relógio — "3h28" lê melhor que "3,47h". */
+function fmtH(h?: number) {
+  const min = Math.round((h || 0) * 60);
+  if (!min) return "—";
+  if (min < 60) return `${min}min`;
+  const hh = Math.floor(min / 60);
+  const rr = min % 60;
+  return rr === 0 ? `${hh}h` : `${hh}h${String(rr).padStart(2, "0")}`;
+}
+
 function ListaVista({
   projects,
   canSeeMoney,
   agrupar,
+  horas,
   onOpen,
 }: {
   projects: Project[];
   canSeeMoney: boolean;
   agrupar: Agrupar;
+  horas: Record<string, number>;
   onOpen: (id: string) => void;
 }) {
   // Agrupa por etapa ou por cliente (ou não agrupa). A ordem escolhida lá em cima
@@ -255,11 +290,12 @@ function ListaVista({
   return (
     <Card className="glass-card">
       <CardContent className="p-0">
-        <div className="grid grid-cols-[80px_1fr_120px_100px_140px_120px] items-center gap-2 border-b border-border/50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[80px_1fr_120px_100px_80px_140px_120px] items-center gap-2 border-b border-border/50 px-5 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Job</span>
           <span>Projeto</span>
           <span>Progresso</span>
           <span>Equipe</span>
+          <span className="text-right">Horas</span>
           <span>Prazo</span>
           <span className="text-right">Valor</span>
         </div>
@@ -281,7 +317,7 @@ function ListaVista({
                 <div
                   key={p.id}
                   onClick={() => onOpen(p.id)}
-                  className="grid cursor-pointer grid-cols-[80px_1fr_120px_100px_140px_120px] items-center gap-2 border-b border-border/40 px-5 py-3 last:border-0 hover:bg-sidebar-accent/40"
+                  className="grid cursor-pointer grid-cols-[80px_1fr_120px_100px_80px_140px_120px] items-center gap-2 border-b border-border/40 px-5 py-3 last:border-0 hover:bg-sidebar-accent/40"
                 >
                   <span className="font-mono text-xs text-muted-foreground">{(p as any).numero || "—"}</span>
                   <div className="min-w-0">
@@ -320,6 +356,11 @@ function ListaVista({
                     <span className="text-[10px] text-muted-foreground">{(p as any).progress ?? 0}%</span>
                   </div>
                   <span className="text-xs text-muted-foreground">—</span>
+                  {/* Horas rastreadas: zero fica apagado pra não competir com
+                      quem tem hora de verdade. */}
+                  <span className={`text-right text-xs ${horas[p.id] ? "text-foreground" : "text-muted-foreground/50"}`}>
+                    {fmtH(horas[p.id])}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {formatDate(p.delivery_date)}
                   </span>
@@ -338,13 +379,16 @@ function ListaVista({
 
 /* ------------------------------------------------------- Board (Kanban) */
 
-function BoardVista({ projects }: { projects: Project[]; onOpen?: (id: string) => void }) {
+function BoardVista({
+  projects, horas,
+}: { projects: Project[]; horas: Record<string, number>; onOpen?: (id: string) => void }) {
   const updateProject = useUpdateProject();
   // O card do Kanban navega sozinho pra ficha no clique (e arrasta pra mover).
   // O wrapper antigo procurava [data-project-id], atributo que nunca existiu.
   return (
     <ProductionKanban
       projects={projects as any}
+      horas={horas}
       onMoveProject={(id, status) => updateProject.mutate({ id, status })}
     />
   );

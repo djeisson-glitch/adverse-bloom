@@ -31,11 +31,23 @@ const billingBadge: Record<string, { label: string; className: string }> = {
 
 interface Props {
   projects: Project[];
+  /** Horas rastreadas por projeto (id -> horas). Opcional. */
+  horas?: Record<string, number>;
   onMoveProject: (projectId: string, newStatus: string) => void;
   onEditProject?: (project: Project) => void;
 }
 
-function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDragging?: boolean; onEdit?: () => void }) {
+/** Hora em formato de relogio — "3h28" le melhor que "3,47h". */
+function fmtH(h?: number) {
+  const min = Math.round((h || 0) * 60);
+  if (!min) return null;
+  if (min < 60) return `${min}min`;
+  const hh = Math.floor(min / 60);
+  const rr = min % 60;
+  return rr === 0 ? `${hh}h` : `${hh}h${String(rr).padStart(2, "0")}`;
+}
+
+function ProjectCard({ project, isDragging, onEdit, horas }: { project: Project; isDragging?: boolean; onEdit?: () => void; horas?: number }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: project.id });
   const navigate = useNavigate();
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
@@ -69,19 +81,23 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
       
       {/* Valor e status de faturamento só pra quem vê dinheiro. Sem canSeeMoney
           o card mostra só nome, cliente e prazo. */}
-      {(canSeeMoney || project.delivery_date) && (
+      {(canSeeMoney || project.delivery_date || fmtH(horas)) && (
         <div className="flex items-center justify-between text-xs">
           {canSeeMoney ? (
             <span className="text-primary font-semibold">
               {formatCurrency((project as any).contract_value || project.sold_value || 0)}
             </span>
           ) : <span />}
-          {project.delivery_date && (
-            <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
-              {formatDate(project.delivery_date)}
-              {isOverdue && " ⚠"}
-            </span>
-          )}
+          <span className="flex items-center gap-2">
+            {/* Horas rastreadas: dado que existe, ao contrário do valor. */}
+            {fmtH(horas) && <span className="text-muted-foreground">{fmtH(horas)}</span>}
+            {project.delivery_date && (
+              <span className={isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}>
+                {formatDate(project.delivery_date)}
+                {isOverdue && " ⚠"}
+              </span>
+            )}
+          </span>
         </div>
       )}
 
@@ -125,9 +141,10 @@ function ProjectCard({ project, isDragging, onEdit }: { project: Project; isDrag
   );
 }
 
-function ProductionColumn({ stage, projects, onEditProject }: {
+function ProductionColumn({ stage, projects, onEditProject, horas }: {
   stage: { id: string; label: string; color: string };
   projects: Project[];
+  horas?: Record<string, number>;
   onEditProject?: (project: Project) => void;
 }) {
   const { canSeeMoney } = usePermissions();
@@ -157,7 +174,11 @@ function ProductionColumn({ stage, projects, onEditProject }: {
       <div className="flex-1 p-2 space-y-2">
         {projects.map((project) => (
           <div key={project.id} data-id={project.id}>
-            <ProjectCard project={project} onEdit={onEditProject ? () => onEditProject(project) : undefined} />
+            <ProjectCard
+              project={project}
+              horas={horas?.[project.id]}
+              onEdit={onEditProject ? () => onEditProject(project) : undefined}
+            />
           </div>
         ))}
         {projects.length === 0 && (
@@ -168,13 +189,19 @@ function ProductionColumn({ stage, projects, onEditProject }: {
   );
 }
 
-export function ProductionKanban({ projects, onMoveProject, onEditProject }: Props) {
+export function ProductionKanban({ projects, horas, onMoveProject, onEditProject }: Props) {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
   // Quem não bate com etapa nenhuma. Sem isso o projeto simplesmente não é
   // desenhado — some do board sem erro, sem aviso, sem lugar nenhum.
   const orfaos = useMemo(
     () => projects.filter((p) => !PRODUCTION_STAGES.some((s) => s.id === p.status)),
+    [projects],
+  );
+
+  const [mostrarVazias, setMostrarVazias] = useState(false);
+  const escondidas = useMemo(
+    () => PRODUCTION_STAGES.filter((s) => !projects.some((p) => p.status === s.id)),
     [projects],
   );
 
@@ -204,14 +231,30 @@ export function ProductionKanban({ projects, onMoveProject, onEditProject }: Pro
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {/* Etapa sem nenhum projeto ocupava a mesma largura das cheias — com
+          duas vazias, 40% da tela não dizia nada. Some por padrão, com um
+          botão pra reaparecer (arrastar pra uma etapa vazia continua sendo
+          possível, é só mostrar antes). */}
+      {escondidas.length > 0 && (
+        <button
+          onClick={() => setMostrarVazias((v) => !v)}
+          className="mb-2 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          {mostrarVazias
+            ? "ocultar etapas vazias"
+            : `mostrar ${escondidas.length} etapa${escondidas.length > 1 ? "s" : ""} vazia${escondidas.length > 1 ? "s" : ""} (${escondidas.map((s) => s.label).join(", ")})`}
+        </button>
+      )}
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[50vh]">
         {PRODUCTION_STAGES.map((stage) => {
           const stageProjects = projects.filter((p) => p.status === stage.id);
+          if (stageProjects.length === 0 && !mostrarVazias) return null;
           return (
             <ProductionColumn
               key={stage.id}
               stage={stage}
               projects={stageProjects}
+              horas={horas}
               onEditProject={onEditProject}
             />
           );
