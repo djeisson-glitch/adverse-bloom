@@ -96,10 +96,74 @@ export async function desativarPush() {
   }
 }
 
-/** Já está assinado neste navegador? */
+/**
+ * Já está assinado neste navegador E registrado no servidor?
+ *
+ * Antes isto olhava só o navegador — e mentia. Dá pra ter permissão
+ * concedida e assinatura local sem existir linha nenhuma no banco, e aí a
+ * tela mostra "ligado" enquanto NADA é entregue. Ver `sincronizarPush`.
+ */
 export async function pushAtivo(): Promise<boolean> {
   if (!pushSuportado() || permissaoAtual() !== "granted") return false;
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
-  return !!sub;
+  if (!sub) return false;
+
+  const { data } = await (supabase as any)
+    .from("push_subscriptions").select("id").eq("endpoint", sub.endpoint).maybeSingle();
+  return !!data;
+}
+
+/**
+ * Reconcilia navegador → banco. Silencioso, seguro de chamar sempre.
+ *
+ * Existe porque a assinatura SOME do banco sem ninguém perceber:
+ *  • o push-enviar apaga assinatura morta (404/410) — e o endpoint do
+ *    navegador expira/rotaciona de tempos em tempos, é rotina;
+ *  • o upsert do "Ligar" pode ter falhado (rede, sessão) depois de a pessoa
+ *    já ter concedido a permissão.
+ * Nos dois casos o navegador continua com permissão e assinatura local, a
+ * tela diz "ligado", e a entrega para pra sempre. Aqui, se a permissão está
+ * concedida, a gente regrava a assinatura — e o canal se conserta sozinho.
+ */
+export async function sincronizarPush(): Promise<"ok" | "sem-permissao" | "erro"> {
+  try {
+    if (!pushSuportado() || !VAPID_PUBLIC) return "sem-permissao";
+    if (permissaoAtual() !== "granted") return "sem-permissao";   // nunca PEDE aqui
+
+    const reg = await navigator.serviceWorker.getRegistration()
+      || await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    // Permissão concedida mas sem assinatura local (revogada/expirada):
+    // reassina sem incomodar — o navegador não pergunta de novo.
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+      });
+    }
+
+    const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return "erro";
+
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData?.user?.id;
+    if (!uid) return "erro";
+
+    const { error } = await (supabase as any).from("push_subscriptions").upsert(
+      {
+        user_id: uid,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+        user_agent: navigator.userAgent,
+      },
+      { onConflict: "endpoint" },
+    );
+    return error ? "erro" : "ok";
+  } catch {
+    return "erro";
+  }
 }

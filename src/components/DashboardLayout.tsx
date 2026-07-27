@@ -1,10 +1,11 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useValoresOcultos } from "@/contexts/PrivacidadeContext";
 import { NotificacoesSino } from "@/components/NotificacoesSino";
 import { AvisoNovaVersao } from "@/components/AvisoNovaVersao";
+import { sincronizarPush } from "@/lib/push";
 import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { useTema } from "@/hooks/useTema";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -167,6 +168,11 @@ function TimerBar() {
 }
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
+  // Reconcilia a assinatura de push com o banco a cada carga. Conserta
+  // sozinho quem "tem permissão ligada" mas sumiu do servidor — endpoint
+  // que expirou, ou upsert que falhou no dia em que a pessoa clicou Ligar.
+  useEffect(() => { void sincronizarPush(); }, []);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
