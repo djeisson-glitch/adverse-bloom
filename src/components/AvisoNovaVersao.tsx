@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 
 /**
@@ -34,6 +35,11 @@ async function bundleNoAr(): Promise<string | null> {
 
 export function AvisoNovaVersao() {
   const [temNova, setTemNova] = useState(false);
+  const { pathname } = useLocation();
+  // Rota em que a pessoa estava QUANDO a versão nova foi detectada — não a
+  // rota de montagem. Se guardasse a de montagem, quem já tivesse navegado
+  // antes da detecção levaria um reload no meio do trabalho.
+  const rotaAoDetectar = useRef<string | null>(null);
 
   useEffect(() => {
     const atual = bundleAtual();
@@ -65,6 +71,27 @@ export function AvisoNovaVersao() {
       document.removeEventListener("visibilitychange", aoFocar);
     };
   }, []);
+
+  /**
+   * Atualiza na PRÓXIMA NAVEGAÇÃO.
+   *
+   * Só o banner não resolve "todo mundo atualiza": dá pra ignorar por dias, e
+   * depois de uma migration o código velho pode chamar coisa que não existe
+   * mais. Forçar reload na hora seria pior — a pessoa pode estar no meio de
+   * um orçamento.
+   *
+   * Trocar de tela é o momento perfeito: ela já está saindo da página, não
+   * há nada pra perder, e recarregar ali entrega a versão nova sem
+   * interromper ninguém. Quem fica parado na mesma tela ainda tem o botão.
+   */
+  useEffect(() => {
+    if (!temNova) return;
+    if (rotaAoDetectar.current === null) {
+      rotaAoDetectar.current = pathname;   // marca onde estava ao detectar
+      return;
+    }
+    if (pathname !== rotaAoDetectar.current) window.location.reload();
+  }, [temNova, pathname]);
 
   if (!temNova) return null;
 
