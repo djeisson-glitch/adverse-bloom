@@ -131,7 +131,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, aprovador_n1_id, aprovador_n2_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -149,7 +149,7 @@ export default function MinhaMesa() {
   const { data: alteracoes = [] } = useQuery({
     queryKey: ["minha-mesa-alteracoes"],
     queryFn: async () => (await (supabase as any).from("deliverable_alteracoes")
-      .select("id, titulo, status, prazo, responsavel_id, deliverable:deliverables(id, titulo, responsavel_id, data_entrega, project:projects(id, name, numero))")
+      .select("id, titulo, status, prazo, responsavel_id, deliverable:deliverables(id, titulo, responsavel_id, data_entrega, project:projects(id, name, numero, client_name))")
       .eq("status", "aberta")).data || [],
   });
 
@@ -235,7 +235,7 @@ export default function MinhaMesa() {
         const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
         out.push({
           key: `edit-${d.id}`, tipo: "editar", titulo: d.titulo,
-          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          contexto: d.project?.client_name || d.project?.name || "",
           nota: alt ? `Alteração do cliente: ${alt.titulo}` : undefined,
           acao: ajuste
             ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
@@ -256,7 +256,7 @@ export default function MinhaMesa() {
       if (souN1 || souN2) {
         out.push({
           key: `aprov-${d.id}`, tipo: "aprovar", titulo: d.titulo,
-          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          contexto: d.project?.client_name || d.project?.name || "",
           acao: souN1 ? "Aprovar (Revisão 1)" : "Aprovar (Revisão 2)",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true, d,
         });
@@ -268,7 +268,7 @@ export default function MinhaMesa() {
       deliverables.filter((d) => d.status === "pronto").forEach((d) => {
         out.push({
           key: `env-${d.id}`, tipo: "enviar", titulo: d.titulo,
-          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          contexto: d.project?.client_name || d.project?.name || "",
           acao: "Enviar ao cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
           due: d.data_entrega || null, bloqueante: true, d,
         });
@@ -276,7 +276,7 @@ export default function MinhaMesa() {
       deliverables.filter((d) => d.status === "com_cliente").forEach((d) => {
         out.push({
           key: `cli-${d.id}`, tipo: "cliente", titulo: d.titulo,
-          contexto: `${d.project?.numero || ""} · ${d.project?.name || ""}`,
+          contexto: d.project?.client_name || d.project?.name || "",
           acao: "Aguardando o cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
           due: d.data_entrega || null, bloqueante: false, d,
         });
@@ -326,7 +326,7 @@ export default function MinhaMesa() {
     if (!coordena) return [];
     const out: SistItem[] = [];
     deliverables.forEach((d) => {
-      const ctx = `${d.project?.numero || ""} · ${d.project?.name || ""}`;
+      const ctx = d.project?.client_name || d.project?.name || "";
       const link = `/projetos/${d.project?.id}/entregaveis/${d.id}`;
       const etapa = statusLabel(d.status);
       if (d.data_entrega && d.data_entrega < hoje && ATIVO(d.status)) {
@@ -339,7 +339,7 @@ export default function MinhaMesa() {
       out.push({
         key: `s-alt-${a.id}`, tag: "Alteração do cliente", tone: "amber",
         titulo: `${a.titulo} — ${a.deliverable?.titulo || ""}`,
-        contexto: `${a.deliverable?.project?.numero || ""} · ${a.deliverable?.project?.name || ""}`,
+        contexto: a.deliverable?.project?.client_name || a.deliverable?.project?.name || "",
         quem: nomeDe(a.responsavel_id || a.deliverable?.responsavel_id),
         due: a.prazo || a.deliverable?.data_entrega || null,
         link: a.deliverable?.id ? `/projetos/${a.deliverable?.project?.id}/entregaveis/${a.deliverable.id}` : "#", ord: 2,
@@ -381,7 +381,7 @@ export default function MinhaMesa() {
               <Icon className={`h-4 w-4 ${s.cor}`} />
               <h2 className={`text-sm font-semibold ${s.cor}`}>{s.label}</h2>
               <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">{lista.length}</span>
-              <span className="hidden text-[11px] text-muted-foreground/70 sm:inline">· {s.hint}</span>
+              
             </div>
             <Card className={`glass-card overflow-hidden ${s.id === "atrasado" ? "border-destructive/30" : ""}`}>
               <CardContent className="p-0">
