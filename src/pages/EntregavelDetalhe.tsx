@@ -497,6 +497,18 @@ export default function EntregavelDetalhe() {
         )}
       </div>
 
+      {/* Estimativa × realizado. A estimativa é o que reserva o tempo da
+          pessoa; o realizado ao lado é o que mostra o quanto a gente erra —
+          e é esse histórico que vai permitir corrigir a estimativa depois. */}
+      {canSeeHours && (
+        <EstimativaEntregavel
+          id={entregavel.id}
+          estimadas={entregavel.horas_estimadas}
+          realizadas={horas.pura + horas.alt}
+          onSalvo={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+        />
+      )}
+
 
       <div>
         <div className="min-w-0 space-y-5">
@@ -1334,6 +1346,83 @@ function Campo({ label, children, className }: { label: string; children: React.
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       {children}
     </div>
+  );
+}
+
+/**
+ * Estimativa da peça e o quanto ela errou.
+ *
+ * A estimativa é o que reserva o tempo da pessoa (a Capacidade lê daqui). O
+ * realizado ao lado existe pra medir o erro: com histórico suficiente dá pra
+ * corrigir a estimativa sozinho — hoje não dá, porque só há ~28h apontadas no
+ * sistema inteiro. Então por ora ele serve pro olho humano, e vai acumulando.
+ */
+function EstimativaEntregavel({
+  id, estimadas, realizadas, onSalvo,
+}: { id: string; estimadas: number | null; realizadas: number; onSalvo: () => void }) {
+  const [valor, setValor] = useState(estimadas != null ? String(estimadas) : "");
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    const n = valor.trim() === "" ? null : Number(valor.replace(",", "."));
+    if (n !== null && (!Number.isFinite(n) || n < 0)) {
+      toast.error("Horas inválidas");
+      return;
+    }
+    setSalvando(true);
+    const { error } = await (supabase as any)
+      .from("deliverables").update({ horas_estimadas: n }).eq("id", id);
+    setSalvando(false);
+    if (error) return toast.error("Não salvou", { description: error.message });
+    toast.success(n === null ? "Estimativa removida" : `Estimativa: ${n}h`);
+    onSalvo();
+  };
+
+  const est = estimadas ?? 0;
+  const fator = est > 0 && realizadas > 0 ? realizadas / est : null;
+  // ±20% é ruído normal de estimativa; fora disso vale destacar.
+  const tom = fator == null ? "" : fator > 1.2 ? "text-destructive" : fator < 0.8 ? "text-warning" : "text-success";
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="flex flex-wrap items-end gap-4 p-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">Horas estimadas</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <Input
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              onBlur={salvar}
+              onKeyDown={(e) => e.key === "Enter" && salvar()}
+              placeholder="—"
+              className="h-9 w-24"
+              inputMode="decimal"
+            />
+            <span className="text-sm text-muted-foreground">h</span>
+            {salvando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          </div>
+        </div>
+
+        <div className="border-l border-border/40 pl-4">
+          <p className="text-xs text-muted-foreground">Realizado</p>
+          <p className="text-lg font-semibold text-foreground">{realizadas.toFixed(1)}h</p>
+        </div>
+
+        {fator != null && (
+          <div className="border-l border-border/40 pl-4">
+            <p className="text-xs text-muted-foreground">Estimativa</p>
+            <p className={`text-lg font-semibold ${tom}`}>
+              {fator > 1 ? `${((fator - 1) * 100).toFixed(0)}% acima` : fator < 1 ? `${((1 - fator) * 100).toFixed(0)}% abaixo` : "no ponto"}
+            </p>
+          </div>
+        )}
+
+        <p className="ml-auto max-w-[280px] text-[11px] text-muted-foreground/70">
+          A estimativa reserva o tempo de quem é responsável. O realizado ao lado
+          mede o quanto a gente erra — é esse histórico que vai permitir corrigir depois.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
