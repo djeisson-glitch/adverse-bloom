@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as Fluxo from "@/lib/fluxoEntregavel";
-import { iconeStatus, statusLabel } from "@/lib/statusEntregavel";
+import { statusLabel } from "@/lib/statusEntregavel";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 
@@ -55,21 +55,6 @@ type SistItem = {
   ord: number;
   etapa?: string;
 };
-
-const TIPO_ICON: Record<Tipo, any> = {
-  editar: Play, aprovar: ThumbsUp, enviar: ExternalLink, cliente: CheckCircle2,
-  tarefa: ListChecks, demanda: Inbox,
-};
-
-// Só o "Atrasado" tem cor. As outras seções já se distinguem pelo título e
-// pela ordem — pintar cada uma de um tom diferente fazia a tela inteira
-// competir por atenção e, no fim, nada se destacava.
-const SECOES: { id: Bucket; label: string; hint: string; icon: any; cor: string }[] = [
-  { id: "atrasado",  label: "Atrasado",        hint: "passou do prazo — resolve primeiro", icon: AlertTriangle, cor: "text-destructive" },
-  { id: "espera",    label: "Precisa de você", hint: "está travando alguém",               icon: Clock,         cor: "text-foreground" },
-  { id: "semana",    label: "Esta semana",     hint: "prazo nos próximos 7 dias",          icon: CalendarDays,  cor: "text-foreground" },
-  { id: "andamento", label: "Em andamento",    hint: "seu trabalho aberto",                icon: ListChecks,    cor: "text-muted-foreground" },
-];
 
 // Etiquetas do radar do time: neutras. Antes toda linha vinha com etiqueta
 // colorida (e quase todas vermelhas) — com tudo vermelho, nada é urgente.
@@ -357,146 +342,141 @@ export default function MinhaMesa() {
 
   const total = itens.length;
 
+  // FILA ÚNICA. As 4 seções viraram uma lista só: a ordem JÁ é a prioridade
+  // (atrasado > te esperando > esta semana > em andamento), então repetir isso
+  // em cabeçalhos era pedir pra pessoa ler 4 títulos pra achar 6 itens.
+  const fila = useMemo(
+    () => [...porBucket.atrasado, ...porBucket.espera, ...porBucket.semana, ...porBucket.andamento],
+    [porBucket],
+  );
+  const [aba, setAba] = useState<"minha" | "time">("minha");
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const feed = total === 0 ? (
-    <Card className="glass-card">
-      <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
-        <Sparkles className="h-8 w-8 text-success" />
-        <p className="text-base font-medium text-foreground">Tudo em dia 🎉</p>
-        <p className="text-sm text-muted-foreground">Nada precisa de você agora.</p>
-      </CardContent>
-    </Card>
-  ) : (
-    <div className="space-y-5">
-      {SECOES.map((s) => {
-        const lista = porBucket[s.id];
-        if (lista.length === 0) return null;
-        const Icon = s.icon;
-        return (
-          <div key={s.id} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Icon className={`h-4 w-4 ${s.cor}`} />
-              <h2 className={`text-sm font-semibold ${s.cor}`}>{s.label}</h2>
-              <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">{lista.length}</span>
-              
-            </div>
-            <Card className={`glass-card overflow-hidden ${s.id === "atrasado" ? "border-destructive/30" : ""}`}>
-              <CardContent className="p-0">
-                {lista.map((it) => <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key} onAgir={agir} />)}
-              </CardContent>
-            </Card>
-          </div>
-        );
-      })}
-    </div>
-  );
-
   return (
-    <div className="mx-auto max-w-6xl space-y-5 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Clapperboard className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
-            <p className="text-sm text-muted-foreground">O que precisa de você — resolva direto por aqui.</p>
-          </div>
-        </div>
-        {/* Só o atrasado é vermelho. Os outros dois são contagem, não alarme. */}
-        <div className="flex flex-wrap gap-2">
+    <div className="mx-auto max-w-4xl space-y-4 py-6">
+      {/* Cabeçalho enxuto: o nome da tela e quanta coisa tem. O subtítulo
+          explicativo saiu — quem abre a mesa já sabe pra que ela serve. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
+        <div className="flex items-center gap-3 text-sm">
           {porBucket.atrasado.length > 0 && (
-            <Chip cor="bg-destructive/15 text-destructive border-destructive/30" n={porBucket.atrasado.length} label="atrasado" />
+            <span className="font-medium text-destructive">{porBucket.atrasado.length} atrasado</span>
           )}
-          {porBucket.espera.length > 0 && (
-            <Chip cor="bg-muted/60 text-muted-foreground border-border/60" n={porBucket.espera.length} label="te esperando" />
-          )}
-          {porBucket.semana.length > 0 && (
-            <Chip cor="bg-muted/60 text-muted-foreground border-border/60" n={porBucket.semana.length} label="esta semana" />
+          <span className="text-muted-foreground">{total} pra resolver</span>
+          {coordena && (
+            <button
+              onClick={() => setAba(aba === "minha" ? "time" : "minha")}
+              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                aba === "time" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40"
+              }`}
+            >
+              Time ({sistema.length})
+            </button>
           )}
         </div>
       </div>
 
+      {/* O resumo da IA vira UMA linha — sem card, sem ícone, sem cabeçalho. */}
       <ResumoDoDia />
       <MuralAvisos />
 
-      {coordena ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,380px)] lg:items-start">
-          <div className="min-w-0">{feed}</div>
-          <TeamPanel itens={sistema} hoje={hoje} />
-        </div>
+      {aba === "time" && coordena ? (
+        <TeamPanel itens={sistema} hoje={hoje} />
+      ) : total === 0 ? (
+        <Card className="glass-card">
+          <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+            <Sparkles className="h-8 w-8 text-success" />
+            <p className="text-base font-medium text-foreground">Tudo em dia</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="mx-auto max-w-3xl">{feed}</div>
+        <Card className="glass-card overflow-hidden">
+          <CardContent className="p-0">
+            {fila.map((it) => (
+              <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key} onAgir={agir} />
+            ))}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
 }
 
-function Chip({ cor, n, label }: { cor: string; n: number; label: string }) {
-  return <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${cor}`}>{n} {label}</span>;
-}
-
+/**
+ * UMA LINHA por item: marca, título, cliente, prazo, ação.
+ *
+ * O que saiu e por quê: o ícone de status (a ação à direita já diz o que
+ * fazer), a pílula de etapa (idem), a linha de contexto separada e o
+ * cabeçalho de seção. Sobrou o que responde "o que eu faço agora".
+ */
 function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boolean; onAgir: (kind: string, it: Item) => void }) {
   const atrasado = it.due && it.due < hoje;
-  const ehEntreg = !!it.d;
-  const Icon = ehEntreg ? iconeStatus(it.d.status) : TIPO_ICON[it.tipo];
   const botoes = botoesDoItem(it);
+  const principal = botoes[0];
+  const extras = botoes.slice(1);
 
-  // Uma linha, uma informação por vez: título, contexto e — na mesma linha —
-  // etapa e prazo em texto miúdo. O ícone perdeu a caixa colorida e a etapa
-  // deixou de ser pílula: a cor agora só aparece quando está atrasado.
+  const prazo = it.due
+    ? it.due === hoje
+      ? "hoje"
+      : new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+    : "";
+
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-2.5 last:border-0 hover:bg-sidebar-accent/40">
-      <Link to={it.link} className="flex min-w-0 flex-1 items-start gap-2.5">
-        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${atrasado ? "text-destructive" : "text-muted-foreground"}`} />
-        <div className="min-w-0 flex-1">
-          {/* Título QUEBRA em vez de cortar: o nome completo do entregável é
-              o que identifica a peça (pedido antigo). Só o contexto abaixo,
-              que é secundário, pode ser truncado. */}
-          <p className="line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={it.titulo}>
-            {it.titulo}
-          </p>
-          {/* Prazo PRIMEIRO: numa linha truncada, o que está no fim é o que
-              some — e o prazo é justamente o que não pode sumir. O código do
-              projeto, que é o mais longo, fica por último de propósito. */}
-          <p className="truncate text-xs text-muted-foreground">
-            {it.due && (
-              <span className={atrasado ? "font-medium text-destructive" : "text-foreground/70"}>
-                {new Date(it.due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                {atrasado ? " · atrasado" : ""}
-                {" · "}
-              </span>
-            )}
-            {ehEntreg && <span>{statusLabel(it.d.status)} · </span>}
-            <span title={it.contexto}>{it.contexto}</span>
-          </p>
-          {it.nota && <p className="truncate text-[11px] text-muted-foreground" title={it.nota}>↻ {it.nota}</p>}
-        </div>
+    <div className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40">
+      {/* Marca de atraso ocupa largura fixa: as linhas ficam alinhadas mesmo
+          quando só algumas têm a marca. */}
+      <span className="w-3 shrink-0 text-center text-sm font-bold text-destructive">
+        {atrasado ? "!" : ""}
+      </span>
+
+      <Link to={it.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={it.titulo}>
+        {it.titulo}
+        {it.nota && <span className="ml-2 text-xs text-muted-foreground">↻ {it.nota}</span>}
       </Link>
 
-      {botoes.length > 0 ? (
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {botoes.map((b) => (
+      <span className="hidden w-40 shrink-0 truncate text-right text-xs text-muted-foreground sm:block" title={it.contexto}>
+        {it.contexto}
+      </span>
+
+      <span className={`w-16 shrink-0 text-right text-xs ${atrasado ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+        {prazo}
+      </span>
+
+      <div className="flex w-[190px] shrink-0 items-center justify-end gap-1">
+        {principal ? (
+          <>
             <Button
-              key={b.kind}
               size="sm"
-              variant={b.outline ? "outline" : "default"}
               disabled={busy}
-              onClick={() => onAgir(b.kind, it)}
-              className={`h-7 px-2.5 text-xs ${b.cls}`}
+              onClick={() => onAgir(principal.kind, it)}
+              className={`h-7 px-2.5 text-xs ${principal.cls}`}
             >
-              {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <b.Icon className="mr-1 h-3.5 w-3.5" />}
-              {b.label}
+              {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+              {principal.label}
             </Button>
-          ))}
-        </div>
-      ) : (
-        <Link to={it.link} className="flex shrink-0 items-center gap-1 self-center text-xs font-medium text-muted-foreground hover:text-foreground">
-          <span className="hidden sm:inline">{it.acao}</span>
-          <ChevronRight className="h-4 w-4" />
-        </Link>
-      )}
+            {/* A 2ª ação (Ajuste, Alteração) vira ícone: existe, mas não
+                compete com a principal nem gasta uma palavra na linha. */}
+            {extras.map((b) => (
+              <button
+                key={b.kind}
+                disabled={busy}
+                title={b.label}
+                onClick={() => onAgir(b.kind, it)}
+                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                <b.Icon className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </>
+        ) : (
+          <Link to={it.link} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            {it.acao} <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
