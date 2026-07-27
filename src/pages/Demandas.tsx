@@ -157,6 +157,28 @@ export default function Demandas() {
         if (dErr) throw dErr;
       }
 
+      // ANEXOS DO CLIENTE. Ficavam só na demanda: quem abria o projeto criado
+      // não via nada e tinha que voltar na demanda, baixar e re-anexar à mão.
+      // Vão como documento do PROJETO (tipo briefing) — de lá o entregável
+      // também enxerga, porque é contexto da peça inteira, não de uma só.
+      const anexos = Array.isArray((d as any).anexos) ? (d as any).anexos : [];
+      if (anexos.length > 0) {
+        const docs = anexos
+          .filter((a: any) => a?.url)
+          .map((a: any) => ({
+            project_id: proj.id,
+            titulo: a.nome || "Anexo do cliente",
+            url: a.url,
+            tipo: "briefing",
+          }));
+        if (docs.length > 0) {
+          // Não derruba a conversão se o anexo falhar: o projeto já existe e
+          // perder o vínculo é menos grave que perder o projeto. Avisa e segue.
+          const { error: aErr } = await (supabase as any).from("project_documents").insert(docs);
+          if (aErr) toast.error("Projeto criado, mas os anexos não foram", { description: aErr.message });
+        }
+      }
+
       const { error: uErr } = await (supabase as any)
         .from("demandas").update({ status: "virou_projeto", projeto_id: proj.id }).eq("id", d.id);
       if (uErr) throw uErr;
