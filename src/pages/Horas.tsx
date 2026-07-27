@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { statusLabel } from "@/lib/statusEntregavel";
 import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ type Entry = {
   billable: boolean;
   source: string;
   project?: { name: string; client_name?: string | null } | null;
+  deliverable?: { titulo: string } | null;
 };
 
 function iso(d: Date) {
@@ -44,6 +46,7 @@ export default function Horas() {
 
   const [form, setForm] = useState({
     project_id: "",
+    deliverable_id: "",  // opcional — amarra a hora à peça, não só ao projeto
     pessoa: "",          // admin lança pra outra pessoa; vazio = eu
     data: iso(new Date()),
     inicio: "09:00",
@@ -102,7 +105,7 @@ export default function Horas() {
     queryFn: async () => {
       let q = (supabase as any)
         .from("time_entries")
-        .select("*, project:projects(name, client_name)")
+        .select("*, project:projects(name, client_name), deliverable:deliverables(titulo)")
         .eq("user_id", viewUserId)
         .gte("start_at", fromDate);
       if (toDate) q = q.lt("start_at", toDate);
@@ -135,6 +138,26 @@ export default function Horas() {
     },
   });
 
+  /**
+   * Entregáveis do projeto escolhido — TODOS, inclusive aprovado/entregue.
+   * O lançamento retroativo é justamente pra peça que já fechou; filtrar por
+   * status aqui repetiria o problema que a chave "incluir entregues" resolveu
+   * no seletor de projeto.
+   */
+  const { data: entregaveis = [] } = useQuery({
+    queryKey: ["horas-entregaveis", form.project_id],
+    enabled: !!form.project_id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables")
+        .select("id, titulo, status")
+        .eq("project_id", form.project_id)
+        .order("created_at");
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
   const totalHoras = useMemo(
     () => entries.reduce((sum, e) => sum + e.duration_min, 0) / 60,
     [entries],
@@ -159,6 +182,7 @@ export default function Horas() {
         _description: form.descricao || null,
         _billable: form.faturavel,
         _user_id: alvo,
+        _deliverable_id: form.deliverable_id || null,
       });
       if (error) throw error;
     },
@@ -255,7 +279,12 @@ export default function Horas() {
                   incluir entregues
                 </label>
               </div>
-              <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+              {/* Trocar de projeto zera o entregável: manter a peça do projeto
+                  anterior gravaria a hora no lugar errado, em silêncio. */}
+              <Select
+                value={form.project_id}
+                onValueChange={(v) => setForm({ ...form, project_id: v, deliverable_id: "" })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="— selecione —" />
                 </SelectTrigger>
@@ -270,6 +299,31 @@ export default function Horas() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Entregável é opcional: sem ele a hora fica no projeto, como
+                  antes. Com ele, aparece no relatório da peça. */}
+              {form.project_id && entregaveis.length > 0 && (
+                <div className="mt-2">
+                  <Label className="text-xs text-muted-foreground">Entregável (opcional)</Label>
+                  <Select
+                    value={form.deliverable_id || "__nenhum__"}
+                    onValueChange={(v) => setForm({ ...form, deliverable_id: v === "__nenhum__" ? "" : v })}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__nenhum__">— projeto inteiro —</SelectItem>
+                      {entregaveis.map((d: any) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.titulo}
+                          <span className="ml-1 text-muted-foreground">· {statusLabel(d.status)}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -347,7 +401,12 @@ export default function Horas() {
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-foreground">{e.project?.name || "—"}</p>
-                  <p className="truncate text-xs text-muted-foreground">{e.description || "—"}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {/* A peça vem antes da descrição: é ela que confirma se a
+                        hora caiu no lugar certo. */}
+                    {e.deliverable?.titulo && <span className="text-foreground/70">{e.deliverable.titulo} · </span>}
+                    {e.description || "—"}
+                  </p>
                 </div>
                 <span className="text-xs text-muted-foreground">{e.source}</span>
                 <span className="text-right text-xs">
