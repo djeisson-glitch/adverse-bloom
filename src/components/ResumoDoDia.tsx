@@ -66,42 +66,27 @@ export function ResumoDoDia() {
   };
 
   if (isLoading) return null;
+  // Sem resumo e sem erro: não ocupa linha nenhuma. Um card dizendo "seu
+  // resumo sai toda manhã" é instrução, não informação.
+  if (!digest?.corpo && !gerando && !erroGerar) return null;
 
+  // UMA LINHA, sem card e sem cabeçalho. A data saiu (está no topo da tela),
+  // o título "Seu dia" saiu (o ícone já marca que é a IA) e o botão de
+  // atualizar virou ícone.
   return (
-    <Card className="glass-card border-primary/30">
-      <CardContent className="p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            <Sparkles className="h-4 w-4 text-primary" /> Seu dia
-            <span className="text-xs font-normal text-muted-foreground">
-              · {hojeInicio.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-            </span>
-          </p>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1 text-xs text-primary hover:text-primary"
-            onClick={gerarAgora}
-            disabled={gerando}
-            title="Gerar o resumo de agora"
-          >
-            {gerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {digest ? "Atualizar" : "Gerar agora"}
-          </Button>
-        </div>
-
-        {digest?.corpo ? (
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{digest.corpo}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {erroGerar
-              ? erroGerar
-              : gerando
-              ? "A IA está lendo o que você tem pra hoje…"
-              : "Seu resumo sai toda manhã. Sem nada pendente agora — ou clique em “Gerar agora”."}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <div className="flex items-start gap-2 px-1 text-sm">
+      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+      <p className="flex-1 leading-snug text-muted-foreground">
+        {digest?.corpo || (gerando ? "Lendo o que você tem pra hoje…" : erroGerar)}
+      </p>
+      <button
+        onClick={gerarAgora}
+        disabled={gerando}
+        title="Atualizar o resumo"
+        className="shrink-0 rounded p-1 text-muted-foreground/60 hover:text-foreground disabled:opacity-50"
+      >
+        {gerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+      </button>
+    </div>
   );
 }
