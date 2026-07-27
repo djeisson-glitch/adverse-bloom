@@ -29,6 +29,35 @@ export default function Capacidade() {
     },
   });
 
+  /**
+   * COMPROMISSO: horas estimadas das peças abertas de cada um.
+   *
+   * A view de capacidade só enxergava o PASSADO (hora já apontada na semana
+   * corrente). Numa segunda-feira isso dá 0% e "todo mundo ocioso", o que é
+   * tecnicamente verdade e praticamente um alarme falso. O compromisso é o
+   * futuro: o que a pessoa tem pra fazer e ainda não fez.
+   */
+  const { data: compromisso = [] } = useQuery({
+    queryKey: ["capacidade-compromisso"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("v_compromisso_pessoa").select("*");
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+  const porPessoa = useMemo(() => {
+    const m: Record<string, { horas: number; pecas: number; sem: number }> = {};
+    for (const c of compromisso) {
+      m[c.user_id] = {
+        horas: Number(c.horas_a_fazer || 0),
+        pecas: Number(c.pecas_abertas || 0),
+        sem: Number(c.pecas_sem_estimativa || 0),
+      };
+    }
+    return m;
+  }, [compromisso]);
+  const semEstimativa = compromisso.reduce((s, c) => s + Number(c.pecas_sem_estimativa || 0), 0);
+
   const totais = useMemo(() => {
     return rows.reduce(
       (acc, r) => ({
@@ -86,12 +115,29 @@ export default function Capacidade() {
         <Kpi label="Horas livres" value={`${livres.toFixed(1)}h`} hint="p/ novos projetos" tone="primary" />
       </div>
 
-      {ociosos.length > 0 && (
+      {/* "Ocioso" só faz sentido depois que a semana andou. Numa segunda de
+          manhã ninguém apontou nada e o aviso acusava o time inteiro de
+          ocioso — alarme falso. Agora ele espera a semana ter alguma hora. */}
+      {ociosos.length > 0 && totais.apontadas > 0 && (
         <Card className="border-warning/40 bg-warning/5">
           <CardContent className="flex items-center gap-3 p-4 text-sm">
             <Coffee className="h-4 w-4 text-warning" />
             <span>
               <strong>{ociosos.length}</strong> ocioso(s) (&lt;60%) — considere realocar ou vender mais horas.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sem estimativa, o compromisso é subestimado — e a tela mentiria por
+          omissão. Melhor dizer quantas peças ainda não foram estimadas. */}
+      {semEstimativa > 0 && (
+        <Card className="border-border/60 bg-muted/20">
+          <CardContent className="flex flex-wrap items-center gap-2 p-4 text-sm">
+            <span className="text-muted-foreground">
+              <strong className="text-foreground">{semEstimativa}</strong> peça(s) aberta(s) ainda{" "}
+              <strong className="text-foreground">sem horas estimadas</strong> — o compromisso abaixo está
+              incompleto até alguém estimar.
             </span>
           </CardContent>
         </Card>
@@ -103,7 +149,7 @@ export default function Capacidade() {
             <span>Pessoa</span>
             <span>Ocupação</span>
             <span className="text-right">Faturável / Cap.</span>
-            <span />
+            <span className="text-right">A fazer</span>
           </div>
           {isLoading ? (
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">Carregando…</div>
@@ -112,7 +158,7 @@ export default function Capacidade() {
               Ainda sem horas apontadas no período. A ocupação se preenche conforme o time usa o <strong>timer</strong> ou lança horas.
             </div>
           ) : (
-            rows.map((r) => <CapRow key={r.user_id} row={r} />)
+            rows.map((r) => <CapRow key={r.user_id} row={r} compromisso={porPessoa[r.user_id]} />)
           )}
         </CardContent>
       </Card>
@@ -124,7 +170,7 @@ export default function Capacidade() {
   );
 }
 
-function CapRow({ row }: { row: Row }) {
+function CapRow({ row, compromisso }: { row: Row; compromisso?: { horas: number; pecas: number; sem: number } }) {
   const name = row.full_name || row.email || "—";
   const initials = name
     .split(" ")
@@ -151,6 +197,24 @@ function CapRow({ row }: { row: Row }) {
         {(Number(row.horas_faturaveis) + Number(row.horas_diarias || 0)).toFixed(1)}h / {row.capacidade}h
         {Number(row.horas_diarias) > 0 && (
           <span className="ml-1 text-warning" title="inclui diárias de gravação">🎥</span>
+        )}
+      </span>
+      {/* A fazer = estimativa das peças abertas menos o que já foi feito
+          nelas. É o compromisso pra frente, não o histórico da semana. */}
+      <span
+        className="text-right text-xs"
+        title={compromisso ? `${compromisso.pecas} peça(s) aberta(s)${compromisso.sem > 0 ? ` · ${compromisso.sem} sem estimativa` : ""}` : "nenhuma peça aberta"}
+      >
+        {compromisso && compromisso.horas > 0 ? (
+          <span className={compromisso.horas > Number(row.capacidade) ? "font-medium text-destructive" : "text-foreground"}>
+            {compromisso.horas.toFixed(1)}h
+          </span>
+        ) : compromisso && compromisso.sem > 0 ? (
+          <span className="text-muted-foreground/60" title={`${compromisso.sem} peça(s) sem estimativa`}>
+            ? · {compromisso.pecas}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
         )}
       </span>
     </div>
