@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Play, Square, LogOut, ShieldCheck, XCircle, Sun, Moon, Eye, EyeOff } from "lucide-react";
@@ -21,20 +22,35 @@ function TimerButton() {
 
   // Timer rodando → mostra o cronômetro ativo (parar de qualquer tela).
   if (sessao) {
+    // Enquanto roda, o cronômetro é o atalho pro que está sendo feito: clicar
+    // abre o entregável. Parar ficou no ícone ao lado — antes o clique no chip
+    // inteiro parava e lançava, então não dava pra usar como link.
+    const destino = sessao.deliverable_id && sessao.project_id
+      ? `/projetos/${sessao.project_id}/entregaveis/${sessao.deliverable_id}`
+      : sessao.project_id ? `/projetos/${sessao.project_id}` : null;
+    const rotulo = (
+      <>
+        <span className="tabular-nums">{formatElapsed(elapsedSec)}</span>
+        <span className="hidden max-w-[180px] truncate text-[10px] opacity-80 md:inline">
+          · {sessao.project_name}
+          {sessao.task_title ? ` · ${sessao.task_title}` : ""}
+        </span>
+      </>
+    );
     return (
       <div className="flex items-center gap-1">
-        <button
-          onClick={stop}
-          className="flex items-center gap-2 rounded-lg bg-warning px-3 py-1.5 text-sm font-medium text-warning-foreground hover:bg-warning/90"
-          title={`Rodando em ${sessao.project_name}${sessao.task_title ? ` · ${sessao.task_title}` : ""} — clique pra parar e lançar`}
-        >
-          <Square className="h-3.5 w-3.5 fill-current" />
-          <span className="tabular-nums">{formatElapsed(elapsedSec)}</span>
-          <span className="hidden max-w-[180px] truncate text-[10px] opacity-80 md:inline">
-            · {sessao.project_name}
-            {sessao.task_title ? ` · ${sessao.task_title}` : ""}
-          </span>
-        </button>
+        <div className="flex items-center gap-2 rounded-lg bg-warning py-1.5 pl-2.5 pr-3 text-sm font-medium text-warning-foreground">
+          <button onClick={stop} title="Parar e lançar as horas" className="shrink-0 hover:opacity-70">
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </button>
+          {destino ? (
+            <Link to={destino} className="flex items-center gap-2 hover:underline" title="Abrir o entregável">
+              {rotulo}
+            </Link>
+          ) : (
+            <span className="flex items-center gap-2">{rotulo}</span>
+          )}
+        </div>
         <button
           onClick={cancel}
           className="text-muted-foreground hover:text-destructive"

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Link } from "react-router-dom";
 import { statusLabel } from "@/lib/statusEntregavel";
 import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
 import { toast } from "sonner";
@@ -478,9 +479,14 @@ export default function Horas() {
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rodando agora</span>
             </div>
             {rodando.map((r: any) => (
-              <div
+              <Link
                 key={r.user_id}
-                className="grid grid-cols-[1fr_140px_70px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0"
+                // Clicar no que está rodando abre a peça — vale pra qualquer
+                // pessoa da lista, não só pra própria sessão.
+                to={r.deliverable_id && r.project_id
+                  ? `/projetos/${r.project_id}/entregaveis/${r.deliverable_id}`
+                  : r.project_id ? `/projetos/${r.project_id}` : "#"}
+                className="grid grid-cols-[1fr_140px_70px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0 hover:bg-muted/40"
               >
                 <div className="min-w-0">
                   <p className="truncate text-foreground">
@@ -495,7 +501,7 @@ export default function Horas() {
                 {/* Contagem parcial: o tempo só vira apontamento quando a
                     pessoa para o próprio cronômetro. */}
                 <span className="text-right text-xs font-medium text-primary">{fmtDuracao(r.minutos || 0)}</span>
-              </div>
+              </Link>
             ))}
           </CardContent>
         </Card>
@@ -517,12 +523,20 @@ export default function Horas() {
                   {new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                 </span>
                 {editando?.id === e.id ? (
-                  <Input
-                    value={editando.descricao}
-                    onChange={(ev) => setEditando({ ...editando, descricao: ev.target.value })}
-                    placeholder="Descrição"
-                    className="h-8 text-xs"
-                  />
+                  // O projeto e a peça continuam à vista enquanto corrige —
+                  // editar não pode virar "campo em branco sem contexto".
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-muted-foreground">
+                      {e.project?.name || "—"}
+                      {e.deliverable?.titulo && ` · ${e.deliverable.titulo}`}
+                    </p>
+                    <Input
+                      value={editando.descricao}
+                      onChange={(ev) => setEditando({ ...editando, descricao: ev.target.value })}
+                      placeholder="Descrição"
+                      className="mt-1 h-7 text-xs"
+                    />
+                  </div>
                 ) : (
                   <div className="min-w-0">
                     <p className="truncate text-foreground">{e.project?.name || "—"}</p>
@@ -542,7 +556,9 @@ export default function Horas() {
                   <Input
                     value={editando.duracao}
                     onChange={(ev) => setEditando({ ...editando, duracao: ev.target.value })}
-                    className="h-8 text-xs"
+                    placeholder="2h10"
+                    title='Aceita "2h10", "90min" ou "1:30"'
+                    className="h-7 text-center text-xs"
                   />
                 ) : (
                   <span className="text-right text-xs">{fmtDuracao(e.duration_min)}</span>
@@ -564,7 +580,7 @@ export default function Horas() {
                     <>
                       {isAdmin && (
                         <button
-                          onClick={() => setEditando({ id: e.id, duracao: String(e.duration_min), descricao: e.description || "" })}
+                          onClick={() => setEditando({ id: e.id, duracao: fmtDuracao(e.duration_min), descricao: e.description || "" })}
                           className="text-muted-foreground hover:text-primary"
                           title="Corrigir"
                         >
