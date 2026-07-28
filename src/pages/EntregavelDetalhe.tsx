@@ -110,11 +110,26 @@ export default function EntregavelDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, budget:budgets(budget_number))")
+        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, client_id, budget:budgets(budget_number))")
         .eq("id", did!)
         .single();
       if (error) throw error;
       return data as any;
+    },
+  });
+
+  /**
+   * Flag de capas do cliente. Vem de clientes_publico (view aberta) e não de
+   * clients: a tabela só é legível pela gestão, e quem anexa capa é o editor.
+   */
+  const clientId = entregavel?.project?.client_id || null;
+  const { data: usaCapas = false } = useQuery({
+    queryKey: ["cliente-usa-capas", clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("clientes_publico").select("usa_capas").eq("id", clientId).maybeSingle();
+      return !!data?.usa_capas;
     },
   });
 
@@ -515,6 +530,20 @@ export default function EntregavelDetalhe() {
           {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
               que abre o entregável — a coordenadora precisa do roteiro à mão. */}
           <DocumentosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Capas: só aparece pro cliente configurado (clients.usa_capas). É
+              a mesma máquina de anexos com outra categoria — o que muda é o
+              papel do arquivo, não o jeito de guardar. */}
+          {usaCapas && (
+            <AnexosEntregavel
+              did={did!}
+              projectId={projectId!}
+              categoria="capa"
+              titulo="Capas"
+              subtitulo="Imagem de capa da peça — JPG, PNG ou WebP"
+              accept="image/*"
+            />
+          )}
 
           {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
           <AnexosEntregavel did={did!} projectId={projectId!} />
@@ -926,7 +955,13 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
  * Arraste os arquivos pra cá ou use o botão. Vídeo muito grande → melhor link do
  * Frame.io (no card de cima).
  */
-function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }) {
+function AnexosEntregavel({
+  did, projectId, categoria = "midia", titulo = "Anexos", accept,
+  subtitulo = "Qualquer arquivo — fotos, vídeos, PDF, docs… (até 500 MB)",
+}: {
+  did: string; projectId: string; categoria?: string; titulo?: string;
+  subtitulo?: string; accept?: string;
+}) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const confirmar = useConfirm();
@@ -935,10 +970,11 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
   const [arrastando, setArrastando] = useState(false);
 
   const { data: anexos = [] } = useQuery({
-    queryKey: ["entregavel-anexos", did],
+    queryKey: ["entregavel-anexos", did, categoria],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("deliverable_anexos").select("*").eq("deliverable_id", did).order("created_at");
+        .from("deliverable_anexos").select("*")
+        .eq("deliverable_id", did).eq("categoria", categoria).order("created_at");
       if (error) throw error;
       return data as any[];
     },
@@ -950,6 +986,11 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
     setEnviando(true);
     try {
       for (const file of lista) {
+        // Capa é imagem. Barrar aqui evita um PDF virando "capa" e quebrando a
+        // grade de miniaturas lá na frente.
+        if (categoria === "capa" && !file.type.startsWith("image/")) {
+          throw new Error(`"${file.name}" não é imagem — capa aceita só JPG, PNG ou WebP.`);
+        }
         const safe = file.name.replace(/[^\w.\-]+/g, "_");
         const path = `${did}/${crypto.randomUUID()}-${safe}`;
         const { error: upErr } = await supabase.storage.from("entregaveis")
@@ -958,13 +999,13 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
         const { data: pub } = supabase.storage.from("entregaveis").getPublicUrl(path);
         const tipo = file.type.startsWith("image/") ? "foto" : file.type.startsWith("video/") ? "video" : "arquivo";
         const { error: insErr } = await (supabase as any).from("deliverable_anexos").insert({
-          deliverable_id: did, project_id: projectId, nome: file.name, tipo,
+          deliverable_id: did, project_id: projectId, nome: file.name, tipo, categoria,
           url: pub.publicUrl, storage_path: path, mime: file.type || null, tamanho: file.size,
           created_by: user?.id || null,
         });
         if (insErr) throw insErr;
       }
-      qc.invalidateQueries({ queryKey: ["entregavel-anexos", did] });
+      qc.invalidateQueries({ queryKey: ["entregavel-anexos", did, categoria] });
       toast.success("Enviado");
     } catch (e: any) {
       toast.error("Erro no upload", { description: e.message });
@@ -979,7 +1020,7 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
     await supabase.storage.from("entregaveis").remove([a.storage_path]);
     const { error } = await (supabase as any).from("deliverable_anexos").delete().eq("id", a.id);
     if (error) return toast.error("Não removeu", { description: error.message });
-    qc.invalidateQueries({ queryKey: ["entregavel-anexos", did] });
+    qc.invalidateQueries({ queryKey: ["entregavel-anexos", did, categoria] });
   };
 
   const fmtTam = (b?: number | null) =>
@@ -999,15 +1040,15 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold text-foreground">Anexos</p>
-            <p className="text-xs text-muted-foreground">Qualquer arquivo — fotos, vídeos, PDF, docs… (até 500 MB)</p>
+            <p className="text-sm font-semibold text-foreground">{titulo}</p>
+            <p className="text-xs text-muted-foreground">{subtitulo}</p>
           </div>
           <Button size="sm" onClick={() => inputRef.current?.click()} disabled={enviando}>
             {enviando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1 h-3.5 w-3.5" />}
-            {enviando ? "Enviando…" : "Enviar arquivo"}
+            {enviando ? "Enviando…" : categoria === "capa" ? "Enviar capa" : "Enviar arquivo"}
           </Button>
           <input
-            ref={inputRef} type="file" multiple className="hidden"
+            ref={inputRef} type="file" multiple accept={accept} className="hidden"
             onChange={(e) => enviarArquivos(e.target.files)}
           />
         </div>
@@ -1021,7 +1062,7 @@ function AnexosEntregavel({ did, projectId }: { did: string; projectId: string }
             }`}
           >
             <Paperclip className="h-5 w-5" />
-            Arraste arquivos aqui ou clique para enviar
+            {categoria === "capa" ? "Arraste a capa aqui ou clique para enviar" : "Arraste arquivos aqui ou clique para enviar"}
           </button>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1346,7 +1387,9 @@ function AlteracoesSection({
 
 function Campo({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={className}>
+    // min-w-0: item de grid não encolhe abaixo do conteúdo sem isso, e aí o
+    // que está dentro vaza pra coluna vizinha.
+    <div className={`min-w-0 ${className || ""}`}>
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       {children}
     </div>

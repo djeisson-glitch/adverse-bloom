@@ -55,12 +55,15 @@ export function SeletorPrazo({
   className?: string;
 }) {
   return (
-    <div className={`flex gap-2 ${className}`}>
+    // flex-wrap + min-w-0: numa coluna estreita (a ficha do entregável tem 4)
+    // o input de data tem largura mínima própria e, sem poder encolher, o
+    // seletor de hora subia POR CIMA dele. Agora ele desce pra linha de baixo.
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       <Input
         type="date"
         value={data}
         onChange={(e) => onChange({ data: e.target.value, hora })}
-        className="h-8 flex-1"
+        className="h-8 min-w-0 flex-1 basis-[128px]"
       />
       <Select
         // Sem data escolhida, hora sozinha não faz sentido — desabilita.
@@ -68,7 +71,7 @@ export function SeletorPrazo({
         onValueChange={(v) => onChange({ data, hora: v === SEM_HORA ? "" : v })}
         disabled={!data}
       >
-        <SelectTrigger className="h-8 w-[104px] shrink-0 text-xs">
+        <SelectTrigger className="h-8 w-[96px] shrink-0 text-xs">
           <SelectValue placeholder="Horário" />
         </SelectTrigger>
         <SelectContent>

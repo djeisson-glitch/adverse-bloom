@@ -1,3 +1,4 @@
+import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +32,7 @@ const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) =>
   new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 
-const prazoDe = (d: any) => d.prazo_interno || d.data_entrega || null;
+
 
 export default function HomeEquipe() {
   const { profile } = useAuth();
@@ -106,7 +107,7 @@ function PainelEditor() {
   });
 
   const tarefasAtrasadas = tarefas.filter((t: any) => t.due_date && t.due_date < hoje).length;
-  const entregasAtrasadas = entregaveis.filter((d: any) => prazoDe(d) && prazoDe(d) < hoje).length;
+  const entregasAtrasadas = entregaveis.filter((d: any) => estaAtrasado(d, hoje)).length;
 
   const horas = minutosSemana / 60;
   const meta = profile?.horas_semana || 40;
@@ -118,7 +119,7 @@ function PainelEditor() {
       .map((t: any) => ({ id: `t-${t.id}`, tipo: "tarefa" as const, titulo: t.title, prazo: t.due_date, projeto: t.project?.name, url: t.project?.id ? `/projetos/${t.project.id}` : "/minha-mesa" })),
     ...entregaveis
       .filter((d: any) => prazoDe(d))
-      .map((d: any) => ({ id: `d-${d.id}`, tipo: "entrega" as const, titulo: d.titulo, prazo: prazoDe(d), projeto: d.project?.name, url: `/projetos/${d.project_id}/entregaveis/${d.id}` })),
+      .map((d: any) => ({ id: `d-${d.id}`, tipo: "entrega" as const, titulo: d.titulo, prazo: prazoDe(d), atrasado: estaAtrasado(d, hoje), projeto: d.project?.name, url: `/projetos/${d.project_id}/entregaveis/${d.id}` })),
   ]
     .sort((a, b) => (a.prazo < b.prazo ? -1 : 1))
     .slice(0, 4);
@@ -235,7 +236,7 @@ function PainelCoordenacao() {
   const emEdicao = porEtapa("edicao");
   const aprovacao = porEtapa("aprovacao");
   const comCliente = porEtapa("cliente");
-  const atrasados = entregaveis.filter((d: any) => prazoDe(d) && prazoDe(d) < hoje);
+  const atrasados = entregaveis.filter((d: any) => estaAtrasado(d, hoje));
 
   // "Pronto pra enviar" (status pronto) merece destaque dentro da revisão: é o
   // passo em que ela clica "enviar para o cliente".
@@ -267,6 +268,7 @@ function PainelCoordenacao() {
           titulo: d.titulo,
           sub: nomeDe(d.responsavel_id),
           prazo: prazoDe(d),
+          atrasado: estaAtrasado(d, hoje),
           url: linkEntreg(d),
           badge: d.status === "pronto" ? "pronto p/ enviar" : "revisar",
           badgeTom: d.status === "pronto" ? "bg-success/15 text-success" : "bg-amber-500/15 text-warning",
@@ -285,6 +287,7 @@ function PainelCoordenacao() {
           titulo: d.titulo,
           sub: nomeDe(d.responsavel_id),
           prazo: prazoDe(d),
+          atrasado: estaAtrasado(d, hoje),
           url: linkEntreg(d),
           badge: "aguardando",
           badgeTom: "bg-cyan-500/15 text-info",
@@ -308,7 +311,7 @@ function ListaAcao({
   icon: Icon, titulo, cor, vazio, itens, hoje,
 }: {
   icon: any; titulo: string; cor: string; vazio: string;
-  itens: { id: string; titulo: string; sub?: string; prazo: string | null; url: string; badge: string; badgeTom: string }[];
+  itens: { id: string; titulo: string; sub?: string; prazo: string | null; atrasado?: boolean; url: string; badge: string; badgeTom: string }[];
   hoje: string;
 }) {
   const visiveis = itens.slice(0, 8);
@@ -325,7 +328,7 @@ function ListaAcao({
         ) : (
           <div className="space-y-1.5">
             {visiveis.map((it) => {
-              const atrasado = it.prazo && it.prazo < hoje;
+              const atrasado = it.atrasado ?? (it.prazo && it.prazo < hoje);
               return (
                 <Link key={it.id} to={it.url} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/40">
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${it.badgeTom}`}>

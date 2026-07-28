@@ -1,3 +1,4 @@
+import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,12 +45,12 @@ export default function FrenteProducao() {
   };
 
   const dados = useMemo(() => {
-    const prazo = (e: any) => e.prazo_interno || e.data_entrega || null;
+    const prazo = prazoDe;
     const ctx = (e: any) =>
       [e.project?.client_name, e.project?.numero].filter(Boolean).join(" · ");
 
     const atrasados = entregaveis
-      .filter((e) => prazo(e) && prazo(e) < hoje)
+      .filter((e) => estaAtrasado(e, hoje))
       .sort((a, b) => (prazo(a) || "").localeCompare(prazo(b) || ""));
 
     const semana = entregaveis
