@@ -1,3 +1,4 @@
+import { estaAtrasado } from "@/lib/prazoEntregavel";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,11 +44,10 @@ export default function FrenteTime() {
 
   const dados = useMemo(() => {
     const ativos = pessoas.filter((p: any) => p.ativo !== false);
-    const prazo = (e: any) => e.prazo_interno || e.data_entrega || null;
 
     const carga = ativos.map((p: any) => {
       const meus = entregaveis.filter((e) => e.responsavel_id === p.id);
-      const atrasados = meus.filter((e) => prazo(e) && prazo(e) < hoje).length;
+      const atrasados = meus.filter((e) => estaAtrasado(e, hoje)).length;
       const tar = tarefas.filter((t: any) => t.assigned_user_id === p.id).length;
       return {
         id: p.id,

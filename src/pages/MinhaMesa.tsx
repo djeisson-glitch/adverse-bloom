@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import { statusLabel } from "@/lib/statusEntregavel";
+import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 
@@ -38,6 +39,8 @@ type Item = {
   acao: string;
   link: string;
   due: string | null;
+  /** Já resolvido pela regra: prazo INTERNO e só enquanto está na nossa mão. */
+  atrasado: boolean;
   bloqueante: boolean;
   d?: any;                // entregável cru — pras ações de fluxo
   alt?: any;              // alteração do cliente aberta ligada ao entregável
@@ -51,6 +54,7 @@ type SistItem = {
   contexto: string;
   quem: string;
   due: string | null;
+  atrasado: boolean;
   link: string;
   ord: number;
   etapa?: string;
@@ -130,7 +134,7 @@ function diasParado(ts: string | null | undefined) {
  * escolha vira palpite invisível.
  */
 function motivoDoTopo(it: Item, hoje: string): string {
-  if (it.due && it.due < hoje) return prazoNatural(it.due, hoje);
+  if (it.atrasado) return prazoNatural(it.due, hoje);
   if (it.due === hoje) return "vence hoje";
   if (it.d?.status === "ajuste_interno") return "pediram ajuste interno";
   if (it.d?.status === "ajuste_solicitado") return "o cliente pediu ajuste";
@@ -142,7 +146,7 @@ function motivoDoTopo(it: Item, hoje: string): string {
 
 /** 0 = mais urgente. Acima de 2 não entra no destaque. */
 function urgencia(it: Item, hoje: string): number {
-  if (it.due && it.due < hoje) return 0;
+  if (it.atrasado) return 0;
   if (it.due === hoje) return 1;
   if (it.bloqueante) return 2;
   return 9;
@@ -290,7 +294,8 @@ export default function MinhaMesa() {
             : d.status === "pendente" ? "Começar edição"
             : d.status === "em_pausa" ? "Retomar edição"
             : d.status === "em_edicao" ? "Editando" : "Continuar",
-          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: ajuste,
+          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: ajuste,
           d, alt,
         });
       });
@@ -306,7 +311,8 @@ export default function MinhaMesa() {
           key: `aprov-${d.id}`, tipo: "aprovar", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
           acao: souN1 ? "Aprovar (Revisão 1)" : "Aprovar (Revisão 2)",
-          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`, due: d.data_entrega || null, bloqueante: true, d,
+          link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+          due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: true, d,
         });
       }
     });
@@ -318,7 +324,7 @@ export default function MinhaMesa() {
           key: `env-${d.id}`, tipo: "enviar", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
           acao: "Enviar ao cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
-          due: d.data_entrega || null, bloqueante: true, d,
+          due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: true, d,
         });
       });
       deliverables.filter((d) => d.status === "com_cliente").forEach((d) => {
@@ -326,7 +332,7 @@ export default function MinhaMesa() {
           key: `cli-${d.id}`, tipo: "cliente", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
           acao: "Aguardando o cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
-          due: d.data_entrega || null, bloqueante: false, d,
+          due: prazoDe(d), atrasado: false, bloqueante: false, d,
         });
       });
     }
@@ -335,7 +341,8 @@ export default function MinhaMesa() {
       out.push({
         key: `task-${t.id}`, tipo: "tarefa", titulo: t.title, contexto: t.project?.name || "Tarefa",
         acao: "Fazer tarefa", link: t.project?.id ? `/projetos/${t.project.id}` : "/minha-mesa",
-        due: t.due_date ? t.due_date.slice(0, 10) : null, bloqueante: false,
+        due: t.due_date ? t.due_date.slice(0, 10) : null,
+        atrasado: !!(t.due_date && t.due_date.slice(0, 10) < hoje), bloqueante: false,
       });
     });
 
@@ -344,16 +351,17 @@ export default function MinhaMesa() {
         key: `dem-${d.id}`, tipo: "demanda", titulo: d.nome_projeto,
         contexto: `${d.client?.name || "Cliente"} · pediu: ${d.solicitante_nome}`,
         acao: "Avaliar demanda nova", link: "/demandas",
-        due: d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null, bloqueante: true,
+        due: d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null,
+        atrasado: !!(d.prazo_desejado && d.prazo_desejado.slice(0, 10) < hoje), bloqueante: true,
       });
     });
 
     return out;
-  }, [deliverables, tarefas, alteracoes, demandas, settings, user?.id, podeCliente]);
+  }, [deliverables, tarefas, alteracoes, demandas, settings, user?.id, podeCliente, hoje]);
 
   const porBucket = useMemo(() => {
     const bucketDe = (it: Item): Bucket => {
-      if (it.due && it.due < hoje) return "atrasado";
+      if (it.atrasado) return "atrasado";
       if (it.bloqueante) return "espera";
       if (it.due && it.due <= em7) return "semana";
       return "andamento";
@@ -377,10 +385,10 @@ export default function MinhaMesa() {
       const ctx = d.project?.client_name || d.project?.name || "";
       const link = `/projetos/${d.project?.id}/entregaveis/${d.id}`;
       const etapa = statusLabel(d.status);
-      if (d.data_entrega && d.data_entrega < hoje && ATIVO(d.status)) {
-        out.push({ key: `s-atr-${d.id}`, tag: "Atrasado", tone: "red", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 0, etapa });
+      if (estaAtrasado(d, hoje) && ATIVO(d.status)) {
+        out.push({ key: `s-atr-${d.id}`, tag: "Atrasado", tone: "red", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: prazoDe(d), atrasado: true, link, ord: 0, etapa });
       } else if (["revisao_n1", "revisao_n2", "revisao"].includes(d.status)) {
-        out.push({ key: `s-apr-${d.id}`, tag: "Aguardando aprovação", tone: "amber", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: d.data_entrega, link, ord: 1, etapa });
+        out.push({ key: `s-apr-${d.id}`, tag: "Aguardando aprovação", tone: "amber", titulo: d.titulo, contexto: ctx, quem: nomeDe(d.responsavel_id), due: prazoDe(d), atrasado: estaAtrasado(d, hoje), link, ord: 1, etapa });
       }
     });
     alteracoes.forEach((a: any) => {
@@ -389,7 +397,8 @@ export default function MinhaMesa() {
         titulo: `${a.titulo} — ${a.deliverable?.titulo || ""}`,
         contexto: a.deliverable?.project?.client_name || a.deliverable?.project?.name || "",
         quem: nomeDe(a.responsavel_id || a.deliverable?.responsavel_id),
-        due: a.prazo || a.deliverable?.data_entrega || null,
+        due: a.prazo || prazoDe(a.deliverable) || null,
+        atrasado: !!((a.prazo || prazoDe(a.deliverable)) && (a.prazo || prazoDe(a.deliverable)) < hoje),
         link: a.deliverable?.id ? `/projetos/${a.deliverable?.project?.id}/entregaveis/${a.deliverable.id}` : "#", ord: 2,
       });
     });
@@ -397,7 +406,9 @@ export default function MinhaMesa() {
       out.push({
         key: `s-dem-${d.id}`, tag: "Demanda nova", tone: "purple", titulo: d.nome_projeto,
         contexto: `${d.client?.name || ""} · pediu ${d.solicitante_nome}`, quem: "—",
-        due: d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null, link: "/demandas", ord: 2,
+        due: d.prazo_desejado ? d.prazo_desejado.slice(0, 10) : null,
+        atrasado: !!(d.prazo_desejado && d.prazo_desejado.slice(0, 10) < hoje),
+        link: "/demandas", ord: 2,
       });
     });
     return out.sort((a, b) => (a.ord - b.ord) || (a.due || "9999").localeCompare(b.due || "9999"));
@@ -622,7 +633,7 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
 function CardAgora({ it, hoje, busy, rodando, onAgir }: {
   it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void;
 }) {
-  const atrasado = !!(it.due && it.due < hoje);
+  const atrasado = it.atrasado;
   const botoes = botoesDoItem(it);
   return (
     <Card className={`glass-card ${atrasado ? "border-destructive/40" : ""}`}>
@@ -667,7 +678,7 @@ function CardAgora({ it, hoje, busy, rodando, onAgir }: {
  * cabeçalho de seção. Sobrou o que responde "o que eu faço agora".
  */
 function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void }) {
-  const atrasado = it.due && it.due < hoje;
+  const atrasado = it.atrasado;
   const botoes = botoesDoItem(it);
   const principal = botoes[0];
   const extras = botoes.slice(1);
@@ -754,7 +765,7 @@ function TeamPanel({ itens, hoje }: { itens: SistItem[]; hoje: string }) {
             <p className="px-4 py-10 text-center text-xs text-muted-foreground">Nada pendente no time. 🎉</p>
           ) : (
             itens.map((it) => {
-              const atrasado = it.due && it.due < hoje;
+              const atrasado = it.atrasado;
               return (
                 <Link key={it.key} to={it.link} className="block border-b border-border/40 px-4 py-2.5 last:border-0 hover:bg-sidebar-accent/40">
                   <div className="flex items-start justify-between gap-2">
