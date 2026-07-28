@@ -27,6 +27,16 @@ type Entry = {
   deliverable?: { titulo: string } | null;
 };
 
+/** "14:32" no fuso de quem olha. */
+function hhmm(ts: string) {
+  return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Fim do bloco = início + duração. Serve pro título da linha. */
+function janela(start: string, min: number) {
+  return `${hhmm(start)} às ${hhmm(new Date(new Date(start).getTime() + min * 60000).toISOString())}`;
+}
+
 function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -497,7 +507,10 @@ export default function Horas() {
                     {r.entregavel && r.projeto ? `${r.projeto} · ` : ""}{r.description || "sem descrição"}
                   </p>
                 </div>
-                <span className="truncate text-xs text-muted-foreground">{r.pessoa}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {r.pessoa}
+                  <span className="ml-1 text-muted-foreground/70">· desde {hhmm(r.start_at)}</span>
+                </span>
                 {/* Contagem parcial: o tempo só vira apontamento quando a
                     pessoa para o próprio cronômetro. */}
                 <span className="text-right text-xs font-medium text-primary">{fmtDuracao(r.minutos || 0)}</span>
@@ -519,9 +532,12 @@ export default function Horas() {
                 key={e.id}
                 className="grid grid-cols-[86px_1fr_110px_64px_28px_52px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0"
               >
-                <span className="text-xs text-muted-foreground">
-                  {new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                </span>
+                {/* A hora de início é o que faz a lista virar timesheet de
+                    verdade: dá pra conferir contra a agenda e achar buraco. */}
+                <div className="text-xs leading-tight text-muted-foreground" title={janela(e.start_at, e.duration_min)}>
+                  <div>{new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</div>
+                  <div className="tabular-nums text-foreground/70">{hhmm(e.start_at)}</div>
+                </div>
                 {editando?.id === e.id ? (
                   // O projeto e a peça continuam à vista enquanto corrige —
                   // editar não pode virar "campo em branco sem contexto".
