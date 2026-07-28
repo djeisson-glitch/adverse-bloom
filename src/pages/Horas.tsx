@@ -237,8 +237,12 @@ export default function Horas() {
 
   const excluir = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("time_entries").delete().eq("id", id);
+      // .select() de propósito: sem ele o PostgREST devolve 204 mesmo quando a
+      // RLS barra, e a tela cantaria vitória sem ter apagado nada.
+      const { data, error } = await (supabase as any)
+        .from("time_entries").delete().eq("id", id).select("id");
       if (error) throw error;
+      if (!data?.length) throw new Error("Você não tem permissão para excluir este apontamento.");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["horas-me"] });
@@ -254,11 +258,13 @@ export default function Horas() {
       if (!editando) return;
       const min = parseDuracaoMin(editando.duracao);
       if (!min || min <= 0) throw new Error('Duração não entendida — tente "2h10", "90min" ou "1:30".');
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("time_entries")
         .update({ duration_min: min, description: editando.descricao || null })
-        .eq("id", editando.id);
+        .eq("id", editando.id)
+        .select("id");   // mesma armadilha do 204: sem isto, bloqueio vira "sucesso"
       if (error) throw error;
+      if (!data?.length) throw new Error("Você não tem permissão para corrigir este apontamento.");
     },
     onSuccess: () => {
       setEditando(null);
