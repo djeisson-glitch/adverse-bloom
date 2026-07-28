@@ -1316,7 +1316,8 @@ function AlteracoesSection({
             <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               {abertas.length === 1 ? "1 alteração do cliente aberta" : `${abertas.length} alterações do cliente abertas`} —
-              o trabalho por causa dela conta como <strong>hora de alteração</strong>. Dê play na alteração abaixo (não no timesheet de edição pura).
+              o tempo que você rodar agora entra como <strong>hora de alteração</strong>, automaticamente.
+              Quando mandar pra revisão, ela fecha e o cronômetro volta a contar edição normal.
             </span>
           </div>
         )}
