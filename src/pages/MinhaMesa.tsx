@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import {
   Clapperboard, ListChecks, ChevronRight, Loader2, Inbox, AlertTriangle,
   Clock, CalendarDays, Sparkles, Users, Play, ThumbsUp, RefreshCw,
-  CheckCircle2, ExternalLink, MessageSquarePlus,
+  CheckCircle2, ExternalLink, MessageSquarePlus, Square, PauseCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,55 @@ function botoesDoItem(it: Item): BtnCfg[] {
 }
 
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
+
+/** Dias entre hoje e uma data ISO (negativo = passado). */
+function diasAte(due: string, hoje: string) {
+  return Math.round((new Date(due + "T00:00:00").getTime() - new Date(hoje + "T00:00:00").getTime()) / 86400000);
+}
+
+/**
+ * Prazo dito em urgência, não em data. "06 de ago." obriga a pessoa a fazer a
+ * conta; "em 9 dias" já é a conta feita. Só no destaque — na lista de baixo a
+ * data continua, que é mais compacta.
+ */
+function prazoNatural(due: string | null, hoje: string) {
+  if (!due) return "sem prazo";
+  const d = diasAte(due, hoje);
+  if (d < 0) return `atrasado ${-d} ${-d === 1 ? "dia" : "dias"}`;
+  if (d === 0) return "vence hoje";
+  if (d === 1) return "vence amanhã";
+  if (d <= 13) return `em ${d} dias`;
+  return new Date(due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+/** Há quantos dias esse item não se mexe. */
+function diasParado(ts: string | null | undefined) {
+  if (!ts) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 86400000));
+}
+
+/**
+ * Por que ESTE item está no topo. A tela escolhe — e diz o motivo, senão a
+ * escolha vira palpite invisível.
+ */
+function motivoDoTopo(it: Item, hoje: string): string {
+  if (it.due && it.due < hoje) return prazoNatural(it.due, hoje);
+  if (it.due === hoje) return "vence hoje";
+  if (it.d?.status === "ajuste_interno") return "pediram ajuste interno";
+  if (it.d?.status === "ajuste_solicitado") return "o cliente pediu ajuste";
+  if (it.tipo === "aprovar") return "te esperando aprovar";
+  if (it.tipo === "enviar") return "pronto — falta enviar ao cliente";
+  if (it.tipo === "demanda") return "demanda nova pra avaliar";
+  return prazoNatural(it.due, hoje);
+}
+
+/** 0 = mais urgente. Acima de 2 não entra no destaque. */
+function urgencia(it: Item, hoje: string): number {
+  if (it.due && it.due < hoje) return 0;
+  if (it.due === hoje) return 1;
+  if (it.bloqueante) return 2;
+  return 9;
+}
 const ATIVO = (s: string) => !["aprovado", "entregue", "cancelado", "reprovado"].includes(s);
 
 export default function MinhaMesa() {
@@ -116,7 +165,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -173,9 +222,17 @@ export default function MinhaMesa() {
     if (!d) return;
     setBusy(it.key);
     try {
-      if (kind === "editar") {
+      if (kind === "cronometro") {
+        // Rastrear sem mexer no fluxo: às vezes a pessoa só volta pra mexer
+        // numa peça, sem mudar a etapa dela.
+        if (sessao?.deliverable_id === d.id) { await stop(); }
+        else {
+          const base = { project_id: d.project?.id, project_name: d.project?.name, deliverable_id: d.id, task_title: d.titulo };
+          start(it.alt ? { ...base, alteracao_id: it.alt.id } : base);
+        }
+      } else if (kind === "editar") {
         if (sessao?.deliverable_id !== d.id) {
-          const base = { project_id: d.project?.id, project_name: d.project?.name, deliverable_id: d.id };
+          const base = { project_id: d.project?.id, project_name: d.project?.name, deliverable_id: d.id, task_title: d.titulo };
           start(it.alt ? { ...base, alteracao_id: it.alt.id } : base);
         }
         if (d.status !== "em_edicao") await Fluxo.aplicarPatch(d.id, Fluxo.PATCH_EM_EDICAO);
@@ -349,6 +406,63 @@ export default function MinhaMesa() {
     () => [...porBucket.atrasado, ...porBucket.espera, ...porBucket.semana, ...porBucket.andamento],
     [porBucket],
   );
+
+  /**
+   * O AGORA. A tela escolhe de 1 a 3 coisas e diz por quê.
+   *
+   * Antes os 11 itens vinham com o mesmo botão laranja: a prioridade existia no
+   * código (a ordem da fila) e era invisível na tela — então quem abria a mesa
+   * fazia a triagem de novo, na mão. Se nada é urgente a seção não inventa
+   * urgência: mostra só o próximo e diz que não há nada pegando fogo.
+   */
+  const { agora, semUrgencia } = useMemo(() => {
+    // "cliente" é coisa parada esperando outra pessoa — tem seção própria.
+    const candidatos = fila.filter((it) => it.tipo !== "cliente");
+    const urgentes = candidatos.filter((it) => urgencia(it, hoje) <= 2).slice(0, 3);
+    if (urgentes.length) return { agora: urgentes, semUrgencia: false };
+    return { agora: candidatos.slice(0, 1), semUrgencia: true };
+  }, [fila, hoje]);
+
+  const resto = useMemo(() => {
+    const noTopo = new Set(agora.map((i) => i.key));
+    return fila.filter((it) => !noTopo.has(it.key) && it.tipo !== "cliente");
+  }, [fila, agora]);
+
+  /**
+   * PARADO ESPERANDO ALGUÉM — com quantos dias de parado.
+   *
+   * O que está na mão de outra pessoa não é tarefa sua, mas some se ficar
+   * misturado na fila. Aqui vira lista de cobrança, ordenada pelo que está
+   * parado há mais tempo.
+   */
+  const travados = useMemo(() => {
+    if (!user?.id) return [] as any[];
+    const out: any[] = [];
+    const eu = user.id;
+    // Quem já está no destaque ou na fila não repete aqui — ver a mesma peça
+    // em dois lugares faz a contagem mentir.
+    const jaNoTopo = new Set(agora.map((i) => i.d?.id).filter(Boolean));
+    deliverables.forEach((d: any) => {
+      if (jaNoTopo.has(d.id)) return;
+      const ctx = d.project?.client_name || d.project?.name || "";
+      const link = `/projetos/${d.project?.id}/entregaveis/${d.id}`;
+      const dias = diasParado(d.updated_at);
+      const base = { key: `tr-${d.id}`, titulo: d.titulo, contexto: ctx, link, dias, d };
+      if (d.aprovado_cliente_em && ATIVO(d.status)) {
+        out.push({ ...base, quem: "cliente aprovou", falta: "falta finalizar", dias: diasParado(d.aprovado_cliente_em) });
+      } else if (d.status === "com_cliente" && podeCliente) {
+        out.push({ ...base, quem: `com ${ctx || "o cliente"}`, falta: "sem resposta",
+          item: itens.find((i) => i.d?.id === d.id && i.tipo === "cliente") });
+      } else if (["revisao", "revisao_n1", "revisao_n2"].includes(d.status) && d.responsavel_id === eu) {
+        const aprovador = d.status === "revisao_n2"
+          ? (d.project?.aprovador_n2_id ?? settings?.nivel2_user_id)
+          : (d.project?.aprovador_n1_id ?? settings?.nivel1_user_id);
+        out.push({ ...base, quem: `esperando ${nomeDe(aprovador)}`, falta: "aprovação" });
+      }
+    });
+    // Mexeu hoje não está parado.
+    return out.filter((t) => t.dias >= 1).sort((a, b) => b.dias - a.dias);
+  }, [deliverables, itens, agora, user?.id, podeCliente, settings, profiles]);
   const [aba, setAba] = useState<"minha" | "time">("minha");
 
   if (isLoading) {
@@ -393,15 +507,146 @@ export default function MinhaMesa() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="glass-card overflow-hidden">
-          <CardContent className="p-0">
-            {fila.map((it) => (
-              <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key} onAgir={agir} />
-            ))}
-          </CardContent>
-        </Card>
+        <>
+          {/* ---- AGORA: a tela decide, e diz por quê ---- */}
+          {agora.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {semUrgencia ? "Nada urgente — o próximo é" : "Agora"}
+              </p>
+              {agora.map((it) => (
+                <CardAgora
+                  key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ---- Depois: mesma fila de antes, quieta ---- */}
+          {resto.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Depois · {resto.length}
+              </p>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {resto.map((it) => (
+                    <ItemRow
+                      key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ---- Parado esperando alguém ---- */}
+          {travados.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Parado esperando alguém · {travados.length}
+              </p>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {travados.map((t) => (
+                    <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40">
+                      <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
+                        {t.titulo}
+                      </Link>
+                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
+                        {t.quem} · {t.falta}
+                      </span>
+                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
+                        há {t.dias} {t.dias === 1 ? "dia" : "dias"}
+                      </span>
+                      <div className="flex w-[190px] shrink-0 items-center justify-end gap-1">
+                        {t.item ? botoesDoItem(t.item).map((b, i) => (
+                          <Button
+                            key={b.kind} size="sm" variant={i === 0 ? "default" : "ghost"}
+                            disabled={busy === t.item.key}
+                            onClick={() => agir(b.kind, t.item)}
+                            className={`h-7 px-2.5 text-xs ${i === 0 ? "" : "text-muted-foreground"}`}
+                          >
+                            {b.label}
+                          </Button>
+                        )) : null}
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/**
+ * Botão de cronômetro da linha. Rodar hora é o ato central da produtora e
+ * estava a três cliques daqui — e o "Editar" já ligava o cronômetro sem dizer.
+ * Agora o estado é visível e dá pra ligar/desligar sem mexer na etapa.
+ */
+function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      title={rodando ? "Parar e lançar as horas" : "Rastrear horas nesta peça"}
+      className={`shrink-0 rounded p-1.5 disabled:opacity-50 ${
+        rodando ? "text-warning hover:bg-warning/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      }`}
+    >
+      {rodando ? <Square className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+/**
+ * O item que a tela escolheu como "agora": grande, com o MOTIVO da escolha
+ * escrito. Sem o motivo, destacar vira palpite — a pessoa não sabe se pode
+ * confiar na ordem.
+ */
+function CardAgora({ it, hoje, busy, rodando, onAgir }: {
+  it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void;
+}) {
+  const atrasado = !!(it.due && it.due < hoje);
+  const botoes = botoesDoItem(it);
+  return (
+    <Card className={`glass-card ${atrasado ? "border-destructive/40" : ""}`}>
+      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
+        <div className="min-w-0 flex-1">
+          <Link to={it.link} className="block truncate text-base font-medium text-foreground hover:underline" title={it.titulo}>
+            {it.titulo}
+          </Link>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {it.contexto}
+            <span className={atrasado ? "font-medium text-destructive" : ""}> · {motivoDoTopo(it, hoje)}</span>
+            {it.nota && <span> · {it.nota}</span>}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
+          {botoes.map((b, i) => (
+            <Button
+              key={b.kind} size="sm" disabled={busy}
+              variant={i === 0 ? "default" : "ghost"}
+              onClick={() => onAgir(b.kind, it)}
+              className={`h-8 px-3 text-xs ${i === 0 ? b.cls : "text-muted-foreground"}`}
+            >
+              {busy && i === 0 ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+              {b.label}
+            </Button>
+          ))}
+          <Link to={it.link} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Abrir">
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -412,7 +657,7 @@ export default function MinhaMesa() {
  * fazer), a pílula de etapa (idem), a linha de contexto separada e o
  * cabeçalho de seção. Sobrou o que responde "o que eu faço agora".
  */
-function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boolean; onAgir: (kind: string, it: Item) => void }) {
+function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void }) {
   const atrasado = it.due && it.due < hoje;
   const botoes = botoesDoItem(it);
   const principal = botoes[0];
@@ -446,13 +691,17 @@ function ItemRow({ it, hoje, busy, onAgir }: { it: Item; hoje: string; busy: boo
       </span>
 
       <div className="flex w-[190px] shrink-0 items-center justify-end gap-1">
+        {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
         {principal ? (
           <>
+            {/* Sólido só no AGORA. Aqui embaixo o botão existe mas não grita —
+                era isso que fazia os 11 itens parecerem igualmente urgentes. */}
             <Button
               size="sm"
+              variant="outline"
               disabled={busy}
               onClick={() => onAgir(principal.kind, it)}
-              className={`h-7 px-2.5 text-xs ${principal.cls}`}
+              className="h-7 px-2.5 text-xs"
             >
               {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
               {principal.label}
