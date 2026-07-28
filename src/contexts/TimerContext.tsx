@@ -118,17 +118,25 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     // agora no painel de Horas, e o que salva o timer de quem fecha o
     // navegador ou troca de máquina. O localStorage segue como resposta
     // instantânea da UI; o banco é a fonte compartilhada.
+    // Precisa de await: o builder do supabase-js só dispara a requisição
+    // quando alguém dá then/await nele. Sem isso o upsert nunca saía — a
+    // sessão ficava só no localStorage, que é o problema que isto resolve.
     if (user) {
-      void (supabase as any).from("time_sessions").upsert({
-        user_id: user.id,
-        project_id: input.project_id || null,
-        deliverable_id: input.deliverable_id || null,
-        task_id: input.task_id || null,
-        description: input.description || null,
-        billable: true,
-        start_at,
-        updated_at: start_at,
-      }, { onConflict: "user_id" });
+      void (async () => {
+        const { error } = await (supabase as any).from("time_sessions").upsert({
+          user_id: user.id,
+          project_id: input.project_id || null,
+          deliverable_id: input.deliverable_id || null,
+          task_id: input.task_id || null,
+          description: input.description || null,
+          billable: true,
+          start_at,
+          updated_at: start_at,
+        }, { onConflict: "user_id" });
+        // Falhar aqui não pode parar o cronômetro (o local segue valendo e a
+        // hidratação repara depois), mas tem que aparecer.
+        if (error) console.warn("Sessão do timer não subiu pro banco:", error.message);
+      })();
     }
   }, [user]);
 
