@@ -40,12 +40,20 @@ export default function AdminNotificacoes() {
   const { data: cobertura = [] } = useQuery({
     queryKey: ["notif-cobertura"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc("notif_cobertura_push");
+      // View push_alcance: além de quem tem navegador, mostra o último push
+      // que saiu e quantos avisos estão PRESOS por falta de canal — é esse
+      // número que revela o buraco antes de virar reclamação.
+      const { data, error } = await (supabase as any)
+        .from("push_alcance").select("*").order("pessoa");
       if (error) throw error;
-      return (data as { user_id: string; nome: string; navegadores: number }[]) || [];
+      return ((data as any[]) || []).map((r) => ({
+        user_id: r.user_id, nome: r.pessoa, navegadores: Number(r.dispositivos) || 0,
+        ultimo_push: r.ultimo_push, presas: Number(r.presas) || 0,
+      }));
     },
   });
   const semPush = cobertura.filter((c) => !c.navegadores);
+  const presasTotal = semPush.reduce((t: number, c: any) => t + (c.presas || 0), 0);
   const navegadoresDe = (id: string) => cobertura.find((c) => c.user_id === id)?.navegadores ?? 0;
 
   const pessoas = matriz.data || [];
@@ -103,6 +111,7 @@ export default function AdminNotificacoes() {
             <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
               {semPush.length} pessoa(s) não recebem nenhuma notificação
+              {presasTotal > 0 && ` · ${presasTotal} aviso(s) parados`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               <strong className="text-foreground">{semPush.map((c) => c.nome).join(", ")}</strong> não têm
