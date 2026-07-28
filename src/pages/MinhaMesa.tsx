@@ -175,7 +175,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -318,15 +318,22 @@ export default function MinhaMesa() {
     });
 
     // ENVIAR AO CLIENTE / FECHAR COM O CLIENTE (coordenação).
-    if (podeCliente) {
-      deliverables.filter((d) => d.status === "pronto").forEach((d) => {
-        out.push({
-          key: `env-${d.id}`, tipo: "enviar", titulo: d.titulo,
-          contexto: d.project?.client_name || d.project?.name || "",
-          acao: "Enviar ao cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
-          due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: true, d,
-        });
+    // "Falta enviar ao cliente" é de UMA pessoa, não do papel. Antes caía na
+    // mesa de toda a coordenação e virava item com botão laranja que não era
+    // seu. Sem ninguém configurado, segue caindo pra coordenação — não some
+    // da vista de quem hoje resolve.
+    deliverables.filter((d) => d.status === "pronto").forEach((d) => {
+      const dono = d.project?.envio_cliente_id ?? settings?.envio_cliente_user_id ?? null;
+      if (dono ? dono !== user.id : !podeCliente) return;
+      out.push({
+        key: `env-${d.id}`, tipo: "enviar", titulo: d.titulo,
+        contexto: d.project?.client_name || d.project?.name || "",
+        acao: "Enviar ao cliente", link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
+        due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: true, d,
       });
+    });
+
+    if (podeCliente) {
       deliverables.filter((d) => d.status === "com_cliente").forEach((d) => {
         out.push({
           key: `cli-${d.id}`, tipo: "cliente", titulo: d.titulo,

@@ -1064,6 +1064,7 @@ function AprovacaoProjetoCard({
 }) {
   const [n1, setN1] = useState<string>(project.aprovador_n1_id || "__herdar__");
   const [n2, setN2] = useState<string>(project.aprovador_n2_id || "__herdar__");
+  const [envio, setEnvio] = useState<string>(project.envio_cliente_id || "__herdar__");
   const [cli, setCli] = useState<string>(
     project.cliente_aprova === null || project.cliente_aprova === undefined
       ? "__herdar__"
@@ -1100,7 +1101,7 @@ function AprovacaoProjetoCard({
             Admin → Aprovações.
           </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label>Nível 1</Label>
             <Select
@@ -1108,6 +1109,22 @@ function AprovacaoProjetoCard({
               onValueChange={(v) => {
                 setN1(v);
                 auto.agendar({ aprovador_n1_id: herdar(v) });
+              }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__herdar__">Herdar do global</SelectItem>
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Envia ao cliente</Label>
+            <Select
+              value={envio}
+              onValueChange={(v) => {
+                setEnvio(v);
+                auto.agendar({ envio_cliente_id: herdar(v) });
               }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
