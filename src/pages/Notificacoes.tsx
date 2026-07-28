@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useNotificacoes, SOM_CHAVE, somLigado, tocarAviso } from "@/hooks/useNotificacoes";
 import { ItemNotificacao } from "@/components/NotificacoesSino";
 import { InstalarApp } from "@/components/InstalarApp";
+import { DiagnosticoEntrega } from "@/components/DiagnosticoEntrega";
 import { PreferenciasNotificacao } from "@/components/notificacoes/PreferenciasNotificacao";
 import { useTiposNotif, ROTULO_NIVEL } from "@/hooks/useNotifPrefs";
 import { supabase } from "@/integrations/supabase/client";
@@ -175,6 +176,10 @@ export default function Notificacoes() {
           </Button>
         )}
       </div>
+
+      {/* Diagnóstico antes das instruções: dizer "confira o Foco do Mac" só
+          ajuda quem já sabe que o problema é esse. O teste mostra QUAL é. */}
+      <DiagnosticoEntrega />
 
       {/* Instalar como app — no computador vira janela própria com ícone no dock */}
       <InstalarApp />
