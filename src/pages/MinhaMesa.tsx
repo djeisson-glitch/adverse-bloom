@@ -18,6 +18,7 @@ import { statusLabel } from "@/lib/statusEntregavel";
 import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
+import { AvisoPushDesligado } from "@/components/AvisoPushDesligado";
 
 /**
  * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo que
@@ -521,6 +522,9 @@ export default function MinhaMesa() {
       </div>
 
       {/* O resumo da IA vira UMA linha — sem card, sem ícone, sem cabeçalho. */}
+      {/* Antes do resto: de nada adianta a mesa priorizar bem se a pessoa não
+          é avisada de nada. */}
+      <AvisoPushDesligado />
       <ResumoDoDia />
       <MuralAvisos />
 
