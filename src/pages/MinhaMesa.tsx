@@ -113,7 +113,13 @@ function prazoNatural(due: string | null, hoje: string) {
   return new Date(due + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-/** Há quantos dias esse item não se mexe. */
+/**
+ * Há quantos dias esse item não se mexe.
+ *
+ * Base é deliverables.updated_at, agora mantido por trigger no banco
+ * (20260728140000). Nas linhas anteriores a essa migration a coluna guarda a
+ * data da importação do ClickUp — o número só fica fiel dali pra frente.
+ */
 function diasParado(ts: string | null | undefined) {
   if (!ts) return 0;
   return Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 86400000));
