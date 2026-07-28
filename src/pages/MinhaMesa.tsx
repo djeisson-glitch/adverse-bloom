@@ -451,7 +451,10 @@ export default function MinhaMesa() {
       if (d.aprovado_cliente_em && ATIVO(d.status)) {
         out.push({ ...base, quem: "cliente aprovou", falta: "falta finalizar", dias: diasParado(d.aprovado_cliente_em) });
       } else if (d.status === "com_cliente" && podeCliente) {
-        out.push({ ...base, quem: `com ${ctx || "o cliente"}`, falta: "sem resposta",
+        // Só o nome do CLIENTE aqui — o contexto cai pro nome do projeto quando
+        // o cliente não está preenchido, e "com #20261802_CAPTACOES..." não é
+        // frase que alguém leia.
+        out.push({ ...base, quem: `com ${d.project?.client_name || "o cliente"}`, falta: "sem resposta",
           item: itens.find((i) => i.d?.id === d.id && i.tipo === "cliente") });
       } else if (["revisao", "revisao_n1", "revisao_n2"].includes(d.status) && d.responsavel_id === eu) {
         const aprovador = d.status === "revisao_n2"
