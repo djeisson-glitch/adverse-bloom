@@ -27,8 +27,13 @@ export function DiagnosticoEntrega() {
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   const ler = async () => {
+    // Filtra pelo próprio usuário: a gestão enxerga o time todo na view, e sem
+    // o eq() o maybeSingle() recebia várias linhas e devolvia nada — daí o
+    // "último aviso: nunca" em quem tinha recebido push no mesmo dia.
+    const { data: u } = await supabase.auth.getUser();
     const { data } = await (supabase as any)
-      .from("push_alcance").select("ultimo_push, dispositivos").maybeSingle();
+      .from("push_alcance").select("ultimo_push, dispositivos")
+      .eq("user_id", u.user?.id || "").maybeSingle();
     setE({
       permissao: permissaoAtual(),
       assinatura: await pushAtivo().catch(() => false),
