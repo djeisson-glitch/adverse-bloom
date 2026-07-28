@@ -50,6 +50,7 @@ export default function AdminAprovacoes() {
       __loaded: true,
       nivel1_user_id: settings.nivel1_user_id || "",
       nivel2_user_id: settings.nivel2_user_id || "",
+      envio_cliente_user_id: settings.envio_cliente_user_id || "",
       cliente_aprova: settings.cliente_aprova ?? true,
     });
   }
@@ -114,6 +115,24 @@ export default function AdminAprovacoes() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="md:w-1/2 md:pr-2">
+              <Label>Envia ao cliente</Label>
+              <Select
+                value={form.envio_cliente_user_id || "__none__"}
+                onValueChange={(v) => set({ envio_cliente_user_id: v === "__none__" ? null : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— toda a coordenação —</SelectItem>
+                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Quem recebe na Minha mesa o "pronto — falta enviar ao cliente". Sem definir, o item
+                cai pra coordenação inteira.
+              </p>
             </div>
 
             <label className="flex items-center gap-2 text-sm text-foreground">
