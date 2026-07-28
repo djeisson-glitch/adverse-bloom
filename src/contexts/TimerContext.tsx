@@ -44,6 +44,59 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Hidrata do BANCO. É o que faz o cronômetro sobreviver a fechar o
+  // navegador ou trocar de máquina — o localStorage sozinho não sabia disso.
+  // Regra: se o banco tem sessão, ela manda (é a compartilhada). Se o banco
+  // está vazio mas a máquina tem uma local, a local sobe pro banco em vez de
+  // ser apagada — senão uma gravação que falhou no start (offline) viraria
+  // tempo perdido.
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("time_sessions").select("*").eq("user_id", user.id).maybeSingle();
+      if (!vivo) return;
+      if (data) {
+        let nome = "Sem projeto";
+        if (data.project_id) {
+          const { data: pr } = await supabase
+            .from("projects").select("name").eq("id", data.project_id).maybeSingle();
+          if (pr?.name) nome = pr.name;
+        }
+        if (!vivo) return;
+        setSessao({
+          project_id: data.project_id,
+          project_name: nome,
+          task_id: data.task_id,
+          deliverable_id: data.deliverable_id,
+          description: data.description || undefined,
+          start_at: data.start_at,
+        });
+        return;
+      }
+      // Banco vazio: sobe a local, se houver.
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      try {
+        const local = JSON.parse(raw) as Sessao;
+        await (supabase as any).from("time_sessions").upsert({
+          user_id: user.id,
+          project_id: local.project_id || null,
+          deliverable_id: local.deliverable_id || null,
+          task_id: local.task_id || null,
+          description: local.description || null,
+          billable: true,
+          start_at: local.start_at,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { vivo = false; };
+  }, [user]);
+
   // Persiste
   useEffect(() => {
     if (sessao) localStorage.setItem(KEY, JSON.stringify(sessao));
@@ -58,17 +111,42 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, [sessao]);
 
   const start: Ctx["start"] = useCallback((input) => {
-    setSessao({ ...input, start_at: new Date().toISOString() });
+    const start_at = new Date().toISOString();
+    setSessao({ ...input, start_at });
     toast.success(`Cronômetro iniciado · ${input.project_name}`);
-  }, []);
+    // A sessão também vai pro banco: é o que permite ver quem está rodando
+    // agora no painel de Horas, e o que salva o timer de quem fecha o
+    // navegador ou troca de máquina. O localStorage segue como resposta
+    // instantânea da UI; o banco é a fonte compartilhada.
+    if (user) {
+      void (supabase as any).from("time_sessions").upsert({
+        user_id: user.id,
+        project_id: input.project_id || null,
+        deliverable_id: input.deliverable_id || null,
+        task_id: input.task_id || null,
+        description: input.description || null,
+        billable: true,
+        start_at,
+        updated_at: start_at,
+      }, { onConflict: "user_id" });
+    }
+  }, [user]);
+
+  /** Some com a sessão aberta do banco (parou ou cancelou). */
+  const limparSessaoRemota = useCallback(async () => {
+    if (!user) return;
+    await (supabase as any).from("time_sessions").delete().eq("user_id", user.id);
+  }, [user]);
 
   const cancel = useCallback(() => {
     setSessao(null);
+    void limparSessaoRemota();
     toast.info("Cronômetro cancelado (nada foi lançado)");
-  }, []);
+  }, [limparSessaoRemota]);
 
   const stop = useCallback(async () => {
-    if (!sessao || !user) return setSessao(null);
+    if (!sessao || !user) { void limparSessaoRemota(); return setSessao(null); }
+    await limparSessaoRemota();
     const start = new Date(sessao.start_at).getTime();
     const duration_min = Math.max(1, Math.round((Date.now() - start) / 60000));
     try {
@@ -106,7 +184,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     } finally {
       setSessao(null);
     }
-  }, [sessao, user, qc]);
+  }, [sessao, user, qc, limparSessaoRemota]);
 
   const elapsedSec = sessao
     ? Math.floor((Date.now() - new Date(sessao.start_at).getTime()) / 1000) + tick * 0

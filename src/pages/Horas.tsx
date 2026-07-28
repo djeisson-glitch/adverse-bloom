@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Timer, Plus, Trash2, CalendarCheck } from "lucide-react";
+import { Timer, Plus, Trash2, CalendarCheck, Play, Check, X, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 type Entry = {
   id: string;
+  user_id: string;
   project_id: string;
   start_at: string;
   duration_min: number;
@@ -55,8 +56,12 @@ export default function Horas() {
     faturavel: true,
   });
 
-  // Vê as horas de quem está sendo lançado (admin), senão as próprias.
-  const viewUserId = (isAdmin && form.pessoa) ? form.pessoa : user?.id;
+  // Filtro da LISTA — separado do "lançar para" do formulário. Antes eram a
+  // mesma coisa, e escolher alguém pra lançar trocava a lista embaixo.
+  // Vazio = o time inteiro (admin) ou só as suas (todo o resto).
+  const [filtroPessoa, setFiltroPessoa] = useState("");
+  const viewUserId = isAdmin ? (filtroPessoa || null) : user?.id;
+  const vendoTodos = isAdmin && !filtroPessoa;
   const suasHoras = viewUserId === user?.id;
 
   // Mês que a lista mostra (YYYY-MM). Começa no atual. O lançamento retroativo
@@ -100,14 +105,16 @@ export default function Horas() {
   });
 
   const { data: entries = [] } = useQuery({
-    queryKey: ["horas-me", viewUserId, verMes],
-    enabled: !!viewUserId,
+    queryKey: ["horas-me", viewUserId ?? "todos", verMes],
+    enabled: !!user,
     queryFn: async () => {
       let q = (supabase as any)
         .from("time_entries")
         .select("*, project:projects(name, client_name), deliverable:deliverables(titulo)")
-        .eq("user_id", viewUserId)
         .gte("start_at", fromDate);
+      // Sem viewUserId = o time inteiro (só admin chega aqui). A RLS decide de
+      // verdade; isto é só não pedir o que não viria.
+      if (viewUserId) q = q.eq("user_id", viewUserId);
       if (toDate) q = q.lt("start_at", toDate);
       const { data, error } = await q.order("start_at", { ascending: false });
       if (error) throw error;
@@ -157,6 +164,29 @@ export default function Horas() {
       return (data as any[]) || [];
     },
   });
+
+  /** Quem está com o cronômetro rodando agora (inclui os outros, se admin). */
+  const { data: rodando = [] } = useQuery({
+    queryKey: ["horas-rodando"],
+    refetchInterval: 30_000,   // o contador anda; 30s é o suficiente pra tela
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("horas_rodando_agora");
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  // Timer dos outros começando/parando aparece sem refresh.
+  useEffect(() => {
+    const ch = supabase
+      .channel("horas-sessions")
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_sessions" }, () => {
+        qc.invalidateQueries({ queryKey: ["horas-rodando"] });
+        qc.invalidateQueries({ queryKey: ["horas-me"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
   const totalHoras = useMemo(
     () => entries.reduce((sum, e) => sum + e.duration_min, 0) / 60,
@@ -210,8 +240,39 @@ export default function Horas() {
       const { error } = await (supabase as any).from("time_entries").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["horas-me"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["horas-me"] });
+      toast.success("Apontamento excluído");
+    },
+    onError: (e: any) => toast.error("Não deu pra excluir", { description: e.message }),
   });
+
+  /** Correção de um apontamento já lançado — duração e descrição (admin). */
+  const [editando, setEditando] = useState<{ id: string; duracao: string; descricao: string } | null>(null);
+  const editar = useMutation({
+    mutationFn: async () => {
+      if (!editando) return;
+      const min = parseDuracaoMin(editando.duracao);
+      if (!min || min <= 0) throw new Error('Duração não entendida — tente "2h10", "90min" ou "1:30".');
+      const { error } = await (supabase as any)
+        .from("time_entries")
+        .update({ duration_min: min, description: editando.descricao || null })
+        .eq("id", editando.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditando(null);
+      qc.invalidateQueries({ queryKey: ["horas-me"] });
+      toast.success("Apontamento corrigido");
+    },
+    onError: (e: any) => toast.error("Não deu pra corrigir", { description: e.message }),
+  });
+
+  /** Nome de quem apontou — só o admin carrega profiles, que é quando precisa. */
+  const nomeDe = (id: string) => {
+    const p = profiles.find((x: any) => x.id === id);
+    return p?.full_name || p?.email || "—";
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
@@ -220,17 +281,32 @@ export default function Horas() {
           <Timer className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              {suasHoras ? "Minhas horas" : `Horas — ${profiles.find((p: any) => p.id === viewUserId)?.full_name || "pessoa"}`}
+              {vendoTodos ? "Horas do time" : suasHoras ? "Minhas horas" : `Horas — ${nomeDe(viewUserId!)}`}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {ehMesAtual ? "Este mês" : rotuloMes(verMes)} · total <strong>{totalHoras.toFixed(1)}h</strong>. Lance manualmente abaixo —
-              a <strong>data passada</strong> lança retroativo (ex.: horas do ClickUp).
+              {ehMesAtual ? "Este mês" : rotuloMes(verMes)} · total <strong>{totalHoras.toFixed(1)}h</strong>
+              {rodando.length > 0 && <> · <strong>{rodando.length}</strong> {rodando.length === 1 ? "cronômetro rodando" : "cronômetros rodando"}</>}
+              {isAdmin && <> · você pode corrigir, excluir e lançar retroativo.</>}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Escolher o mês pra conferir o retroativo que foi lançado. Sem
               isso, só dava pra ver o mês corrente. */}
+          {isAdmin && (
+            <div className="flex flex-col">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Pessoa</Label>
+              <Select value={filtroPessoa || "__todos__"} onValueChange={(v) => setFiltroPessoa(v === "__todos__" ? "" : v)}>
+                <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__todos__">Todo o time</SelectItem>
+                  {profiles.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex flex-col">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ver mês</Label>
             <Input
@@ -248,6 +324,9 @@ export default function Horas() {
         </div>
       </div>
 
+      {/* Lançamento manual é ferramenta de CORREÇÃO, não de rotina: a hora
+          normal entra pelo cronômetro. Por isso o formulário é só do admin. */}
+      {isAdmin && (
       <Card className="glass-card">
         <CardContent className="space-y-4 p-5">
           {isAdmin && (
@@ -383,6 +462,38 @@ export default function Horas() {
           </div>
         </CardContent>
       </Card>
+      )}
+
+      {rodando.length > 0 && (
+        <Card className="glass-card border-primary/30">
+          <CardContent className="p-0">
+            <div className="flex items-center gap-2 border-b border-border/40 px-5 py-2.5">
+              <Play className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rodando agora</span>
+            </div>
+            {rodando.map((r: any) => (
+              <div
+                key={r.user_id}
+                className="grid grid-cols-[1fr_140px_70px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-foreground">
+                    {r.entregavel || r.projeto || "Sem projeto"}
+                    {r.cliente && <span className="text-muted-foreground"> · {r.cliente}</span>}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {r.entregavel && r.projeto ? `${r.projeto} · ` : ""}{r.description || "sem descrição"}
+                  </p>
+                </div>
+                <span className="truncate text-xs text-muted-foreground">{r.pessoa}</span>
+                {/* Contagem parcial: o tempo só vira apontamento quando a
+                    pessoa para o próprio cronômetro. */}
+                <span className="text-right text-xs font-medium text-primary">{fmtDuracao(r.minutos || 0)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="glass-card">
         <CardContent className="p-0">
@@ -394,32 +505,74 @@ export default function Horas() {
             entries.map((e) => (
               <div
                 key={e.id}
-                className="grid grid-cols-[100px_1fr_120px_60px_60px_40px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0"
+                className="grid grid-cols-[86px_1fr_110px_64px_28px_52px] items-center gap-3 border-b border-border/40 px-5 py-3 text-sm last:border-0"
               >
                 <span className="text-xs text-muted-foreground">
                   {new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate text-foreground">{e.project?.name || "—"}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {/* A peça vem antes da descrição: é ela que confirma se a
-                        hora caiu no lugar certo. */}
-                    {e.deliverable?.titulo && <span className="text-foreground/70">{e.deliverable.titulo} · </span>}
-                    {e.description || "—"}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground">{e.source}</span>
-                <span className="text-right text-xs">
-                  {fmtDuracao(e.duration_min)}
+                {editando?.id === e.id ? (
+                  <Input
+                    value={editando.descricao}
+                    onChange={(ev) => setEditando({ ...editando, descricao: ev.target.value })}
+                    placeholder="Descrição"
+                    className="h-8 text-xs"
+                  />
+                ) : (
+                  <div className="min-w-0">
+                    <p className="truncate text-foreground">{e.project?.name || "—"}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {/* A peça vem antes da descrição: é ela que confirma se a
+                          hora caiu no lugar certo. */}
+                      {e.deliverable?.titulo && <span className="text-foreground/70">{e.deliverable.titulo} · </span>}
+                      {e.description || "—"}
+                    </p>
+                  </div>
+                )}
+                {/* Vendo o time inteiro, quem apontou importa mais que a origem. */}
+                <span className="truncate text-xs text-muted-foreground">
+                  {vendoTodos ? nomeDe(e.user_id) : e.source}
                 </span>
+                {editando?.id === e.id ? (
+                  <Input
+                    value={editando.duracao}
+                    onChange={(ev) => setEditando({ ...editando, duracao: ev.target.value })}
+                    className="h-8 text-xs"
+                  />
+                ) : (
+                  <span className="text-right text-xs">{fmtDuracao(e.duration_min)}</span>
+                )}
                 <span className={`text-xs ${e.billable ? "text-success" : "text-muted-foreground"}`}>
                   {e.billable ? "R$" : "—"}
                 </span>
-                {suasHoras ? (
-                  <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                ) : <span />}
+                <div className="flex items-center justify-end gap-2">
+                  {editando?.id === e.id ? (
+                    <>
+                      <button onClick={() => editar.mutate()} disabled={editar.isPending} className="text-muted-foreground hover:text-success" title="Salvar">
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => setEditando(null)} className="text-muted-foreground hover:text-foreground" title="Cancelar">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setEditando({ id: e.id, duracao: String(e.duration_min), descricao: e.description || "" })}
+                          className="text-muted-foreground hover:text-primary"
+                          title="Corrigir"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {(isAdmin || e.user_id === user?.id) && (
+                        <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive" title="Excluir">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             ))
           )}
