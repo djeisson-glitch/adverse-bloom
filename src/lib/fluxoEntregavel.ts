@@ -151,13 +151,26 @@ export async function clienteAprovou(d: DelivFluxo): Promise<string> {
 
 /** ALTERAÇÃO DO CLIENTE: registra e volta pro editor (retrabalho → 1 aprovação). */
 export async function registrarAlteracaoCliente(d: DelivFluxo, titulo: string): Promise<string> {
+  // Numera igual ao portal (MAX+1). Sem isto o insert caía no default 1 e TODA
+  // alteração registrada aqui virava "R1" — 17 das 22 do banco estavam assim,
+  // então "R2, R3" nunca apareciam pra quem registra pelo sistema.
+  const { data: ultima } = await (supabase as any)
+    .from("deliverable_alteracoes")
+    .select("numero").eq("deliverable_id", d.id)
+    .order("numero", { ascending: false }).limit(1).maybeSingle();
+  const numero = (ultima?.numero || 0) + 1;
+
   const { error } = await (supabase as any).from("deliverable_alteracoes").insert({
-    deliverable_id: d.id, titulo: titulo.trim(), origem: "cliente",
+    deliverable_id: d.id, numero, titulo: titulo.trim(), origem: "cliente",
     criado_por: "Cliente", responsavel_id: d.responsavel_id || null,
   });
   if (error) throw error;
-  await upd(d.id, { status: "ajuste_interno", retrabalho: true });
-  return "Alteração do cliente registrada — voltou pro editor";
+  // 'ajuste_solicitado' e não 'ajuste_interno': quem pediu foi o CLIENTE. Com o
+  // status errado a peça aparecia como ajuste nosso — a tela dizia "pediram
+  // ajuste interno" e o aviso saía como "Voltou pra você" em vez do crítico
+  // "Pediram alteração".
+  await upd(d.id, { status: "ajuste_solicitado", retrabalho: true });
+  return `Alteração R${numero} registrada — voltou pro editor`;
 }
 
 /** Patch cru pra quem precisa (ex.: editar precisa só do status). */

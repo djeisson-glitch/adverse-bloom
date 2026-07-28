@@ -70,6 +70,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           project_name: nome,
           task_id: data.task_id,
           deliverable_id: data.deliverable_id,
+          alteracao_id: data.alteracao_id,
           description: data.description || undefined,
           start_at: data.start_at,
         });
@@ -84,6 +85,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           user_id: user.id,
           project_id: local.project_id || null,
           deliverable_id: local.deliverable_id || null,
+          alteracao_id: local.alteracao_id || null,
           task_id: local.task_id || null,
           description: local.description || null,
           billable: true,
@@ -113,6 +115,40 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const start: Ctx["start"] = useCallback((input) => {
     const start_at = new Date().toISOString();
     setSessao({ ...input, start_at });
+
+    /**
+     * A hora vai pra alteração do cliente SOZINHA quando existe uma aberta.
+     *
+     * Antes cada tela decidia isso: a ficha do entregável amarrava, o Play do
+     * timesheet não, e o "Apontar" do topo também não — a mesma hora caía em
+     * lugares diferentes conforme o botão. A regra é do cronômetro, não da
+     * tela: enquanto a alteração está aberta o trabalho é dela; quando o
+     * editor manda pra revisão a alteração fecha e o tempo volta a ser edição.
+     */
+    if (input.deliverable_id && !input.alteracao_id) {
+      void (async () => {
+        const { data } = await (supabase as any)
+          .from("deliverable_alteracoes")
+          .select("id")
+          .eq("deliverable_id", input.deliverable_id)
+          .eq("status", "aberta")
+          .order("numero", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!data?.id) return;
+        setSessao((s) =>
+          s && s.deliverable_id === input.deliverable_id && s.start_at === start_at
+            ? { ...s, alteracao_id: data.id }
+            : s,
+        );
+        // A sessão no banco também guarda: fechar o navegador no meio de um
+        // ajuste não pode jogar a hora pro balde da edição normal.
+        if (user) {
+          await (supabase as any).from("time_sessions")
+            .update({ alteracao_id: data.id }).eq("user_id", user.id);
+        }
+      })();
+    }
     toast.success(`Cronômetro iniciado · ${input.project_name}`);
     // A sessão também vai pro banco: é o que permite ver quem está rodando
     // agora no painel de Horas, e o que salva o timer de quem fecha o
@@ -127,6 +163,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           user_id: user.id,
           project_id: input.project_id || null,
           deliverable_id: input.deliverable_id || null,
+          alteracao_id: input.alteracao_id || null,
           task_id: input.task_id || null,
           description: input.description || null,
           billable: true,

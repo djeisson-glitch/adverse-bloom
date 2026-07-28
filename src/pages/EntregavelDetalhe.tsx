@@ -451,9 +451,6 @@ export default function EntregavelDetalhe() {
         alteracoes={alteracoes}
         podeHoras={canSeeHours}
         horasPorAlteracao={horas.porAlteracao}
-        onStart={(alteracaoId) =>
-          start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did!, alteracao_id: alteracaoId })
-        }
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
           qc.invalidateQueries({ queryKey: ["entregavel", did] });
@@ -1119,8 +1116,10 @@ function TimesheetEntregavel({
   const [desc, setDesc] = useState("");
   const durMin = parseDuracaoMin(dur, "h");   // número puro = horas neste campo
 
-  // Play/pause estilo ClickUp: rodando neste entregável (edição pura, sem alteração).
-  const rodando = !!sessao && sessao.deliverable_id === did && !sessao.alteracao_id;
+  // Um cronômetro por peça. Antes isto excluía a sessão amarrada a uma
+  // alteração, então o botão mostrava "Play" com o timer JÁ rodando na peça —
+  // e clicar parava e recomeçava, picando a hora em dois lançamentos.
+  const rodando = !!sessao && sessao.deliverable_id === did;
   const handlePlay = async () => {
     if (sessao) await stop(); // fecha e lança o que estiver rodando antes
     onStart();
@@ -1195,8 +1194,9 @@ function TimesheetEntregavel({
           <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
             <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Este entregável tem <strong>alteração do cliente aberta</strong>. Se você está mexendo por causa
-              dela, aponte as horas <strong>na alteração</strong> (lá em cima), não aqui — aqui é só edição pura.
+              Tem <strong>alteração do cliente aberta</strong>: o tempo que você rodar agora entra
+              como <strong>hora de alteração</strong>, automaticamente. Quando mandar pra revisão, a
+              alteração fecha e o cronômetro volta a contar como edição normal.
             </span>
           </div>
         )}
@@ -1248,10 +1248,10 @@ function TimesheetEntregavel({
 /* ------------------------------------------------ Alterações do cliente */
 
 function AlteracoesSection({
-  did, projectId, projectName, alteracoes, podeHoras, horasPorAlteracao, onStart, onChanged,
+  did, projectId, projectName, alteracoes, podeHoras, horasPorAlteracao, onChanged,
 }: {
   did: string; projectId: string; projectName: string; alteracoes: any[]; podeHoras: boolean;
-  horasPorAlteracao: Record<string, number>; onStart: (alteracaoId: string) => void; onChanged: () => void;
+  horasPorAlteracao: Record<string, number>; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
@@ -1348,28 +1348,15 @@ function AlteracoesSection({
               </div>
               {a.descricao && <p className="mt-1 text-xs text-muted-foreground">{a.descricao}</p>}
               <div className="mt-2 flex items-center gap-2">
-                {/* Timer só pra quem aponta horas; a coordenadora só acompanha. */}
-                {podeHoras && (
-                  sessao?.deliverable_id === did && sessao?.alteracao_id === a.id ? (
-                    <Button
-                      size="sm"
-                      className="h-7 bg-warning text-warning-foreground hover:bg-warning/90"
-                      onClick={async () => { await stop(); onChanged(); }}
-                      title="Pausar e lançar as horas desta alteração"
-                    >
-                      <Pause className="mr-1 h-3 w-3 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7"
-                      onClick={async () => { if (sessao) await stop(); onStart(a.id); }}
-                      title="Dar play no timer desta alteração"
-                    >
-                      <Play className="mr-1 h-3 w-3 fill-current" /> Play
-                    </Button>
-                  )
+                {/* Sem Play próprio. O cronômetro é UM só: enquanto a alteração
+                    está aberta, o "Editar" já conta aqui. Dois botões de
+                    rastreio faziam a mesma hora cair em lugares diferentes
+                    conforme onde a pessoa clicava. Aqui só mostra o estado. */}
+                {podeHoras && sessao?.deliverable_id === did && sessao?.alteracao_id === a.id && (
+                  <span className="flex items-center gap-1 rounded bg-warning/15 px-2 py-1 text-[11px] font-medium text-warning">
+                    <Play className="h-3 w-3 fill-current" />
+                    contando aqui · {formatElapsed(elapsedSec)}
+                  </span>
                 )}
                 <Button size="sm" variant="ghost" className="h-7" onClick={() => resolver.mutate(a)}>
                   {a.status === "resolvida" ? "Reabrir" : "Marcar resolvida"}
