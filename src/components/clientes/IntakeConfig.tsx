@@ -53,7 +53,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("clients")
-        .select("intake_ativo, intake_slug, intake_editor_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media, intake_contatos")
+        .select("intake_ativo, intake_slug, intake_editor_id, editor_nivel1_id, editor_nivel2_id, editor_nivel3_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media, intake_contatos")
         .eq("id", clientId)
         .maybeSingle();
       if (error) throw error;
@@ -157,22 +157,41 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
             </div>
           </div>
           <div>
-            <Label>Editor responsável (pro cálculo de prazo)</Label>
-            <Select
-              value={form.intake_editor_id || "none"}
-              onValueChange={(v) => {
-                set({ intake_editor_id: v === "none" ? "" : v });
-                autoEscolha.agendar({ intake_editor_id: v === "none" ? null : v });
-              }}
-            >
-              <SelectTrigger><SelectValue placeholder="— selecionar —" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— nenhum —</SelectItem>
-                {editores.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.full_name || "—"}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Três níveis em vez de um editor só. O prazo usa a fila do nível 1;
+                se ela já estourou a capacidade da janela, desce pro 2 e depois pro 3.
+                Assim "indisponível" é um fato medido, não um palpite — e o nível não
+                perde a vez por qualquer coisa. */}
+            <Label>Quem edita (nível 1 → 2 → 3)</Label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {([1, 2, 3] as const).map((nv) => {
+                const campo = `editor_nivel${nv}_id` as const;
+                return (
+                  <div key={nv}>
+                    <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Nível {nv}</p>
+                    <Select
+                      value={(form as any)[campo] || "none"}
+                      onValueChange={(v) => {
+                        set({ [campo]: v === "none" ? "" : v } as any);
+                        autoEscolha.agendar({ [campo]: v === "none" ? null : v });
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— nenhum —</SelectItem>
+                        {editores.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.full_name || "—"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              O prazo do formulário usa a fila de quem estiver disponível, de cima pra baixo.
+              Sem nenhum nível preenchido, ele reparte pela capacidade do time — menos preciso.
+            </p>
+
           </div>
           <div>
             <Label>Horas de edição por vídeo</Label>

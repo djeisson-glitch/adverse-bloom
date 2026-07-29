@@ -166,7 +166,13 @@ export default function PortalPublico() {
       const k = (dataDe(d) || "").slice(0, 7) || "sem-data";
       porMes.set(k, [...(porMes.get(k) || []), d]);
     });
-  const meses = [...porMes.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  // "sem-data" por último: ordenado como texto ele ganha de "2026-07" e subia
+  // pro topo, na frente do mês corrente.
+  const meses = [...porMes.entries()].sort((a, b) => {
+    if (a[0] === "sem-data") return 1;
+    if (b[0] === "sem-data") return -1;
+    return b[0].localeCompare(a[0]);
+  });
   const rotuloMes = (k: string) => {
     if (k === "sem-data") return "Sem data";
     const [y, m] = k.split("-").map(Number);
