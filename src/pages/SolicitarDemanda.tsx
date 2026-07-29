@@ -255,7 +255,16 @@ export default function SolicitarDemanda() {
       return data as any;
     },
   });
-  const inviavel = !!prazoIso && dispo && dispo.no_prazo === false;
+  /**
+   * Bloqueia o envio? Só quando NÃO é urgência.
+   *
+   * A taxa de urgência é justamente o preço de furar a fila — bloquear o
+   * mesmo dia esvaziaria a regra: o cliente não teria como pagar pra ter o que
+   * precisa, e a Adverse perderia a receita que compensa o esforço extra.
+   * Fora da janela de urgência o bloqueio continua: aí não há taxa que
+   * justifique passar na frente, e o certo é oferecer a data possível.
+   */
+  const semDisponibilidade = !!prazoIso && dispo && dispo.no_prazo === false;
 
   /**
    * Adicional de urgência — regra por DIA CORRIDO, não por hora.
@@ -276,6 +285,8 @@ export default function SolicitarDemanda() {
     limite.setDate(limite.getDate() + urgDias);
     return escolhido <= limite;
   }, [form.prazo, urgDias]);
+
+  const inviavel = semDisponibilidade && !urgente;
   const usarSugerido = () => {
     if (!dispo?.earliest) return;
     setForm((f) => ({ ...f, prazo: toLocalInput(dispo.earliest) }));
@@ -803,6 +814,14 @@ export default function SolicitarDemanda() {
                   <p className="mt-1 flex items-center gap-1.5 rounded-md border border-[#10b981]/30 bg-[#10b981]/5 px-2.5 py-1.5 text-xs text-[#8fe7c4]">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Temos disponibilidade pra esse prazo. <span className="text-[#6b675f]">(nosso time confirma)</span>
                   </p>
+                ) : urgente ? (
+                  <div className="mt-1 rounded-md border border-[#E53500]/50 bg-[#E53500]/10 px-2.5 py-2 text-xs">
+                    <p className="font-semibold text-white">Entrega em regime de urgência · +{urgPct.toFixed(0)}%</p>
+                    <p className="mt-1 leading-relaxed text-[#ffb4a0]">
+                      Esse prazo entra na frente da fila e tem adicional de {urgPct.toFixed(0)}% sobre as
+                      horas deste projeto. Escolhendo a partir de depois de amanhã, o adicional não se aplica.
+                    </p>
+                  </div>
                 ) : inviavel ? (
                   <div className="mt-1 rounded-md border border-[#f59e0b]/40 bg-[#f59e0b]/5 px-2.5 py-2 text-xs">
                     <p className="flex items-center gap-1.5 text-[#f5c37a]"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Nesse horário não conseguimos entregar com qualidade.</p>
@@ -850,11 +869,18 @@ export default function SolicitarDemanda() {
             className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {inviavel ? "Ajuste o prazo pra enviar" : "Enviar demanda"}
+            {/* O aceite tem que ser explícito no botão: é o que sustenta a
+                cobrança depois. "Enviar demanda" e a fatura com +50% não
+                combinam. */}
+            {inviavel ? "Ajuste o prazo pra enviar"
+              : urgente ? `Enviar com urgência (+${urgPct.toFixed(0)}%)`
+              : "Enviar demanda"}
           </button>
           <p className="text-center text-[11px] text-[#6b675f]">
             {inviavel
               ? "Esse prazo está sem disponibilidade — escolha o horário sugerido acima pra enviar."
+              : urgente
+              ? `Ao enviar, você concorda com o adicional de ${urgPct.toFixed(0)}% pela urgência.`
               : "Ao enviar, você recebe uma estimativa de prazo. Nosso time confirma com você em seguida."}
           </p>
         </div>
