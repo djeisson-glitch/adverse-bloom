@@ -718,7 +718,13 @@ export default function SolicitarDemanda() {
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[11px] text-[#6b675f]">Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.</p>
+                <p className="mt-2 text-[11px] text-[#6b675f]">
+                  Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.
+                  {/* Sem editor fixo, a fila usada é a do time inteiro rateada — boa o
+                      bastante pra não prometer o impossível, mas não é a fila de uma
+                      pessoa. Dizer isso é melhor que uma data com cara de precisa. */}
+                  {sugestoes?.sem_editor ? " Este cliente ainda não tem editor fixo, então a data é estimada pela fila geral." : ""}
+                </p>
                 <button
                   type="button"
                   onClick={() => setModoData("custom")}
