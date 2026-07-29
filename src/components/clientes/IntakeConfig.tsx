@@ -33,12 +33,20 @@ type FormIntake = {
   intake_edit_horas: string;
   intake_revisao_horas: string;
   intake_alteracoes_media: string;
+  urgencia_dias: string;
+  urgencia_percentual: string;
+  // níveis de edição — preenchidos pela hidratação
+  editor_nivel1_id?: string;
+  editor_nivel2_id?: string;
+  editor_nivel3_id?: string;
 };
 
 export default function IntakeConfig({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [form, setForm] = useState<FormIntake>({
     intake_ativo: false,
     intake_slug: "",
+    urgencia_dias: "0",
+    urgencia_percentual: "50",
     intake_editor_id: "",
     intake_edit_horas: "4",
     intake_revisao_horas: "2",
@@ -53,7 +61,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("clients")
-        .select("intake_ativo, intake_slug, intake_editor_id, editor_nivel1_id, editor_nivel2_id, editor_nivel3_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media, intake_contatos")
+        .select("intake_ativo, intake_slug, intake_editor_id, editor_nivel1_id, editor_nivel2_id, editor_nivel3_id, intake_edit_horas, intake_revisao_horas, intake_alteracoes_media, intake_contatos, urgencia_dias, urgencia_percentual")
         .eq("id", clientId)
         .maybeSingle();
       if (error) throw error;
@@ -79,6 +87,11 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
         intake_edit_horas: String(cli.intake_edit_horas ?? 4),
         intake_revisao_horas: String(cli.intake_revisao_horas ?? 2),
         intake_alteracoes_media: String(cli.intake_alteracoes_media ?? 1),
+        editor_nivel1_id: cli.editor_nivel1_id || "",
+        editor_nivel2_id: cli.editor_nivel2_id || "",
+        editor_nivel3_id: cli.editor_nivel3_id || "",
+        urgencia_dias: String(cli.urgencia_dias ?? 0),
+        urgencia_percentual: String(cli.urgencia_percentual ?? 50),
       });
       setContatosState(Array.isArray(cli.intake_contatos) ? cli.intake_contatos : []);
       setHidratado(true);
@@ -161,6 +174,43 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                 se ela já estourou a capacidade da janela, desce pro 2 e depois pro 3.
                 Assim "indisponível" é um fato medido, não um palpite — e o nível não
                 perde a vez por qualquer coisa. */}
+            {/* Taxa de urgência: DESLIGADA por padrão. Uma regra que cobra não
+                pode nascer ligada — cliente novo levaria adicional sem ninguém
+                ter decidido, e a descoberta seria na fatura. */}
+            <div className="mb-4 rounded-md border border-border/50 p-3">
+              <Label>Taxa de urgência</Label>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Janela</p>
+                  <Select
+                    value={String((form as any).urgencia_dias ?? "0")}
+                    onValueChange={(v) => { set({ urgencia_dias: v } as any); autoEscolha.agendar({ urgencia_dias: Number(v) }); }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Sem taxa de urgência</SelectItem>
+                      <SelectItem value="1">Entrega hoje ou amanhã</SelectItem>
+                      <SelectItem value="2">Até depois de amanhã</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Adicional (%)</p>
+                  <Input
+                    type="number" min={0} max={300}
+                    value={(form as any).urgencia_percentual ?? "50"}
+                    onChange={(e) => set({ urgencia_percentual: e.target.value } as any)}
+                    onBlur={(e) => autoEscolha.agendar({ urgencia_percentual: Number(e.target.value) || 0 })}
+                    disabled={String((form as any).urgencia_dias ?? "0") === "0"}
+                  />
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Com a janela ligada, o cliente vê o adicional no formulário e o envio deixa de ser
+                bloqueado — a taxa é o preço de furar a fila. O valor fica congelado no pedido.
+              </p>
+            </div>
+
             <Label>Quem edita (nível 1 → 2 → 3)</Label>
             <div className="grid gap-2 sm:grid-cols-3">
               {([1, 2, 3] as const).map((nv) => {
