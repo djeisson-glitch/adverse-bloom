@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { primeiroNome } from "@/lib/pessoa";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -101,7 +102,7 @@ export default function AdminAprovacoes() {
                   <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— sem R1 —</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -111,7 +112,7 @@ export default function AdminAprovacoes() {
                   <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— sem R2 —</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -126,7 +127,7 @@ export default function AdminAprovacoes() {
                 <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">— toda a coordenação —</SelectItem>
-                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">

@@ -1,4 +1,5 @@
 import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
+import { primeiroNome } from "@/lib/pessoa";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +42,7 @@ export default function FrenteProducao() {
   });
   const nome = (id?: string | null) => {
     const p = profiles.find((x: any) => x.id === id);
-    return p ? (p.full_name || p.email || "—") : "—";
+    return p ? primeiroNome(p.full_name || p.email) : "—";
   };
 
   const dados = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { primeiroNome } from "@/lib/pessoa";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -165,7 +166,7 @@ export default function Planejamento() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm text-foreground">{p.full_name || p.email}</p>
+                        <p className="text-sm text-foreground">{primeiroNome(p.full_name || p.email)}</p>
                         <p className="text-[10px] text-muted-foreground">{p.horas_semana || 40}h/sem</p>
                       </div>
                     </div>
@@ -205,7 +206,7 @@ export default function Planejamento() {
               <SelectContent>
                 {profiles.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.full_name || p.email}
+                    {primeiroNome(p.full_name || p.email)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import { statusLabel } from "@/lib/statusEntregavel";
 import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
+import { primeiroNome } from "@/lib/pessoa";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 import { AvisoPushDesligado } from "@/components/AvisoPushDesligado";
@@ -222,7 +223,8 @@ export default function MinhaMesa() {
     enabled: coordena,
     queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name")).data || [],
   });
-  const nomeDe = (uid: string | null | undefined) => (uid ? (profiles.find((p: any) => p.id === uid)?.full_name || "—") : "—");
+  const nomeDe = (uid: string | null | undefined) =>
+    uid ? primeiroNome(profiles.find((p: any) => p.id === uid)?.full_name) : "—";
 
   // Alteração do cliente aberta de um entregável (pra dobrar dentro do item do editor).
   const altAbertaDe = (did: string) => alteracoes.find((a: any) => a.deliverable?.id === did);

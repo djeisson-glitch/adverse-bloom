@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { primeiroNome } from "@/lib/pessoa";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -531,7 +532,9 @@ function TeamMemberRow({
   const autoEscolha = useFormAutosave<Ficha>(salvarFicha, { delay: 150 });
   const status = auto.status !== "ocioso" ? auto.status : autoEscolha.status;
 
-  const displayName = profile.full_name || profile.email?.split("@")[0] || "sem nome";
+  // Cartão do time: primeiro nome pra bater o olho. O nome completo
+  // continua no formulário de edição, que é onde ele importa.
+  const displayName = primeiroNome(profile.full_name || profile.email, "sem nome");
   const initials = displayName
     .split(" ")
     .map((n) => n[0])
