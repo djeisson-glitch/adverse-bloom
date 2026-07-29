@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from "react-router-dom";
 import { statusLabel } from "@/lib/statusEntregavel";
 import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
+import { primeiroNome } from "@/lib/pessoa";
 import { toast } from "sonner";
 
 type Entry = {
@@ -288,7 +289,7 @@ export default function Horas() {
   /** Nome de quem apontou — só o admin carrega profiles, que é quando precisa. */
   const nomeDe = (id: string) => {
     const p = profiles.find((x: any) => x.id === id);
-    return p?.full_name || p?.email || "—";
+    return primeiroNome(p?.full_name || p?.email);
   };
 
   return (
@@ -318,7 +319,7 @@ export default function Horas() {
                 <SelectContent>
                   <SelectItem value="__todos__">Todo o time</SelectItem>
                   {profiles.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -354,7 +355,7 @@ export default function Horas() {
                 <SelectContent>
                   <SelectItem value="__me__">Eu mesmo</SelectItem>
                   {profiles.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -508,7 +509,7 @@ export default function Horas() {
                   </p>
                 </div>
                 <span className="truncate text-xs text-muted-foreground">
-                  {r.pessoa}
+                  {primeiroNome(r.pessoa)}
                   <span className="ml-1 text-muted-foreground/70">· desde {hhmm(r.start_at)}</span>
                 </span>
                 {/* Contagem parcial: o tempo só vira apontamento quando a

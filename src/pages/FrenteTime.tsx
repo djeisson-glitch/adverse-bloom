@@ -1,4 +1,5 @@
 import { estaAtrasado } from "@/lib/prazoEntregavel";
+import { primeiroNome } from "@/lib/pessoa";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +52,7 @@ export default function FrenteTime() {
       const tar = tarefas.filter((t: any) => t.assigned_user_id === p.id).length;
       return {
         id: p.id,
-        nome: p.full_name || p.email || "—",
+        nome: primeiroNome(p.full_name || p.email),
         entregaveis: meus.length,
         atrasados,
         tarefas: tar,

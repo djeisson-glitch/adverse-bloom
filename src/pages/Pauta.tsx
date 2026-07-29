@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { primeiroNome } from "@/lib/pessoa";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -142,7 +143,7 @@ export default function Pauta() {
               <SelectItem value="__sem__">Sem responsável</SelectItem>
               {profiles.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
-                  {p.full_name || p.email}
+                  {primeiroNome(p.full_name || p.email)}
                 </SelectItem>
               ))}
             </SelectContent>

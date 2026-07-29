@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -697,7 +698,7 @@ function EquipeAvatars({
             .filter((p) => !members.some((m) => m.user_id === p.id))
             .map((p) => (
               <SelectItem key={p.id} value={p.id}>
-                {p.full_name || p.email}
+                {primeiroNome(p.full_name || p.email)}
               </SelectItem>
             ))}
         </SelectContent>
@@ -870,7 +871,7 @@ function TaskRow({
           <SelectItem value="none">—</SelectItem>
           {profiles.map((p) => (
             <SelectItem key={p.id} value={p.id}>
-              {p.full_name || p.email}
+              {primeiroNome(p.full_name || p.email)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -1114,7 +1115,7 @@ function AprovacaoProjetoCard({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
-                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -1130,7 +1131,7 @@ function AprovacaoProjetoCard({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
-                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -1146,7 +1147,7 @@ function AprovacaoProjetoCard({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__herdar__">Herdar do global</SelectItem>
-                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>)}
+                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -1651,7 +1652,7 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
                 <SelectItem value="__none__">— sem responsável —</SelectItem>
                 {profiles.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.full_name || p.email}
+                    {primeiroNome(p.full_name || p.email)}
                   </SelectItem>
                 ))}
               </SelectContent>
