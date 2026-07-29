@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -256,6 +256,26 @@ export default function SolicitarDemanda() {
     },
   });
   const inviavel = !!prazoIso && dispo && dispo.no_prazo === false;
+
+  /**
+   * Adicional de urgência — regra por DIA CORRIDO, não por hora.
+   *
+   * Contar hora abriria a porta pro cliente fugir da regra trocando 18h por
+   * 19h. Por dia, a única saída é jogar pra depois de amanhã — que é dar um
+   * dia de verdade, não um truque. E cabe numa frase que ele confere sozinho.
+   *
+   * Isto aqui é só o AVISO: quem grava a urgência é o banco, no instante do
+   * pedido (trigger em demandas), pra não depender do navegador do cliente.
+   */
+  const urgDias = Number((cfg as any)?.urgencia_dias ?? 0);
+  const urgPct = Number((cfg as any)?.urgencia_percentual ?? 0);
+  const urgente = useMemo(() => {
+    if (!form.prazo || urgDias <= 0) return false;
+    const escolhido = new Date(form.prazo); escolhido.setHours(0, 0, 0, 0);
+    const limite = new Date(); limite.setHours(0, 0, 0, 0);
+    limite.setDate(limite.getDate() + urgDias);
+    return escolhido <= limite;
+  }, [form.prazo, urgDias]);
   const usarSugerido = () => {
     if (!dispo?.earliest) return;
     setForm((f) => ({ ...f, prazo: toLocalInput(dispo.earliest) }));
@@ -718,6 +738,16 @@ export default function SolicitarDemanda() {
                     );
                   })}
                 </div>
+                {urgente && (
+                  <div className="mt-3 rounded-md border border-[#E53500]/50 bg-[#E53500]/10 px-3 py-2.5 text-xs text-[#ffb4a0]">
+                    <strong className="text-white">Entrega em regime de urgência · +{urgPct.toFixed(0)}%</strong>
+                    <p className="mt-1 leading-relaxed">
+                      Entregas pedidas para hoje ou amanhã entram na frente da fila e têm adicional
+                      de {urgPct.toFixed(0)}% sobre as horas deste projeto. Escolhendo uma data a
+                      partir de depois de amanhã, o adicional não se aplica.
+                    </p>
+                  </div>
+                )}
                 <p className="mt-2 text-[11px] text-[#6b675f]">
                   Mais tempo = mais capricho e espaço pra alteração. Nosso time confirma.
                   {/* Sem editor fixo, a fila usada é a do time inteiro rateada — boa o
