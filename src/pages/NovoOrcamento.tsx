@@ -29,7 +29,7 @@ import {
 export default function NovoOrcamento() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { clients, createClient } = useClients();
+  const { clients, createClient, updateClient } = useClients();
 
   const [form, setForm] = useState({
     title: "",
@@ -42,6 +42,12 @@ export default function NovoOrcamento() {
     novo_contato_nome: "",
     novo_contato_celular: "",
     novo_contato_email: "",
+    // Contato de cliente JÁ cadastrado: preenchido a partir da ficha quando
+    // existe, editável quando falta. Hoje falta em 8 dos 9 — mostrar vazio e
+    // não deixar completar seria só informar o problema.
+    contato_nome: "",
+    contato_celular: "",
+    contato_email: "",
     canal_entrada: "",
     tipo_orcamento: "",
     porte: "grande",
@@ -73,6 +79,20 @@ export default function NovoOrcamento() {
         clientId = created.id;
       }
       if (!clientId) throw new Error("Escolha um cliente ou informe um nome novo");
+
+      // Cliente existente sem contato: o que foi digitado aqui vai pra FICHA
+      // dele, não fica preso no orçamento. É o mesmo dado, e o lugar dele é a
+      // ficha — senão cada orçamento teria uma versão do contato.
+      if (form.client_id) {
+        const atual: any = clients.find((x: any) => x.id === form.client_id);
+        const patch: Record<string, string | null> = {};
+        if (form.contato_nome.trim() && form.contato_nome.trim() !== (atual?.contact_name || "")) patch.contact_name = form.contato_nome.trim();
+        if (form.contato_celular.trim() && form.contato_celular.trim() !== (atual?.phone || "")) patch.phone = form.contato_celular.trim();
+        if (form.contato_email.trim() && form.contato_email.trim() !== (atual?.email || "")) patch.email = form.contato_email.trim();
+        if (Object.keys(patch).length) {
+          await updateClient.mutateAsync({ id: form.client_id, ...patch } as any);
+        }
+      }
 
       const { data, error } = await (supabase as any)
         .from("deals")
@@ -140,7 +160,15 @@ export default function NovoOrcamento() {
               <Label>Cliente</Label>
               <Select
                 value={form.client_id}
-                onValueChange={(v) => setForm({ ...form, client_id: v, novo_cliente: "" })}
+                onValueChange={(v) => {
+                  const c: any = clients.find((x: any) => x.id === v);
+                  setForm({
+                    ...form, client_id: v, novo_cliente: "",
+                    contato_nome: c?.contact_name || "",
+                    contato_celular: c?.phone || "",
+                    contato_email: c?.email || "",
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="— selecionar —" />
@@ -163,9 +191,40 @@ export default function NovoOrcamento() {
               />
             </div>
 
-            {/* Só aparece pra cliente NOVO: pra quem já existe, o contato se
-                edita na ficha dele e duplicar campo aqui daria dois lugares
-                pra mesma verdade. */}
+            {/* Cliente JÁ cadastrado: mostra quem é o contato lá dentro. Se
+                não houver, os campos vêm vazios pra completar na hora — e o
+                que for digitado vai pra ficha do cliente, não fica preso
+                neste orçamento. */}
+            {form.client_id && (
+              <div className="md:col-span-2">
+                <Label>Contato nesta empresa</Label>
+                <div className="mt-1 grid gap-2 md:grid-cols-3">
+                  <Input
+                    value={form.contato_nome}
+                    onChange={(e) => setForm({ ...form, contato_nome: e.target.value })}
+                    placeholder="Nome do responsável"
+                  />
+                  <Input
+                    value={form.contato_celular}
+                    onChange={(e) => setForm({ ...form, contato_celular: e.target.value })}
+                    placeholder="Celular"
+                  />
+                  <Input
+                    type="email"
+                    value={form.contato_email}
+                    onChange={(e) => setForm({ ...form, contato_email: e.target.value })}
+                    placeholder="E-mail"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {form.contato_nome || form.contato_celular || form.contato_email
+                    ? "Vem da ficha do cliente. Editar aqui atualiza a ficha."
+                    : "Ainda não temos contato dessa empresa — preencha e fica salvo na ficha."}
+                </p>
+              </div>
+            )}
+
+            {/* Cliente NOVO: o contato nasce junto. */}
             {form.novo_cliente.trim() && (
               <div className="md:col-span-2">
                 <Label>Quem responde por esse cliente</Label>
