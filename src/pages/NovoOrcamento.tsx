@@ -35,6 +35,13 @@ export default function NovoOrcamento() {
     title: "",
     client_id: "",
     novo_cliente: "",
+    // Responsável do cliente novo. Cliente nasce AQUI na prática — foi por
+    // este caminho que 8 dos 9 clientes ficaram sem contato nenhum. Pedir o
+    // nome sem pedir quem responde por ele é jogar fora a informação no
+    // momento exato em que ela está na mão de quem atende.
+    novo_contato_nome: "",
+    novo_contato_celular: "",
+    novo_contato_email: "",
     canal_entrada: "",
     tipo_orcamento: "",
     porte: "grande",
@@ -57,7 +64,12 @@ export default function NovoOrcamento() {
 
       let clientId: string | null = form.client_id || null;
       if (!clientId && form.novo_cliente.trim()) {
-        const created = await createClient.mutateAsync({ name: form.novo_cliente.trim() });
+        const created = await createClient.mutateAsync({
+          name: form.novo_cliente.trim(),
+          contact_name: form.novo_contato_nome.trim() || null,
+          phone: form.novo_contato_celular.trim() || null,
+          email: form.novo_contato_email.trim() || null,
+        });
         clientId = created.id;
       }
       if (!clientId) throw new Error("Escolha um cliente ou informe um nome novo");
@@ -150,6 +162,36 @@ export default function NovoOrcamento() {
                 placeholder="Nome do cliente"
               />
             </div>
+
+            {/* Só aparece pra cliente NOVO: pra quem já existe, o contato se
+                edita na ficha dele e duplicar campo aqui daria dois lugares
+                pra mesma verdade. */}
+            {form.novo_cliente.trim() && (
+              <div className="md:col-span-2">
+                <Label>Quem responde por esse cliente</Label>
+                <div className="mt-1 grid gap-2 md:grid-cols-3">
+                  <Input
+                    value={form.novo_contato_nome}
+                    onChange={(e) => setForm({ ...form, novo_contato_nome: e.target.value })}
+                    placeholder="Nome do responsável"
+                  />
+                  <Input
+                    value={form.novo_contato_celular}
+                    onChange={(e) => setForm({ ...form, novo_contato_celular: e.target.value })}
+                    placeholder="Celular"
+                  />
+                  <Input
+                    type="email"
+                    value={form.novo_contato_email}
+                    onChange={(e) => setForm({ ...form, novo_contato_email: e.target.value })}
+                    placeholder="E-mail"
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Fica na ficha do cliente e serve pro orçamento, pro portal e pra cobrança.
+                </p>
+              </div>
+            )}
 
             <div>
               <Label>Canal de entrada</Label>
