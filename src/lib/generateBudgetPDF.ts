@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { PRODUTORA } from "@/lib/produtora";
 import autoTable from "jspdf-autotable";
 import type { Budget, BudgetItem } from "@/hooks/useBudgets";
 
@@ -193,8 +194,8 @@ export function generateBudgetPDF(budget: Budget, items: BudgetItem[]) {
   doc.setTextColor(ADVERSE_RED[0], ADVERSE_RED[1], ADVERSE_RED[2]);
   doc.text("ADVERSE", 105, 110, { align: "center" });
   centerText(doc, "PRODUTORA", 125, 14, GRAY);
-  centerText(doc, "contato@adverse.com.br", 160, 12, WHITE);
-  centerText(doc, "www.adverse.com.br", 172, 11, GRAY);
+  centerText(doc, PRODUTORA.email, 160, 12, WHITE);
+  centerText(doc, PRODUTORA.site, 172, 11, GRAY);
 
   // Save
   const suffix = budget.budget_number ? `_${budget.budget_number}_v${budget.version}` : "";
