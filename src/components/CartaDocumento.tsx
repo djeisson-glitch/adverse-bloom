@@ -28,13 +28,9 @@ export type CartaCliente = {
   telefone?: string;
 };
 
-export const PRODUTORA = {
-  wordmark: "adverse.rec",
-  nome: "Adverse",
-  descricao: "Produtora audiovisual",
-  site: "adverse.rec.br",
-  email: "contato@adverse.rec.br",
-};
+// Fonte única em lib/produtora — a carta e o PDF precisam dizer a mesma coisa.
+export { PRODUTORA } from "@/lib/produtora";
+import { PRODUTORA } from "@/lib/produtora";
 
 export const DEFAULTS: Proposta = {
   equipe: "Direção\nOperador de câmera\nAssistente",
