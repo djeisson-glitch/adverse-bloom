@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -528,6 +529,9 @@ export default function EntregavelDetalhe() {
           {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
               que abre o entregável — a coordenadora precisa do roteiro à mão. */}
           <DocumentosEntregavel did={did!} projectId={projectId!} />
+
+          {/* Etapas de pós: quem está com a peça e por quem já passou. */}
+          <EtapasPos did={did!} podeMover={canSeeHours} />
 
           {/* Capas: só aparece pro cliente configurado (clients.usa_capas). É
               a mesma máquina de anexos com outra categoria — o que muda é o
