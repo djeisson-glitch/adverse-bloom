@@ -508,9 +508,18 @@ export default function Horas() {
                     {r.entregavel && r.projeto ? `${r.projeto} · ` : ""}{r.description || "sem descrição"}
                   </p>
                 </div>
-                <span className="truncate text-xs text-muted-foreground">
-                  {primeiroNome(r.pessoa)}
-                  <span className="ml-1 text-muted-foreground/70">· desde {hhmm(r.start_at)}</span>
+                <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  {/* Etapa como tag: quem olha a lista sabe se o Robert está
+                      em color ou em montagem sem abrir a peça. */}
+                  {r.etapa_nome && (
+                    <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      {r.etapa_nome}
+                    </span>
+                  )}
+                  <span className="truncate">
+                    {primeiroNome(r.pessoa)}
+                    <span className="ml-1 text-muted-foreground/70">· desde {hhmm(r.start_at)}</span>
+                  </span>
                 </span>
                 {/* Contagem parcial: o tempo só vira apontamento quando a
                     pessoa para o próprio cronômetro. */}
