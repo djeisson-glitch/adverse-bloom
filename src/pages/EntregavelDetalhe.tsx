@@ -530,9 +530,6 @@ export default function EntregavelDetalhe() {
               que abre o entregável — a coordenadora precisa do roteiro à mão. */}
           <DocumentosEntregavel did={did!} projectId={projectId!} />
 
-          {/* Etapas de pós: quem está com a peça e por quem já passou. */}
-          <EtapasPos did={did!} podeMover={canSeeHours} />
-
           {/* Capas: só aparece pro cliente configurado (clients.usa_capas). É
               a mesma máquina de anexos com outra categoria — o que muda é o
               papel do arquivo, não o jeito de guardar. */}
@@ -646,19 +643,19 @@ function FluxoCard({
   // pro editor. (Antes abria um window.prompt feio a cada ajuste.)
   const pedirAjusteInterno = () => run(() => Fluxo.pedirAjuste(entregavel, user?.id, ""));
 
-  // OVERRIDE de etapa — só admin/coordenadora. É um atalho de CORREÇÃO (pula o
-  // fluxo), pra destravar peça que ficou na etapa errada. O time normal segue
-  // pelos botões; aqui é a exceção controlada.
+  // OVERRIDE de STATUS — só admin/coordenadora. É um atalho de CORREÇÃO (pula
+  // o fluxo), pra destravar peça que ficou no status errado. O time normal
+  // segue pelos botões; aqui é a exceção controlada.
   const forcarEtapa = async (novo: string) => {
     if (novo === status) return;
     const alvo = statusLabel(novo);
     if (!(await confirmar({
-      title: `Corrigir etapa para "${alvo}"?`,
-      description: "Isso pula o fluxo normal — use só pra destravar uma peça que ficou na etapa errada.",
+      title: `Corrigir status para "${alvo}"?`,
+      description: "Isso pula o fluxo normal — use só pra destravar uma peça que ficou no status errado.",
       confirmText: "Forçar etapa",
     }))) return;
     if (rodandoAqui && novo !== "em_edicao") await stop();   // não deixa o cronômetro solto
-    await upd({ status: novo }, `Etapa corrigida para "${alvo}"`);
+    await upd({ status: novo }, `Status corrigido para "${alvo}"`);
   };
 
   // ---- EDITOR: um botão que faz status + timesheet ----
@@ -790,12 +787,18 @@ function FluxoCard({
           </p>
         )}
 
-        {/* Override de etapa — só admin/coordenadora. Correção manual pra
-            destravar peça na etapa errada; o resto do time segue pelos botões. */}
+        {/* Etapa de pós na MESMA caixa do status: dois lugares dizendo onde a
+            peça está viravam dois campos pra manter. Aqui é uma linha só. */}
+        <EtapasPos did={did} podeMover={isRevisor || isEditor} />
+
+        {/* Override de STATUS — só admin/coordenadora. Correção manual pra
+            destravar peça travada; o resto do time segue pelos botões.
+            Chamava-se "corrigir etapa" e colidia com a etapa de pós logo
+            acima — dois nomes iguais pra coisas diferentes. */}
         {podeForcar && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Wrench className="h-3 w-3" /> Corrigir etapa (admin/coord.)
+              <Wrench className="h-3 w-3" /> Corrigir status (admin/coord.)
             </span>
             <Select value={status} onValueChange={forcarEtapa}>
               <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
