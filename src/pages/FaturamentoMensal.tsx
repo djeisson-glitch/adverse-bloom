@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Receipt, ChevronLeft, ChevronRight, RefreshCw, ChevronDown, TrendingUp, TrendingDown,
-  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2, Info,
+  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2, Info, Trash2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "@/components/ui/confirm";
 
 type Fatura = {
   id: string;
@@ -62,6 +63,7 @@ function fmtHoras(h: number) {
 
 export default function FaturamentoMensal() {
   const qc = useQueryClient();
+  const confirmar = useConfirm();
   // padrão: mês anterior (é o que o dia 01 fatura)
   const [ref, setRef] = useState(() => mesPrimeiroDia(-1));
   const [aberto, setAberto] = useState<string | null>(null);
@@ -167,6 +169,49 @@ export default function FaturamentoMensal() {
     },
     onError: (e: any) => toast.error("Não faturou", { description: e.message }),
   });
+
+  /**
+   * Apagar um fechamento gerado por engano — mês errado, cliente que não era
+   * pra entrar, teste.
+   *
+   * Fechamento que já virou fatura NÃO some (o banco recusa): apagar deixaria
+   * a invoice órfã e o mês parecendo nunca fechado. Nesse caso o caminho é
+   * cancelar a fatura primeiro, em Faturamento.
+   *
+   * O `.select()` não é enfeite: o PostgREST devolve 204 no DELETE mesmo
+   * quando a RLS barra tudo — sem contar as linhas, um "apagado" apareceria
+   * na tela sem nada ter sido apagado.
+   */
+  const apagar = useMutation({
+    mutationFn: async (f: Fatura) => {
+      const { data, error } = await (supabase as any)
+        .from("faturamento_mensal").delete().eq("id", f.id).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("Nada foi apagado — você tem permissão pra mexer em dinheiro?");
+    },
+    onSuccess: () => {
+      toast.success("Fechamento apagado");
+      qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] });
+    },
+    onError: (e: any) => toast.error("Não apagou", { description: e.message }),
+  });
+
+  const pedirParaApagar = async (f: Fatura) => {
+    const ok = await confirmar({
+      title: `Apagar o fechamento de ${f.client?.name || "este cliente"}?`,
+      description: (
+        <>
+          Some o rascunho de <span className="capitalize">{mesLabel}</span> ({formatCurrency(f.total)}).
+          As horas apontadas não são tocadas — só este fechamento.
+          {" "}Se o cliente continuar com modelo de cobrança na ficha, o próximo{" "}
+          <b>Gerar / atualizar mês</b> cria de novo.
+        </>
+      ),
+      confirmText: "Apagar",
+      destructive: true,
+    });
+    if (ok) apagar.mutate(f);
+  };
 
   const totalMes = faturas.reduce((s, f) => s + (f.total || 0), 0);
 
@@ -445,6 +490,20 @@ export default function FaturamentoMensal() {
                           >
                             <Wallet className="mr-1.5 h-3.5 w-3.5" />
                             {f.modelo === "contrato" ? "Faturar excedente" : "Gerar fatura"}
+                          </Button>
+                        )}
+
+                        {/* Gerado por engano (mês errado, cliente que não era
+                            pra entrar). Só enquanto não virou fatura. */}
+                        {!(f as any).invoice_id && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="ml-auto text-muted-foreground hover:text-destructive"
+                            disabled={apagar.isPending}
+                            onClick={() => void pedirParaApagar(f)}
+                          >
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Apagar
                           </Button>
                         )}
                       </div>

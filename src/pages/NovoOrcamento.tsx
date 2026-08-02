@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { nomeCodigo, semPrefixoCodigo } from "@/lib/codigo";
 import {
   CANAIS_ENTRADA,
   TIPOS_ORCAMENTO,
@@ -66,7 +67,7 @@ export default function NovoOrcamento() {
 
   const criar = useMutation({
     mutationFn: async () => {
-      if (!form.title.trim()) throw new Error("Informe o título");
+      if (!form.title.trim()) throw new Error("Informe o nome do projeto");
 
       let clientId: string | null = form.client_id || null;
       if (!clientId && form.novo_cliente.trim()) {
@@ -147,13 +148,23 @@ export default function NovoOrcamento() {
       <Card className="glass-card">
         <CardContent className="space-y-5 p-6">
           <div className="grid gap-3 md:grid-cols-2">
+            {/* O código na frente é carimbado pelo banco na hora de criar —
+                digitar aqui só duplicaria. É o MESMO número que vai pro nome
+                do projeto, pro entregável e pra pasta no Drive. */}
             <div className="md:col-span-2">
-              <Label>Título do orçamento *</Label>
+              <Label>Nome do projeto *</Label>
               <Input
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="[CLIENTE] Nome do projeto"
+                placeholder="Nome do projeto"
               />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                O sistema põe o número na frente ao criar:{" "}
+                <span className="font-mono text-foreground">
+                  [XXXX]_{nomeCodigo(semPrefixoCodigo(form.title)) || "NOME_DO_PROJETO"}
+                </span>
+                {" "}— e é o mesmo número que o projeto vai herdar.
+              </p>
             </div>
 
             <div>

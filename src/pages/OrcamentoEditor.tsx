@@ -1277,12 +1277,26 @@ function PlanilhaSection({
           </div>
         )}
 
+        {/* Diz de que total é o percentual — senão "18%" não quer dizer nada */}
+        {itens.length > 0 && (
+          <p className="px-1 text-[11px] text-muted-foreground">
+            O <span className="text-foreground">%</span> é o peso do grupo na soma das linhas
+            ({formatCurrency(custoProducao)}). Margem, comissão e imposto entram por cima, iguais pra todos.
+          </p>
+        )}
+
         {/* Categorias */}
         <div className="space-y-2">
           {categoriasVisiveis.map((cat) => {
             const itensCat = itensPorCategoria.get(cat.id) || [];
             const totalCat = totaisPorCategoria.get(cat.id) || 0;
             const aberta = expandidas.has(cat.id);
+            // Peso do grupo na soma das linhas — onde o orçamento pesa de
+            // verdade. A base é a soma dos grupos ativos (não o total cobrado)
+            // pra que os percentuais somem 100% e dê pra comparar de bater o
+            // olho; margem e imposto incidem por cima, iguais pra todo grupo.
+            const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
+            const maiorPeso = peso >= 25;
             return (
               <div key={cat.id} className="rounded-lg border border-border/50">
                 <div className="flex w-full items-center gap-3 px-4 py-2.5">
@@ -1295,7 +1309,19 @@ function PlanilhaSection({
                     <span className="text-sm font-medium text-foreground">{cat.nome}</span>
                     <span className="ml-auto flex items-center gap-3">
                       <span className="text-[10px] text-muted-foreground">{itensCat.length}</span>
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:block">
+                        <span
+                          className={`block h-full rounded-full ${maiorPeso ? "bg-warning" : "bg-primary/50"}`}
+                          style={{ width: `${Math.min(100, peso)}%` }}
+                        />
+                      </span>
+                      <span
+                        className={`w-11 text-right text-xs tabular-nums ${maiorPeso ? "font-semibold text-warning" : "text-muted-foreground"}`}
+                        title="peso deste grupo na soma das linhas"
+                      >
+                        {peso >= 0.05 ? `${peso.toFixed(1)}%` : "—"}
+                      </span>
+                      <span className="w-28 text-right text-sm font-medium text-foreground">
                         {formatCurrency(totalCat)}
                       </span>
                     </span>
