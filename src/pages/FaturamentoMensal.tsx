@@ -201,7 +201,7 @@ export default function FaturamentoMensal() {
       title: `Apagar o fechamento de ${f.client?.name || "este cliente"}?`,
       description: (
         <>
-          Some o rascunho de <span className="capitalize">{mesLabel}</span> ({formatCurrency(f.total)}).
+          Some o rascunho de {mesLabel} ({formatCurrency(f.total)}).
           As horas apontadas não são tocadas — só este fechamento.
           {" "}Se o cliente continuar com modelo de cobrança na ficha, o próximo{" "}
           <b>Gerar / atualizar mês</b> cria de novo.
