@@ -81,6 +81,7 @@ import AdminPage from "./pages/Admin";
 import AdminRateCard from "./pages/AdminRateCard";
 import AdminWorkflows from "./pages/AdminWorkflows";
 import AdminAprovacoes from "./pages/AdminAprovacoes";
+import AdminEtapas from "./pages/AdminEtapas";
 import AdminNotificacoes from "./pages/AdminNotificacoes";
 import FrenteProducao from "./pages/FrenteProducao";
 import FrenteComercial from "./pages/FrenteComercial";
@@ -216,6 +217,7 @@ const App = () => (
               <Route path="/admin/rate-card" element={<ProtectedRoute><ModuleGuard module="admin"><AdminRateCard /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/workflows" element={<ProtectedRoute><ModuleGuard module="admin"><AdminWorkflows /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/aprovacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminAprovacoes /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/admin/etapas" element={<ProtectedRoute><ModuleGuard module="admin"><AdminEtapas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/admin/notificacoes" element={<ProtectedRoute><ModuleGuard module="admin"><AdminNotificacoes /></ModuleGuard></ProtectedRoute>} />
               <Route path="/frentes/producao" element={<ProtectedRoute><ModuleGuard module="projetos"><FrenteProducao /></ModuleGuard></ProtectedRoute>} />
               <Route path="/frentes/comercial" element={<ProtectedRoute><ModuleGuard module="orcamentos"><FrenteComercial /></ModuleGuard></ProtectedRoute>} />
