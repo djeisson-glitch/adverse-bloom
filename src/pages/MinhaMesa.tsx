@@ -177,7 +177,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -656,6 +656,12 @@ function CardAgora({ it, hoje, busy, rodando, onAgir }: {
             {it.titulo}
           </Link>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {/* Etapa como tag: quem bate o olho sabe em que mão a peça está. */}
+            {it.d?.etapa_atual && (
+              <span className="mr-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                {it.d.etapa_atual}
+              </span>
+            )}
             {it.contexto}
             <span className={atrasado ? "font-medium text-destructive" : ""}> · {motivoDoTopo(it, hoje)}</span>
             {it.nota && <span> · {it.nota}</span>}
@@ -711,6 +717,11 @@ function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; 
       </span>
 
       <Link to={it.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={it.titulo}>
+        {it.d?.etapa_atual && (
+          <span className="mr-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+            {it.d.etapa_atual}
+          </span>
+        )}
         {it.titulo}
         {it.nota && <span className="ml-2 text-xs text-muted-foreground">↻ {it.nota}</span>}
       </Link>
