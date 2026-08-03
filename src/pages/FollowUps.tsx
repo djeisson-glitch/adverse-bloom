@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ui/confirm";
@@ -22,7 +23,7 @@ function monthLabel(d: Date) {
   return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dataISO(d);
 }
 function daysInMonth(y: number, m: number) {
   return new Date(y, m + 1, 0).getDate();

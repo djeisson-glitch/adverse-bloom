@@ -10,13 +10,14 @@ import { Wallet, Plus, Trash2, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { useConfirm } from "@/components/ui/confirm";
 import { toast } from "sonner";
+import { hojeISO } from "@/lib/dataLocal";
 
 type Lanc = {
   id: string; data: string; descricao: string;
   valor: number; edicoes: number; diarias: number;
 };
 
-const VAZIO = { data: new Date().toISOString().slice(0, 10), descricao: "", valor: "", edicoes: "", diarias: "" };
+const VAZIO = { data: hojeISO(), descricao: "", valor: "", edicoes: "", diarias: "" };
 
 /**
  * Saldo que o cliente tem A USAR — em R$, edições e diárias.

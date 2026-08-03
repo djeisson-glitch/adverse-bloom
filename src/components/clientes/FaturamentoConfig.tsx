@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave, type StatusSalvamento } from "@/components/autosave/AutosaveContext";
+import { mesISO } from "@/lib/dataLocal";
 
 type Modelo = "nenhum" | "horas" | "tabela" | "contrato";
 type Preco = { id?: string; tipo: string; preco: number; ordem: number };
@@ -26,12 +27,7 @@ const MODELO_LABEL: Record<Modelo, string> = {
   contrato: "Contrato (valor fixo mensal + franquia)",
 };
 
-function mesAnteriorISO() {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 10);
-}
+
 
 export default function FaturamentoConfig({ clientId, clientName }: { clientId: string; clientName: string }) {
   const qc = useQueryClient();
@@ -196,7 +192,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
 
   async function gerarMes() {
     try {
-      const ref = mesAnteriorISO();
+      const ref = mesISO(-1);
       const { error } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: clientId, _apenas_auto: false });
       if (error) throw error;
       toast.success("Faturamento do mês anterior gerado. Abrindo…");

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { UsersRound } from "lucide-react";
 import { CabecalhoFrente, Kpi, ListaFrente, type LinhaFrente } from "@/components/frentes/Blocos";
+import { hojeISO } from "@/lib/dataLocal";
 
 /**
  * Frente TIME — quem está carregando o quê.
@@ -17,7 +18,7 @@ import { CabecalhoFrente, Kpi, ListaFrente, type LinhaFrente } from "@/component
 const ATIVO = ["pendente", "em_edicao", "em_pausa", "revisao", "revisao_n1", "revisao_n2", "pronto", "ajuste_solicitado", "ajuste_interno"];
 
 export default function FrenteTime() {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const { data: pessoas = [], isLoading: carregandoPessoas } = useQuery({
     queryKey: ["frente-time-pessoas"],

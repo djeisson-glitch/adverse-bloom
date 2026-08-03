@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { type CAItem, getCat } from "@/lib/financial";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { hojeISO, emDiasISO } from "@/lib/dataLocal";
 
 interface Props {
   recItems: CAItem[];
@@ -12,9 +13,9 @@ interface Props {
 }
 
 function groupByRange(items: CAItem[], today: string) {
-  const d7 = new Date(new Date(today).getTime() + 7 * 86400000).toISOString().slice(0, 10);
-  const d15 = new Date(new Date(today).getTime() + 15 * 86400000).toISOString().slice(0, 10);
-  const d30 = new Date(new Date(today).getTime() + 30 * 86400000).toISOString().slice(0, 10);
+  const d7 = emDiasISO(7);
+  const d15 = emDiasISO(15);
+  const d30 = emDiasISO(30);
 
   const pending = items.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= d30);
   return {
@@ -71,7 +72,7 @@ function RangeGroup({ label, items, type }: { label: string; items: CAItem[]; ty
 }
 
 export function AccountsDetail({ recItems, payItems }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hojeISO();
 
   const recGroups = useMemo(() => {
     const filtered = recItems.filter(r => getCat(r) !== "Empréstimos de Bancos");

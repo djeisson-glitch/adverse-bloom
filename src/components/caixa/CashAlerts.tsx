@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { type CAItem, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
+import { hojeISO, emDiasISO } from "@/lib/dataLocal";
 
 interface Props {
   recItems: CAItem[];
@@ -21,8 +22,8 @@ interface Alert {
 
 export function CashAlerts({ recItems, payItems, saldoAtual, burnRate, runway }: Props) {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const in7 = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const today = hojeISO();
+  const in7 = emDiasISO(7);
 
   const alerts = useMemo(() => {
     const list: Alert[] = [];

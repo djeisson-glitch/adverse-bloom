@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -12,7 +13,7 @@ type Marker =
   | { tipo: "prazo"; label: string; projectId: string; id: string; color: string };
 
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dataISO(d);
 }
 
 export default function Calendario() {

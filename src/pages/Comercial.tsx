@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { motion } from "framer-motion";
 import { Plus, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,7 +139,7 @@ export default function Comercial() {
             client_name: deal.client?.name || "",
             client_id: deal.client_id || null,
             status: "Pré-produção",
-            sold_date: new Date().toISOString().slice(0, 10),
+            sold_date: hojeISO(),
           })
           .select("id")
           .single();

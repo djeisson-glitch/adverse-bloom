@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,7 +135,7 @@ export default function Demandas() {
           // fazia o projeto nascer sem coluna nenhuma — invisível na lista,
           // acessível só por link.
           status: "pre-producao",
-          sold_date: new Date().toISOString().slice(0, 10),
+          sold_date: hojeISO(),
           delivery_date: prazoDate,
         })
         .select("id")

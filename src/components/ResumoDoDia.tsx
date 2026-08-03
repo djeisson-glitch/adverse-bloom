@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { hojeISO } from "@/lib/dataLocal";
 
 /**
  * "Seu dia" — o resumo que a IA escreve toda manhã (edge function digest-diario),
@@ -19,10 +20,10 @@ export function ResumoDoDia() {
   const [erroGerar, setErroGerar] = useState<string | null>(null);
   const hojeInicio = new Date();
   hojeInicio.setHours(0, 0, 0, 0);
-  const hojeISO = hojeInicio.toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const { data: digest, isLoading } = useQuery({
-    queryKey: ["resumo-dia", user?.id, hojeISO],
+    queryKey: ["resumo-dia", user?.id, hoje],
     enabled: !!user?.id,
     queryFn: async () => {
       const { data } = await (supabase as any)
@@ -57,7 +58,7 @@ export function ResumoDoDia() {
       const { data, error } = await supabase.functions.invoke("digest-diario", { body: { user_id: user.id } });
       if (error) throw error;
       if ((data as any)?.error) { setErroGerar((data as any).error); return; }
-      await qc.invalidateQueries({ queryKey: ["resumo-dia", user.id, hojeISO] });
+      await qc.invalidateQueries({ queryKey: ["resumo-dia", user.id, hoje] });
     } catch {
       setErroGerar("Não deu pra gerar o resumo agora.");
     } finally {

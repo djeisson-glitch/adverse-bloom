@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { primeiroNome } from "@/lib/pessoa";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +25,7 @@ function addWeeks(base: Date, n: number) {
   return d;
 }
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dataISO(d);
 }
 
 export default function Planejamento() {

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { emDiasISO, hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,7 +208,7 @@ export default function Home() {
   const { data: followupsHoje = 0 } = useQuery({
     queryKey: ["home-followups-hoje"],
     queryFn: async () => {
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeISO();
       const { count } = await (supabase as any)
         .from("follow_ups")
         .select("id", { count: "exact", head: true })
@@ -237,7 +238,7 @@ export default function Home() {
     [recItems, monthPeriod.from, monthPeriod.to],
   );
 
-  const today = now.toISOString().slice(0, 10);
+  const today = hojeISO();
   const aReceberMes = useMemo(() => calcAReceberNoMes(recItems, monthPeriod), [recItems, monthPeriod.from, monthPeriod.to]);
   const aReceberMesVencido = useMemo(() => calcAReceberVencidoNoMes(recItems, monthPeriod, today), [recItems, monthPeriod.from, monthPeriod.to, today]);
   const aPagarMes = useMemo(() => calcPagamentosDoMes(payItems, monthPeriod), [payItems, monthPeriod.from, monthPeriod.to]);
@@ -441,7 +442,7 @@ export default function Home() {
   }, [recItems, projetosRaw, monthPeriod.from, monthPeriod.to]);
 
   // ── Entradas previstas nos próximos 30 dias (janela à frente, p/ o sinal de oportunidade) ──
-  const em30dias = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+  const em30dias = emDiasISO(30);
   const entradas30d = useMemo(() => {
     const itens = (recItems as any[]).filter((r) => {
       const dv = r.data_vencimento;

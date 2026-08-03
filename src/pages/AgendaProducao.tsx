@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -394,7 +395,7 @@ function SaidaDialog({
   const [tipo, setTipo] = useState<TipoSaida>((saida.tipo as TipoSaida) || "diaria");
   const [titulo, setTitulo] = useState(saida.titulo || "");
   const [projectId, setProjectId] = useState<string | null>(saida.project_id || null);
-  const [data, setData] = useState(saida.data || new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(saida.data || hojeISO());
   const [diaInteiro, setDiaInteiro] = useState(!!saida.dia_inteiro);
   const [horaInicio, setHoraInicio] = useState(saida.hora_inicio?.slice(0, 5) || "08:00");
   const [horaFim, setHoraFim] = useState(saida.hora_fim?.slice(0, 5) || "");
