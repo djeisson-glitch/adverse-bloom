@@ -175,9 +175,12 @@ export default function FaturamentoMensal() {
    * pensar em preço enquanto edita.
    */
   const trocarTipo = useMutation({
-    mutationFn: async ({ did, tipo }: { did: string; tipo: string }) => {
+    mutationFn: async ({ did, tipo, percent }: { did: string; tipo?: string; percent?: number }) => {
+      const patch: Record<string, unknown> = {};
+      if (tipo !== undefined) patch.tipo_cobranca = tipo || null;
+      if (percent !== undefined) patch.cobranca_percent = percent;
       const { data, error } = await (supabase as any)
-        .from("deliverables").update({ tipo_cobranca: tipo || null }).eq("id", did).select("id");
+        .from("deliverables").update(patch).eq("id", did).select("id");
       if (error) throw error;
       if (!data?.length) throw new Error("não deu pra gravar o tipo nesta peça");
       const { error: e2 } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: null, _apenas_auto: false });
@@ -470,17 +473,14 @@ export default function FaturamentoMensal() {
                                   )}
                                   {lista.length > 0 && it.deliverable_id ? (
                                     <select
-                                      value={it.origem === "nao_cobrar" ? "nao_cobrar" : (it.tipo || "")}
+                                      value={it.tipo || ""}
                                       disabled={trocarTipo.isPending}
                                       onChange={(e) => trocarTipo.mutate({ did: it.deliverable_id, tipo: e.target.value })}
                                       className={`h-6 shrink-0 rounded border bg-transparent px-1 text-[11px] ${
-                                        it.origem === "nao_cobrar" ? "border-border/40 text-muted-foreground/60 line-through"
-                                        : it.origem === "escolhido" ? "border-primary/50 text-foreground"
-                                        : "border-border/50 text-muted-foreground"
+                                        it.origem === "escolhido" ? "border-primary/50 text-foreground" : "border-border/50 text-muted-foreground"
                                       }`}
                                       title={
-                                        it.origem === "nao_cobrar" ? "não entra na conta — o cliente vê a entrega, sem preço"
-                                        : it.origem === "escolhido" ? "tipo confirmado por você"
+                                        it.origem === "escolhido" ? "tipo confirmado por você"
                                         : it.origem === "horas" ? "sugerido pelas horas da peça — confirme se estiver certo"
                                         : it.origem === "nome" ? "veio do nome da peça"
                                         : "nenhum tipo casou"
@@ -490,15 +490,32 @@ export default function FaturamentoMensal() {
                                       {lista.map((t: any) => (
                                         <option key={t.tipo} value={t.tipo}>{t.tipo}</option>
                                       ))}
-                                      {/* Sete entregas, uma cobrança: o corte
-                                          de podcast já está pago dentro do
-                                          principal. Continua no relatório. */}
-                                      <option value="nao_cobrar">não cobrar (incluso)</option>
                                     </select>
                                   ) : (
                                     <span className="shrink-0 text-warning">sem preço</span>
                                   )}
-                                  <span className="w-20 shrink-0 text-right text-foreground">{formatCurrency(it.preco || 0)}</span>
+                                  {/* Quanto do tipo se cobra. Recorte de algo
+                                      já editado teve trabalho — meia, não zero. */}
+                                  {it.deliverable_id && (
+                                    <select
+                                      value={String(Number(it.percent ?? 100))}
+                                      disabled={trocarTipo.isPending}
+                                      onChange={(e) => trocarTipo.mutate({ did: it.deliverable_id, percent: Number(e.target.value) })}
+                                      title="quanto do preço do tipo se cobra nesta entrega"
+                                      className={`h-6 w-16 shrink-0 rounded border bg-transparent px-1 text-[11px] ${
+                                        Number(it.percent ?? 100) === 100 ? "border-border/50 text-muted-foreground"
+                                        : Number(it.percent) === 0 ? "border-border/40 text-muted-foreground/60"
+                                        : "border-warning/50 text-warning"
+                                      }`}
+                                    >
+                                      <option value="100">cheia</option>
+                                      <option value="50">meia</option>
+                                      <option value="0">cortesia</option>
+                                    </select>
+                                  )}
+                                  <span className={`w-20 shrink-0 text-right ${Number(it.percent ?? 100) === 100 ? "text-foreground" : "text-warning"}`}>
+                                    {formatCurrency(it.preco || 0)}
+                                  </span>
                                 </div>
                               );
                             })}
@@ -510,7 +527,7 @@ export default function FaturamentoMensal() {
                             <ol className="mt-1 space-y-0.5 pl-4 text-[11px] text-muted-foreground">
                               <li className="list-decimal">A Adverse foi a campo? → <b>Captação</b></li>
                               <li className="list-decimal">Furou a fila por urgência? → <b>Edição urgente</b></li>
-                              <li className="list-decimal">É recorte/versão de material já editado (story, corte, vertical)? → <b>não cobrar</b>, se já está pago na peça de origem</li>
+                              <li className="list-decimal">É recorte/versão de material já editado (story, corte, vertical)? → o tipo da peça de origem, <b>meia</b> — teve trabalho, só não o trabalho inteiro</li>
                               <li className="list-decimal">Vídeo longo, com decupagem e motion? → <b>Vídeo principal</b></li>
                               <li className="list-decimal">Tem decupagem, transições e letterings? → <b>Pílula +</b></li>
                               <li className="list-decimal">Resto (legenda, trilha, cortes, lettering básico) → <b>Pílula</b></li>
@@ -518,7 +535,9 @@ export default function FaturamentoMensal() {
                             <p className="mt-1 pl-4 text-[10px] text-muted-foreground">
                               A ordem importa: pare na primeira que responder "sim". Borda acesa = confirmado
                               por você; as outras vieram do nome ou das horas. Horas em âmbar passaram do
-                              previsto pelo tipo — é sinal de que o preço ficou barato pro trabalho que deu.
+                              previsto pelo tipo — sinal de que o preço ficou barato pro trabalho que deu.
+                              A segunda caixa é quanto se cobra: <b>cheia</b>, <b>meia</b> (metade do preço do tipo)
+                              ou <b>cortesia</b>.
                             </p>
                           </details>
                         </Bloco>
