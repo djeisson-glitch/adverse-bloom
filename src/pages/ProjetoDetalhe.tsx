@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { comLinks } from "@/lib/autolink";
 import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -2109,7 +2110,9 @@ function corpoComMencoes(body: string, profiles: any[]) {
         const p = profiles.find((x) => semAcento(handleUsuario(x.full_name || x.email)) === nome);
         if (p) return <strong key={`${k}-${i}`} className="cor-usuario font-semibold" style={{ color: corDoUsuario(p.id) }}>{parte}</strong>;
       }
-      return <span key={`${k}-${i}`}>{parte}</span>;
+      // Não é menção: pode ter URL solta no meio. Link clicável em vez de
+      // texto pra copiar e colar.
+      return <span key={`${k}-${i}`}>{comLinks(parte, `${k}-${i}`)}</span>;
     });
 
   return body.split(RE_IMG).map((parte, i) => {
