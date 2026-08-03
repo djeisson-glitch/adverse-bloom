@@ -190,6 +190,27 @@ export default function FaturamentoMensal() {
     onError: (e: any) => toast.error("Não trocou", { description: e.message }),
   });
 
+  /**
+   * Lançar o custo do dia sem sair do fechamento.
+   *
+   * Grava na PRIMEIRA saída do dia (`saida_ids[0]`): quando dois projetos do
+   * mesmo cliente gravaram junto, o custo é do dia, não de cada projeto —
+   * lançar nos dois viraria repasse dobrado, que é o erro que a marca de "dia
+   * compartilhado" existe pra evitar.
+   */
+  const lancarCusto = useMutation({
+    mutationFn: async ({ saidaId, campo, valor }: { saidaId: string; campo: string; valor: number }) => {
+      const { data, error } = await (supabase as any)
+        .from("producao_saidas").update({ [campo]: valor }).eq("id", saidaId).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("não deu pra gravar nesta diária");
+      const { error: e2 } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: null, _apenas_auto: false });
+      if (e2) throw e2;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
+    onError: (e: any) => toast.error("Não lançou", { description: e.message }),
+  });
+
   const mesAtualTemHora = (panorama?.meses || []).some(([m]) => m === ref.slice(0, 7));
   const outrosMeses = (panorama?.meses || []).filter(([m]) => m !== ref.slice(0, 7));
 
@@ -558,43 +579,77 @@ export default function FaturamentoMensal() {
                         >
                           <div className="space-y-1">
                             {f.detalhe.diarias.map((d: any, i: number) => (
-                              <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
-                                <span className="w-16 shrink-0 tabular-nums text-muted-foreground">
-                                  {d.data?.slice(8, 10)}/{d.data?.slice(5, 7)}
-                                </span>
-                                <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                                  {Number(d.fracao) < 1 ? "meia diária" : "diária cheia"}
-                                  {Number(d.custo) > 0 && (
-                                    <span className="ml-2">
-                                      logística {formatCurrency(Number(d.logistica || 0))} ·
-                                      alimentação {formatCurrency(Number(d.alimentacao || 0))} ·
-                                      hospedagem {formatCurrency(Number(d.hospedagem || 0))}
+                              <div key={i} className="space-y-1.5 rounded-md border border-border/40 p-2">
+                                <div className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="shrink-0 font-medium tabular-nums text-foreground">
+                                    {d.data?.slice(8, 10)}/{d.data?.slice(5, 7)}
+                                  </span>
+                                  <span className="shrink-0 text-muted-foreground">
+                                    {Number(d.fracao) < 1 ? "meia diária" : "diária cheia"}
+                                  </span>
+                                  {d.projetos > 1 && (
+                                    <span className="inline-flex shrink-0 items-center gap-1 text-warning"
+                                      title="mais de um projeto deste cliente gravou neste dia — conta como uma diária só">
+                                      <Link2 className="h-3 w-3" /> {d.projetos} projetos
                                     </span>
                                   )}
-                                </span>
-                                {d.projetos > 1 && (
-                                  <span className="inline-flex shrink-0 items-center gap-1 text-warning"
-                                    title="mais de um projeto deste cliente gravou neste dia — conta como uma diária só">
-                                    <Link2 className="h-3 w-3" /> {d.projetos} projetos
+                                  <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
+                                    {Number(d.repasse) > 0 ? `custos ${formatCurrency(Number(d.repasse))}` : "sem custos"}
                                   </span>
-                                )}
-                                <span className="w-24 shrink-0 text-right tabular-nums text-foreground">
-                                  {Number(d.repasse) > 0 ? formatCurrency(Number(d.repasse)) : "—"}
-                                </span>
+                                </div>
+                                {/* Lançar aqui mesmo: quem fecha o mês é quem
+                                    tem as notas na mão, e sair pro projeto pra
+                                    voltar é atrito puro. */}
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {([["logistica", "custo_logistica", "Logística"],
+                                     ["alimentacao", "custo_alimentacao", "Alimentação"],
+                                     ["hospedagem", "custo_hospedagem", "Hospedagem"]] as const).map(([k, campo, rot]) => (
+                                    <label key={k} className="block">
+                                      <span className="mb-0.5 block text-[10px] text-muted-foreground">{rot}</span>
+                                      <input
+                                        type="number" step="0.01" placeholder="0,00"
+                                        defaultValue={Number(d[k] || 0) || ""}
+                                        disabled={!d.saida_ids?.length || lancarCusto.isPending}
+                                        onBlur={(e) => {
+                                          const v = Number(e.target.value) || 0;
+                                          if (v === Number(d[k] || 0)) return;
+                                          lancarCusto.mutate({ saidaId: d.saida_ids[0], campo, valor: v });
+                                        }}
+                                        className="h-7 w-full rounded border border-border/50 bg-transparent px-1.5 text-xs tabular-nums"
+                                      />
+                                    </label>
+                                  ))}
+                                </div>
                               </div>
                             ))}
                           </div>
-                          {Number(f.detalhe?.diarias_repasse || 0) > 0 ? (
-                            <p className="pt-1 text-[10px] text-muted-foreground">
-                              {formatCurrency(Number(f.detalhe.diarias_repasse))} de custos de campo já somados no
-                              subtotal — custo do dia com margem de repasse.
-                            </p>
-                          ) : (
-                            <p className="pt-1 text-[10px] text-muted-foreground">
-                              Sem custo lançado. Logística, alimentação e hospedagem se lançam no Fechamento do
-                              projeto — de lá entram aqui sozinhos.
-                            </p>
-                          )}
+                          {/* Duas parcelas, porque são duas coisas: o DIA é
+                              serviço, os custos do dia são repasse. */}
+                          <div className="space-y-0.5 border-t border-border/40 pt-1.5 text-[11px]">
+                            {Number(f.detalhe?.diarias_valor_unitario || 0) > 0 ? (
+                              <p className="flex justify-between text-muted-foreground">
+                                <span>
+                                  {qtd(Number(f.detalhe.diarias_cobradas || 0))} × {formatCurrency(Number(f.detalhe.diarias_valor_unitario))} de diária
+                                  {Number(f.detalhe?.diarias_saldo_abatido || 0) > 0 && (
+                                    <span className="text-success"> · {qtd(Number(f.detalhe.diarias_saldo_abatido))} abatida do saldo</span>
+                                  )}
+                                </span>
+                                <b className="text-foreground">{formatCurrency(Number(f.detalhe.diarias_valor || 0))}</b>
+                              </p>
+                            ) : (
+                              <p className="text-warning">
+                                Nenhuma linha da tabela está marcada como diária — o dia está saindo de graça.
+                                Marque na ficha do cliente, em Faturamento.
+                              </p>
+                            )}
+                            {Number(f.detalhe?.diarias_repasse || 0) > 0 && (
+                              <p className="flex justify-between text-muted-foreground">
+                                <span>custos de campo com margem de repasse</span>
+                                <b className="text-foreground">{formatCurrency(Number(f.detalhe.diarias_repasse))}</b>
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground/70">Tudo isto já está somado no subtotal.</p>
+                          </div>
                         </Bloco>
                       )}
 
