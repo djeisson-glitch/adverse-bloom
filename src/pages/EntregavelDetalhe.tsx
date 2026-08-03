@@ -319,13 +319,19 @@ export default function EntregavelDetalhe() {
 
   return (
     <div className={`space-y-5 py-6 ${chatAberto ? "lg:pr-[440px]" : "mx-auto max-w-[1400px]"}`}>
-      <button
-        onClick={() => navigate(`/projetos/${projectId}`)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        {proj?.name || "Projeto"}
-      </button>
+      {/* Dois caminhos, e cada um faz o que promete: a SETA desfaz o último
+          passo (quem veio das Entregas do mês volta pra lá), e o nome do
+          projeto continua sendo o atalho pro projeto. */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <button onClick={voltar} className="flex items-center gap-1 hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Voltar
+        </button>
+        <span className="text-muted-foreground/40">·</span>
+        <button onClick={() => navigate(`/projetos/${projectId}`)} className="truncate hover:text-foreground">
+          {proj?.name || "Projeto"}
+        </button>
+      </div>
 
       {/* Header */}
       <Card className="glass-card">
