@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export default function ConfiguracoesComercial() {
   const { settings, isLoading, updateSettings } = useCommercialSettings();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const voltar = useVoltar("/configuracoes");
 
   const [monthlyTarget, setMonthlyTarget] = useState("200000");
   const [followupWon, setFollowupWon] = useState("180");
@@ -100,7 +102,7 @@ export default function ConfiguracoesComercial() {
   return (
     <div className="space-y-6 max-w-2xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
+        <Button variant="ghost" size="icon" onClick={voltar}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">

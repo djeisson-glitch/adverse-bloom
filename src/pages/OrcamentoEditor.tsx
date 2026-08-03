@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ export default function OrcamentoEditor() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const voltar = useVoltar("/orcamentos");
   const { user } = useAuth();
   const { canSeeMoney } = usePermissions();
 
@@ -216,11 +218,11 @@ export default function OrcamentoEditor() {
     <div className="mx-auto max-w-5xl space-y-5 py-6">
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate("/orcamentos")}
+          onClick={voltar}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar ao pipeline
+          Voltar
         </button>
         {confirmarExcluir ? (
           <div className="flex items-center gap-2 text-xs">

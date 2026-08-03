@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroNome } from "@/lib/pessoa";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,7 @@ import { toast } from "sonner";
  * sobrescrever esses valores na própria ficha (aba Briefing).
  */
 export default function AdminAprovacoes() {
+  const voltar = useVoltar("/admin");
   const qc = useQueryClient();
 
   const { data: profiles = [] } = useQuery({
@@ -80,9 +82,9 @@ export default function AdminAprovacoes() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-6">
       <div className="flex items-center gap-3">
-        <Link to="/admin" className="rounded-lg p-1 text-muted-foreground hover:text-foreground">
+        <button onClick={voltar} className="rounded-lg p-1 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
-        </Link>
+        </button>
         <ShieldCheck className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Aprovações</h1>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Brain } from "lucide-react";
@@ -40,6 +41,7 @@ const EMPTY: Contexto = {
 
 export default function ConfiguracoesContexto() {
   const navigate = useNavigate();
+  const voltar = useVoltar("/configuracoes");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [form, setForm] = useState<Contexto>(EMPTY);
@@ -87,7 +89,7 @@ export default function ConfiguracoesContexto() {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
+        <Button variant="ghost" size="icon" onClick={voltar}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">

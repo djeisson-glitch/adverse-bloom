@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, AlertTriangle, LogIn, Loader2 } from "lucide-react";
 
@@ -20,6 +21,7 @@ type SyncResultEntry = {
 
 export default function ConfiguracoesIntegracoes() {
   const navigate = useNavigate();
+  const voltar = useVoltar("/configuracoes");
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [syncFrequency, setSyncFrequency] = useState("manual");
@@ -160,7 +162,7 @@ export default function ConfiguracoesIntegracoes() {
   return (
     <div className="space-y-6 max-w-2xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
+        <Button variant="ghost" size="icon" onClick={voltar}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

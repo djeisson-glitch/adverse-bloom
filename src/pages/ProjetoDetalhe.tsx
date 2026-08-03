@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -104,6 +105,7 @@ type ProjetoTab = "entregaveis" | "tarefas" | "diarias" | "briefing" | "fechamen
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const voltar = useVoltar("/projetos");
   const qc = useQueryClient();
   const { canSeeMoney, canSeeHours, isAdmin, isCoordenadora } = usePermissions();
   // Quem cuida da produção mexe no cabeçalho do projeto: cliente e status.
@@ -205,11 +207,11 @@ export default function ProjetoDetalhe() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-5 py-6">
       <button
-        onClick={() => navigate("/projetos")}
+        onClick={voltar}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Projetos em andamento
+        Voltar
       </button>
 
       {/* ---------- Header ---------- */}
