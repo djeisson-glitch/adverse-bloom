@@ -156,6 +156,37 @@ export default function FaturamentoMensal() {
     ].filter(Boolean).join(" · ");
   };
 
+  const { data: precos = {} } = useQuery({
+    queryKey: ["client_precos_todos"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("client_precos").select("client_id, tipo, preco, horas_ref, ordem").eq("ativo", true).order("ordem");
+      const m: Record<string, any[]> = {};
+      for (const p of data || []) (m[p.client_id] = m[p.client_id] || []).push(p);
+      return m;
+    },
+  });
+
+  /**
+   * Confirmar o tipo de uma entrega — a resposta pro "quando cobrar cada tipo".
+   *
+   * A escolha fica na PEÇA (deliverables.tipo_cobranca), não no rascunho:
+   * regerar o mês mantém o que já foi decidido. E o lugar de decidir é aqui,
+   * na revisão do fechamento, não no meio da produção — o editor não tem que
+   * pensar em preço enquanto edita.
+   */
+  const trocarTipo = useMutation({
+    mutationFn: async ({ did, tipo }: { did: string; tipo: string }) => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables").update({ tipo_cobranca: tipo || null }).eq("id", did).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("não deu pra gravar o tipo nesta peça");
+      const { error: e2 } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: null, _apenas_auto: false });
+      if (e2) throw e2;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
+    onError: (e: any) => toast.error("Não trocou", { description: e.message }),
+  });
+
   const mesAtualTemHora = (panorama?.meses || []).some(([m]) => m === ref.slice(0, 7));
   const outrosMeses = (panorama?.meses || []).filter(([m]) => m !== ref.slice(0, 7));
 
@@ -420,15 +451,56 @@ export default function FaturamentoMensal() {
 
                       {/* Itens da tabela */}
                       {Array.isArray(f.detalhe?.itens) && f.detalhe.itens.length > 0 && (
-                        <Bloco icon={<Receipt className="h-3.5 w-3.5" />} titulo="Entregas do mês">
+                        <Bloco icon={<Receipt className="h-3.5 w-3.5" />} titulo={`Entregas do mês (${f.detalhe.itens.length})`}>
                           <div className="space-y-1">
-                            {f.detalhe.itens.map((it: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between text-xs">
-                                <span className="truncate text-muted-foreground">{it.entregavel} {it.tipo ? `· ${it.tipo}` : <span className="text-warning">· sem preço</span>}</span>
-                                <span className="text-foreground">{formatCurrency(it.preco || 0)}</span>
-                              </div>
-                            ))}
+                            {f.detalhe.itens.map((it: any, i: number) => {
+                              const lista = (precos as any)[f.client_id] || [];
+                              // Estourou a faixa: consumiu mais horas do que o
+                              // tipo prevê. É o sinal de que o preço ficou
+                              // barato pro trabalho que deu.
+                              const estourou = it.horas_ref && Number(it.horas) > Number(it.horas_ref);
+                              return (
+                                <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{it.entregavel}</span>
+                                  {Number(it.horas) > 0 && (
+                                    <span className={`shrink-0 tabular-nums ${estourou ? "font-semibold text-warning" : "text-muted-foreground"}`}
+                                      title={it.horas_ref ? `a tabela prevê ${it.horas_ref}h para "${it.tipo}"` : "horas apontadas nesta peça"}>
+                                      {fmtHoras(Number(it.horas))}{it.horas_ref ? ` / ${fmtHoras(Number(it.horas_ref))}` : ""}
+                                    </span>
+                                  )}
+                                  {lista.length > 0 && it.deliverable_id ? (
+                                    <select
+                                      value={it.tipo || ""}
+                                      disabled={trocarTipo.isPending}
+                                      onChange={(e) => trocarTipo.mutate({ did: it.deliverable_id, tipo: e.target.value })}
+                                      className={`h-6 shrink-0 rounded border bg-transparent px-1 text-[11px] ${
+                                        it.origem === "escolhido" ? "border-primary/50 text-foreground" : "border-border/50 text-muted-foreground"
+                                      }`}
+                                      title={
+                                        it.origem === "escolhido" ? "tipo confirmado por você"
+                                        : it.origem === "horas" ? "sugerido pelas horas da peça — confirme se estiver certo"
+                                        : it.origem === "nome" ? "veio do nome da peça"
+                                        : "nenhum tipo casou"
+                                      }
+                                    >
+                                      <option value="">— sem tipo —</option>
+                                      {lista.map((t: any) => (
+                                        <option key={t.tipo} value={t.tipo}>{t.tipo}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="shrink-0 text-warning">sem preço</span>
+                                  )}
+                                  <span className="w-20 shrink-0 text-right text-foreground">{formatCurrency(it.preco || 0)}</span>
+                                </div>
+                              );
+                            })}
                           </div>
+                          <p className="pt-1 text-[10px] text-muted-foreground">
+                            Borda acesa = tipo confirmado por você. Os outros vieram do nome da peça ou
+                            das horas — troque aqui e a escolha fica guardada na peça.
+                            Horas em âmbar passaram do previsto pelo tipo.
+                          </p>
                         </Bloco>
                       )}
 

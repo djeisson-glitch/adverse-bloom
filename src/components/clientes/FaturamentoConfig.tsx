@@ -16,7 +16,7 @@ import { IndicadorAutosave, type StatusSalvamento } from "@/components/autosave/
 import { mesISO } from "@/lib/dataLocal";
 
 type Modelo = "nenhum" | "horas" | "tabela" | "contrato";
-type Preco = { id?: string; tipo: string; preco: number; ordem: number };
+type Preco = { id?: string; tipo: string; preco: number; ordem: number; horas_ref?: number | null };
 /** Mesmo formato de budgets.comissoes — uma gramática só de comissão no sistema. */
 type Comissao = { nome: string; tipo: "%" | "R$"; valor: number };
 
@@ -60,6 +60,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const [imposto, setImposto] = useState("0");
   const [margem, setMargem] = useState("0");
   const [comissoes, setComissoes] = useState<Comissao[]>([]);
+  const [precosFinais, setPrecosFinais] = useState(false);
   const [autoMensal, setAutoMensal] = useState(true);
   const [obs, setObs] = useState("");
   const [precos, setPrecos] = useState<Preco[]>([]);
@@ -77,6 +78,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     setImposto(String(cfg.imposto_percent ?? 0));
     setMargem(String(cfg.margem_percent ?? 0));
     setComissoes(Array.isArray(cfg.comissoes) ? cfg.comissoes : []);
+    setPrecosFinais(cfg.precos_finais ?? false);
     setAutoMensal(cfg.auto_mensal ?? true);
     setObs(cfg.observacoes || "");
   }, [cfg, cfgPronto, clientId]);
@@ -139,6 +141,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     await (supabase as any).from("client_precos").delete().eq("client_id", clientId);
     const linhas = lista.filter((p) => p.tipo.trim()).map((p, i) => ({
       client_id: clientId, tipo: p.tipo.trim(), preco: Number(p.preco) || 0, ordem: i,
+      horas_ref: p.horas_ref === null || p.horas_ref === undefined || p.horas_ref === ("" as any) ? null : Number(p.horas_ref),
     }));
     if (linhas.length) {
       const { error } = await (supabase as any).from("client_precos").insert(linhas);
@@ -250,6 +253,12 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
         {modelo === "tabela" && (
           <div className="space-y-2">
             <Label>Tabela de preços por tipo de entrega</Label>
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="flex-1">Tipo</span>
+              <span className="w-28 text-right">Preço</span>
+              <span className="w-24 text-right">Horas ref.</span>
+              <span className="w-4" />
+            </div>
             {precos.map((p, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
@@ -264,6 +273,15 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                   onChange={(e) => setPrecosSalvando(precos.map((x, j) => (j === i ? { ...x, preco: Number(e.target.value) } : x)))}
                   className="w-28"
                 />
+                {/* Horas de referência: é o que permite o sistema sugerir o
+                    tipo pelas horas que a peça consumiu. Vazio = fica fora da
+                    sugestão (captação e urgência são decisão, não relógio). */}
+                <Input
+                  type="number" step="0.5" placeholder="—"
+                  value={p.horas_ref === null || p.horas_ref === undefined ? "" : String(p.horas_ref)}
+                  onChange={(e) => setPrecosSalvando(precos.map((x, j) => (j === i ? { ...x, horas_ref: e.target.value === "" ? null : Number(e.target.value) } : x)))}
+                  className="w-24"
+                />
                 <button onClick={() => setPrecosSalvando(precos.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -272,7 +290,12 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
             <Button variant="outline" size="sm" onClick={() => setPrecos([...precos, { tipo: "", preco: 0, ordem: precos.length }])}>
               <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar tipo
             </Button>
-            <p className="text-[11px] text-muted-foreground">O sistema casa cada entrega do mês com o tipo pelo formato/nome. Confira no rascunho gerado.</p>
+            <p className="text-[11px] text-muted-foreground">
+              Cada entrega do mês recebe um tipo em três tentativas, nesta ordem:
+              o que você <b>confirmou</b> no fechamento, o rótulo que aparece no <b>nome</b> da peça,
+              e por último as <b>horas</b> que ela consumiu — o menor pacote que comporta.
+              Deixe as horas em branco no que não se decide pelo relógio (captação, urgência).
+            </p>
           </div>
         )}
 
@@ -447,11 +470,32 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
             </div>
 
             <p className="text-[11px] text-muted-foreground">
+              {precosFinais ? (
+                <>Conta: o preço da tabela é o total. {comissoes.length > 0 && "A comissão sai de dentro dele."}</>
+              ) : (<>
               Conta: subtotal → + margem (<span className="text-foreground">= subtotal 2</span>)
               {comissoes.length > 0 && <> → + comissão (sobre o subtotal 2)</>}
               {" "}→ + imposto (sobre {comissoes.length > 0 ? "subtotal 2 + comissão" : "subtotal 2"}).
               {comissoes.length > 0 && " A comissão entra antes do imposto porque vai na nota."}
+              </>)}
             </p>
+
+            {/* Tabela com "taxas e impostos já inclusos": o preço combinado JÁ
+                é o total. Sem isso, alguém desconta os valores na mão pra
+                margem reconstruir o preço — e erra sempre que a margem muda. */}
+            <label className="flex cursor-pointer items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2">
+              <span className="text-sm">
+                O preço da tabela já é o final
+                <span className="block text-[11px] text-muted-foreground">
+                  Taxas e impostos inclusos: margem, imposto e comissão não entram por cima.
+                  A comissão continua sendo calculada — sai de dentro.
+                </span>
+              </span>
+              <Switch
+                checked={precosFinais}
+                onCheckedChange={(v) => { setPrecosFinais(v); autoEscolha.agendar({ precos_finais: v }); }}
+              />
+            </label>
 
             <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/50 px-3 py-2">
               <span className="text-sm">Gerar rascunho automaticamente no dia 01</span>
