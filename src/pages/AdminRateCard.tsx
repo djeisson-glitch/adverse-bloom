@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -20,6 +21,7 @@ type Row = {
 };
 
 export default function AdminRateCard() {
+  const voltar = useVoltar("/admin");
   const qc = useQueryClient();
   const [nova, setNova] = useState({ funcao: "", preco_hora: "", custo_hora: "" });
 
@@ -70,9 +72,9 @@ export default function AdminRateCard() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
       <div className="flex items-center gap-3">
-        <Link to="/admin" className="rounded-lg p-1 text-muted-foreground hover:text-foreground">
+        <button onClick={voltar} className="rounded-lg p-1 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
-        </Link>
+        </button>
         <Coins className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Rate card</h1>

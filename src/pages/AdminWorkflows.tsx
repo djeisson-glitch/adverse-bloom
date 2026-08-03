@@ -1,14 +1,16 @@
 import { GitBranch, ArrowLeft } from "lucide-react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { Link } from "react-router-dom";
 import { PlaceholderPage } from "@/components/PlaceholderPage";
 
 export default function AdminWorkflows() {
+  const voltar = useVoltar("/admin");
   return (
     <div className="space-y-3">
-      <Link to="/admin" className="ml-auto flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+      <button onClick={voltar} className="ml-auto flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" />
         voltar pra Admin
-      </Link>
+      </button>
       <PlaceholderPage
         title="Workflows e status"
         icon={GitBranch}

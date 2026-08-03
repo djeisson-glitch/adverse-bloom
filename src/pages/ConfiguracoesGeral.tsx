@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useVoltar } from "@/hooks/useVoltar";
 import { ArrowLeft, Upload, Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const timezones = [
 
 export default function ConfiguracoesGeral() {
   const navigate = useNavigate();
+  const voltar = useVoltar("/configuracoes");
   const qc = useQueryClient();
 
   // Nome e fuso moram na linha única de contexto da empresa (id = 1).
@@ -77,7 +79,7 @@ export default function ConfiguracoesGeral() {
   return (
     <div className="space-y-6 max-w-2xl">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}>
+        <Button variant="ghost" size="icon" onClick={voltar}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>

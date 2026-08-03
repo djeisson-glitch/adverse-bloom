@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { primeiroNome } from "@/lib/pessoa";
@@ -96,6 +97,7 @@ function labelStatus(status: string, n1Nome: string, n2Nome: string) {
 export default function EntregavelDetalhe() {
   const { id: projectId, did } = useParams<{ id: string; did: string }>();
   const navigate = useNavigate();
+  const voltar = useVoltar(`/projetos/${projectId}`);
   const qc = useQueryClient();
   const { user } = useAuth();
   // Recarrega as horas do entregável (lista do timesheet + os 4 cards no topo).
@@ -258,11 +260,11 @@ export default function EntregavelDetalhe() {
     return (
       <div className="mx-auto max-w-lg py-16">
         <button
-          onClick={() => navigate(`/projetos/${projectId}`)}
+          onClick={voltar}
           className="mb-4 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar ao projeto
+          Voltar
         </button>
         <Card className="glass-card border-destructive/30">
           <CardContent className="space-y-2 p-6 text-center">

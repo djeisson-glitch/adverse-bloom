@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Repeat, Plus, Trash2 } from "lucide-react";
@@ -14,6 +15,7 @@ import { useContratos } from "@/hooks/useContratos";
 
 export default function ConfiguracoesContratos() {
   const navigate = useNavigate();
+  const voltar = useVoltar("/configuracoes");
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: contratos } = useContratos();
@@ -52,7 +54,7 @@ export default function ConfiguracoesContratos() {
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/configuracoes")}><ArrowLeft className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" onClick={voltar}><ArrowLeft className="h-5 w-5" /></Button>
         <div>
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2"><Repeat className="h-5 w-5 text-primary" /> Contratos recorrentes (MRR)</h1>
           <p className="text-sm text-muted-foreground">Cadastre o valor mensal de cada contrato fixo. O MRR é a soma dos ativos.</p>

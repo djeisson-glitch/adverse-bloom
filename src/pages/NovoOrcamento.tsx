@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,7 @@ import {
  */
 export default function NovoOrcamento() {
   const navigate = useNavigate();
+  const voltar = useVoltar("/orcamentos");
   const { user } = useAuth();
   const { clients, createClient, updateClient } = useClients();
 
@@ -131,11 +133,11 @@ export default function NovoOrcamento() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 py-6">
       <button
-        onClick={() => navigate("/orcamentos")}
+        onClick={voltar}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Voltar ao pipeline
+        Voltar
       </button>
 
       <div>

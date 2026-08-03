@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +29,7 @@ const tipoInfo = (t: string) => TIPOS_INT.find((x) => x.v === t) || TIPOS_INT[0]
 export default function LeadDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const voltar = useVoltar("/leads");
   const qc = useQueryClient();
   const { user } = useAuth();
   const confirmar = useConfirm();
@@ -132,7 +134,7 @@ export default function LeadDetalhe() {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <p className="text-sm text-muted-foreground">Lead não encontrado.</p>
-        <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate("/leads")}>Voltar</Button>
+        <Button variant="outline" size="sm" className="mt-3" onClick={voltar}>Voltar</Button>
       </div>
     );
   }
@@ -143,8 +145,8 @@ export default function LeadDetalhe() {
   return (
     <div className="mx-auto max-w-4xl space-y-5 py-6">
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate("/leads")} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> Leads
+        <button onClick={voltar} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
         </button>
         <button
           onClick={async () => {

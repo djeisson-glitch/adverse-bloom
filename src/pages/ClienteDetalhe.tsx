@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useVoltar } from "@/hooks/useVoltar";
 import { useParams, useNavigate } from "react-router-dom";
 import { useClients, useDeals } from "@/hooks/useDeals";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ const stageBadge: Record<string, string> = {
 export default function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const voltar = useVoltar("/clientes");
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
   const { canSeeMoney } = usePermissions();
@@ -193,7 +195,7 @@ export default function ClienteDetalhe() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/clientes")}>
+        <Button variant="ghost" size="icon" onClick={voltar}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <ClientAvatar name={client.name} className="h-12 w-12 text-base" />
