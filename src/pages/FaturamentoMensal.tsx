@@ -470,14 +470,17 @@ export default function FaturamentoMensal() {
                                   )}
                                   {lista.length > 0 && it.deliverable_id ? (
                                     <select
-                                      value={it.tipo || ""}
+                                      value={it.origem === "nao_cobrar" ? "nao_cobrar" : (it.tipo || "")}
                                       disabled={trocarTipo.isPending}
                                       onChange={(e) => trocarTipo.mutate({ did: it.deliverable_id, tipo: e.target.value })}
                                       className={`h-6 shrink-0 rounded border bg-transparent px-1 text-[11px] ${
-                                        it.origem === "escolhido" ? "border-primary/50 text-foreground" : "border-border/50 text-muted-foreground"
+                                        it.origem === "nao_cobrar" ? "border-border/40 text-muted-foreground/60 line-through"
+                                        : it.origem === "escolhido" ? "border-primary/50 text-foreground"
+                                        : "border-border/50 text-muted-foreground"
                                       }`}
                                       title={
-                                        it.origem === "escolhido" ? "tipo confirmado por você"
+                                        it.origem === "nao_cobrar" ? "não entra na conta — o cliente vê a entrega, sem preço"
+                                        : it.origem === "escolhido" ? "tipo confirmado por você"
                                         : it.origem === "horas" ? "sugerido pelas horas da peça — confirme se estiver certo"
                                         : it.origem === "nome" ? "veio do nome da peça"
                                         : "nenhum tipo casou"
@@ -487,6 +490,10 @@ export default function FaturamentoMensal() {
                                       {lista.map((t: any) => (
                                         <option key={t.tipo} value={t.tipo}>{t.tipo}</option>
                                       ))}
+                                      {/* Sete entregas, uma cobrança: o corte
+                                          de podcast já está pago dentro do
+                                          principal. Continua no relatório. */}
+                                      <option value="nao_cobrar">não cobrar (incluso)</option>
                                     </select>
                                   ) : (
                                     <span className="shrink-0 text-warning">sem preço</span>
@@ -496,11 +503,24 @@ export default function FaturamentoMensal() {
                               );
                             })}
                           </div>
-                          <p className="pt-1 text-[10px] text-muted-foreground">
-                            Borda acesa = tipo confirmado por você. Os outros vieram do nome da peça ou
-                            das horas — troque aqui e a escolha fica guardada na peça.
-                            Horas em âmbar passaram do previsto pelo tipo.
-                          </p>
+                          <details className="pt-1">
+                            <summary className="cursor-pointer list-none text-[10px] text-muted-foreground hover:text-foreground">
+                              ⌄ como decidir o tipo de cada entrega
+                            </summary>
+                            <ol className="mt-1 space-y-0.5 pl-4 text-[11px] text-muted-foreground">
+                              <li className="list-decimal">A Adverse foi a campo? → <b>Captação</b></li>
+                              <li className="list-decimal">Furou a fila por urgência? → <b>Edição urgente</b></li>
+                              <li className="list-decimal">É recorte/versão de material já editado (story, corte, vertical)? → <b>não cobrar</b>, se já está pago na peça de origem</li>
+                              <li className="list-decimal">Vídeo longo, com decupagem e motion? → <b>Vídeo principal</b></li>
+                              <li className="list-decimal">Tem decupagem, transições e letterings? → <b>Pílula +</b></li>
+                              <li className="list-decimal">Resto (legenda, trilha, cortes, lettering básico) → <b>Pílula</b></li>
+                            </ol>
+                            <p className="mt-1 pl-4 text-[10px] text-muted-foreground">
+                              A ordem importa: pare na primeira que responder "sim". Borda acesa = confirmado
+                              por você; as outras vieram do nome ou das horas. Horas em âmbar passaram do
+                              previsto pelo tipo — é sinal de que o preço ficou barato pro trabalho que deu.
+                            </p>
+                          </details>
                         </Bloco>
                       )}
 
