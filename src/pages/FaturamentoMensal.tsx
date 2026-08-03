@@ -48,6 +48,11 @@ const STATUS: Record<string, { label: string; cls: string; next?: string; nextLa
  * "0,12h" e "3,47h" obrigam a fazer conta de cabeça pra saber que são 7min e
  * 3h28. Abaixo de uma hora mostra só os minutos; acima, hora + minuto.
  */
+/** 7 vira "7", 0.5 vira "0,5" — meia diária é rotina. */
+function qtd(v: number) {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
+}
+
 function fmtHoras(h: number) {
   const min = Math.round((h || 0) * 60);
   if (min === 0) return "0h";
@@ -137,7 +142,7 @@ export default function FaturamentoMensal() {
     queryFn: async () => {
       const { data } = await (supabase as any).from("client_saldo").select("*");
       const m: Record<string, { valor: number; edicoes: number; diarias: number }> = {};
-      for (const s of data || []) m[s.client_id] = { valor: Number(s.valor), edicoes: s.edicoes, diarias: s.diarias };
+      for (const s of data || []) m[s.client_id] = { valor: Number(s.valor), edicoes: Number(s.edicoes), diarias: Number(s.diarias) };
       return m;
     },
   });
@@ -146,8 +151,8 @@ export default function FaturamentoMensal() {
     if (!s || (!s.valor && !s.edicoes && !s.diarias)) return null;
     return [
       s.valor ? formatCurrency(s.valor) : null,
-      s.edicoes ? `${s.edicoes} ediç${Math.abs(s.edicoes) > 1 ? "ões" : "ão"}` : null,
-      s.diarias ? `${s.diarias} diária${Math.abs(s.diarias) > 1 ? "s" : ""}` : null,
+      s.edicoes ? `${qtd(s.edicoes)} ediç${Math.abs(s.edicoes) > 1 ? "ões" : "ão"}` : null,
+      s.diarias ? `${qtd(s.diarias)} diária${Math.abs(s.diarias) > 1 ? "s" : ""}` : null,
     ].filter(Boolean).join(" · ");
   };
 
