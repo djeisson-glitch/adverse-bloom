@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Plus, MapPin, X, Loader2, Users, Fuel, UtensilsCrossed, BedDouble, Link2 } from "lucide-react";
+import { CalendarClock, Plus, MapPin, X, Loader2, Users, Fuel, UtensilsCrossed, BedDouble, Link2, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTeamMembers } from "@/hooks/useTeamMembers";
 import {
-  useSalvarSaida, useCancelarSaida, STATUS_SAIDA_META, type SaidaProducao,
+  useSalvarSaida, useCancelarSaida, useExcluirSaida, STATUS_SAIDA_META, type SaidaProducao,
 } from "@/hooks/useSaidasProducao";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ export function DiariasProjeto({
   const { data: membros = [] } = useActiveTeamMembers();
   const salvar = useSalvarSaida();
   const cancelar = useCancelarSaida();
+  const excluir = useExcluirSaida();
 
   const [abrindo, setAbrindo] = useState(false);
   const [data, setData] = useState("");
@@ -115,6 +116,26 @@ export function DiariasProjeto({
         onError: (e: any) => toast.error("Erro", { description: e.message }),
       },
     );
+  };
+
+  /**
+   * Excluir some com a linha; cancelar mantém no histórico.
+   *
+   * Os dois existem porque são coisas diferentes: diária que CAIU faz parte
+   * da história do projeto (o dia foi bloqueado, a equipe se organizou), e
+   * diária lançada na data errada é só erro de digitação — não merece virar
+   * registro.
+   */
+  const excluirDiaria = async (d: SaidaProducao) => {
+    if (!(await confirmar({
+      title: "Excluir esta diária?",
+      description: `${fmtData(d.data)}${d.local ? ` · ${d.local}` : ""} — some de vez, inclusive do Google Agenda. Se a diária existiu e caiu, prefira cancelar: fica no histórico.`,
+      destructive: true, confirmText: "Excluir",
+    }))) return;
+    excluir.mutate(d.id, {
+      onSuccess: () => { invalidar(); toast.success("Diária excluída"); },
+      onError: (e: any) => toast.error("Não excluiu", { description: e.message }),
+    });
   };
 
   const removerDiaria = async (d: SaidaProducao) => {
@@ -287,11 +308,16 @@ export function DiariasProjeto({
                       )}
                     </p>
                   </div>
-                  {d.status !== "cancelada" && (
-                    <button title="Cancelar diária" onClick={() => removerDiaria(d)} className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive">
-                      <X className="h-3.5 w-3.5" />
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {d.status !== "cancelada" && (
+                      <button title="Cancelar diária (fica no histórico)" onClick={() => removerDiaria(d)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-warning">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button title="Excluir diária (some de vez)" onClick={() => excluirDiaria(d)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  )}
+                  </div>
                 </li>
               );
             })}

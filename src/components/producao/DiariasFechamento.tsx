@@ -1,29 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarClock, Link2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CalendarClock, Link2, Fuel, UtensilsCrossed, BedDouble } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
+import { toast } from "sonner";
+
+type Diaria = {
+  id: string; data: string; local: string | null; fracao: number;
+  custo_logistica: number; custo_alimentacao: number; custo_hospedagem: number;
+};
 
 /**
- * Diárias no fechamento do projeto — o dia, os custos e o que se repassa.
+ * Diárias no fechamento do projeto — onde os custos do dia são LANÇADOS.
  *
- * Os custos de diária (logística, alimentação, hospedagem) são REPASSE, não
- * trabalho: levam margem própria de 15%, menor que a de produção, e o
- * imposto do cliente por cima. Cliente com tabela de preço final não leva
- * imposto, como no resto da conta.
+ * Os campos ficam aqui, e não só no agendamento, porque na hora de marcar a
+ * diária ninguém sabe quanto vai custar o combustível. Fechar o projeto é
+ * justamente o momento em que as notas estão na mesa.
+ *
+ * Logística, alimentação e hospedagem são REPASSE, não trabalho: levam margem
+ * própria (15% por padrão, menor que a de produção) e o imposto do cliente por
+ * cima. Cliente com tabela de preço final não leva imposto, como no resto da
+ * conta.
  *
  * O aviso de dia compartilhado existe porque a mesma saída pode servir a dois
- * projetos do mesmo cliente. Na cobrança do mês conta UMA diária — mas o
- * custo lançado duas vezes viraria repasse dobrado, e é isso que a marca
- * pega antes de virar fatura.
+ * projetos do mesmo cliente. Na cobrança do mês conta UMA diária — mas custo
+ * lançado nos dois viraria repasse dobrado.
  */
 export function DiariasFechamento({ projectId, clientId }: { projectId: string; clientId?: string | null }) {
+  const qc = useQueryClient();
+
   const { data: diarias = [] } = useQuery({
     queryKey: ["fechamento-diarias", projectId],
     queryFn: async () =>
-      (await (supabase as any).from("producao_saidas")
+      ((await (supabase as any).from("producao_saidas")
         .select("*").eq("project_id", projectId).eq("tipo", "diaria")
-        .neq("status", "cancelada").order("data")).data || [],
+        .neq("status", "cancelada").order("data")).data || []) as Diaria[],
   });
 
   const { data: porDia = [] } = useQuery({
@@ -42,6 +56,21 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
         .eq("client_id", clientId).maybeSingle()).data,
   });
 
+  // Rascunho local: o que está sendo digitado. Sem isso, o refetch da query
+  // apaga o número no meio da digitação.
+  const [rascunho, setRascunho] = useState<Record<string, Partial<Diaria>>>({});
+  useEffect(() => { setRascunho({}); }, [projectId]);
+
+  const salvar = useFormAutosave<{ id: string } & Partial<Diaria>>(async ({ id, ...patch }) => {
+    const { data, error } = await (supabase as any)
+      .from("producao_saidas").update(patch).eq("id", id).select("id");
+    if (error) { toast.error("Não salvou o custo", { description: error.message }); throw error; }
+    if (!data?.length) { toast.error("Não salvou — sem permissão nesta diária?"); throw new Error("rls"); }
+    qc.invalidateQueries({ queryKey: ["fechamento-diarias", projectId] });
+    qc.invalidateQueries({ queryKey: ["fechamento-diarias-cliente", clientId] });
+    qc.invalidateQueries({ queryKey: ["projeto-diarias", projectId] });
+  });
+
   if (diarias.length === 0) return null;
 
   const margem = Number(cfg?.margem_diaria_percent ?? 15);
@@ -53,51 +82,82 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
     return d && d.projetos > 1;
   };
 
-  const linhas = (diarias as any[]).map((d) => {
-    const custo = Number(d.custo_logistica || 0) + Number(d.custo_alimentacao || 0) + Number(d.custo_hospedagem || 0);
-    return { ...d, custo, repasse: repasseDe(custo), shared: compartilhado(d.data) };
-  });
-  const custoTotal = linhas.reduce((s, l) => s + l.custo, 0);
-  const repasseTotal = linhas.reduce((s, l) => s + l.repasse, 0);
-  const diariasContadas = linhas.reduce((s, l) => s + Number(l.fracao ?? 1), 0);
+  const valor = (d: Diaria, campo: keyof Diaria) => {
+    const r = rascunho[d.id]?.[campo];
+    return r !== undefined ? String(r) : String(Number(d[campo] || 0) || "");
+  };
+  const mudar = (d: Diaria, campo: keyof Diaria, v: string) => {
+    setRascunho((r) => ({ ...r, [d.id]: { ...r[d.id], [campo]: v as any } }));
+    salvar.agendar({ id: d.id, [campo]: Number(v) || 0 } as any);
+  };
+  const custoDe = (d: Diaria) =>
+    (["custo_logistica", "custo_alimentacao", "custo_hospedagem"] as const)
+      .reduce((s, c) => s + (Number(rascunho[d.id]?.[c] ?? d[c]) || 0), 0);
+
+  const custoTotal = diarias.reduce((s, d) => s + custoDe(d), 0);
+  const repasseTotal = diarias.reduce((s, d) => s + repasseDe(custoDe(d)), 0);
+  const contadas = diarias.reduce((s, d) => s + Number(d.fracao ?? 1), 0);
+
+  const CAMPOS = [
+    ["custo_logistica", "Logística", Fuel],
+    ["custo_alimentacao", "Alimentação", UtensilsCrossed],
+    ["custo_hospedagem", "Hospedagem", BedDouble],
+  ] as const;
 
   return (
     <Card className="glass-card">
-      <CardContent className="space-y-3 p-5">
+      <CardContent className="space-y-4 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4 text-warning" />
             <p className="text-sm font-semibold text-foreground">Diárias e custos de campo</p>
           </div>
           <span className="text-xs text-muted-foreground">
-            {diariasContadas.toString().replace(".", ",")} diária{diariasContadas === 1 ? "" : "s"} neste projeto
+            {String(contadas).replace(".", ",")} diária{contadas === 1 ? "" : "s"} neste projeto
           </span>
         </div>
 
-        <div className="space-y-1">
-          {linhas.map((l) => (
-            <div key={l.id} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="w-16 shrink-0 tabular-nums text-muted-foreground">
-                {l.data.slice(8, 10)}/{l.data.slice(5, 7)}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-foreground">
-                {l.local || "sem local"}
-                {Number(l.fracao ?? 1) < 1 && <span className="ml-1.5 text-warning">· meia</span>}
-              </span>
-              {l.shared && (
-                <span className="inline-flex shrink-0 items-center gap-1 text-warning" title="outro projeto deste cliente gravou no mesmo dia — na cobrança conta uma diária só">
-                  <Link2 className="h-3 w-3" /> dia compartilhado
+        {diarias.map((d) => {
+          const custo = custoDe(d);
+          return (
+            <div key={d.id} className="space-y-2 rounded-lg border border-border/50 p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-medium text-foreground">
+                  {d.data.slice(8, 10)}/{d.data.slice(5, 7)}/{d.data.slice(2, 4)}
                 </span>
-              )}
-              <span className="w-24 shrink-0 text-right tabular-nums text-muted-foreground">
-                {l.custo > 0 ? formatCurrency(l.custo) : "—"}
-              </span>
-              <span className="w-24 shrink-0 text-right tabular-nums text-foreground">
-                {l.custo > 0 ? formatCurrency(l.repasse) : "—"}
-              </span>
+                {d.local && <span className="text-muted-foreground">· {d.local}</span>}
+                {Number(d.fracao ?? 1) < 1 && (
+                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">meia diária</span>
+                )}
+                {compartilhado(d.data) && (
+                  <span className="inline-flex items-center gap-1 text-warning" title="outro projeto deste cliente gravou no mesmo dia — na cobrança conta uma diária só">
+                    <Link2 className="h-3 w-3" /> dia compartilhado
+                  </span>
+                )}
+                {custo > 0 && (
+                  <span className="ml-auto tabular-nums text-muted-foreground">
+                    {formatCurrency(custo)} → <b className="text-foreground">{formatCurrency(repasseDe(custo))}</b>
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {CAMPOS.map(([campo, rotulo, Icon]) => (
+                  <div key={campo}>
+                    <label className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Icon className="h-3 w-3" /> {rotulo} (R$)
+                    </label>
+                    <Input
+                      type="number" step="0.01" placeholder="0,00" className="h-8"
+                      value={valor(d, campo)}
+                      onChange={(e) => mudar(d, campo, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
 
         {custoTotal > 0 && (
           <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-border/40 pt-2 text-xs">
@@ -110,9 +170,9 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Logística, alimentação e hospedagem são <b>repasse</b>, não trabalho — por isso a margem é
-          menor que a de produção.
-          {linhas.some((l) => l.shared) && (
+          Lance aqui as notas do dia: fechar o projeto é quando elas estão na mesa — na hora de
+          agendar ninguém sabe quanto vai custar o combustível. Salva sozinho.
+          {diarias.some((d) => compartilhado(d.data)) && (
             <> Em dia compartilhado, lance o custo em <b>um projeto só</b>: a saída foi uma.</>
           )}
         </p>
