@@ -28,6 +28,7 @@ import { useClientesPublico } from "@/hooks/useDeals";
 import { MentionTextarea } from "@/components/chat/MentionTextarea";
 import { EmojiPicker, GifPicker } from "@/components/chat/ChatExtras";
 import { DiariasProjeto } from "@/components/producao/DiariasProjeto";
+import { DiariasFechamento } from "@/components/producao/DiariasFechamento";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
@@ -409,6 +410,7 @@ export default function ProjetoDetalhe() {
               projectId={project.id}
               projectName={project.name}
               diariasContratadas={project.diarias_contratadas || 0}
+              clientId={project.client_id}
             />
           )}
 
@@ -424,6 +426,10 @@ export default function ProjetoDetalhe() {
           {tab === "fechamento" && canSeeMoney && (
             <>
               <FechamentoSection project={project} onChanged={invalidate} />
+              {/* Diárias e custos de campo: o dia rendeu deslocamento, comida e
+                  às vezes hotel, e isso é repasse — entra no fechamento com
+                  margem própria, não some no custo do projeto. */}
+              <DiariasFechamento projectId={project.id} clientId={project.client_id} />
               <FaturamentoSection project={project} />
             </>
           )}

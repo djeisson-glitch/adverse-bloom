@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Plus, MapPin, X, Loader2, Users } from "lucide-react";
+import { CalendarClock, Plus, MapPin, X, Loader2, Users, Fuel, UtensilsCrossed, BedDouble, Link2 } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +20,12 @@ import { toast } from "sonner";
  * publica no Google Agenda e desconta a capacidade da semana da equipe escalada.
  */
 export function DiariasProjeto({
-  projectId, projectName, diariasContratadas,
+  projectId, projectName, diariasContratadas, clientId,
 }: {
   projectId: string;
   projectName: string;
   diariasContratadas: number;
+  clientId?: string | null;
 }) {
   const qc = useQueryClient();
   const confirmar = useConfirm();
@@ -35,6 +37,8 @@ export function DiariasProjeto({
   const [data, setData] = useState("");
   const [local, setLocal] = useState("");
   const [equipe, setEquipe] = useState<string[]>([]);
+  const [fracao, setFracao] = useState(1);
+  const [custos, setCustos] = useState({ logistica: "", alimentacao: "", hospedagem: "" });
 
   const { data: diarias = [], isLoading } = useQuery({
     queryKey: ["projeto-diarias", projectId],
@@ -49,6 +53,23 @@ export function DiariasProjeto({
       return data as SaidaProducao[];
     },
   });
+
+  /**
+   * Dias em que ESTE CLIENTE já tem diária — inclusive de outro projeto.
+   * É o que permite dizer "esse dia já está agendado" antes de agendar, em
+   * vez de o cliente descobrir na fatura que pagou duas vezes pela mesma
+   * saída.
+   */
+  const { data: diasDoCliente = [] } = useQuery({
+    queryKey: ["diarias-do-cliente", clientId],
+    enabled: !!clientId,
+    queryFn: async () =>
+      (await (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId)).data || [],
+  });
+  const diaCompartilhado = (iso: string) => {
+    const d = (diasDoCliente as any[]).find((x) => x.data === iso);
+    return d && d.projetos > 1 ? d : null;
+  };
 
   const nomeMembro = useMemo(() => {
     const m = new Map(membros.map((x: any) => [x.id, x.name]));
@@ -75,14 +96,19 @@ export function DiariasProjeto({
         titulo: `Diária — ${projectName}`,
         project_id: projectId,
         data,
-        dia_inteiro: true,
+        dia_inteiro: fracao === 1,
+        fracao,
         local: local.trim() || null,
         equipe,
+        custo_logistica: Number(custos.logistica) || 0,
+        custo_alimentacao: Number(custos.alimentacao) || 0,
+        custo_hospedagem: Number(custos.hospedagem) || 0,
         status: "agendada",
       },
       {
         onSuccess: () => {
           setData(""); setLocal(""); setEquipe([]); setAbrindo(false);
+          setFracao(1); setCustos({ logistica: "", alimentacao: "", hospedagem: "" });
           invalidar();
           toast.success("Diária agendada");
         },
@@ -161,8 +187,56 @@ export function DiariasProjeto({
                 })}
               </div>
             </div>
+            {/* Meia diária existe: meio período de gravação não consome o dia
+                inteiro nem se cobra como tal. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">Duração</span>
+              {[{ v: 1, r: "Diária cheia" }, { v: 0.5, r: "Meia diária" }].map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setFracao(o.v)}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                    fracao === o.v ? "border-amber-500/50 bg-amber-500/15 text-warning" : "border-border/60 text-muted-foreground hover:border-amber-500/30"
+                  }`}
+                >
+                  {o.r}
+                </button>
+              ))}
+            </div>
+
+            {/* Custos do dia — repassados com margem própria e imposto. Ficam
+                aqui porque quem agenda é quem sabe o que a saída vai custar. */}
+            <div className="grid gap-2 sm:grid-cols-3">
+              {([
+                ["logistica", "Logística", "carro, combustível", Fuel],
+                ["alimentacao", "Alimentação", "equipe em campo", UtensilsCrossed],
+                ["hospedagem", "Hospedagem", "se dormir fora", BedDouble],
+              ] as const).map(([k, rot, dica, Icon]) => (
+                <div key={k}>
+                  <label className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground" title={dica}>
+                    <Icon className="h-3 w-3" /> {rot} (R$)
+                  </label>
+                  <Input
+                    type="number" step="0.01" placeholder="0,00" className="h-9"
+                    value={(custos as any)[k]}
+                    onChange={(e) => setCustos({ ...custos, [k]: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Já agendado nesse dia pra este cliente? Avisa antes. */}
+            {data && diaCompartilhado(data) && (
+              <p className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-warning">
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                Este cliente já tem diária neste dia, em outro projeto. Conta como
+                <b> uma</b> diária só na cobrança — mas lance o custo em um projeto só.
+              </p>
+            )}
+
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); }}>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); setFracao(1); setCustos({ logistica: "", alimentacao: "", hospedagem: "" }); }}>
                 Cancelar
               </Button>
               <Button size="sm" className="h-8 bg-amber-500 text-black hover:bg-amber-600" onClick={agendar} disabled={salvar.isPending || !data}>
@@ -197,6 +271,18 @@ export function DiariasProjeto({
                       {d.equipe?.length > 0 && (
                         <span className="inline-flex items-center gap-1">
                           <Users className="h-3 w-3" />{d.equipe.map(nomeMembro).join(", ")}
+                        </span>
+                      )}
+                      {Number((d as any).fracao ?? 1) < 1 && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">meia diária</span>
+                      )}
+                      {(() => {
+                        const c = Number((d as any).custo_logistica || 0) + Number((d as any).custo_alimentacao || 0) + Number((d as any).custo_hospedagem || 0);
+                        return c > 0 ? <span className="tabular-nums">custos {formatCurrency(c)}</span> : null;
+                      })()}
+                      {diaCompartilhado(d.data) && (
+                        <span className="inline-flex items-center gap-1 text-warning" title="outro projeto deste cliente gravou no mesmo dia — conta como uma diária só">
+                          <Link2 className="h-3 w-3" /> dia compartilhado
                         </span>
                       )}
                     </p>
