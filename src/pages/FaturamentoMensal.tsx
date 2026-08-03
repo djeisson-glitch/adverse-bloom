@@ -350,6 +350,14 @@ export default function FaturamentoMensal() {
                         )}
                         <Kpi label="Subtotal" v={formatCurrency(f.subtotal)} />
                         <Kpi label={`Margem ${f.margem_percent}%`} v={formatCurrency(f.margem_valor)} />
+                        {/* Comissão só aparece quando existe — cliente sem
+                            comissão não precisa ver uma linha de R$ 0,00. */}
+                        {Number((f as any).comissao_valor) > 0 && (
+                          <Kpi
+                            label={`Comissão${(f.detalhe?.comissoes || []).length === 1 ? ` · ${f.detalhe.comissoes[0].nome}` : ""}`}
+                            v={formatCurrency((f as any).comissao_valor)}
+                          />
+                        )}
                         <Kpi label={`Imposto ${f.imposto_percent}%`} v={formatCurrency(f.imposto_valor)} />
                         <Kpi label="Total" v={formatCurrency(f.total)} destaque />
                       </div>
