@@ -646,6 +646,14 @@ export default function FaturamentoMensal() {
                           </Button>
                         )}
 
+                        {/* A carta que vai pro cliente: o mesmo fechamento,
+                            escrito pra quem paga em vez de pra quem cobra. */}
+                        <Link to={`/relatorio-cliente/${f.client_id}/${ref.slice(0, 7)}`}>
+                          <Button size="sm" variant="outline">
+                            <FileText className="mr-1.5 h-3.5 w-3.5" /> Relatório do cliente
+                          </Button>
+                        </Link>
+
                         {/* Gerado por engano (mês errado, cliente que não era
                             pra entrar). Só enquanto não virou fatura. */}
                         {!(f as any).invoice_id && (
