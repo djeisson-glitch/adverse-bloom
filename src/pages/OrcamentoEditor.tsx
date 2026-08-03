@@ -990,6 +990,22 @@ function PlanilhaSection({
   };
   const removeComissao = (idx: number) => setComissoes(comissoes.filter((_, i) => i !== idx));
 
+  /**
+   * Tira (ou devolve) o GRUPO inteiro da base da margem.
+   *
+   * Grupo inteiro fora é o caso comum — elenco, cachê, tudo que é repasse.
+   * Marcar item a item é trabalho à toa e é onde se esquece um.
+   */
+  const marcarGrupoForaDaTaxa = async (categoriaId: string, fora: boolean) => {
+    const alvos = itens.filter((i) => (i.categoria_id || "") === categoriaId);
+    if (!alvos.length) return;
+    const { error } = await (supabase as any)
+      .from("budget_items").update({ tira_taxa: fora }).in("id", alvos.map((i) => i.id));
+    if (error) return toast.error("Não deu", { description: error.message });
+    onChanged();
+    toast.success(fora ? `${alvos.length} itens fora da taxa` : `${alvos.length} itens de volta na taxa`);
+  };
+
   const toggleCat = (id: string) => {
     const s = new Set(expandidas);
     s.has(id) ? s.delete(id) : s.add(id);
@@ -1299,6 +1315,11 @@ function PlanilhaSection({
             // olho; margem e imposto incidem por cima, iguais pra todo grupo.
             const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
             const maiorPeso = peso >= 25;
+            // Quantos itens do grupo estão fora da taxa. Grupo inteiro fora é
+            // o caso comum (elenco, cachê) — marcar item a item é trabalho à
+            // toa, e sem o contador ninguém sabe que o grupo está misto.
+            const foraDaTaxa = itensCat.filter((i: any) => i.tira_taxa).length;
+            const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
             return (
               <div key={cat.id} className="rounded-lg border border-border/50">
                 <div className="flex w-full items-center gap-3 px-4 py-2.5">
@@ -1328,6 +1349,23 @@ function PlanilhaSection({
                       </span>
                     </span>
                   </button>
+                  {itensCat.length > 0 && (
+                    <button
+                      onClick={() => marcarGrupoForaDaTaxa(cat.id, !todosFora)}
+                      title={todosFora
+                        ? "Este grupo inteiro está fora da base da margem — clique pra devolver"
+                        : `Tirar os ${itensCat.length} itens deste grupo da base da margem`}
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                        foraDaTaxa === 0
+                          ? "text-muted-foreground hover:bg-muted/40"
+                          : "bg-warning/15 font-medium text-warning"
+                      }`}
+                    >
+                      {foraDaTaxa === 0
+                        ? "fora da taxa"
+                        : todosFora ? "grupo fora da taxa" : `${foraDaTaxa}/${itensCat.length} fora`}
+                    </button>
+                  )}
                   <button
                     onClick={() => toggleOculta(cat.id, true)}
                     title="Excluir este grupo do orçamento (dá pra reincluir depois)"
@@ -1474,7 +1512,7 @@ function CategoriaItens({
 
   return (
     <div className="border-t border-border/40">
-      <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_46px_36px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         <span />
         <span>Descrição</span>
         <span>QTD</span>
@@ -1483,7 +1521,7 @@ function CategoriaItens({
         <span>{porHora ? "Custo/hora" : "Custo unit."}</span>
         <span className="text-right">Valor</span>
         <span>Observações</span>
-        <span>T. taxa</span>
+        <span className="text-center" title="Item marcado NÃO entra na base da margem da produtora">Fora da taxa</span>
         <span />
       </div>
       {itens.map((it, idx) => (
@@ -1586,7 +1624,9 @@ function BudgetItemRow({
   });
 
   return (
-    <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_46px_36px] gap-2 border-b border-border/30 px-4 py-1.5 last:border-0">
+    <div className={`grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/30 px-4 py-1.5 last:border-0 ${
+      row.tira_taxa ? "bg-warning/[0.06]" : ""
+    }`}>
       <span className="font-mono text-[10px] text-muted-foreground">
         {codigo}.{String(idx).padStart(3, "0")}
       </span>
@@ -1613,7 +1653,18 @@ function BudgetItemRow({
         className="h-7 text-xs"
         placeholder="—"
       />
-      <label className="flex items-center justify-center">
+      {/* "Fora da taxa": este item não entra na base da margem. Era uma
+          caixinha muda de 14px sob o rótulo "T. taxa" — existia e ninguém
+          via. Agora tem texto do lado e a linha inteira muda de cara quando
+          marcada, que é o que permite conferir a planilha de bater o olho. */}
+      <label
+        className={`flex cursor-pointer items-center justify-center gap-1 rounded px-1 py-0.5 text-[10px] transition-colors ${
+          row.tira_taxa ? "bg-warning/15 font-medium text-warning" : "text-muted-foreground hover:bg-muted/40"
+        }`}
+        title={row.tira_taxa
+          ? "Fora da taxa: este item NÃO entra na base da margem da produtora"
+          : "Marcar pra tirar este item da base da margem da produtora"}
+      >
         <input
           type="checkbox"
           checked={row.tira_taxa}
@@ -1621,8 +1672,9 @@ function BudgetItemRow({
             setRow({ ...row, tira_taxa: e.target.checked });
             setTimeout(() => salvar.mutate(), 0);
           }}
-          className="h-3.5 w-3.5 accent-primary"
+          className="h-3.5 w-3.5 accent-warning"
         />
+        {row.tira_taxa ? "fora" : ""}
       </label>
       <button onClick={() => excluir.mutate()} className="text-muted-foreground hover:text-destructive">
         <Trash2 className="h-3.5 w-3.5" />
