@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TextoComLinks } from "@/lib/autolink";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,7 +54,7 @@ export function MergulhoForm({
                         <EntregasField value={Array.isArray(value?.[c.key]) ? value[c.key] : []} onChange={(v) => onChange?.(c.key, v)} readOnly={readOnly} />
                       </div>
                     ) : readOnly ? (
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{textoDoCampo(value?.[c.key]) || "—"}</p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{textoDoCampo(value?.[c.key]) ? <TextoComLinks texto={textoDoCampo(value?.[c.key])} /> : "—"}</p>
                     ) : (
                       <Textarea value={textoDoCampo(value?.[c.key])} onChange={(e) => onChange?.(c.key, e.target.value)} rows={3} className="mt-1" />
                     )}
@@ -79,7 +80,7 @@ export function MergulhoForm({
               {extras.map((e: any, i: number) => (
                 <div key={i}>
                   <Label className="text-sm text-foreground">{textoDoCampo(e.pergunta)}</Label>
-                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{textoDoCampo(e.resposta)}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground"><TextoComLinks texto={textoDoCampo(e.resposta)} /></p>
                 </div>
               ))}
             </div>

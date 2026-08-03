@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TextoComLinks } from "@/lib/autolink";
 import { useQuery } from "@tanstack/react-query";
 import { Megaphone, Pin, PinOff, X, Plus, Loader2, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -149,7 +150,7 @@ export function MuralAvisos() {
                     {a.fixado && <Pin className="h-3 w-3 shrink-0 text-warning" />}
                     {a.titulo}
                   </p>
-                  {a.corpo && <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">{a.corpo}</p>}
+                  {a.corpo && <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground"><TextoComLinks texto={a.corpo} /></p>}
                   {a.data_evento && (
                     <span className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-warning">
                       <CalendarClock className="h-3 w-3" /> {fmtEvento(a.data_evento)}

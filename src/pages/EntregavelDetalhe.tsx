@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { TextoComLinks } from "@/lib/autolink";
 import { useVoltar } from "@/hooks/useVoltar";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
@@ -1399,7 +1400,11 @@ function AlteracoesSection({
                   {a.status}
                 </span>
               </div>
-              {a.descricao && <p className="mt-1 text-xs text-muted-foreground">{a.descricao}</p>}
+              {a.descricao && (
+                <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                  <TextoComLinks texto={a.descricao} />
+                </p>
+              )}
               <div className="mt-2 flex items-center gap-2">
                 {/* Sem Play próprio. O cronômetro é UM só: enquanto a alteração
                     está aberta, o "Editar" já conta aqui. Dois botões de

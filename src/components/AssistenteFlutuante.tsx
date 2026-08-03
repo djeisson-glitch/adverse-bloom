@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { TextoComLinks } from "@/lib/autolink";
 import { X, Send, Bot, Loader2, Sparkles, MessagesSquare, ChevronLeft } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -281,7 +282,7 @@ function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: 
           return (
             <div key={c.id} className={`flex flex-col ${meu ? "items-end" : "items-start"}`}>
               <span className="px-1 text-[10px] text-muted-foreground">{(profiles.find((p) => p.id === c.user_id)?.full_name || "?").split(" ")[0]} · {quando(c.created_at)}</span>
-              <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-1.5 text-sm ${meu ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"}`}>{c.body}</div>
+              <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-1.5 text-sm ${meu ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"}`}><TextoComLinks texto={c.body} /></div>
             </div>
           );
         })}
