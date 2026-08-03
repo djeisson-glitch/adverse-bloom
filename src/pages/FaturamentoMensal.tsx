@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Receipt, ChevronLeft, ChevronRight, RefreshCw, ChevronDown, TrendingUp, TrendingDown,
-  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2, Info, Trash2,
+  Clock, FileText, MessageSquareWarning, Users, AlertTriangle, Wallet, CheckCircle2, Info, Trash2, CalendarClock, Link2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
@@ -427,6 +427,9 @@ export default function FaturamentoMensal() {
                           />
                         )}
                         <Kpi label={`Imposto ${f.imposto_percent}%`} v={formatCurrency(f.imposto_valor)} />
+                        {Number(f.detalhe?.saldo?.usado || 0) > 0 && (
+                          <Kpi label="Saldo abatido" v={`− ${formatCurrency(Number(f.detalhe.saldo.usado))}`} />
+                        )}
                         <Kpi label="Total" v={formatCurrency(f.total)} destaque />
                       </div>
 
@@ -540,6 +543,58 @@ export default function FaturamentoMensal() {
                               ou <b>cortesia</b>.
                             </p>
                           </details>
+                        </Bloco>
+                      )}
+
+                      {/* Diárias de gravação — bloco próprio, ao lado das
+                          entregas. O repasse (custo × margem própria ×
+                          imposto quando cabe) JÁ está somado no subtotal;
+                          aqui é a memória de cálculo, que é o que se olha
+                          quando o cliente pergunta de onde veio o número. */}
+                      {Array.isArray(f.detalhe?.diarias) && f.detalhe.diarias.length > 0 && (
+                        <Bloco
+                          icon={<CalendarClock className="h-3.5 w-3.5" />}
+                          titulo={`Diárias de gravação (${qtd(f.detalhe.diarias.reduce((s: number, d: any) => s + Number(d.fracao || 0), 0))})`}
+                        >
+                          <div className="space-y-1">
+                            {f.detalhe.diarias.map((d: any, i: number) => (
+                              <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                                <span className="w-16 shrink-0 tabular-nums text-muted-foreground">
+                                  {d.data?.slice(8, 10)}/{d.data?.slice(5, 7)}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                                  {Number(d.fracao) < 1 ? "meia diária" : "diária cheia"}
+                                  {Number(d.custo) > 0 && (
+                                    <span className="ml-2">
+                                      logística {formatCurrency(Number(d.logistica || 0))} ·
+                                      alimentação {formatCurrency(Number(d.alimentacao || 0))} ·
+                                      hospedagem {formatCurrency(Number(d.hospedagem || 0))}
+                                    </span>
+                                  )}
+                                </span>
+                                {d.projetos > 1 && (
+                                  <span className="inline-flex shrink-0 items-center gap-1 text-warning"
+                                    title="mais de um projeto deste cliente gravou neste dia — conta como uma diária só">
+                                    <Link2 className="h-3 w-3" /> {d.projetos} projetos
+                                  </span>
+                                )}
+                                <span className="w-24 shrink-0 text-right tabular-nums text-foreground">
+                                  {Number(d.repasse) > 0 ? formatCurrency(Number(d.repasse)) : "—"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {Number(f.detalhe?.diarias_repasse || 0) > 0 ? (
+                            <p className="pt-1 text-[10px] text-muted-foreground">
+                              {formatCurrency(Number(f.detalhe.diarias_repasse))} de custos de campo já somados no
+                              subtotal — custo do dia com margem de repasse.
+                            </p>
+                          ) : (
+                            <p className="pt-1 text-[10px] text-muted-foreground">
+                              Sem custo lançado. Logística, alimentação e hospedagem se lançam no Fechamento do
+                              projeto — de lá entram aqui sozinhos.
+                            </p>
+                          )}
                         </Bloco>
                       )}
 
