@@ -14,10 +14,16 @@ export interface SaidaProducao {
   hora_inicio: string | null;
   hora_fim: string | null;
   dia_inteiro: boolean;
+  /** Quanto do dia a diária ocupa: 1 = cheia, 0.5 = meia. */
+  fracao: number;
   local: string | null;
   responsavel_id: string | null;
   equipe: string[];
   observacoes: string | null;
+  /** Custos do dia — repassados com margem própria (15%) e imposto do cliente. */
+  custo_logistica: number;
+  custo_alimentacao: number;
+  custo_hospedagem: number;
   status: StatusSaida;
   gcal_event_id: string | null;
   gcal_sync_status: string | null;
