@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,7 +40,7 @@ function janela(start: string, min: number) {
 }
 
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dataISO(d);
 }
 
 /** "2026-06" -> "junho/2026" (pro toast e o rótulo do período). */

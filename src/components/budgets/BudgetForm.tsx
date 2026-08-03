@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import ReactDOM from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2, Check, Copy, History, ChevronDown, ChevronRight, Save, Link, X, FileText, GripVertical, FolderPlus } from "lucide-react";
@@ -811,7 +812,7 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
                   name: opts.projectName,
                   client_name: clientName,
                   status: "em_producao",
-                  sold_date: new Date().toISOString().slice(0, 10),
+                  sold_date: hojeISO(),
                   delivery_date: opts.deliveryDate || null,
                 } as any)
                 .select("id")

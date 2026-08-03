@@ -8,6 +8,7 @@ import { useCreateProject, PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
 import { useClientesPublico } from "@/hooks/useDeals";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { hojeISO } from "@/lib/dataLocal";
 
 export function NewProjectModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const create = useCreateProject();
@@ -36,7 +37,7 @@ export function NewProjectModal({ open, onOpenChange }: { open: boolean; onOpenC
         client_name: clientName || "",
         sold_value: form.sold_value ? Number(form.sold_value) : 0,
         status: form.status,
-        sold_date: new Date().toISOString().slice(0, 10),
+        sold_date: hojeISO(),
         delivery_date: form.delivery_date || null,
         start_date: form.start_date || null,
       } as any);

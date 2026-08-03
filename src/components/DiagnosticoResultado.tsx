@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { Stethoscope, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -76,8 +77,8 @@ export function DiagnosticoResultado({
     const prevFrom = new Date(fromDate.getTime() - durationMs - 86400000);
     const prevTo = new Date(fromDate.getTime() - 86400000);
     const prevPeriod: PeriodRange = {
-      from: prevFrom.toISOString().slice(0, 10),
-      to: prevTo.toISOString().slice(0, 10),
+      from: dataISO(prevFrom),
+      to: dataISO(prevTo),
     };
     const prev = calcReceitaTotal(recItems, prevPeriod);
     return { receitaAnterior: prev, deltaLabel: "período anterior" };

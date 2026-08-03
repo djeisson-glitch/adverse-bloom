@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,7 +39,7 @@ export default function Leads() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
 
   const [fTemp, setFTemp] = useState("all");
   const [fStatus, setFStatus] = useState("all");

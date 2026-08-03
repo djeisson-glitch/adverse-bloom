@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { dataISO } from "@/lib/dataLocal";
 import { supabase } from "@/integrations/supabase/client";
 
 export type TipoSaida = "diaria" | "visita_tecnica" | "saida";
@@ -48,7 +49,7 @@ export function useSaidasProducao() {
       const { data, error } = await (supabase as any)
         .from("producao_saidas")
         .select("*, project:projects(name)")
-        .gte("data", limite.toISOString().slice(0, 10))
+        .gte("data", dataISO(limite))
         .order("data", { ascending: true })
         .order("hora_inicio", { ascending: true, nullsFirst: true });
       if (error) throw error;

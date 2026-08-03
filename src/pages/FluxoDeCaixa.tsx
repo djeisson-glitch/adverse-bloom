@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, TrendingUp, TrendingDown, AlertTriangle, Sparkles, Loader2, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { hojeISO, dataISO } from "@/lib/dataLocal";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const sevColor: Record<string, string> = {
@@ -60,7 +61,7 @@ export default function FluxoDeCaixa() {
     const v = patch.saldo ?? "";
     if (v === "") return; // campo em branco não vira saldo zero
     const { error } = await (supabase as any).from("empresa_contexto").upsert({
-      id: 1, saldo_inicial: Number(v), saldo_inicial_data: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(),
+      id: 1, saldo_inicial: Number(v), saldo_inicial_data: hojeISO(), updated_at: new Date().toISOString(),
     });
     if (error) {
       toast({ title: "Não salvou o saldo", description: error.message, variant: "destructive" });
@@ -69,7 +70,7 @@ export default function FluxoDeCaixa() {
     qc.invalidateQueries({ queryKey: ["empresa_contexto"] });
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hojeISO();
 
   // Recebíveis/pagáveis FUTUROS (em aberto, por vencimento)
   const futurosRec = useMemo(
@@ -85,7 +86,7 @@ export default function FluxoDeCaixa() {
   const inDays = (n: number) => {
     const d = new Date();
     d.setDate(d.getDate() + n);
-    return d.toISOString().slice(0, 10);
+    return dataISO(d);
   };
   const sumIn = (items: any[], to: string) => items.filter((i) => i.data_vencimento <= to).reduce((s, i) => s + (i.nao_pago ?? i.total ?? 0), 0);
   const aReceber90 = sumIn(futurosRec, inDays(90));

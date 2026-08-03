@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { hojeISO, emDiasISO } from "@/lib/dataLocal";
 import { Wallet, TrendingDown, Clock, CalendarDays, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { useAllContaAzulCache, extractItems } from "@/hooks/useContaAzulCache";
@@ -70,8 +71,8 @@ export default function CaixaRunway() {
     return months;
   }, [recItems, payItems]);
 
-  const today = now.toISOString().slice(0, 10);
-  const in30 = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+  const today = hojeISO();
+  const in30 = emDiasISO(30);
   const upcomingRec = useMemo(() =>
     recItems.filter(r => r?.data_vencimento && r.data_vencimento >= today && r.data_vencimento <= in30)
       .sort((a, b) => (a.data_vencimento || "").localeCompare(b.data_vencimento || ""))

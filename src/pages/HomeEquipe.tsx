@@ -1,4 +1,5 @@
 import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
+import { hojeISO } from "@/lib/dataLocal";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,7 @@ function inicioDaSemana() {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+
 const fmtDia = (iso: string) =>
   new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 

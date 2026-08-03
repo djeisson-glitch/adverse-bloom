@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { Download, CheckCircle, FileText, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export default function ContasAPagar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `contas_a_pagar_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `contas_a_pagar_${hojeISO()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
 

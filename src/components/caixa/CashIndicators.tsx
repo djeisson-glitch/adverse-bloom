@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/format";
 import { type CAItem, getCat, STATUS_NAO_RECEBIVEL, STATUS_NAO_PAGAVEL } from "@/lib/financial";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { dataISO, emDiasISO, hojeISO } from "@/lib/dataLocal";
 
 interface Props {
   recItems: CAItem[];
@@ -44,8 +45,8 @@ function KpiCard({ title, value, subtitle, level, icon: Icon, delay }: {
 
 export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Props) {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const in7 = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const today = hojeISO();
+  const in7 = emDiasISO(7);
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   // 1. Dias de Caixa
@@ -120,7 +121,7 @@ export function CashIndicators({ recItems, payItems, saldoAtual, burnRate }: Pro
     queryFn: async () => {
       const startOfMonth = `${thisMonthKey}-01`;
       const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const endOfMonth = nextMonth.toISOString().slice(0, 10);
+      const endOfMonth = dataISO(nextMonth);
       const { data } = await supabase.from("budgets").select("total_value")
         .eq("status", "approved").gte("created_at", startOfMonth).lt("created_at", endOfMonth);
       return data ?? [];

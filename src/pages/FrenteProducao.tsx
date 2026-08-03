@@ -1,4 +1,5 @@
 import { estaAtrasado, prazoDe } from "@/lib/prazoEntregavel";
+import { hojeISO, emDiasISO } from "@/lib/dataLocal";
 import { primeiroNome } from "@/lib/pessoa";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -21,8 +22,8 @@ const fmtDia = (d?: string | null) =>
   d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";
 
 export default function FrenteProducao() {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const hoje = hojeISO();
+  const em7 = emDiasISO(7);
 
   const { data: entregaveis = [], isLoading } = useQuery({
     queryKey: ["frente-producao"],

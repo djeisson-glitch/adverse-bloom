@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dataISO } from "@/lib/dataLocal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +30,7 @@ function addDays(base: Date, n: number) {
   return d;
 }
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dataISO(d);
 }
 function fmtDay(d: Date) {
   return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });

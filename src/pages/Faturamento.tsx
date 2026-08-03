@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ui/confirm";
@@ -36,7 +37,7 @@ export default function Faturamento() {
     client_id: "",
     project_id: "",
     valor: "",
-    data_emissao: new Date().toISOString().slice(0, 10),
+    data_emissao: hojeISO(),
     descricao: "",
   });
 
@@ -114,7 +115,7 @@ export default function Faturamento() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await (supabase as any)
         .from("invoices")
-        .update({ status, data_pagamento: status === "paga" ? new Date().toISOString().slice(0, 10) : null })
+        .update({ status, data_pagamento: status === "paga" ? hojeISO() : null })
         .eq("id", id);
       if (error) throw error;
     },

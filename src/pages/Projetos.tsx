@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dataISO, hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -407,7 +408,7 @@ function CalendarioVista({ projects }: { projects: Project[] }) {
   for (let d = 1; d <= dim; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const iso = (d: number) => new Date(y, m, d).toISOString().slice(0, 10);
+  const iso = (d: number) => dataISO(new Date(y, m, d));
   const byDate = new Map<string, Project[]>();
   projects.forEach((p) => {
     if (p.delivery_date) {
@@ -415,7 +416,7 @@ function CalendarioVista({ projects }: { projects: Project[] }) {
       byDate.set(key, [...(byDate.get(key) || []), p]);
     }
   });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hojeISO();
 
   return (
     <Card className="glass-card">

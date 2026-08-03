@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { hojeISO } from "@/lib/dataLocal";
 import { Plus, Search, X, Download, MoreHorizontal, Edit, Copy, Trash2, History, ChevronUp, ChevronDown, Filter, Loader2, FileText, Play, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -314,7 +315,7 @@ export default function Orcamentos() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `orcamentos_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `orcamentos_${hojeISO()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }, [filtered]);

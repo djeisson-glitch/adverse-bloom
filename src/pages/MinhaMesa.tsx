@@ -20,6 +20,7 @@ import { primeiroNome } from "@/lib/pessoa";
 import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 import { AvisoPushDesligado } from "@/components/AvisoPushDesligado";
+import { dataISO } from "@/lib/dataLocal";
 
 /**
  * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo que
@@ -97,7 +98,7 @@ function botoesDoItem(it: Item): BtnCfg[] {
   return [];
 }
 
-function iso(d: Date) { return d.toISOString().slice(0, 10); }
+const iso = dataISO;
 
 /** Dias entre hoje e uma data ISO (negativo = passado). */
 function diasAte(due: string, hoje: string) {

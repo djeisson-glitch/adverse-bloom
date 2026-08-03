@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
+import { mesISO, primeiroDiaISO } from "@/lib/dataLocal";
 
 type Fatura = {
   id: string;
@@ -40,12 +41,7 @@ const STATUS: Record<string, { label: string; cls: string; next?: string; nextLa
   faturado: { label: "Faturado", cls: "bg-emerald-500/20 text-success border-emerald-500/30" },
 };
 
-function mesPrimeiroDia(offset = 0) {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() + offset);
-  return d.toISOString().slice(0, 10);
-}
+
 /**
  * Hora em formato de relógio, não em decimal.
  *
@@ -65,7 +61,7 @@ export default function FaturamentoMensal() {
   const qc = useQueryClient();
   const confirmar = useConfirm();
   // padrão: mês anterior (é o que o dia 01 fatura)
-  const [ref, setRef] = useState(() => mesPrimeiroDia(-1));
+  const [ref, setRef] = useState(() => mesISO(-1));
   const [aberto, setAberto] = useState<string | null>(null);
 
   const mesLabel = useMemo(() => {
@@ -258,14 +254,14 @@ export default function FaturamentoMensal() {
 
       {/* Navegação de mês */}
       <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
-        <Button variant="outline" size="sm" onClick={() => setRef(() => { const [y, m] = ref.split("-").map(Number); return new Date(y, m - 2, 1).toISOString().slice(0, 10); })}>
+        <Button variant="outline" size="sm" onClick={() => setRef(() => { const [y, m] = ref.split("-").map(Number); return primeiroDiaISO(y, m - 1); })}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="text-center">
           <p className="text-sm font-semibold capitalize text-foreground">{mesLabel}</p>
           <p className="text-xs text-muted-foreground">{faturas.length} cliente(s) · total {formatCurrency(totalMes)}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setRef(() => { const [y, m] = ref.split("-").map(Number); return new Date(y, m, 1).toISOString().slice(0, 10); })}>
+        <Button variant="outline" size="sm" onClick={() => setRef(() => { const [y, m] = ref.split("-").map(Number); return primeiroDiaISO(y, m + 1); })}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
