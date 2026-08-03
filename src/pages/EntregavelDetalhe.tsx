@@ -485,6 +485,21 @@ export default function EntregavelDetalhe() {
         }}
       />
 
+      {/* Horas logo abaixo dos botões: é o que mais se mexe na peça, e estava
+          no fim da página — quem ia apontar hora rolava a tela inteira. */}
+      {canSeeHours && (
+        <TimesheetEntregavel
+          did={did!}
+          projectId={projectId!}
+          entries={entries}
+          profiles={profiles}
+          horasTotal={horas.total}
+          temAlteracaoAberta={!!alteracaoAberta}
+          onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
+          onChanged={recarregarHoras}
+        />
+      )}
+
       {/* Briefing logo no topo, depois do cabeçalho: é o direcionamento da
           peça — quem abre o entregável quer isso primeiro, não no fim. */}
       <Card className="glass-card">
@@ -547,19 +562,6 @@ export default function EntregavelDetalhe() {
           {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
           <AnexosEntregavel did={did!} projectId={projectId!} />
 
-          {/* Timesheet do entregável — some pra quem não vê horas */}
-          {canSeeHours && (
-            <TimesheetEntregavel
-              did={did!}
-              projectId={projectId!}
-              entries={entries}
-              profiles={profiles}
-              horasTotal={horas.total}
-              temAlteracaoAberta={!!alteracaoAberta}
-              onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
-              onChanged={recarregarHoras}
-            />
-          )}
         </div>
 
       </div>
@@ -710,6 +712,8 @@ function FluxoCard({
   const botoes: React.ReactNode[] = [];
   const B = (key: string, node: React.ReactNode) => botoes.push(<span key={key}>{node}</span>);
   const editorTrabalha = ["pendente", "em_pausa", "ajuste_interno", "ajuste_solicitado", "em_edicao"].includes(status);
+  // Encerrado: o trabalho acabou. Nada de mover etapa nem apontar hora nova.
+  const encerrado = ["entregue", "aprovado", "faturado"].includes(status);
 
   // EDITOR: botão único Editar⇄Parar + Enviar para revisão
   if (editorTrabalha && isEditor) {
@@ -788,8 +792,13 @@ function FluxoCard({
         )}
 
         {/* Etapa de pós na MESMA caixa do status: dois lugares dizendo onde a
-            peça está viravam dois campos pra manter. Aqui é uma linha só. */}
-        <EtapasPos did={did} podeMover={isRevisor || isEditor} />
+            peça está viravam dois campos pra manter. Aqui é uma linha só.
+
+            Peça encerrada não move mais: os botões saem e sobra o histórico
+            (a etapa em que parou e por quem passou). O único controle que
+            continua é o "corrigir status", que existe justamente pra
+            destravar quem foi encerrado por engano. */}
+        <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} />
 
         {/* Override de STATUS — só admin/coordenadora. Correção manual pra
             destravar peça travada; o resto do time segue pelos botões.

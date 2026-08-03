@@ -69,7 +69,10 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
     qc.invalidateQueries({ queryKey: ["entregavel", did] });
   };
 
-  if (!podeMover && !atual) return null;   // pra quem não move, etapa vazia é ruído
+  // Sem nada a mostrar nem a fazer: some. Mas peça encerrada continua
+  // exibindo por onde passou — é histórico, não controle, e é o que responde
+  // "quem mexeu nisso" seis meses depois.
+  if (!podeMover && !atual && passou.length === 0) return null;
 
   return (
     <div className="space-y-2 border-t border-border/40 pt-3">
@@ -80,10 +83,12 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
           <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary">
             {atual.nome}
           </span>
-        ) : (
+        ) : podeMover ? (
           <span className="text-muted-foreground">
             nenhuma — só separe se a peça passar por mais de uma mão
           </span>
+        ) : (
+          <span className="text-muted-foreground">não separada por etapas</span>
         )}
 
         {podeMover && proxima && (
