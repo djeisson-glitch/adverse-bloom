@@ -311,8 +311,17 @@ export default function EntregavelDetalhe() {
   // configurada como N1/N2 em cada projeto. Admin/manager faz tudo.
   const eu = user?.id;
   const podeRevisar = isAdmin || isCoordenadora;
-  const isN1 = !!eu && (eu === n1 || podeRevisar);
-  const isN2 = !!eu && (eu === n2 || podeRevisar);
+  // Aprovar é ato PESSOAL: quando o nível tem dono, só o dono aprova. Admin
+  // herdava o papel de todo mundo e via "Aprovar" numa revisão que era da
+  // Maiara — aprovar no lugar dela esvazia a revisão dela. Quando o nível não
+  // tem dono configurado, quem revisa por papel (admin/coordenadora) assume,
+  // senão a peça trava sem ninguém pra destravar.
+  // Quem precisa mesmo passar por cima usa o "Corrigir status", que é
+  // declaradamente um atalho e fica registrado como tal.
+  const isN1 = !!eu && (n1 ? eu === n1 : podeRevisar);
+  const isN2 = !!eu && (n2 ? eu === n2 : podeRevisar);
+  // Coordenação (mandar pro cliente, registrar retorno) continua por papel —
+  // é função, não aprovação.
   const isRevisor = !!eu && (eu === n1 || eu === n2 || podeRevisar);
   const isEditor = !!eu && (entregavel.responsavel_id === eu || isAdmin);
   const alteracaoAberta = (alteracoes as any[]).find((a: any) => a.status === "aberta") || null;
@@ -752,7 +761,7 @@ function FluxoCard({
     B("n2j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n2Ajuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
   }
   // REVISÃO ÚNICA (retrabalho, só N1) — com escalar pra N2 opcional
-  if (status === "revisao" && isRevisor) {
+  if (status === "revisao" && isN1) {
     B("rua", <Button size="sm" onClick={revUnicaAprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
     B("ruj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={revUnicaAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
     B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda revisão"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir Revisão 2</Button>);
