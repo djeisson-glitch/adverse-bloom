@@ -807,6 +807,8 @@ function FluxoCard({
               // avisa pra definir um (o campo Responsável, acima).
               : !entregavel.responsavel_id && ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status)
                 ? "Defina o responsável (campo acima) para o fluxo começar."
+              : status === "revisao_n1" ? `Revisão 1 é com ${nomeDe(profiles, n1) || "o revisor"} — só quem revisa aprova esta etapa.`
+              : status === "revisao_n2" ? `Revisão 2 é com ${nomeDe(profiles, n2) || "o revisor"} — só quem revisa aprova esta etapa.`
               : status.startsWith("revisao") ? "Aguardando o revisor deste entregável."
               : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
               : status === "pronto" ? "Aguardando alguém enviar ao cliente."
