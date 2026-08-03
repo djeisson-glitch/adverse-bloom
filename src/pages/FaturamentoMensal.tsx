@@ -130,6 +130,31 @@ export default function FaturamentoMensal() {
     },
   });
 
+  /**
+   * Saldo que cada cliente tem A USAR.
+   *
+   * Aparece aqui porque é na hora de fechar o mês que ele importa: cobrar
+   * cheio de quem ainda tem crédito é o erro que o saldo existe pra evitar.
+   */
+  const { data: saldos = {} } = useQuery({
+    queryKey: ["client_saldo_todos"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("client_saldo").select("*");
+      const m: Record<string, { valor: number; edicoes: number; diarias: number }> = {};
+      for (const s of data || []) m[s.client_id] = { valor: Number(s.valor), edicoes: s.edicoes, diarias: s.diarias };
+      return m;
+    },
+  });
+  const saldoDe = (id: string) => {
+    const s = (saldos as any)[id];
+    if (!s || (!s.valor && !s.edicoes && !s.diarias)) return null;
+    return [
+      s.valor ? formatCurrency(s.valor) : null,
+      s.edicoes ? `${s.edicoes} ediç${Math.abs(s.edicoes) > 1 ? "ões" : "ão"}` : null,
+      s.diarias ? `${s.diarias} diária${Math.abs(s.diarias) > 1 ? "s" : ""}` : null,
+    ].filter(Boolean).join(" · ");
+  };
+
   const mesAtualTemHora = (panorama?.meses || []).some(([m]) => m === ref.slice(0, 7));
   const outrosMeses = (panorama?.meses || []).filter(([m]) => m !== ref.slice(0, 7));
 
@@ -333,6 +358,14 @@ export default function FaturamentoMensal() {
                         {MODELO_LABEL[f.modelo] || f.modelo}
                         {f.modelo === "horas" && ` · ${fmtHoras(f.horas_edicao + f.horas_alteracao)} × ${formatCurrency(f.valor_hora)}`}
                       </p>
+                      {/* Saldo a usar na linha principal, não escondido no
+                          detalhe: cobrar cheio de quem ainda tem crédito é
+                          exatamente o erro que ele existe pra evitar. */}
+                      {saldoDe(f.client_id) && (
+                        <p className="mt-0.5 text-[11px] text-success">
+                          tem a usar: {saldoDe(f.client_id)}
+                        </p>
+                      )}
                     </div>
                     <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
                     <span className="w-28 text-right text-sm font-semibold text-primary">{formatCurrency(f.total)}</span>
