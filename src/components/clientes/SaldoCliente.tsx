@@ -94,11 +94,14 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
     recarregar();
   };
 
+  /** 7 vira "7", 0.5 vira "0,5" — meia diária é rotina, meia vírgula-zero-zero não. */
+  const qtd = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "").replace(".", ","));
+
   const Numero = ({ label, v, moeda }: { label: string; v: number; moeda?: boolean }) => (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-lg font-semibold ${v < 0 ? "text-destructive" : v > 0 ? "text-success" : "text-muted-foreground"}`}>
-        {moeda ? formatCurrency(v) : v}
+        {moeda ? formatCurrency(v) : qtd(v)}
       </p>
     </div>
   );
@@ -158,12 +161,12 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
               </div>
               <div className="space-y-1">
                 <Label className="text-[11px]">Edições</Label>
-                <Input type="number" value={novo.edicoes} placeholder="0"
+                <Input type="number" step="0.5" value={novo.edicoes} placeholder="0"
                   onChange={(e) => setNovo({ ...novo, edicoes: e.target.value })} />
               </div>
               <div className="space-y-1">
                 <Label className="text-[11px]">Diárias</Label>
-                <Input type="number" value={novo.diarias} placeholder="0"
+                <Input type="number" step="0.5" value={novo.diarias} placeholder="0"
                   onChange={(e) => setNovo({ ...novo, diarias: e.target.value })} />
               </div>
             </div>
@@ -192,8 +195,8 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
                   <span className="min-w-0 flex-1 truncate text-foreground">{l.descricao}</span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     {Number(l.valor) !== 0 && <b className={Number(l.valor) < 0 ? "text-destructive" : "text-success"}>{formatCurrency(Number(l.valor))}</b>}
-                    {Number(l.edicoes) !== 0 && <span className="ml-2">{l.edicoes > 0 ? "+" : ""}{l.edicoes} ed</span>}
-                    {Number(l.diarias) !== 0 && <span className="ml-2">{l.diarias > 0 ? "+" : ""}{l.diarias} di</span>}
+                    {Number(l.edicoes) !== 0 && <span className="ml-2">{l.edicoes > 0 ? "+" : ""}{qtd(Number(l.edicoes))} ed</span>}
+                    {Number(l.diarias) !== 0 && <span className="ml-2">{l.diarias > 0 ? "+" : ""}{qtd(Number(l.diarias))} di</span>}
                   </span>
                   <button onClick={() => apagar(l)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Apagar lançamento">
                     <Trash2 className="h-3.5 w-3.5" />
