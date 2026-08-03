@@ -13,6 +13,7 @@ import {
 import { Link } from "react-router-dom";
 import { useConfirm } from "@/components/ui/confirm";
 import { mesISO, primeiroDiaISO } from "@/lib/dataLocal";
+import { useFormAutosave } from "@/hooks/useFormAutosave";
 
 type Fatura = {
   id: string;
@@ -198,18 +199,18 @@ export default function FaturamentoMensal() {
    * lançar nos dois viraria repasse dobrado, que é o erro que a marca de "dia
    * compartilhado" existe pra evitar.
    */
-  const lancarCusto = useMutation({
-    mutationFn: async ({ saidaId, campo, valor }: { saidaId: string; campo: string; valor: number }) => {
+  const [custoRascunho, setCustoRascunho] = useState<Record<string, string>>({});
+  const lancarCusto = useFormAutosave<{ saidaId: string; campo: string; valor: number }>(
+    async ({ saidaId, campo, valor }) => {
       const { data, error } = await (supabase as any)
         .from("producao_saidas").update({ [campo]: valor }).eq("id", saidaId).select("id");
-      if (error) throw error;
-      if (!data?.length) throw new Error("não deu pra gravar nesta diária");
+      if (error) { toast.error("Não lançou", { description: error.message }); throw error; }
+      if (!data?.length) { toast.error("Não lançou — sem permissão nesta diária?"); throw new Error("rls"); }
       const { error: e2 } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: null, _apenas_auto: false });
-      if (e2) throw e2;
+      if (e2) { toast.error("Gravou o custo, mas não recalculou", { description: e2.message }); throw e2; }
+      qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
-    onError: (e: any) => toast.error("Não lançou", { description: e.message }),
-  });
+  );
 
   const mesAtualTemHora = (panorama?.meses || []).some(([m]) => m === ref.slice(0, 7));
   const outrosMeses = (panorama?.meses || []).filter(([m]) => m !== ref.slice(0, 7));
@@ -608,12 +609,13 @@ export default function FaturamentoMensal() {
                                       <span className="mb-0.5 block text-[10px] text-muted-foreground">{rot}</span>
                                       <input
                                         type="number" step="0.01" placeholder="0,00"
-                                        defaultValue={Number(d[k] || 0) || ""}
-                                        disabled={!d.saida_ids?.length || lancarCusto.isPending}
-                                        onBlur={(e) => {
-                                          const v = Number(e.target.value) || 0;
-                                          if (v === Number(d[k] || 0)) return;
-                                          lancarCusto.mutate({ saidaId: d.saida_ids[0], campo, valor: v });
+                                        value={custoRascunho[`${d.data}:${campo}`] ?? (Number(d[k] || 0) || "")}
+                                        disabled={!d.saida_ids?.length}
+                                        title={!d.saida_ids?.length ? "regere o mês pra liberar o lançamento" : undefined}
+                                        onChange={(e) => {
+                                          const bruto = e.target.value;
+                                          setCustoRascunho((r) => ({ ...r, [`${d.data}:${campo}`]: bruto }));
+                                          lancarCusto.agendar({ saidaId: d.saida_ids[0], campo, valor: Number(bruto) || 0 });
                                         }}
                                         className="h-7 w-full rounded border border-border/50 bg-transparent px-1.5 text-xs tabular-nums"
                                       />
