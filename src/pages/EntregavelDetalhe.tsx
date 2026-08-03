@@ -516,7 +516,6 @@ export default function EntregavelDetalhe() {
           profiles={profiles}
           horasTotal={horas.total}
           temAlteracaoAberta={!!alteracaoAberta}
-          onStart={() => start({ project_id: projectId!, project_name: proj?.name || "", deliverable_id: did! })}
           onChanged={recarregarHoras}
         />
       )}
@@ -1158,10 +1157,10 @@ function AnexosEntregavel({
 }
 
 function TimesheetEntregavel({
-  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, onStart, onChanged,
+  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, onChanged,
 }: {
   did: string; projectId: string; entries: any[]; profiles: any[]; horasTotal: number;
-  temAlteracaoAberta: boolean; onStart: () => void; onChanged: () => void;
+  temAlteracaoAberta: boolean; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
@@ -1169,14 +1168,14 @@ function TimesheetEntregavel({
   const [desc, setDesc] = useState("");
   const durMin = parseDuracaoMin(dur, "h");   // número puro = horas neste campo
 
-  // Um cronômetro por peça. Antes isto excluía a sessão amarrada a uma
-  // alteração, então o botão mostrava "Play" com o timer JÁ rodando na peça —
-  // e clicar parava e recomeçava, picando a hora em dois lançamentos.
+  // Aqui NÃO tem play, de propósito. Começar a trabalhar é o "Editar" lá em
+  // cima: ele liga o cronômetro E move a peça pra "em edição". O play que
+  // existia aqui só ligava o relógio — a peça continuava parada em revisão
+  // enquanto alguém editava, e a trilha de aprovação ficava mentindo.
+  //
+  // Parar continua aqui: encerrar não quebra trilha nenhuma, e tirar o botão
+  // deixaria cronômetro rodando sem lugar óbvio pra fechar.
   const rodando = !!sessao && sessao.deliverable_id === did;
-  const handlePlay = async () => {
-    if (sessao) await stop(); // fecha e lança o que estiver rodando antes
-    onStart();
-  };
   const handlePause = async () => {
     await stop();
     onChanged();
@@ -1234,9 +1233,9 @@ function TimesheetEntregavel({
               <Pause className="mr-1 h-3.5 w-3.5 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
             </Button>
           ) : (
-            <Button size="sm" variant="outline" onClick={handlePlay} title="Dar play no timer deste entregável">
-              <Play className="mr-1 h-3.5 w-3.5 fill-current" /> Play
-            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              Lançamento manual — pra começar a contar, use <b className="text-foreground">Editar</b> no fluxo acima.
+            </span>
           )}
         </div>
 
