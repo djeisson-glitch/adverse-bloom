@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
+import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -103,7 +104,7 @@ export default function EntregavelDetalhe() {
   // o card seguia 0.0h até dar F5. refetch força o fetch e atualiza na hora.
   const recarregarHoras = () => qc.refetchQueries({ queryKey: ["entregavel-horas", did] });
   const { start } = useTimer();
-  const { isAdmin, isCoordenadora, canSeeHours } = usePermissions();
+  const { isAdmin, isCoordenadora, canSeeHours, canSeeMoney } = usePermissions();
   const confirmar = useConfirm();
 
   const { data: entregavel, isLoading, isError, error } = useQuery({
@@ -477,6 +478,9 @@ export default function EntregavelDetalhe() {
         isN2={isN2}
         isRevisor={isRevisor}
         podeForcar={podeRevisar}
+        canSeeMoney={canSeeMoney}
+        clientId={proj?.client_id}
+        horasMin={Math.round((horas.pura + horas.alt) * 60)}
         alteracaoAberta={alteracaoAberta}
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["entregavel", did] });
@@ -606,11 +610,13 @@ export default function EntregavelDetalhe() {
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
   isEditor, isN1, isN2, isRevisor, podeForcar, alteracaoAberta, onChanged,
+  canSeeMoney, clientId, horasMin,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
   n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
   isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
   podeForcar: boolean; alteracaoAberta: any; onChanged: () => void;
+  canSeeMoney: boolean; clientId?: string | null; horasMin: number;
 }) {
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
@@ -799,6 +805,19 @@ function FluxoCard({
             continua é o "corrigir status", que existe justamente pra
             destravar quem foi encerrado por engano. */}
         <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} />
+
+        {/* Como a peça é cobrada. Só pra quem vê dinheiro — o editor não tem
+            que pensar em preço enquanto edita, e continua sem ver nada. */}
+        {canSeeMoney && (
+          <CobrancaEntregavel
+            did={did}
+            clientId={clientId}
+            tipo={entregavel.tipo_cobranca}
+            percent={entregavel.cobranca_percent}
+            horasMin={horasMin}
+            onChanged={onChanged}
+          />
+        )}
 
         {/* Override de STATUS — só admin/coordenadora. Correção manual pra
             destravar peça travada; o resto do time segue pelos botões.
