@@ -354,12 +354,30 @@ export default function RelatorioCliente() {
                 </div>
               ))}
             </div>
-            {custoLogistica > 0 && (
-              <p className="mt-2 text-xs">
-                Custos de logística, alimentação e hospedagem no período:{" "}
-                <b className="tabular-nums">{formatCurrency(custoLogistica)}</b>
-              </p>
-            )}
+            {/* Duas parcelas na carta também: o dia é serviço, os custos do
+                dia são repasse. Somar os dois numa linha só faria o cliente
+                perguntar de onde veio o número. */}
+            <div className="mt-2 space-y-0.5 text-xs">
+              {Number(data.fatura?.detalhe?.diarias_valor || 0) > 0 && (
+                <p className="flex justify-between">
+                  <span>
+                    {String(Number(data.fatura.detalhe.diarias_cobradas || 0)).replace(".", ",")} diária(s) ×{" "}
+                    {formatCurrency(Number(data.fatura.detalhe.diarias_valor_unitario || 0))}
+                    {Number(data.fatura.detalhe.diarias_saldo_abatido || 0) > 0 &&
+                      ` · ${String(Number(data.fatura.detalhe.diarias_saldo_abatido)).replace(".", ",")} abatida(s) do saldo`}
+                  </span>
+                  <b className="tabular-nums">{formatCurrency(Number(data.fatura.detalhe.diarias_valor))}</b>
+                </p>
+              )}
+              {custoLogistica > 0 && (
+                <p className="flex justify-between">
+                  <span>Logística, alimentação e hospedagem</span>
+                  <b className="tabular-nums">
+                    {formatCurrency(Number(data.fatura?.detalhe?.diarias_repasse || custoLogistica))}
+                  </b>
+                </p>
+              )}
+            </div>
           </Secao>
         )}
 

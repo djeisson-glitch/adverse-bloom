@@ -16,7 +16,7 @@ import { IndicadorAutosave, type StatusSalvamento } from "@/components/autosave/
 import { mesISO } from "@/lib/dataLocal";
 
 type Modelo = "nenhum" | "horas" | "tabela" | "contrato";
-type Preco = { id?: string; tipo: string; preco: number; ordem: number; horas_ref?: number | null };
+type Preco = { id?: string; tipo: string; preco: number; ordem: number; horas_ref?: number | null; e_diaria?: boolean };
 /** Mesmo formato de budgets.comissoes — uma gramática só de comissão no sistema. */
 type Comissao = { nome: string; tipo: "%" | "R$"; valor: number };
 
@@ -142,6 +142,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     const linhas = lista.filter((p) => p.tipo.trim()).map((p, i) => ({
       client_id: clientId, tipo: p.tipo.trim(), preco: Number(p.preco) || 0, ordem: i,
       horas_ref: p.horas_ref === null || p.horas_ref === undefined || p.horas_ref === ("" as any) ? null : Number(p.horas_ref),
+      e_diaria: !!p.e_diaria,
     }));
     if (linhas.length) {
       const { error } = await (supabase as any).from("client_precos").insert(linhas);
@@ -257,6 +258,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
               <span className="flex-1">Tipo</span>
               <span className="w-28 text-right">Preço</span>
               <span className="w-24 text-right">Horas ref.</span>
+              <span className="w-12 text-center" title="qual destas linhas é o preço do dia de gravação">Diária</span>
               <span className="w-4" />
             </div>
             {precos.map((p, i) => (
@@ -282,6 +284,17 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                   onChange={(e) => setPrecosSalvando(precos.map((x, j) => (j === i ? { ...x, horas_ref: e.target.value === "" ? null : Number(e.target.value) } : x)))}
                   className="w-24"
                 />
+                {/* Marca qual linha é o DIA de gravação. Sem isso o sistema
+                    teria que adivinhar pelo nome, e "Captação" só é óbvio pra
+                    quem escreveu. Uma só por cliente. */}
+                <label className="flex w-12 shrink-0 justify-center" title="esta linha é o preço do dia de gravação">
+                  <input
+                    type="radio"
+                    checked={!!p.e_diaria}
+                    onChange={() => setPrecosSalvando(precos.map((x, j) => ({ ...x, e_diaria: j === i })))}
+                    className="h-4 w-4 accent-current"
+                  />
+                </label>
                 <button onClick={() => setPrecosSalvando(precos.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </button>
