@@ -39,6 +39,7 @@ import LeadDetalhe from "./pages/LeadDetalhe";
 import CatalogoItens from "./pages/CatalogoItens";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import EntregavelDetalhe from "./pages/EntregavelDetalhe";
+import EntregasDoMes from "./pages/EntregasDoMes";
 import RelatorioProjeto from "./pages/RelatorioProjeto";
 import ProjetosLegado from "./pages/ProjetosLegado";
 import ContasAPagar from "./pages/ContasAPagar";
@@ -190,6 +191,7 @@ const App = () => (
               {/* Legado: mostra valor vendido/custos/faturado sem gate — é tela de gestão, não da equipe. */}
               <Route path="/projetos-legado" element={<ProtectedRoute><ModuleGuard module="relatorios"><ProjetosLegado /></ModuleGuard></ProtectedRoute>} />
               <Route path="/fechamento" element={<ProtectedRoute><ModuleGuard module="fechamento"><Fechamento /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/entregas" element={<ProtectedRoute><ModuleGuard module="projetos"><EntregasDoMes /></ModuleGuard></ProtectedRoute>} />
               <Route path="/pos-producao" element={<ProtectedRoute><ModuleGuard module="pos_producao"><PosProducao /></ModuleGuard></ProtectedRoute>} />
               <Route path="/pauta" element={<ProtectedRoute><ModuleGuard module="pauta"><Pauta /></ModuleGuard></ProtectedRoute>} />
               <Route path="/minha-mesa" element={<ProtectedRoute><ModuleGuard module="minha_mesa"><MinhaMesa /></ModuleGuard></ProtectedRoute>} />
