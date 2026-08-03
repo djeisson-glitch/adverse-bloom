@@ -16,6 +16,8 @@ import { IndicadorAutosave, type StatusSalvamento } from "@/components/autosave/
 
 type Modelo = "nenhum" | "horas" | "tabela" | "contrato";
 type Preco = { id?: string; tipo: string; preco: number; ordem: number };
+/** Mesmo formato de budgets.comissoes — uma gramática só de comissão no sistema. */
+type Comissao = { nome: string; tipo: "%" | "R$"; valor: number };
 
 const MODELO_LABEL: Record<Modelo, string> = {
   nenhum: "Não fatura por aqui",
@@ -61,6 +63,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const [valorHora, setValorHora] = useState("0");
   const [imposto, setImposto] = useState("0");
   const [margem, setMargem] = useState("0");
+  const [comissoes, setComissoes] = useState<Comissao[]>([]);
   const [autoMensal, setAutoMensal] = useState(true);
   const [obs, setObs] = useState("");
   const [precos, setPrecos] = useState<Preco[]>([]);
@@ -77,6 +80,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     setValorHora(String(cfg.valor_hora ?? 0));
     setImposto(String(cfg.imposto_percent ?? 0));
     setMargem(String(cfg.margem_percent ?? 0));
+    setComissoes(Array.isArray(cfg.comissoes) ? cfg.comissoes : []);
     setAutoMensal(cfg.auto_mensal ?? true);
     setObs(cfg.observacoes || "");
   }, [cfg, cfgPronto, clientId]);
@@ -124,6 +128,15 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const autoCfg = useFormAutosave<Record<string, unknown>>(gravarCfg);
   // Escolha em select/switch grava quase na hora — não tem digitação pra esperar.
   const autoEscolha = useFormAutosave<Record<string, unknown>>(gravarCfg, { delay: 150 });
+
+  // A lista inteira vai junto: comissão é uma coluna jsonb só, não uma tabela.
+  // Estado e gravação num lugar só pra não existir lista salva ≠ lista na tela.
+  const salvarComissoes = (lista: Comissao[]) => {
+    setComissoes(lista);
+    autoCfg.agendar({ comissoes: lista.filter((c) => c.nome.trim() || c.valor) });
+  };
+  const trocarComissao = (i: number, patch: Partial<Comissao>) =>
+    salvarComissoes(comissoes.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   // Tabela de preços: a linha inteira é substituída (mesma troca do botão antigo).
   const autoPrecos = useFormAutosave<{ precos: Preco[] }>(async ({ precos: lista = [] }) => {
@@ -393,7 +406,56 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                 />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">Conta: subtotal → + margem (sobre o subtotal) → + imposto (sobre subtotal+margem).</p>
+            {/* Comissão sobre o SUBTOTAL 2 (subtotal + margem) — mesma lógica e
+                mesmo formato da planilha de orçamento. Some da tela quando não
+                tem nenhuma: cliente sem comissão não precisa ver o assunto. */}
+            <div className="space-y-1.5">
+              <Label>Comissão sobre o subtotal 2</Label>
+              {comissoes.map((cm, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    value={cm.nome}
+                    placeholder="Quem recebe (ex.: agência, indicação)"
+                    onChange={(e) => trocarComissao(i, { nome: e.target.value })}
+                  />
+                  <Select value={cm.tipo} onValueChange={(v) => trocarComissao(i, { tipo: v as "%" | "R$" })}>
+                    <SelectTrigger className="w-20 shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="%">%</SelectItem>
+                      <SelectItem value="R$">R$</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="w-28 shrink-0"
+                    value={String(cm.valor)}
+                    onChange={(e) => trocarComissao(i, { valor: Number(e.target.value) || 0 })}
+                  />
+                  <button
+                    onClick={() => salvarComissoes(comissoes.filter((_, j) => j !== i))}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Remover comissão"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => salvarComissoes([...comissoes, { nome: "", tipo: "%", valor: 0 }])}
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar comissão
+              </Button>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Conta: subtotal → + margem (<span className="text-foreground">= subtotal 2</span>)
+              {comissoes.length > 0 && <> → + comissão (sobre o subtotal 2)</>}
+              {" "}→ + imposto (sobre {comissoes.length > 0 ? "subtotal 2 + comissão" : "subtotal 2"}).
+              {comissoes.length > 0 && " A comissão entra antes do imposto porque vai na nota."}
+            </p>
 
             <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/50 px-3 py-2">
               <span className="text-sm">Gerar rascunho automaticamente no dia 01</span>
