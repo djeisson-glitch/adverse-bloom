@@ -40,12 +40,15 @@ export default function RelatorioCliente() {
         (supabase as any).from("clients").select("*").eq("id", clientId).maybeSingle(),
         (supabase as any).from("faturamento_mensal").select("*").eq("client_id", clientId).eq("ref_mes", ref).maybeSingle(),
         (supabase as any).from("projects").select("id, name, numero, client_id, faturamento").eq("client_id", clientId),
-        (supabase as any).from("deliverables").select("id, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status")
-          .gte("data_entrega", ref).lt("data_entrega", fim),
+        // Todas as peças dos projetos do cliente: o recorte do mês é feito
+        // depois, pelo mesmo critério do fechamento (hora lançada no período
+        // OU entrega no período) — filtrar por data_entrega aqui deixaria de
+        // fora hora gasta em peça entregue noutro mês, que É cobrada.
+        (supabase as any).from("deliverables").select("id, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status"),
         (supabase as any).from("deliverable_alteracoes").select("id, deliverable_id, titulo, created_at, criado_por"),
         (supabase as any).from("demandas").select("id, projeto_id, solicitante_nome, created_at").eq("client_id", clientId),
         (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId).gte("data", ref).lt("data", fim),
-        (supabase as any).from("time_entries").select("deliverable_id, duration_min, alteracao_id").gte("start_at", ref).lt("start_at", fim),
+        (supabase as any).from("time_entries").select("deliverable_id, project_id, duration_min, alteracao_id, billable").gte("start_at", ref).lt("start_at", fim),
         (supabase as any).from("profiles").select("id, full_name"),
       ]);
       const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
@@ -53,10 +56,11 @@ export default function RelatorioCliente() {
         cliente: cli.data, fatura: fat.data,
         projetos: new Map<string, any>((proj.data || []).map((p: any) => [p.id, p])),
         entregas: ((ent.data || []) as any[]).filter((e: any) => meus.has(e.project_id)),
+        projetosMensais: meus,
         alteracoes: (alt.data || []) as any[],
         demandas: (dem.data || []) as any[],
         diarias: (dia.data || []) as any[],
-        horas: (hrs.data || []) as any[],
+        horas: ((hrs.data || []) as any[]).filter((t: any) => t.billable && meus.has(t.project_id)),
         pessoas: new Map<string, string>((prof.data || []).map((p: any) => [p.id, p.full_name])),
       };
     },
@@ -66,12 +70,12 @@ export default function RelatorioCliente() {
     if (!data) return null;
     const { entregas, alteracoes, demandas, horas } = data;
     const demPorProjeto = new Map<string, any>(demandas.filter((d: any) => d.projeto_id).map((d: any) => [d.projeto_id, d]));
-    const idsEnt = new Set(entregas.map((e: any) => e.id));
+    const idsEnt = new Set(entregas.map((e: any) => e.id));   // todas as peças do cliente
 
     // Alterações do mês, só das peças deste relatório.
     const altDoMes = alteracoes.filter(
       (a: any) => idsEnt.has(a.deliverable_id) && (a.created_at || "") >= ref && (a.created_at || "") < fim,
-    );
+    );   // idsEnt = todas as peças do cliente, não só as do mês
     const altPorEnt = new Map<string, any[]>();
     for (const a of altDoMes) {
       if (!altPorEnt.has(a.deliverable_id)) altPorEnt.set(a.deliverable_id, []);
@@ -88,7 +92,15 @@ export default function RelatorioCliente() {
       hPorEnt.set(t.deliverable_id, cur);
     }
 
-    const linhas: any[] = entregas.map((e: any) => {
+    // Peça entra na carta se teve HORA no período ou se foi ENTREGUE no
+    // período. É o mesmo recorte do fechamento: sem isso, a carta lista menos
+    // trabalho do que a fatura cobra.
+    const comHora = new Set(horas.map((t: any) => t.deliverable_id).filter(Boolean));
+    const doPeriodo = entregas.filter(
+      (e: any) => comHora.has(e.id) || ((e.data_entrega || "") >= ref && (e.data_entrega || "") < fim),
+    );
+
+    const linhas: any[] = doPeriodo.map((e: any) => {
       const dem = demPorProjeto.get(e.project_id);
       const h = hPorEnt.get(e.id) || { edic: 0, alt: 0 };
       return {
@@ -124,10 +136,16 @@ export default function RelatorioCliente() {
       return [...m.entries()].sort((a, b) => b[1] - a[1]);
     };
 
+    // Hora lançada no projeto sem peça vinculada: aparece como uma linha
+    // própria em vez de sumir. O fechamento cobra, a carta mostra.
+    const minSemPeca = horas
+      .filter((t: any) => !t.deliverable_id)
+      .reduce((s: number, t: any) => s + (t.duration_min || 0), 0);
+
     return {
-      linhas, porTipo,
+      linhas, porTipo, minSemPeca,
       totalAlt: altDoMes.length,
-      minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0),
+      minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0) + minSemPeca,
       minAlt: linhas.reduce((s: number, l: any) => s + l.minAlt, 0),
       quemSolicita: ranking((l) => l.solicitante, () => 1),
       quemAltera: ranking((l) => l.solicitante, (l) => l.alteracoes.length).filter(([, n]) => n > 0),
@@ -274,6 +292,15 @@ export default function RelatorioCliente() {
                       </td>
                     </tr>
                   ))}
+                  {calc.minSemPeca > 0 && (
+                    <tr className="border-b border-[#f0f0f0] text-[#555]">
+                      <td className="py-1.5 pr-3 italic">Horas de projeto sem peça específica</td>
+                      <td className="py-1.5 pr-3">—</td>
+                      <td className="py-1.5 pr-3">—</td>
+                      <td className="py-1.5 text-right tabular-nums">{fmtDuracao(calc.minSemPeca)}</td>
+                      <td className="py-1.5 text-right">—</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Secao>
