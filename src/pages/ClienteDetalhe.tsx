@@ -20,6 +20,7 @@ import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
 import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
+import SaldoCliente from "@/components/clientes/SaldoCliente";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
@@ -409,7 +410,10 @@ export default function ClienteDetalhe() {
             </TabsContent>
 
             {canSeeMoney && (
-              <TabsContent value="faturamento">
+              <TabsContent value="faturamento" className="space-y-4">
+                {/* Saldo primeiro: antes de decidir como cobrar o mês, ver o
+                    que o cliente já tem a usar. */}
+                {id && <SaldoCliente clientId={id} />}
                 {id && <FaturamentoConfig clientId={id} clientName={client.name} />}
               </TabsContent>
             )}
