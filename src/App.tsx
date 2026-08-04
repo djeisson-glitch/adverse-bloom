@@ -60,6 +60,7 @@ import ConfiguracoesPermissoes from "./pages/ConfiguracoesPermissoes";
 import AuthContaAzul from "./pages/AuthContaAzul";
 import PropostaPublica from "./pages/PropostaPublica";
 import CartaPublica from "./pages/CartaPublica";
+import OrcamentoPublico from "./pages/OrcamentoPublico";
 import Demandas from "./pages/Demandas";
 import SolicitarDemanda from "./pages/SolicitarDemanda";
 import BriefingPublico from "./pages/BriefingPublico";
@@ -243,6 +244,7 @@ const App = () => (
               <Route path="/auth/conta-azul" element={<ProtectedRoute><ModuleGuard module="admin"><AuthContaAzul /></ModuleGuard></ProtectedRoute>} />
               <Route path="/proposta/:token" element={<PropostaPublica />} />
               <Route path="/carta/:token" element={<CartaPublica />} />
+              <Route path="/orcamento-compartilhado/:token" element={<OrcamentoPublico />} />
               <Route path="/solicitar/:slug" element={<SolicitarDemanda />} />
               {/* Cadastros públicos — banco de talentos e fornecedores */}
               <Route path="/cadastro/fornecedor" element={<CadastroFornecedor />} />
