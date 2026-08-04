@@ -60,7 +60,9 @@ export function CompartilharOrcamento({ budgetId }: { budgetId: string }) {
         .order("created_at", { ascending: false });
       return (data || []) as Share[];
     },
-    enabled: aberto,
+    // Carrega com a página, não só quando o painel abre: o número ao lado do
+    // botão é o aviso de que este orçamento está aberto pra alguém lá fora, e
+    // esse aviso só serve se aparecer sem precisar procurar.
   });
 
   const recarregar = () => qc.invalidateQueries({ queryKey: ["budget-shares", budgetId] });
