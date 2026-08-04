@@ -27,6 +27,7 @@ import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
+import { ResumoJob } from "@/components/orcamento/ResumoJob";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -317,6 +318,16 @@ export default function OrcamentoEditor() {
 
       {/* Entregas / escopo do job */}
       <EntregasSection budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
+
+      {/* Resumo logo depois do escopo: é escrito em cima dele e da planilha,
+          e é o que vai junto no link compartilhado. */}
+      {budget && canSeeMoney && (
+        <ResumoJob
+          budgetId={budget.id}
+          resumo={budget.resumo_ia}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })}
+        />
+      )}
 
       {/* Follow-ups agendados */}
       {followUps.length > 0 && (

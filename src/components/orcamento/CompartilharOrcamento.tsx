@@ -27,6 +27,8 @@ const CAMADAS: Camada[] = [
   { key: "rentabilidade", label: "Rentabilidade", ajuda: "Taxa da produtora, sobra e margem", precisa: "valores" },
   { key: "comissoes",     label: "Comissões",     ajuda: "Quem recebe comissão e quanto" },
   { key: "impostos",      label: "Impostos",      ajuda: "O percentual de imposto aplicado" },
+  { key: "escopo",        label: "Escopo",        ajuda: "As peças que serão entregues" },
+  { key: "resumo",        label: "Resumo do job",  ajuda: "O parágrafo e os números: pessoas, diárias, pós" },
   { key: "briefing",      label: "Briefing",      ajuda: "Objetivo, local e formatos do job" },
   { key: "observacoes",   label: "Observações",   ajuda: "A coluna de observações das linhas" },
 ];
@@ -41,8 +43,8 @@ const CAMADAS: Camada[] = [
  * documento pela metade sem ninguém ter decidido isso.
  */
 const PADRAO: Record<string, boolean> = {
-  valores: true, custos: true, rentabilidade: true,
-  comissoes: true, impostos: true, briefing: true, observacoes: true,
+  valores: true, custos: true, rentabilidade: true, comissoes: true,
+  impostos: true, escopo: true, resumo: true, briefing: true, observacoes: true,
 };
 
 type Share = {

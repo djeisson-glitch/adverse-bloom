@@ -54,6 +54,7 @@ export default function OrcamentoPublico() {
   const grupos: any[] = (data.grupos || []).filter((g: any) => Number(g.total) !== 0);
   const t = data.totais || {};
   const comissoes: any[] = data.comissoes || [];
+  const escopo: any[] = data.escopo || [];
 
   // Agrupa por categoria mantendo a ordem que veio do banco.
   const porGrupo = new Map<string, any[]>();
@@ -103,6 +104,59 @@ export default function OrcamentoPublico() {
             <p className="text-sm font-medium text-neutral-700">{data.compartilhado_com}</p>
           </div>
         </header>
+
+        {/* Resumo antes de tudo: é o que responde "o que é isso?" pra quem
+            abriu o link sem ter acompanhado o job. */}
+        {m.resumo && data.resumo?.texto && (
+          <section className="border-b border-neutral-200 py-5">
+            <h2 className="text-[11px] uppercase tracking-wider text-neutral-400">Resumo</h2>
+            <p className="mt-2 text-sm leading-relaxed text-neutral-800">{data.resumo.texto}</p>
+            {!!data.resumo.destaques?.length && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {data.resumo.destaques.map((d: string, i: number) => (
+                  <span key={i} className="rounded border border-neutral-200 px-2 py-0.5 text-[11px] text-neutral-500">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
+            {data.resumo.numeros && (
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Numero rotulo="Pessoas" texto={String(data.resumo.numeros.pessoas ?? 0)} />
+                <Numero rotulo="Diárias" texto={String(data.resumo.numeros.diarias ?? 0)} />
+                <Numero rotulo="Horas de pós" texto={String(data.resumo.numeros.horas_pos ?? 0)} />
+                <Numero rotulo="Entregas" texto={String(data.resumo.numeros.entregas ?? 0)} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Escopo: o que o cliente leva no fim. Vinha só a planilha de custos,
+            e quem lê de fora não deduz as peças a partir dela. */}
+        {m.escopo && !!escopo.length && (
+          <section className="border-b border-neutral-200 py-5">
+            <h2 className="text-[11px] uppercase tracking-wider text-neutral-400">Escopo de entregas</h2>
+            <ul className="mt-2 space-y-1 text-sm">
+              {escopo.map((e: any, i: number) => (
+                <li key={i} className="flex items-baseline justify-between gap-3 border-b border-neutral-100 pb-1 last:border-0">
+                  <span>
+                    <strong className="font-medium">{Number(e.quantidade) || 1}×</strong> {e.titulo || "peça"}
+                    {(e.formato || e.duracao) && (
+                      <span className="text-neutral-500">
+                        {" — "}{[e.formato, e.duracao].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                  {Number(e.diarias) > 0 && (
+                    <span className="shrink-0 text-xs text-neutral-400">
+                      {Number(e.diarias)} {Number(e.diarias) === 1 ? "diária" : "diárias"}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {m.briefing && (data.job?.objetivo || data.job?.local || data.job?.formatos?.length) && (
           <section className="border-b border-neutral-200 py-5">
@@ -260,11 +314,14 @@ function Linha({ label, valor, sutil }: { label: string; valor?: number; sutil?:
   );
 }
 
-function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
+/** `valor` sai formatado como moeda; `texto` vai cru — contagem não é R$. */
+function Numero({ rotulo, valor, texto }: { rotulo: string; valor?: number; texto?: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-neutral-400">{rotulo}</p>
-      <p className="text-lg font-semibold tabular-nums">{formatCurrency(valor)}</p>
+      <p className="text-lg font-semibold tabular-nums">
+        {texto ?? formatCurrency(Number(valor || 0))}
+      </p>
     </div>
   );
 }
