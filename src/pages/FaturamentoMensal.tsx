@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
+import { CustosLinhas, type ItemCusto } from "@/components/producao/CustosLinhas";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -199,11 +200,16 @@ export default function FaturamentoMensal() {
    * lançar nos dois viraria repasse dobrado, que é o erro que a marca de "dia
    * compartilhado" existe pra evitar.
    */
-  const [custoRascunho, setCustoRascunho] = useState<Record<string, string>>({});
-  const lancarCusto = useFormAutosave<{ saidaId: string; campo: string; valor: number }>(
-    async ({ saidaId, campo, valor }) => {
+  const [custoRascunho, setCustoRascunho] = useState<Record<string, ItemCusto[]>>({});
+  const lancarCusto = useFormAutosave<{ saidaId: string; itens: ItemCusto[] }>(
+    async ({ saidaId, itens }) => {
+      // Grava só as linhas: o trigger no banco refaz custo_logistica/
+      // alimentacao/hospedagem a partir delas. Mandar o total junto abriria
+      // espaço pros dois divergirem.
       const { data, error } = await (supabase as any)
-        .from("producao_saidas").update({ [campo]: valor }).eq("id", saidaId).select("id");
+        .from("producao_saidas")
+        .update({ custos_itens: itens.filter((i) => i.descricao.trim() || i.valor) })
+        .eq("id", saidaId).select("id");
       if (error) { toast.error("Não lançou", { description: error.message }); throw error; }
       if (!data?.length) { toast.error("Não lançou — sem permissão nesta diária?"); throw new Error("rls"); }
       const { error: e2 } = await (supabase as any).rpc("gerar_faturamento_mensal", { _ref_mes: ref, _client: null, _apenas_auto: false });
@@ -601,27 +607,20 @@ export default function FaturamentoMensal() {
                                 {/* Lançar aqui mesmo: quem fecha o mês é quem
                                     tem as notas na mão, e sair pro projeto pra
                                     voltar é atrito puro. */}
-                                <div className="grid grid-cols-3 gap-1.5">
-                                  {([["logistica", "custo_logistica", "Logística"],
-                                     ["alimentacao", "custo_alimentacao", "Alimentação"],
-                                     ["hospedagem", "custo_hospedagem", "Hospedagem"]] as const).map(([k, campo, rot]) => (
-                                    <label key={k} className="block">
-                                      <span className="mb-0.5 block text-[10px] text-muted-foreground">{rot}</span>
-                                      <input
-                                        type="number" step="0.01" placeholder="0,00"
-                                        value={custoRascunho[`${d.data}:${campo}`] ?? (Number(d[k] || 0) || "")}
-                                        disabled={!d.saida_ids?.length}
-                                        title={!d.saida_ids?.length ? "regere o mês pra liberar o lançamento" : undefined}
-                                        onChange={(e) => {
-                                          const bruto = e.target.value;
-                                          setCustoRascunho((r) => ({ ...r, [`${d.data}:${campo}`]: bruto }));
-                                          lancarCusto.agendar({ saidaId: d.saida_ids[0], campo, valor: Number(bruto) || 0 });
-                                        }}
-                                        className="h-7 w-full rounded border border-border/50 bg-transparent px-1.5 text-xs tabular-nums"
-                                      />
-                                    </label>
-                                  ))}
-                                </div>
+                                {d.saida_ids?.length ? (
+                                  <CustosLinhas
+                                    compacto
+                                    itens={custoRascunho[d.data] ?? (d.custos_itens || [])}
+                                    onChange={(novas) => {
+                                      setCustoRascunho((r) => ({ ...r, [d.data]: novas }));
+                                      lancarCusto.agendar({ saidaId: d.saida_ids[0], itens: novas });
+                                    }}
+                                  />
+                                ) : (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Regere o mês pra liberar o lançamento de custos deste dia.
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
