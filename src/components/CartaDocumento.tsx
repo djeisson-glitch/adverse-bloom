@@ -69,17 +69,29 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
   .carta-root{font-family:'Montserrat',Inter,sans-serif}
   @media print{
     .no-print{display:none!important}
-    @page{margin:0}
 
-    /* O fundo escuro precisa cobrir a FOLHA, não só o elemento: o
-       .carta-doc pinta até onde vai o conteúdo e o resto do papel saía
-       branco no meio do documento. print-color-adjust:exact obriga o
-       Chrome a imprimir cor de fundo mesmo com "Gráficos de segundo plano"
-       desmarcado — que é o padrão dele. */
-    html,body{
-      background:#0f0f10!important;height:auto!important;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact;
-    }
+    /* MARGEM DE VERDADE. Estava margin:0 — o texto encostava na borda e a
+       gráfica/PDF cortava. 16mm é margem de carta comercial. */
+    @page{size:A4;margin:16mm}
+
+    /* NO PAPEL, A CARTA É PRETO NO BRANCO.
+       O tema escuro é da tela. Impresso, ele depende de "Gráficos de segundo
+       plano" (que vem DESMARCADO no Chrome) e sai ou branco-no-branco ou
+       chapado de tinta. Documento que se imprime, assina e arquiva se lê em
+       papel branco — a identidade fica na tipografia e no // laranja.
+       As classes abaixo são as cores do tema, remapeadas mantendo a
+       hierarquia: título quase preto, corpo cinza escuro, apoio cinza. */
+    html,body{background:#fff!important;height:auto!important}
+    .carta-doc{background:#fff!important;color:#333!important;padding:0!important}
+    .carta-doc .bg-\\[\\#0f0f10\\]{background:#fff!important}
+    .carta-doc .text-\\[\\#E8E1D0\\]{color:#111!important}
+    .carta-doc .text-\\[\\#CFC9BC\\]{color:#333!important}
+    .carta-doc .text-\\[\\#9A968C\\]{color:#666!important}
+    .carta-doc .border-white\\/10{border-color:#ddd!important}
+    .carta-doc .bg-\\[\\#ef4444\\]\\/\\[0\\.06\\]{background:#fef2f2!important}
+    .carta-doc .border-\\[\\#ef4444\\]\\/30{border-color:#fca5a5!important}
+    /* O laranja da marca e os sinais de incluso/não incluso continuam em
+       cor: são poucos e é o que dá leitura rápida no papel. */
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
     /* Duas colunas em A4 retrato é o que estava cortando texto no meio: a
@@ -90,18 +102,11 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
     .carta-grid > div{margin-bottom:0}
     .carta-grid > div > div{margin-bottom:1.25rem}
 
-    /* A carta saía cortada em UMA página. Duas causas, as duas aqui:
-       1) .carta-doc era position:absolute;inset:0 — fora do fluxo, o
-          navegador não tem o que paginar e imprime só o que cabe na
-          primeira folha;
-       2) a tela interna envolve tudo num fixed inset-0 overflow-auto, que
-          limita a altura ao viewport e esconde o resto do papel.
-       Em impressão, nada disso pode ser fixo nem rolável. */
-    .carta-shell,.carta-root{
-      position:static!important;inset:auto!important;
-      overflow:visible!important;height:auto!important;max-height:none!important;
-      padding-bottom:0!important;
-    }
+    /* A carta saía cortada em UMA página porque os contêineres da tela
+       (fixed, overflow-auto, max-width) prendiam o documento ao viewport.
+       display:contents dissolve a caixa e mantém os filhos: o papel recebe
+       o conteúdo direto, sem herdar nada de layout de tela. */
+    .carta-shell,.carta-root{display:contents!important}
     .carta-doc{position:static!important;margin:0;max-width:none;width:100%}
 
     /* Bloco não parte no meio da folha — assinatura numa página e o item
@@ -148,12 +153,20 @@ export function CartaDocumento({
             {p.titulo || "—"}
           </h1>
           {p.subtitulo && <p className="mt-2 text-lg text-[#9A968C]">{p.subtitulo}</p>}
-          {/* "UPF / para UPF" é o caso comum quando o título da carta é o nome
-              do cliente. Repetir na capa parece erro de preenchimento. */}
-          {cliente?.nome && cliente.nome.trim() !== (p.titulo || "").trim() && (
-            <p className="mt-6 text-sm text-[#9A968C]">
-              para <span className="text-lg font-semibold text-[#E8E1D0]">{cliente.nome}</span>
-            </p>
+
+          {/* O "para" completo mora aqui, na capa. Antes ele era repetido no
+              topo do corpo, o que fazia o PDF abrir a segunda folha com todo o
+              cabeçalho de novo — informação duplicada que parece erro. */}
+          {(cliente?.nome || cliente?.contato) && (
+            <div className="mt-8">
+              <p className="text-[10px] uppercase tracking-wider text-[#9A968C]">Para</p>
+              {cliente?.nome && cliente.nome.trim() !== (p.titulo || "").trim() && (
+                <p className="text-lg font-semibold text-[#E8E1D0]">{cliente.nome}</p>
+              )}
+              {cliente?.contato && <p className="text-sm text-[#CFC9BC]">{cliente.contato}</p>}
+              {cliente?.email && <p className="text-xs text-[#9A968C]">{cliente.email}</p>}
+              {cliente?.telefone && <p className="text-xs text-[#9A968C]">{cliente.telefone}</p>}
+            </div>
           )}
         </div>
 
@@ -163,36 +176,19 @@ export function CartaDocumento({
         </div>
       </div>
 
-      {/* Topo institucional: produtora à esquerda, cliente/data à direita */}
-      <div className="flex items-start justify-between gap-6 print:pt-10">
-        <div>
-          <span className="text-lg font-extrabold tracking-tight text-[#E8E1D0]">
-            {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
-          </span>
-          <p className="mt-1 text-xs text-[#9A968C]">{PRODUTORA.descricao}</p>
-          <p className="text-xs text-[#9A968C]">{PRODUTORA.site} · {PRODUTORA.email}</p>
-        </div>
-        <div className="text-right">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9A968C]">Investimento</span>
-          {(cliente?.nome || cliente?.contato) && (
-            <div className="mt-2">
-              <p className="text-[10px] uppercase tracking-wider text-[#9A968C]">Para</p>
-              {cliente?.nome && <p className="text-sm font-semibold text-[#E8E1D0]">{cliente.nome}</p>}
-              {cliente?.contato && <p className="text-xs text-[#9A968C]">{cliente.contato}</p>}
-              {cliente?.email && <p className="text-xs text-[#9A968C]">{cliente.email}</p>}
-              {cliente?.telefone && <p className="text-xs text-[#9A968C]">{cliente.telefone}</p>}
-            </div>
-          )}
-          {dataStr && <p className="mt-2 text-xs text-[#9A968C]">{dataStr}</p>}
-        </div>
+      {/* Cabeçalho de continuação: uma linha só, pra quem pega a folha 2
+          solta saber de que proposta é. O bloco institucional inteiro já foi
+          na capa. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-white/10 pb-3">
+        <span className="text-sm font-extrabold tracking-tight text-[#E8E1D0]">
+          {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
+        </span>
+        <span className="text-xs text-[#9A968C]">
+          {p.titulo}{p.subtitulo ? ` · ${p.subtitulo}` : ""}
+        </span>
       </div>
 
-      <div className="mt-10">
-        <h1 className="text-2xl font-bold text-[#E8E1D0]">{p.titulo || "—"}</h1>
-        {p.subtitulo && <p className="text-sm text-[#9A968C]">{p.subtitulo}</p>}
-      </div>
-
-      <div className="carta-grid mt-10 grid gap-x-16 gap-y-8 md:grid-cols-2">
+      <div className="carta-grid mt-8 grid gap-x-16 gap-y-8 md:grid-cols-2">
         <div className="space-y-8">
           {p.briefing && <Bloco titulo="Briefing"><p className="leading-relaxed">{p.briefing}</p></Bloco>}
           {linhas(p.entregas_texto).length > 0 && (
