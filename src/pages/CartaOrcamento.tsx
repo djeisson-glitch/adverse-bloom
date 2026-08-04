@@ -47,7 +47,20 @@ export default function CartaOrcamento() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      return { deal, budget };
+      // Elenco vem da planilha (categoria 006), sem valor: a carta mostra
+      // quem aparece no filme, não quanto custa cada um.
+      const { data: cats } = await (supabase as any)
+        .from("budget_categorias").select("id").eq("codigo", "006").maybeSingle();
+      const { data: itens } = budget?.id && cats?.id
+        ? await (supabase as any)
+            .from("budget_items")
+            .select("descricao, item_name, quantity, diaria, client_unit_price, ordem")
+            .eq("budget_id", budget.id).eq("categoria_id", cats.id).order("ordem")
+        : { data: [] };
+      const elenco = (itens || [])
+        .filter((i: any) => Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0) > 0)
+        .map((i: any) => ({ nome: i.descricao || i.item_name, qtd: i.quantity, diarias: i.diaria }));
+      return { deal, budget, elenco };
     },
   });
 
@@ -128,7 +141,7 @@ export default function CartaOrcamento() {
   const hoje = new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[#0f0f10]">
+    <div className="carta-shell fixed inset-0 z-50 overflow-auto bg-[#0f0f10]">
       <style>{CARTA_STYLE}</style>
 
       <div className="carta-root">
@@ -187,7 +200,7 @@ export default function CartaOrcamento() {
         )}
 
         {/* ---------------- A CARTA (imprime) ---------------- */}
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} condicoes={data?.budget?.condicoes} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} condicoes={data?.budget?.condicoes} elenco={data?.elenco} />
       </div>
     </div>
   );
