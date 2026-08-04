@@ -72,6 +72,19 @@ export default function OrcamentoPublico() {
     ? itens.reduce((s, i) => s + Number(i.custo || 0), 0)
     : 0;
 
+  // O que falta pro total depois das parcelas que este link mostra. Cobre as
+  // duas causas de sobra: parcela escondida (comissão, imposto) e o
+  // arredondamento pra cima de 50 em 50. Só é chamado de arredondamento
+  // quando é pequeno de verdade — o resto é "demais encargos", que é honesto
+  // sem entregar o que se quis esconder.
+  const somaVisivel =
+    Number(t.custo_producao || 0) +
+    Number(t.margem_valor || 0) +
+    Number(t.comissao_valor || 0) +
+    Number(t.imposto_valor || 0);
+  const resto = Number(t.total || 0) - somaVisivel;
+  const apenasArredondamento = resto < 50;
+
   return (
     <div className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900 print:bg-white print:py-0">
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-8 shadow-sm print:shadow-none">
@@ -160,49 +173,72 @@ export default function OrcamentoPublico() {
           )}
         </section>
 
-        {/* Fechamento da conta — cada bloco só aparece se o link deixar */}
-        {(m.valores || m.comissoes || m.impostos) && (
+        {/* Fechamento da conta.
+            O que o link esconde não vira buraco na soma: o que falta pro total
+            entra numa linha própria. Quem recebe isto é justamente quem vai
+            conferir a conta — parcela aparecendo do nada queima a confiança no
+            documento inteiro. */}
+        {m.valores && (
           <section className="space-y-1.5 border-t border-neutral-200 pt-5 text-sm">
-            {m.valores && (
-              <Linha label="Custo de produção" valor={Number(t.custo_producao || 0)} />
+            <Linha label="Custo de produção" valor={Number(t.custo_producao || 0)} />
+            {m.rentabilidade && t.margem_valor != null && (
+              <Linha label={`Taxa da produtora (${Number(t.margem_percent)}%)`} valor={Number(t.margem_valor)} sutil />
             )}
-            {m.rentabilidade && t.margem_percent != null && (
-              <Linha label={`Taxa da produtora (${Number(t.margem_percent)}%)`} sutil />
+            {m.comissoes && t.comissao_valor != null && (
+              <Linha
+                label={`Comissões${comissoes.length ? ` · ${comissoes.map((c: any) => c.nome).join(", ")}` : ""}`}
+                valor={Number(t.comissao_valor)}
+                sutil
+              />
             )}
-            {m.comissoes && !!comissoes.length && (
-              <>
-                {comissoes.map((c: any, i: number) => (
-                  <Linha
-                    key={i}
-                    label={`Comissão · ${c.nome}${c.tipo === "%" ? ` (${c.valor}%)` : ""}`}
-                    sutil
-                  />
-                ))}
-              </>
+            {m.impostos && t.imposto_valor != null && (
+              <Linha label={`Imposto (${Number(t.imposto_percent)}%)`} valor={Number(t.imposto_valor)} sutil />
             )}
-            {m.impostos && t.imposto_percent != null && (
-              <Linha label={`Imposto (${Number(t.imposto_percent)}%)`} sutil />
+            {resto > 0.01 && (
+              <Linha
+                label={apenasArredondamento ? "Arredondamento" : "Demais encargos"}
+                valor={resto}
+                sutil
+              />
             )}
-            {m.valores && (
-              <div className="flex items-baseline justify-between border-t border-neutral-300 pt-2 text-base font-semibold">
-                <span>Total</span>
-                <span className="tabular-nums">{formatCurrency(Number(t.total || 0))}</span>
-              </div>
-            )}
+            <div className="flex items-baseline justify-between border-t border-neutral-300 pt-2 text-base font-semibold">
+              <span>Total</span>
+              <span className="tabular-nums">{formatCurrency(Number(t.total || 0))}</span>
+            </div>
           </section>
         )}
 
-        {/* Rentabilidade: o número que só faz sentido pra quem está do lado de cá */}
+        {/* Rentabilidade: o que sobra pra produtora — a pergunta que se faz a
+            um mentor. Sem os custos abertos são duas parcelas (taxa + sobra
+            das linhas não entra), com eles é a conta inteira. */}
         {m.rentabilidade && (
           <section className="mt-5 rounded-md bg-neutral-50 p-4">
             <h2 className="text-[11px] uppercase tracking-wider text-neutral-400">Rentabilidade</h2>
             <div className="mt-2 grid gap-4 sm:grid-cols-3">
-              <Numero rotulo="Valor cobrado" valor={Number(t.custo_producao || 0)} />
-              {m.custos && <Numero rotulo="Custo real" valor={custoTotal} />}
+              <Numero
+                rotulo={`Taxa da produtora (${Number(t.margem_percent || 0)}%)`}
+                valor={Number(t.margem_valor || 0)}
+              />
+              {m.custos && <Numero rotulo="Custo real das linhas" valor={custoTotal} />}
               {m.custos && (
                 <Numero rotulo="Sobra das linhas" valor={Number(t.custo_producao || 0) - custoTotal} />
               )}
             </div>
+            {t.base_taxa != null && Number(t.base_taxa) !== Number(t.custo_producao) && (
+              <p className="mt-2 text-[11px] text-neutral-400">
+                A taxa incide sobre {formatCurrency(Number(t.base_taxa))} —{" "}
+                {formatCurrency(Number(t.custo_producao) - Number(t.base_taxa))} em linhas marcadas
+                como repasse ficam fora da base.
+              </p>
+            )}
+            {m.custos && (
+              <p className="mt-1 text-[11px] text-neutral-500">
+                Rentabilidade total:{" "}
+                <strong className="text-neutral-800">
+                  {formatCurrency(Number(t.margem_valor || 0) + Number(t.custo_producao || 0) - custoTotal)}
+                </strong>
+              </p>
+            )}
           </section>
         )}
 
