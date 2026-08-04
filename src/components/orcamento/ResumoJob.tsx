@@ -95,7 +95,10 @@ export function ResumoJob({ budgetId, resumo, onChanged }: {
               <Numero icone={<Users className="h-3.5 w-3.5" />} rotulo="Pessoas" valor={n.pessoas}
                       detalhe={`${n.equipe || 0} equipe · ${n.elenco || 0} elenco`} />
               <Numero icone={<CalendarRange className="h-3.5 w-3.5" />} rotulo="Diárias" valor={n.diarias} />
-              <Numero icone={<Clock className="h-3.5 w-3.5" />} rotulo="Horas de pós" valor={n.horas_pos} />
+              <Numero icone={<Clock className="h-3.5 w-3.5" />} rotulo="Horas de pós" valor={n.horas_pos}
+                      detalhe={n.pos_fechados?.length
+                        ? `+ ${n.pos_fechados.length} serviço${n.pos_fechados.length === 1 ? "" : "s"} fechado${n.pos_fechados.length === 1 ? "" : "s"}`
+                        : undefined} />
               <Numero icone={<Film className="h-3.5 w-3.5" />} rotulo="Entregas" valor={n.entregas} />
             </div>
 
@@ -108,12 +111,27 @@ export function ResumoJob({ budgetId, resumo, onChanged }: {
                   {verFuncoes ? "esconder" : "conferir"} de onde vêm as {n.pessoas} pessoas
                 </button>
                 {verFuncoes && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {funcoes.map((f: any, i: number) => (
-                      <span key={i} className="rounded bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                        {f.qtd}× {f.nome}
-                      </span>
-                    ))}
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="flex flex-wrap gap-1">
+                      {funcoes.map((f: any, i: number) => (
+                        <span key={i} className="rounded bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                          {f.qtd}× {f.nome}
+                        </span>
+                      ))}
+                    </div>
+                    {/* A pós também precisa se explicar: serviço fechado
+                        (acessibilidade, trilha) é lançado como "1 hora" só pra
+                        multiplicar, e somar isso inventava uma hora que não
+                        existe. Aqui dá pra ver o que entrou e o que não. */}
+                    {(!!n.pos_horas?.length || !!n.pos_fechados?.length) && (
+                      <p className="text-[11px] text-muted-foreground">
+                        <span className="text-foreground">Pós:</span>{" "}
+                        {n.pos_horas?.map((p: any) => `${p.nome} ${p.horas}h`).join(" · ") || "sem linha por hora"}
+                        {!!n.pos_fechados?.length && (
+                          <> · fora da conta de horas (serviço fechado): {n.pos_fechados.join(", ")}</>
+                        )}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

@@ -107,10 +107,22 @@ serve(async (req) => {
     const diarias = [...equipe.funcoes, ...elenco.funcoes]
       .reduce((max: number, f: any) => Math.max(max, f.diarias), 0);
 
-    // Na pós a coluna "diária" é HORA (o editor troca o rótulo).
-    const horasPos = linhas
-      .filter((i: any) => CAT_POS.includes(codigoDe.get(i.categoria_id) || ""))
-      .reduce((s: number, i: any) => s + Number(i.quantity || 0) * Number(i.diaria ?? 1), 0);
+    // Na pós a coluna "diária" é HORA (o editor troca o rótulo) — mas nem toda
+    // linha da pós é tempo de ilha. Serviço fechado (acessibilidade, trilha,
+    // locução) é lançado como "1 hora" a preço cheio, só pra multiplicar.
+    // Somar isso dava "41 horas de pós" quando a edição é de 40 e a
+    // acessibilidade é um pacote — número errado indo pro cliente.
+    //
+    // Critério: linha com MAIS de 1 hora é tempo de trabalho; linha com 1 (ou
+    // menos) é serviço fechado. Não é perfeito — uma color de 1 hora ficaria
+    // de fora — mas erra por 1 hora, no lugar de inventar 1 hora que não
+    // existe, e as duas listas voltam na resposta pra dar pra conferir.
+    const linhasPos = linhas.filter((i: any) => CAT_POS.includes(codigoDe.get(i.categoria_id) || ""));
+    const porHora = linhasPos.filter((i: any) => Number(i.diaria ?? 1) > 1);
+    const fechados = linhasPos.filter((i: any) => Number(i.diaria ?? 1) <= 1);
+    const horasPos = porHora.reduce(
+      (s: number, i: any) => s + Number(i.quantity || 0) * Number(i.diaria ?? 1), 0,
+    );
 
     const entregas = Array.isArray(budget.entregas) ? budget.entregas : [];
 
@@ -123,6 +135,13 @@ serve(async (req) => {
       entregas: entregas.reduce((s: number, e: any) => s + (Number(e.quantidade) || 0), 0),
       locacao: deal?.local_filmagem || null,
       funcoes: [...equipe.funcoes, ...elenco.funcoes],
+      // As duas listas da pós, pra tela mostrar de onde saiu (e de onde NÃO
+      // saiu) o número de horas.
+      pos_horas: porHora.map((i: any) => ({
+        nome: i.descricao || i.item_name,
+        horas: Number(i.quantity || 0) * Number(i.diaria ?? 1),
+      })),
+      pos_fechados: fechados.map((i: any) => i.descricao || i.item_name),
     };
 
     // ------------------------------------------------------------- a IA
@@ -146,9 +165,15 @@ DADOS JÁ CONFERIDOS (use exatamente estes números, não recalcule nem invente)
 - Locação: ${numeros.locacao || "não informada"}
 - Pessoas: ${numeros.pessoas} (${numeros.equipe} de equipe, ${numeros.elenco} de elenco)
 - Diárias de filmagem: ${numeros.diarias}
-- Horas de pós-produção: ${numeros.horas_pos}
 - Entregas: ${listaEntregas}
-- Funções orçadas: ${numeros.funcoes.map((f: any) => `${f.qtd}× ${f.nome}`).join(", ") || "nenhuma"}
+- Funções de FILMAGEM orçadas (equipe e elenco, NÃO são da pós): ${
+      numeros.funcoes.map((f: any) => `${f.qtd}× ${f.nome}`).join(", ") || "nenhuma"}
+- Pós-produção, tempo de trabalho: ${
+      numeros.pos_horas.length
+        ? numeros.pos_horas.map((p: any) => `${p.nome} ${p.horas}h`).join(", ")
+        : "nenhuma linha por hora"} (total ${numeros.horas_pos}h)
+- Pós-produção, serviços fechados (NÃO são horas, não some com o total acima): ${
+      numeros.pos_fechados.join(", ") || "nenhum"}
 
 BRIEFING DO CLIENTE:
 ${deal?.objetivo || "(não preenchido)"}
@@ -158,6 +183,13 @@ o tamanho da operação. Português do Brasil, direto, sem adjetivo vazio, sem
 "solução inovadora" nem "conteúdo de alto impacto". Não repita o valor do
 orçamento. Não invente nada que não esteja acima — se o briefing está vazio,
 descreva só o que os números mostram.
+
+ATENÇÃO a dois erros fáceis de cometer aqui:
+1. As funções de filmagem (direção, fotografia, câmera, maquiagem, elenco) são
+   da EQUIPE em set. NUNCA as atribua à pós-produção.
+2. Serviço fechado de pós não é hora. Se citar horas de pós, use só o total de
+   tempo de trabalho informado; os serviços fechados, se citar, cite como
+   itens à parte.
 
 Responda APENAS com JSON válido:
 {"texto":"...","destaques":["...","...","..."]}
