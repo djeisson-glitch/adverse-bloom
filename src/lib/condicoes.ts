@@ -77,6 +77,27 @@ export function temConteudo(c?: Condicoes | null): boolean {
   );
 }
 
+/**
+ * Separa em blocos para o documento do cliente.
+ *
+ * "Não incluso" ganha lista própria em vez de linha vermelha no meio das
+ * verdes: é a informação que o cliente precisa ver ANTES de aprovar, e item
+ * negativo intercalado no meio dos positivos se lê como detalhe. Junto e
+ * separado, vira uma pergunta só — "quero contratar algum destes?".
+ *
+ * "Não se aplica" fica de fora do documento: é "isto não é assunto deste
+ * job", que é conversa interna. Quem quiser que o cliente veja marca "sob
+ * consulta".
+ */
+export function porBloco(c?: Condicoes | null) {
+  const itens = (c?.itens || []).filter((i) => i.status !== "nao_se_aplica");
+  return {
+    inclusos: itens.filter((i) => i.status === "incluso"),
+    naoInclusos: itens.filter((i) => i.status === "nao_incluso"),
+    sobConsulta: itens.filter((i) => i.status === "sob_consulta"),
+  };
+}
+
 /** Lista pronta pra editar: o que já foi salvo, completado com o catálogo. */
 export function comPadroes(c?: Condicoes | null): Condicoes {
   const salvos = new Map((c?.itens || []).map((i) => [i.chave, i]));

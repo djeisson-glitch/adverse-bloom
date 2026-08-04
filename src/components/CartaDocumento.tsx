@@ -31,7 +31,7 @@ export type CartaCliente = {
 // Fonte única em lib/produtora — a carta e o PDF precisam dizer a mesma coisa.
 export { PRODUTORA } from "@/lib/produtora";
 import { PRODUTORA } from "@/lib/produtora";
-import { STATUS_LABEL, temConteudo, type Condicoes } from "@/lib/condicoes";
+import { porBloco, temConteudo, type Condicoes } from "@/lib/condicoes";
 
 export const DEFAULTS: Proposta = {
   equipe: "Direção\nOperador de câmera\nAssistente",
@@ -141,7 +141,7 @@ export function CartaDocumento({
       {/* Condições e direitos: item a item, com status escrito. É a seção que
           responde "tem Libras?" e "pode ir pra TV?" antes de virar discussão
           depois da aprovação. */}
-      {temConteudo(condicoes) && (
+      {temConteudo(condicoes) && (() => { const blocos = porBloco(condicoes); return (
         <div className="mt-10 border-t border-white/10 pt-8">
           <p className="text-xs uppercase tracking-[0.2em] text-[#9A968C]">Condições e direitos</p>
 
@@ -156,33 +156,67 @@ export function CartaDocumento({
             </div>
           )}
 
-          <ul className="mt-3 grid gap-x-10 gap-y-1.5 md:grid-cols-2">
-            {(condicoes?.itens || [])
-              .filter((i) => i.status !== "nao_se_aplica" || i.obs)
-              .map((i) => (
-                <li key={i.chave} className="flex items-baseline gap-2 text-sm">
-                  <span
-                    className={
-                      i.status === "incluso" ? "text-[#10b981]"
-                        : i.status === "nao_incluso" ? "text-[#f59e0b]"
-                          : "text-[#9A968C]"
-                    }
-                  >
-                    {i.status === "incluso" ? "✓" : i.status === "nao_incluso" ? "✕" : "•"}
-                  </span>
-                  <span>
-                    {i.rotulo}
-                    <span className="text-[#9A968C]"> — {STATUS_LABEL[i.status].toLowerCase()}</span>
-                    {!!i.regimes?.length && (
-                      <span className="text-[#9A968C]"> ({i.regimes.join(", ")})</span>
-                    )}
-                    {i.obs && <span className="block text-xs text-[#9A968C]">{i.obs}</span>}
-                  </span>
-                </li>
-              ))}
-          </ul>
+          {/* Incluso e NÃO incluso em blocos separados: item negativo no meio
+              dos positivos se lê como detalhe. Junto e em vermelho, vira a
+              pergunta que o cliente precisa se fazer antes de aprovar. */}
+          <div className="mt-4 grid gap-x-10 gap-y-6 md:grid-cols-2">
+            {blocos.inclusos.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-[#10b981]">Incluso</p>
+                <ul className="mt-1.5 space-y-1">
+                  {blocos.inclusos.map((i) => (
+                    <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                      <span className="text-[#10b981]">✓</span>
+                      <span>
+                        {i.rotulo}
+                        {!!i.regimes?.length && <span className="text-[#9A968C]"> ({i.regimes.join(", ")})</span>}
+                        {i.obs && <span className="block text-xs text-[#9A968C]">{i.obs}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {blocos.naoInclusos.length > 0 && (
+              <div className="rounded-md border border-[#ef4444]/30 bg-[#ef4444]/[0.06] px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wider text-[#ef4444]">Não incluso</p>
+                <ul className="mt-1.5 space-y-1">
+                  {blocos.naoInclusos.map((i) => (
+                    <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                      <span className="text-[#ef4444]">✕</span>
+                      <span className="text-[#E8E1D0]">
+                        {i.rotulo}
+                        {i.obs && <span className="block text-xs text-[#9A968C]">{i.obs}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11px] text-[#9A968C]">
+                  Pode ser contratado à parte — fale com a gente antes de aprovar.
+                </p>
+              </div>
+            )}
+
+            {blocos.sobConsulta.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-[#9A968C]">Sob consulta</p>
+                <ul className="mt-1.5 space-y-1">
+                  {blocos.sobConsulta.map((i) => (
+                    <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                      <span className="text-[#9A968C]">•</span>
+                      <span>
+                        {i.rotulo}
+                        {i.obs && <span className="block text-xs text-[#9A968C]">{i.obs}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      ); })()}
 
       <div className="mt-12 border-t border-white/10 pt-4">
         <p className="text-xs text-[#9A968C]">Qualquer alteração desse escopo ou solicitação não prevista acarretará em custos extras.</p>

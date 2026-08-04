@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Lock } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA } from "@/lib/produtora";
-import { STATUS_LABEL, temConteudo, type Condicoes } from "@/lib/condicoes";
+import { porBloco, temConteudo, type Condicoes } from "@/lib/condicoes";
 
 /**
  * Orçamento aberto por link, sem login.
@@ -57,6 +57,7 @@ export default function OrcamentoPublico() {
   const comissoes: any[] = data.comissoes || [];
   const escopo: any[] = data.escopo || [];
   const condicoes: Condicoes | null = data.condicoes || null;
+  const blocos = porBloco(condicoes);
 
   // Agrupa por categoria mantendo a ordem que veio do banco.
   const porGrupo = new Map<string, any[]>();
@@ -175,23 +176,62 @@ export default function OrcamentoPublico() {
                 )}
               </div>
             )}
-            <ul className="mt-2 grid gap-x-8 gap-y-1 sm:grid-cols-2">
-              {(condicoes?.itens || [])
-                .filter((i) => i.status !== "nao_se_aplica" || i.obs)
-                .map((i) => (
-                  <li key={i.chave} className="flex items-baseline gap-2 text-sm">
-                    <span className={i.status === "incluso" ? "text-emerald-600" : i.status === "nao_incluso" ? "text-amber-600" : "text-neutral-400"}>
-                      {i.status === "incluso" ? "✓" : i.status === "nao_incluso" ? "✕" : "•"}
-                    </span>
-                    <span>
-                      {i.rotulo}
-                      <span className="text-neutral-500"> — {STATUS_LABEL[i.status].toLowerCase()}</span>
-                      {!!i.regimes?.length && <span className="text-neutral-500"> ({i.regimes.join(", ")})</span>}
-                      {i.obs && <span className="block text-xs text-neutral-400">{i.obs}</span>}
-                    </span>
-                  </li>
-                ))}
-            </ul>
+            {/* Incluso e NÃO incluso separados — item negativo no meio dos
+                positivos se lê como detalhe, e é justamente o que precisa
+                saltar antes de alguém aprovar. */}
+            <div className="mt-3 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+              {blocos.inclusos.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-emerald-700">Incluso</p>
+                  <ul className="mt-1 space-y-1">
+                    {blocos.inclusos.map((i) => (
+                      <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                        <span className="text-emerald-600">✓</span>
+                        <span>
+                          {i.rotulo}
+                          {!!i.regimes?.length && <span className="text-neutral-500"> ({i.regimes.join(", ")})</span>}
+                          {i.obs && <span className="block text-xs text-neutral-400">{i.obs}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {blocos.naoInclusos.length > 0 && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wider text-red-700">Não incluso</p>
+                  <ul className="mt-1 space-y-1">
+                    {blocos.naoInclusos.map((i) => (
+                      <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                        <span className="text-red-600">✕</span>
+                        <span>
+                          {i.rotulo}
+                          {i.obs && <span className="block text-xs text-neutral-500">{i.obs}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {blocos.sobConsulta.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-neutral-400">Sob consulta</p>
+                  <ul className="mt-1 space-y-1">
+                    {blocos.sobConsulta.map((i) => (
+                      <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                        <span className="text-neutral-400">•</span>
+                        <span>
+                          {i.rotulo}
+                          {i.obs && <span className="block text-xs text-neutral-400">{i.obs}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
