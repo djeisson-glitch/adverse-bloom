@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PessoaAvatar } from "@/components/PessoaAvatar";
 import { toast } from "sonner";
 
 function startOfWeek(base: Date) {
@@ -47,7 +47,7 @@ export default function Planejamento() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, horas_semana")
+        .select("id, full_name, email, horas_semana, avatar_url")
         .neq("ativo", false)
         .order("full_name");
       if (error) throw error;
@@ -161,11 +161,7 @@ export default function Planejamento() {
                 <tr key={p.id} className="border-b border-border/40 last:border-0">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
-                          {(p.full_name || p.email || "?").slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <PessoaAvatar nome={p.full_name || p.email} foto={p.avatar_url} seed={p.id} tamanho={24} />
                       <div>
                         <p className="text-sm text-foreground">{primeiroNome(p.full_name || p.email)}</p>
                         <p className="text-[10px] text-muted-foreground">{p.horas_semana || 40}h/sem</p>

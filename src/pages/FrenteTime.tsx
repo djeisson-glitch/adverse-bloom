@@ -23,7 +23,7 @@ export default function FrenteTime() {
   const { data: pessoas = [], isLoading: carregandoPessoas } = useQuery({
     queryKey: ["frente-time-pessoas"],
     queryFn: async () => (await (supabase as any)
-      .from("profiles").select("id, full_name, email, ativo").order("full_name")).data || [],
+      .from("profiles").select("id, full_name, email, ativo, avatar_url").order("full_name")).data || [],
   });
 
   const { data: entregaveis = [], isLoading } = useQuery({

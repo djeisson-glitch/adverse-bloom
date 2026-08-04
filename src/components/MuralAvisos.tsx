@@ -30,7 +30,7 @@ export function MuralAvisos() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-basic"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("id, full_name, email");
+      const { data } = await (supabase as any).from("profiles").select("id, full_name, email, avatar_url");
       return (data as any[]) || [];
     },
     staleTime: 5 * 60 * 1000,

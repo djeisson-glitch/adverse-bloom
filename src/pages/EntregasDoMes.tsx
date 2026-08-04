@@ -51,7 +51,7 @@ export default function EntregasDoMes() {
           .gte("data_entrega", ref).lt("data_entrega", fim)
           .order("data_entrega"),
         (supabase as any).from("projects").select("id, numero, name, client_id, faturamento"),
-        (supabase as any).from("profiles").select("id, full_name"),
+        (supabase as any).from("profiles").select("id, full_name, avatar_url"),
         (supabase as any).from("time_entries").select("deliverable_id, duration_min")
           .not("deliverable_id", "is", null),
       ]);

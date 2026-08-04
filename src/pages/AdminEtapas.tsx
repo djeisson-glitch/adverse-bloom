@@ -41,7 +41,7 @@ export default function AdminEtapas() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["admin-etapas-profiles"],
     queryFn: async () =>
-      (await (supabase as any).from("profiles").select("id, full_name, email, ativo").order("full_name")).data || [],
+      (await (supabase as any).from("profiles").select("id, full_name, email, ativo, avatar_url").order("full_name")).data || [],
   });
 
   const { data: emUso = {} } = useQuery({

@@ -72,7 +72,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
   const { data: editores = [] } = useQuery({
     queryKey: ["intake-editores"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("profiles").select("id, full_name").order("full_name");
+      const { data, error } = await (supabase as any).from("profiles").select("id, full_name, avatar_url").order("full_name");
       if (error) throw error;
       return data as { id: string; full_name: string | null }[];
     },

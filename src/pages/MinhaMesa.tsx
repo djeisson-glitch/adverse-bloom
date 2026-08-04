@@ -222,7 +222,7 @@ export default function MinhaMesa() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["minha-mesa-profiles"],
     enabled: coordena,
-    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name")).data || [],
+    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, avatar_url")).data || [],
   });
   const nomeDe = (uid: string | null | undefined) =>
     uid ? primeiroNome(profiles.find((p: any) => p.id === uid)?.full_name) : "—";

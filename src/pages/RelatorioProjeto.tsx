@@ -43,7 +43,7 @@ export default function RelatorioProjeto() {
       if (error) throw error;
 
       const { data: perfis } = await (supabase as any)
-        .from("profiles").select("id, full_name, email");
+        .from("profiles").select("id, full_name, email, avatar_url");
       const mapaPerfil = new Map((perfis || []).map((p: any) => [p.id, p]));
       return (data || []).map((e: any) => ({ ...e, pessoa: mapaPerfil.get(e.user_id) || null })) as any[];
     },

@@ -64,7 +64,7 @@ export default function Pauta() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["pauta-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+      const { data, error } = await supabase.from("profiles").select("id, full_name, email, avatar_url").order("full_name");
       if (error) throw error;
       return data;
     },
