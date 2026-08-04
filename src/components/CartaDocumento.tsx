@@ -109,7 +109,7 @@ export function CartaDocumento({
           Projeto, cliente e produtora grandes: é a página que o cliente vê ao
           abrir o anexo e a que ele encaminha pra diretoria. Sem ela o PDF
           começa no meio de uma tabela de entregas. */}
-      <div className="carta-capa flex min-h-[60vh] flex-col justify-between print:min-h-[92vh]">
+      <div className="carta-capa mb-16 flex min-h-[60vh] flex-col justify-between border-b border-white/10 pb-10 print:mb-0 print:min-h-[92vh] print:border-0 print:pb-0">
         <div>
           <span className="text-xl font-extrabold tracking-tight text-[#E8E1D0]">
             {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
@@ -125,7 +125,9 @@ export function CartaDocumento({
             {p.titulo || "—"}
           </h1>
           {p.subtitulo && <p className="mt-2 text-lg text-[#9A968C]">{p.subtitulo}</p>}
-          {cliente?.nome && (
+          {/* "UPF / para UPF" é o caso comum quando o título da carta é o nome
+              do cliente. Repetir na capa parece erro de preenchimento. */}
+          {cliente?.nome && cliente.nome.trim() !== (p.titulo || "").trim() && (
             <p className="mt-6 text-sm text-[#9A968C]">
               para <span className="text-lg font-semibold text-[#E8E1D0]">{cliente.nome}</span>
             </p>
