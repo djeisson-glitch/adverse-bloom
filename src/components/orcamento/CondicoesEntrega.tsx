@@ -91,7 +91,9 @@ export function CondicoesEntrega({ budgetId, condicoes, onChanged }: {
           </h2>
           <p className="text-xs text-muted-foreground">
             O que está e o que não está incluso. Vai impresso na carta do cliente — é aqui que se
-            evita a discussão de "eu achei que tinha Libras".
+            evita a discussão de "eu achei que tinha Libras". Na carta, o que{" "}
+            <span className="text-foreground">não está incluso</span> sai em bloco destacado;{" "}
+            <span className="text-foreground">"não se aplica" não aparece</span> — é decisão interna.
           </p>
         </div>
 
