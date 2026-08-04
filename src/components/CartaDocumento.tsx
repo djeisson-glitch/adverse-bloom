@@ -69,25 +69,77 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
   .carta-root{font-family:'Montserrat',Inter,sans-serif}
   @media print{
     .no-print{display:none!important}
-    .carta-doc{position:absolute;inset:0;margin:0}
     @page{margin:0}
-    html,body{background:#0f0f10}
+    html,body{background:#0f0f10;height:auto!important}
+
+    /* A carta saía cortada em UMA página. Duas causas, as duas aqui:
+       1) .carta-doc era position:absolute;inset:0 — fora do fluxo, o
+          navegador não tem o que paginar e imprime só o que cabe na
+          primeira folha;
+       2) a tela interna envolve tudo num fixed inset-0 overflow-auto, que
+          limita a altura ao viewport e esconde o resto do papel.
+       Em impressão, nada disso pode ser fixo nem rolável. */
+    .carta-shell,.carta-root{
+      position:static!important;inset:auto!important;
+      overflow:visible!important;height:auto!important;max-height:none!important;
+      padding-bottom:0!important;
+    }
+    .carta-doc{position:static!important;margin:0;max-width:none;width:100%}
+
+    /* Bloco não parte no meio da folha — assinatura numa página e o item
+       dela na outra é o tipo de coisa que faz o cliente reler. */
+    .carta-bloco{break-inside:avoid;page-break-inside:avoid}
+    .carta-capa{break-after:page;page-break-after:always}
   }
   .carta-doc{-webkit-print-color-adjust:exact;print-color-adjust:exact}`;
 
 export function CartaDocumento({
-  p, investimentoNum, cliente, dataStr, condicoes,
+  p, investimentoNum, cliente, dataStr, condicoes, elenco,
 }: {
   p: Proposta;
   investimentoNum: number;
   cliente?: CartaCliente;
   dataStr?: string;
   condicoes?: Condicoes | null;
+  elenco?: { nome?: string; qtd?: number; diarias?: number }[] | null;
 }) {
   return (
     <div className="carta-doc mx-auto max-w-5xl bg-[#0f0f10] px-10 py-12 text-[#CFC9BC] md:px-16 md:py-16">
+      {/* CAPA — folha própria no PDF (break-after:page).
+          Projeto, cliente e produtora grandes: é a página que o cliente vê ao
+          abrir o anexo e a que ele encaminha pra diretoria. Sem ela o PDF
+          começa no meio de uma tabela de entregas. */}
+      <div className="carta-capa flex min-h-[60vh] flex-col justify-between print:min-h-[92vh]">
+        <div>
+          <span className="text-xl font-extrabold tracking-tight text-[#E8E1D0]">
+            {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
+          </span>
+          <p className="mt-1 text-xs text-[#9A968C]">{PRODUTORA.descricao}</p>
+        </div>
+
+        <div className="py-12">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9A968C]">
+            Proposta de orçamento
+          </p>
+          <h1 className="mt-3 text-4xl font-extrabold leading-tight tracking-tight text-[#E8E1D0] md:text-5xl">
+            {p.titulo || "—"}
+          </h1>
+          {p.subtitulo && <p className="mt-2 text-lg text-[#9A968C]">{p.subtitulo}</p>}
+          {cliente?.nome && (
+            <p className="mt-6 text-sm text-[#9A968C]">
+              para <span className="text-lg font-semibold text-[#E8E1D0]">{cliente.nome}</span>
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-4 text-xs text-[#9A968C]">
+          <span>{PRODUTORA.site} · {PRODUTORA.email}</span>
+          {dataStr && <span>{dataStr}</span>}
+        </div>
+      </div>
+
       {/* Topo institucional: produtora à esquerda, cliente/data à direita */}
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex items-start justify-between gap-6 print:pt-10">
         <div>
           <span className="text-lg font-extrabold tracking-tight text-[#E8E1D0]">
             {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
@@ -138,11 +190,42 @@ export function CartaDocumento({
         </div>
       </div>
 
+      {/* ELENCO — quem aparece no filme, sem valor nenhum.
+          Quando tem gente na frente da câmera o cliente precisa saber o que
+          está contratando: quantas pessoas e por quantas diárias. O uso de
+          imagem sai logo abaixo, nas condições, amarrado ao período e à praça
+          — é a parte que vira problema quando fica implícita. */}
+      {!!elenco?.length && (
+        <div className="carta-bloco mt-10 border-t border-white/10 pt-8">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#9A968C]">Elenco</p>
+          <ul className="mt-3 grid gap-x-10 gap-y-1.5 md:grid-cols-2">
+            {elenco.map((e, i) => (
+              <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                <span>
+                  <strong className="font-medium text-[#E8E1D0]">{Number(e.qtd) || 1}×</strong> {e.nome}
+                </span>
+                {Number(e.diarias) > 1 && (
+                  <span className="shrink-0 text-xs text-[#9A968C]">{Number(e.diarias)} diárias</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {(condicoes?.veiculacao?.periodo || condicoes?.veiculacao?.praca) && (
+            <p className="mt-3 text-xs text-[#9A968C]">
+              O uso de imagem do elenco vale
+              {condicoes?.veiculacao?.periodo ? ` por ${condicoes.veiculacao.periodo}` : ""}
+              {condicoes?.veiculacao?.praca ? ` em ${condicoes.veiculacao.praca}` : ""}.
+              Renovação de prazo, praça adicional ou uso em peça não prevista aqui são orçados à parte.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Condições e direitos: item a item, com status escrito. É a seção que
           responde "tem Libras?" e "pode ir pra TV?" antes de virar discussão
           depois da aprovação. */}
       {temConteudo(condicoes) && (() => { const blocos = porBloco(condicoes); return (
-        <div className="mt-10 border-t border-white/10 pt-8">
+        <div className="carta-bloco mt-10 border-t border-white/10 pt-8">
           <p className="text-xs uppercase tracking-[0.2em] text-[#9A968C]">Condições e direitos</p>
 
           {(condicoes?.veiculacao?.periodo || condicoes?.veiculacao?.praca) && (

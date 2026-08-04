@@ -115,14 +115,14 @@ export default function CartaPublica() {
     <div className="min-h-screen bg-[#0f0f10]">
       <style>{CARTA_STYLE}</style>
       <div className="carta-root pb-40">
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} condicoes={data.condicoes} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} condicoes={data.condicoes} elenco={data.elenco} />
 
         <div className="mx-auto max-w-5xl px-6">
           <RodapeConfidencial tema="escuro" />
         </div>
 
         {/* Área de aprovação — fixa embaixo */}
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#131314]/95 backdrop-blur">
+        <div className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#131314]/95 backdrop-blur">
           <div className="mx-auto max-w-5xl px-6 py-4">
             {/* Histórico — transparência com o cliente */}
             {historico.length > 0 && (
@@ -179,7 +179,7 @@ export default function CartaPublica() {
 
         {/* Pop-up de confirmação */}
         {confirmar && (
-          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4" onClick={() => !aprovar.isPending && setConfirmar(false)}>
+          <div className="no-print fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4" onClick={() => !aprovar.isPending && setConfirmar(false)}>
             <div
               className="w-full max-w-md rounded-2xl border border-white/10 bg-[#17171a] p-6 text-[#E8E1D0] shadow-2xl"
               onClick={(e) => e.stopPropagation()}
