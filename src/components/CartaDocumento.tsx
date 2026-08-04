@@ -179,7 +179,7 @@ export function CartaDocumento({
             )}
 
             {blocos.naoInclusos.length > 0 && (
-              <div className="rounded-md border border-[#ef4444]/30 bg-[#ef4444]/[0.06] px-4 py-3">
+              <div className="self-start rounded-md border border-[#ef4444]/30 bg-[#ef4444]/[0.06] px-4 py-3">
                 <p className="text-[11px] uppercase tracking-wider text-[#ef4444]">Não incluso</p>
                 <ul className="mt-1.5 space-y-1">
                   {blocos.naoInclusos.map((i) => (

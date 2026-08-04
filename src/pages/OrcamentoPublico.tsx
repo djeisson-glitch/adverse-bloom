@@ -199,7 +199,7 @@ export default function OrcamentoPublico() {
               )}
 
               {blocos.naoInclusos.length > 0 && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                <div className="self-start rounded-md border border-red-200 bg-red-50 px-3 py-2">
                   <p className="text-[11px] uppercase tracking-wider text-red-700">Não incluso</p>
                   <ul className="mt-1 space-y-1">
                     {blocos.naoInclusos.map((i) => (
