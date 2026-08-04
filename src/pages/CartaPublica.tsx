@@ -115,7 +115,7 @@ export default function CartaPublica() {
     <div className="min-h-screen bg-[#0f0f10]">
       <style>{CARTA_STYLE}</style>
       <div className="carta-root pb-40">
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} condicoes={data.condicoes} />
 
         <div className="mx-auto max-w-5xl px-6">
           <RodapeConfidencial tema="escuro" />

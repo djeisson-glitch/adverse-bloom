@@ -187,7 +187,7 @@ export default function CartaOrcamento() {
         )}
 
         {/* ---------------- A CARTA (imprime) ---------------- */}
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} condicoes={data?.budget?.condicoes} />
       </div>
     </div>
   );

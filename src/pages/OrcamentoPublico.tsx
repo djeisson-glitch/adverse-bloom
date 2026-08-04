@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Lock } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA } from "@/lib/produtora";
+import { STATUS_LABEL, temConteudo, type Condicoes } from "@/lib/condicoes";
 
 /**
  * Orçamento aberto por link, sem login.
@@ -55,6 +56,7 @@ export default function OrcamentoPublico() {
   const t = data.totais || {};
   const comissoes: any[] = data.comissoes || [];
   const escopo: any[] = data.escopo || [];
+  const condicoes: Condicoes | null = data.condicoes || null;
 
   // Agrupa por categoria mantendo a ordem que veio do banco.
   const porGrupo = new Map<string, any[]>();
@@ -154,6 +156,41 @@ export default function OrcamentoPublico() {
                   )}
                 </li>
               ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Condições e direitos — anda junto do escopo: uma diz o que entra,
+            a outra o que está e o que não está incluso. */}
+        {m.escopo && temConteudo(condicoes) && (
+          <section className="border-b border-neutral-200 py-5">
+            <h2 className="text-[11px] uppercase tracking-wider text-neutral-400">Condições e direitos</h2>
+            {(condicoes?.veiculacao?.periodo || condicoes?.veiculacao?.praca) && (
+              <div className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-sm">
+                {condicoes?.veiculacao?.periodo && (
+                  <p><span className="text-neutral-500">Período de veiculação:</span> {condicoes.veiculacao.periodo}</p>
+                )}
+                {condicoes?.veiculacao?.praca && (
+                  <p><span className="text-neutral-500">Praça:</span> {condicoes.veiculacao.praca}</p>
+                )}
+              </div>
+            )}
+            <ul className="mt-2 grid gap-x-8 gap-y-1 sm:grid-cols-2">
+              {(condicoes?.itens || [])
+                .filter((i) => i.status !== "nao_se_aplica" || i.obs)
+                .map((i) => (
+                  <li key={i.chave} className="flex items-baseline gap-2 text-sm">
+                    <span className={i.status === "incluso" ? "text-emerald-600" : i.status === "nao_incluso" ? "text-amber-600" : "text-neutral-400"}>
+                      {i.status === "incluso" ? "✓" : i.status === "nao_incluso" ? "✕" : "•"}
+                    </span>
+                    <span>
+                      {i.rotulo}
+                      <span className="text-neutral-500"> — {STATUS_LABEL[i.status].toLowerCase()}</span>
+                      {!!i.regimes?.length && <span className="text-neutral-500"> ({i.regimes.join(", ")})</span>}
+                      {i.obs && <span className="block text-xs text-neutral-400">{i.obs}</span>}
+                    </span>
+                  </li>
+                ))}
             </ul>
           </section>
         )}
