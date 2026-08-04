@@ -39,7 +39,7 @@ export default function FrenteProducao() {
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["frente-perfis"],
-    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, email")).data || [],
+    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, email, avatar_url")).data || [],
   });
   const nome = (id?: string | null) => {
     const p = profiles.find((x: any) => x.id === id);

@@ -211,7 +211,7 @@ function PainelCoordenacao() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["home-coord-profiles"],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("id, full_name, email");
+      const { data } = await (supabase as any).from("profiles").select("id, full_name, email, avatar_url");
       return (data as any[]) || [];
     },
   });

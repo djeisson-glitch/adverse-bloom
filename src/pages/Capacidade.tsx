@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Gauge, Coffee, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PessoaAvatar } from "@/components/PessoaAvatar";
 
 type Row = {
   user_id: string;
@@ -37,6 +37,15 @@ export default function Capacidade() {
    * tecnicamente verdade e praticamente um alarme falso. O compromisso é o
    * futuro: o que a pessoa tem pra fazer e ainda não fez.
    */
+  // A view de capacidade não carrega foto; o mapa vem dos profiles.
+  const { data: fotos = new Map<string, string>() } = useQuery({
+    queryKey: ["capacidade-fotos"],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from("profiles").select("id, avatar_url");
+      return new Map<string, string>((data || []).map((p: any) => [p.id, p.avatar_url]));
+    },
+  });
+
   const { data: compromisso = [] } = useQuery({
     queryKey: ["capacidade-compromisso"],
     queryFn: async () => {
@@ -158,7 +167,7 @@ export default function Capacidade() {
               Ainda sem horas apontadas no período. A ocupação se preenche conforme o time usa o <strong>timer</strong> ou lança horas.
             </div>
           ) : (
-            rows.map((r) => <CapRow key={r.user_id} row={r} compromisso={porPessoa[r.user_id]} />)
+            rows.map((r) => <CapRow key={r.user_id} row={r} compromisso={porPessoa[r.user_id]} foto={fotos.get(r.user_id)} />)
           )}
         </CardContent>
       </Card>
@@ -170,23 +179,15 @@ export default function Capacidade() {
   );
 }
 
-function CapRow({ row, compromisso }: { row: Row; compromisso?: { horas: number; pecas: number; sem: number } }) {
+function CapRow({ row, compromisso, foto }: { row: Row; compromisso?: { horas: number; pecas: number; sem: number }; foto?: string }) {
   const name = row.full_name || row.email || "—";
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
   const oc = Number(row.ocupacao_percent) || 0;
   const tone = oc >= 75 && oc <= 85 ? "bg-success" : oc < 60 ? "bg-warning" : oc > 100 ? "bg-destructive" : "bg-primary";
 
   return (
     <div className="grid grid-cols-[1fr_1fr_100px_120px] items-center gap-2 border-b border-border/40 px-5 py-3 text-sm last:border-0">
       <div className="flex items-center gap-2">
-        <Avatar className="h-6 w-6">
-          <AvatarFallback className="bg-primary/15 text-[10px] text-primary">{initials}</AvatarFallback>
-        </Avatar>
+        <PessoaAvatar nome={name} foto={foto} seed={row.user_id} tamanho={24} />
         <span className="truncate text-foreground">{name}</span>
       </div>
       <div className="h-2 flex-1 rounded-full bg-muted/40">

@@ -114,7 +114,7 @@ export default function Horas() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["horas-profiles"],
     enabled: isAdmin,
-    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, email").order("full_name")).data || [],
+    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, email, avatar_url").order("full_name")).data || [],
   });
 
   const { data: entries = [] } = useQuery({

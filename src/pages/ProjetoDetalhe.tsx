@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PessoaAvatar } from "@/components/PessoaAvatar";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
@@ -143,7 +144,7 @@ export default function ProjetoDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, avatar_url")
         .neq("ativo", false)
         .order("full_name");
       if (error) throw error;
@@ -691,11 +692,7 @@ function EquipeAvatars({
         const p = profileOf(m.user_id);
         const name = p?.full_name || p?.email || "?";
         return (
-          <Avatar key={m.id} className="h-7 w-7" title={name}>
-            <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
-              {name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <PessoaAvatar key={m.id} nome={name} foto={p?.avatar_url} seed={m.user_id} tamanho={28} />
         );
       })}
       <Select value={adding} onValueChange={setAdding}>
@@ -1735,7 +1732,7 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
       if (error) throw error;
 
       const { data: perfis } = await (supabase as any)
-        .from("profiles").select("id, full_name, email");
+        .from("profiles").select("id, full_name, email, avatar_url");
       const mapaPerfil = new Map<string, any>((perfis || []).map((p: any) => [p.id, p]));
 
       const { data: custos } = await (supabase as any)
@@ -2150,6 +2147,8 @@ export function ComentariosSection({
     const a = autores.get(uid);
     return a?.full_name || a?.email || "?";
   };
+  /** Foto do autor — rosto se reconhece antes de ler duas letras. */
+  const fotoDe = (uid: string) => autores.get(uid)?.avatar_url as string | undefined;
 
   const { data: comments = [] } = useQuery({
     queryKey: ["comments", entityType, entityId],
@@ -2283,11 +2282,7 @@ export function ComentariosSection({
             const cor = corDoUsuario(c.user_id);
             return (
             <div key={c.id} className="group flex gap-2">
-              <Avatar className="h-7 w-7 shrink-0">
-                <AvatarFallback className="cor-usuario text-[10px] font-semibold" style={{ backgroundColor: `${cor}26`, color: cor }}>
-                  {autorDe(c.user_id).slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <PessoaAvatar nome={autorDe(c.user_id)} foto={fotoDe(c.user_id)} seed={c.user_id} tamanho={28} />
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">
                   <span className="cor-usuario font-semibold" style={{ color: cor }} title={autorDe(c.user_id)}>

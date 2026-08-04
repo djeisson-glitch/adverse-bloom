@@ -182,7 +182,7 @@ export default function OrcamentoEditor() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, avatar_url")
         .neq("ativo", false);
       if (error) throw error;
       return data as any[];

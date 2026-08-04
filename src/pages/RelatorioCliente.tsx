@@ -49,7 +49,7 @@ export default function RelatorioCliente() {
         (supabase as any).from("demandas").select("id, projeto_id, solicitante_nome, created_at").eq("client_id", clientId),
         (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId).gte("data", ref).lt("data", fim),
         (supabase as any).from("time_entries").select("deliverable_id, project_id, duration_min, alteracao_id, billable").gte("start_at", ref).lt("start_at", fim),
-        (supabase as any).from("profiles").select("id, full_name"),
+        (supabase as any).from("profiles").select("id, full_name, avatar_url"),
       ]);
       const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
       return {

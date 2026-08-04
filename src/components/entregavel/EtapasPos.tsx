@@ -50,7 +50,7 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["etapas-profiles"],
-    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name")).data || [],
+    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, avatar_url")).data || [],
   });
 
   const atual = etapas.find((e: any) => e.slug === peca?.etapa_atual);

@@ -38,7 +38,7 @@ export function AssistenteFlutuante() {
     queryKey: ["flut-profiles"],
     enabled: aberto || conversas,
     queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("id, full_name");
+      const { data } = await (supabase as any).from("profiles").select("id, full_name, avatar_url");
       return (data || []) as { id: string; full_name: string | null }[];
     },
   });
