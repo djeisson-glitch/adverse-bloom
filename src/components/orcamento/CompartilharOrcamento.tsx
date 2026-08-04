@@ -31,10 +31,18 @@ const CAMADAS: Camada[] = [
   { key: "observacoes",   label: "Observações",   ajuda: "A coluna de observações das linhas" },
 ];
 
-/** O caso mais comum é mostrar tudo pra um par de confiança. */
+/**
+ * Nasce com TUDO visível.
+ *
+ * O caso que motivou a feature é validar o orçamento com quem é de casa — e
+ * pra esse a resposta é "manda tudo". Esconder camada existe pro segundo
+ * caso, quando o link vai pra alguém de fora do círculo; aí é escolha
+ * deliberada, feita na hora, e não um padrão que faz o mentor receber um
+ * documento pela metade sem ninguém ter decidido isso.
+ */
 const PADRAO: Record<string, boolean> = {
   valores: true, custos: true, rentabilidade: true,
-  comissoes: false, impostos: true, briefing: true, observacoes: true,
+  comissoes: true, impostos: true, briefing: true, observacoes: true,
 };
 
 type Share = {
