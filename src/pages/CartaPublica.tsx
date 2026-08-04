@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, ShieldCheck, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { roundUpTo50, formatCurrency } from "@/lib/format";
+import { nomeArquivoProposta } from "@/lib/produtora";
 import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 import {
   CartaDocumento, CARTA_STYLE, DEFAULTS, TIPO_LABEL, parseValor,
@@ -53,6 +54,16 @@ export default function CartaPublica() {
       toast.error("Não deu pra aprovar", { description: e.message });
     },
   });
+
+  // Título da aba = nome do arquivo. O cliente salva com Ctrl+P e o PDF
+  // chegaria como "Adverse OS.pdf" na pasta de downloads dele.
+  const tituloDoc = data?.deal?.title;
+  useEffect(() => {
+    if (!tituloDoc) return;
+    const antes = document.title;
+    document.title = nomeArquivoProposta(tituloDoc);
+    return () => { document.title = antes; };
+  }, [tituloDoc]);
 
   if (isLoading) {
     return (
