@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { nomeArquivoProposta } from "@/lib/produtora";
 import { ArrowLeft, Printer, Save, Loader2, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,22 @@ export default function CartaOrcamento() {
       return { deal, budget, elenco };
     },
   });
+
+  /**
+   * Imprime batizando o arquivo. O Chrome usa o document.title como nome
+   * sugerido do PDF — sem isto o anexo chega no cliente como "Adverse OS.pdf".
+   * Restaura no afterprint pra não deixar a aba renomeada depois.
+   */
+  const imprimir = () => {
+    const antes = document.title;
+    document.title = nomeArquivoProposta(data?.deal?.title, data?.deal?.numero);
+    const restaurar = () => {
+      document.title = antes;
+      window.removeEventListener("afterprint", restaurar);
+    };
+    window.addEventListener("afterprint", restaurar);
+    window.print();
+  };
 
   const [p, setP] = useState<Proposta | null>(null);
 
@@ -160,7 +177,7 @@ export default function CartaOrcamento() {
               {editando ? <><Eye className="mr-1 h-3.5 w-3.5" /> Só a carta</> : <><Pencil className="mr-1 h-3.5 w-3.5" /> Editar</>}
             </Button>
             {!manual && <IndicadorAutosave status={auto.status} />}
-            <Button size="sm" className="bg-[#E53500] text-white hover:bg-[#E53500]/90" onClick={() => window.print()}>
+            <Button size="sm" className="bg-[#E53500] text-white hover:bg-[#E53500]/90" onClick={imprimir}>
               <Printer className="mr-1 h-3.5 w-3.5" /> Imprimir / PDF
             </Button>
           </div>

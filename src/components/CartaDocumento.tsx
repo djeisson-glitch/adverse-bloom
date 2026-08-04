@@ -70,7 +70,25 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
   @media print{
     .no-print{display:none!important}
     @page{margin:0}
-    html,body{background:#0f0f10;height:auto!important}
+
+    /* O fundo escuro precisa cobrir a FOLHA, não só o elemento: o
+       .carta-doc pinta até onde vai o conteúdo e o resto do papel saía
+       branco no meio do documento. print-color-adjust:exact obriga o
+       Chrome a imprimir cor de fundo mesmo com "Gráficos de segundo plano"
+       desmarcado — que é o padrão dele. */
+    html,body{
+      background:#0f0f10!important;height:auto!important;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    }
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+    /* Duas colunas em A4 retrato é o que estava cortando texto no meio: a
+       grid vira UMA linha altíssima, e quando ela não cabe o navegador
+       parte no meio, levando os dois lados junto. Em papel, coluna única —
+       aí cada bloco pagina inteiro. */
+    .carta-grid{display:block!important}
+    .carta-grid > div{margin-bottom:0}
+    .carta-grid > div > div{margin-bottom:1.25rem}
 
     /* A carta saía cortada em UMA página. Duas causas, as duas aqui:
        1) .carta-doc era position:absolute;inset:0 — fora do fluxo, o
@@ -90,6 +108,11 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
        dela na outra é o tipo de coisa que faz o cliente reler. */
     .carta-bloco{break-inside:avoid;page-break-inside:avoid}
     .carta-capa{break-after:page;page-break-after:always}
+
+    /* Seção que começa em folha nova: o contrato (elenco + condições) e o
+       fecho com o valor. São as duas partes que alguém imprime sozinhas
+       pra assinar ou levar pra reunião. */
+    .carta-secao{break-before:page;page-break-before:always}
   }
   .carta-doc{-webkit-print-color-adjust:exact;print-color-adjust:exact}`;
 
@@ -169,7 +192,7 @@ export function CartaDocumento({
         {p.subtitulo && <p className="text-sm text-[#9A968C]">{p.subtitulo}</p>}
       </div>
 
-      <div className="mt-10 grid gap-x-16 gap-y-8 md:grid-cols-2">
+      <div className="carta-grid mt-10 grid gap-x-16 gap-y-8 md:grid-cols-2">
         <div className="space-y-8">
           {p.briefing && <Bloco titulo="Briefing"><p className="leading-relaxed">{p.briefing}</p></Bloco>}
           {linhas(p.entregas_texto).length > 0 && (
@@ -198,7 +221,7 @@ export function CartaDocumento({
           imagem sai logo abaixo, nas condições, amarrado ao período e à praça
           — é a parte que vira problema quando fica implícita. */}
       {!!elenco?.length && (
-        <div className="carta-bloco mt-10 border-t border-white/10 pt-8">
+        <div className="carta-bloco carta-secao mt-10 border-t border-white/10 pt-8">
           <p className="text-xs uppercase tracking-[0.2em] text-[#9A968C]">Elenco</p>
           <ul className="mt-3 grid gap-x-10 gap-y-1.5 md:grid-cols-2">
             {elenco.map((e, i) => (
@@ -339,7 +362,8 @@ export function Header() {
 
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div>
+    // carta-bloco: no papel, este bloco não parte entre duas folhas.
+    <div className="carta-bloco">
       <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#E8E1D0]">{titulo}</h2>
       <div className="text-[#CFC9BC]">{children}</div>
     </div>
