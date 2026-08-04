@@ -28,6 +28,7 @@ import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
+import { CondicoesEntrega } from "@/components/orcamento/CondicoesEntrega";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -318,6 +319,16 @@ export default function OrcamentoEditor() {
 
       {/* Entregas / escopo do job */}
       <EntregasSection budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
+
+      {/* Condições logo depois do escopo: escopo é o que entra, condições é o
+          que está e o que não está incluso — a mesma pergunta do cliente. */}
+      {budget && (
+        <CondicoesEntrega
+          budgetId={budget.id}
+          condicoes={budget.condicoes}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })}
+        />
+      )}
 
       {/* Resumo logo depois do escopo: é escrito em cima dele e da planilha,
           e é o que vai junto no link compartilhado. */}
