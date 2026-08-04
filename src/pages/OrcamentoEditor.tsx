@@ -9,7 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil, CheckCircle2, EyeOff, RotateCcw, Sparkles, AlertTriangle,
+  FileText, Link2, Pencil, CheckCircle2, Eye, EyeOff, RotateCcw, Sparkles, AlertTriangle,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -851,6 +851,24 @@ function AcaoBotoes({
 
 /* ------------------------------------------- Planilha (11 categorias) */
 
+// Valor cobrado da linha = qtd × diária × valor unitário.
+// diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
+const valorDaLinha = (i: BudgetItem) =>
+  Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0);
+// Custo real da linha = qtd × diária × custo unitário (o que ela custa de verdade).
+const custoDaLinha = (i: BudgetItem) =>
+  Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.custo_unitario || 0);
+
+/**
+ * Linha "zerada": não tem valor cobrado NEM custo — é a linha do modelo padrão
+ * que este job não usa.
+ *
+ * O custo entra no critério de propósito: linha com custo lançado e valor
+ * ainda em branco é trabalho em andamento, não sobra do template, e sumir com
+ * ela no meio da digitação seria pior que a poluição que se quer resolver.
+ */
+const linhaZerada = (i: BudgetItem) => valorDaLinha(i) === 0 && custoDaLinha(i) === 0;
+
 function PlanilhaSection({
   budget, categorias, itens, tipoOrcamento, porte, onChanged,
 }: {
@@ -932,13 +950,29 @@ function PlanilhaSection({
     [categorias, ocultasSet],
   );
 
-  // Valor cobrado da linha = qtd × diária × valor unitário.
-  // diária usa ?? 1 (só null/legado vira 1); diária 0 explícito mantém a linha em R$0.
-  const valorItem = (i: BudgetItem) =>
-    Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0);
-  // Custo real da linha = qtd × diária × custo unitário (o que ela custa de verdade).
-  const custoItem = (i: BudgetItem) =>
-    Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.custo_unitario || 0);
+  const valorItem = valorDaLinha;
+  const custoItem = custoDaLinha;
+
+  /**
+   * Recolher as linhas zeradas.
+   *
+   * A planilha padrão abre com ~90 linhas e um job usa 15. As outras 75 ficam
+   * em R$0 competindo por atenção com as que valem — e é nesse meio que passa
+   * o erro de digitação. Um clique some com todas, outro devolve.
+   *
+   * Não é destrutivo e não persiste: é modo de leitura, não configuração do
+   * orçamento. Grupo excluído (o olho ao lado do nome) continua sendo outra
+   * coisa — aquilo muda o cálculo, isto não.
+   */
+  const [soPreenchidos, setSoPreenchidos] = useState(false);
+  const zeradas = useMemo(() => itens.filter(linhaZerada).length, [itens]);
+  const categoriasNaTela = useMemo(() => {
+    if (!soPreenchidos) return categoriasVisiveis;
+    return categoriasVisiveis.filter((c) =>
+      (itensPorCategoria.get(c.id) || []).some((i) => !linhaZerada(i)),
+    );
+  }, [categoriasVisiveis, itensPorCategoria, soPreenchidos]);
+  const gruposEscondidos = categoriasVisiveis.length - categoriasNaTela.length;
 
   const totaisPorCategoria = useMemo(() => {
     const m = new Map<string, number>();
@@ -1297,15 +1331,35 @@ function PlanilhaSection({
 
         {/* Diz de que total é o percentual — senão "18%" não quer dizer nada */}
         {itens.length > 0 && (
-          <p className="px-1 text-[11px] text-muted-foreground">
-            O <span className="text-foreground">%</span> é o peso do grupo na soma das linhas
-            ({formatCurrency(custoProducao)}). Margem, comissão e imposto entram por cima, iguais pra todos.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            <p className="text-[11px] text-muted-foreground">
+              O <span className="text-foreground">%</span> é o peso do grupo na soma das linhas
+              ({formatCurrency(custoProducao)}). Margem, comissão e imposto entram por cima, iguais pra todos.
+            </p>
+            {(zeradas > 0 || soPreenchidos) && (
+              <button
+                onClick={() => setSoPreenchidos((v) => !v)}
+                title={soPreenchidos
+                  ? "Mostrar de volta todas as linhas da planilha"
+                  : "Some com as linhas em R$0 — nada é apagado, é só a vista"}
+                className={`flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${
+                  soPreenchidos
+                    ? "border-foreground/25 bg-muted/40 text-foreground"
+                    : "border-border/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                }`}
+              >
+                {soPreenchidos ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                {soPreenchidos
+                  ? `Mostrar tudo (${zeradas} zerada${zeradas === 1 ? "" : "s"} oculta${zeradas === 1 ? "" : "s"})`
+                  : `Recolher ${zeradas} linha${zeradas === 1 ? "" : "s"} zerada${zeradas === 1 ? "" : "s"}`}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Categorias */}
         <div className="space-y-2">
-          {categoriasVisiveis.map((cat) => {
+          {categoriasNaTela.map((cat) => {
             const itensCat = itensPorCategoria.get(cat.id) || [];
             const totalCat = totaisPorCategoria.get(cat.id) || 0;
             const aberta = expandidas.has(cat.id);
@@ -1329,7 +1383,11 @@ function PlanilhaSection({
                   >
                     {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <span className="font-mono text-[10px] text-muted-foreground">{cat.codigo}</span>
-                    <span className="text-sm font-medium text-foreground">{cat.nome}</span>
+                    {/* Grupo sem nenhum real dentro fica apagado: a varredura
+                        de cima pra baixo passa direto por ele. */}
+                    <span className={`text-sm ${totalCat > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                      {cat.nome}
+                    </span>
                     <span className="ml-auto flex items-center gap-3">
                       <span className="text-[10px] text-muted-foreground">{itensCat.length}</span>
                       <span className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:block">
@@ -1344,7 +1402,7 @@ function PlanilhaSection({
                       >
                         {peso >= 0.05 ? `${peso.toFixed(1)}%` : "—"}
                       </span>
-                      <span className="w-28 text-right text-sm font-medium text-foreground">
+                      <span className={`w-28 text-right text-sm ${totalCat > 0 ? "font-semibold text-foreground" : "text-muted-foreground/60"}`}>
                         {formatCurrency(totalCat)}
                       </span>
                     </span>
@@ -1381,6 +1439,7 @@ function PlanilhaSection({
                     codigo={cat.codigo}
                     catNome={cat.nome}
                     itens={itensCat}
+                    esconderZeradas={soPreenchidos}
                     onChanged={onChanged}
                   />
                 )}
@@ -1388,6 +1447,15 @@ function PlanilhaSection({
             );
           })}
         </div>
+
+        {/* Grupo inteiro zerado some junto — mas dito em voz alta, senão
+            parece que o orçamento perdeu categoria. */}
+        {soPreenchidos && gruposEscondidos > 0 && (
+          <p className="px-1 text-[11px] text-muted-foreground">
+            {gruposEscondidos} grupo{gruposEscondidos === 1 ? "" : "s"} sem nenhuma linha preenchida
+            {gruposEscondidos === 1 ? " está recolhido" : " estão recolhidos"} — nada foi apagado.
+          </p>
+        )}
 
         {/* Grupos excluídos deste orçamento — clique pra reincluir */}
         {categoriasOcultas.length > 0 && (
@@ -1471,16 +1539,21 @@ function PctInput({
 }
 
 function CategoriaItens({
-  budgetId, categoriaId, codigo, catNome, itens, onChanged,
+  budgetId, categoriaId, codigo, catNome, itens, esconderZeradas, onChanged,
 }: {
   budgetId: string;
   categoriaId: string;
   codigo: string;
   catNome: string;
   itens: BudgetItem[];
+  esconderZeradas: boolean;
   onChanged: () => void;
 }) {
   const [novaDesc, setNovaDesc] = useState("");
+  // Item recém-adicionado nasce em R$0 e sumiria na hora com o modo recolhido
+  // ligado — digitar a descrição e ver a linha desaparecer é o pior jeito de
+  // descobrir que o modo existe. Uma vez criado aqui, fica visível.
+  const [recemCriados, setRecemCriados] = useState<Set<string>>(new Set());
 
   // Pós-produção é orçada por HORA (não por diária) — muda só os rótulos das colunas.
   const porHora = codigo === "011" || /p[óo]s\s*produ/i.test(catNome || "");
@@ -1488,7 +1561,7 @@ function CategoriaItens({
   const adicionar = useMutation({
     mutationFn: async () => {
       if (!novaDesc.trim()) throw new Error("Informe a descrição");
-      const { error } = await (supabase as any).from("budget_items").insert({
+      const { data, error } = await (supabase as any).from("budget_items").insert({
         budget_id: budgetId,
         categoria_id: categoriaId,
         category: catNome,     // legado NOT NULL
@@ -1500,15 +1573,21 @@ function CategoriaItens({
         client_price: 0,
         tira_taxa: false,
         ordem: itens.length + 1,
-      });
+      }).select("id").single();
       if (error) throw error;
+      return data?.id as string | undefined;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      if (id) setRecemCriados((s) => new Set(s).add(id));
       setNovaDesc("");
       onChanged();
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
+
+  const escondida = (i: BudgetItem) =>
+    esconderZeradas && linhaZerada(i) && !recemCriados.has(i.id);
+  const ocultas = itens.filter(escondida).length;
 
   return (
     <div className="border-t border-border/40">
@@ -1524,9 +1603,18 @@ function CategoriaItens({
         <span className="text-center" title="Item marcado NÃO entra na base da margem da produtora">Fora da taxa</span>
         <span />
       </div>
-      {itens.map((it, idx) => (
-        <BudgetItemRow key={it.id} item={it} codigo={codigo} idx={idx + 1} onChanged={onChanged} />
-      ))}
+      {/* O índice sai da posição REAL na lista: recolher não pode renumerar as
+          linhas, senão o 011.007 de ontem vira outro item hoje. */}
+      {itens.map((it, idx) =>
+        escondida(it) ? null : (
+          <BudgetItemRow key={it.id} item={it} codigo={codigo} idx={idx + 1} onChanged={onChanged} />
+        ),
+      )}
+      {ocultas > 0 && (
+        <p className="border-b border-border/30 px-4 py-1.5 text-[11px] text-muted-foreground">
+          {ocultas} linha{ocultas === 1 ? "" : "s"} zerada{ocultas === 1 ? "" : "s"} recolhida{ocultas === 1 ? "" : "s"} neste grupo
+        </p>
+      )}
       <div className="flex items-center gap-2 px-4 py-2">
         <Plus className="h-3.5 w-3.5 text-muted-foreground" />
         <Input
@@ -1623,10 +1711,16 @@ function BudgetItemRow({
     onSuccess: onChanged,
   });
 
+  // Linha sem nenhum número é ruído de fundo: fica apagada até o mouse passar
+  // ou o cursor entrar nela. Só cinza — cor nesta planilha já quer dizer
+  // "fora da taxa" e "sobra negativa", e um terceiro significado colorido
+  // faria a tela inteira gritar de novo.
+  const vazia = valor === 0 && custoLinha === 0;
+
   return (
-    <div className={`grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/30 px-4 py-1.5 last:border-0 ${
+    <div className={`grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/30 px-4 py-1.5 transition-opacity last:border-0 ${
       row.tira_taxa ? "bg-warning/[0.06]" : ""
-    }`}>
+    } ${vazia ? "opacity-45 focus-within:opacity-100 hover:opacity-100" : ""}`}>
       <span className="font-mono text-[10px] text-muted-foreground">
         {codigo}.{String(idx).padStart(3, "0")}
       </span>
@@ -1640,11 +1734,18 @@ function BudgetItemRow({
       <NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} />
       <NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} />
       <NumCell value={row.custo_unitario} onChange={(n) => setRow({ ...row, custo_unitario: n })} onCommit={() => salvar.mutate()} />
-      <span className="text-right text-xs" title={`Custo ${formatCurrency(custoLinha)} · sobra ${formatCurrency(sobra)}`}>
+      <span
+        className={`text-right text-xs tabular-nums ${vazia ? "text-muted-foreground/60" : "font-medium text-foreground"}`}
+        title={`Custo ${formatCurrency(custoLinha)} · sobra ${formatCurrency(sobra)}`}
+      >
         {formatCurrency(valor)}
-        <span className={`block text-[9px] ${sobra >= 0 ? "text-success" : "text-destructive"}`}>
-          {sobra >= 0 ? "+" : ""}{formatCurrency(sobra)}
-        </span>
+        {/* Sobra só quando há dinheiro na linha: "+R$ 0,00" em verde repetido
+            oitenta vezes era metade do ruído da planilha. */}
+        {!vazia && (
+          <span className={`block text-[9px] ${sobra >= 0 ? "text-success" : "text-destructive"}`}>
+            {sobra >= 0 ? "+" : ""}{formatCurrency(sobra)}
+          </span>
+        )}
       </span>
       <Input
         value={row.observacoes}
