@@ -26,6 +26,7 @@ import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
 import { MergulhoForm } from "@/components/MergulhoForm";
+import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -650,6 +651,7 @@ function AcaoBotoes({
   qc: any;
 }) {
   const [confirmarPerder, setConfirmarPerder] = useState(false);
+  const { canSeeMoney } = usePermissions();
 
   const ganhar = useMutation({
     mutationFn: async () => {
@@ -760,6 +762,10 @@ function AcaoBotoes({
 
   return (
     <div className="flex flex-wrap gap-2">
+      {/* Compartilhar é vizinho de "Enviar proposta" de propósito: são as duas
+          saídas do orçamento pra fora, uma pro cliente e outra pra quem você
+          quiser mostrar. Só aparece pra quem já vê dinheiro. */}
+      {budget?.id && canSeeMoney && <CompartilharOrcamento budgetId={budget.id} />}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" disabled={ganho}>
