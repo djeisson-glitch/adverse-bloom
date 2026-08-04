@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Plus, MapPin, X, Loader2, Users, Fuel, UtensilsCrossed, BedDouble, Link2, Trash2 } from "lucide-react";
+import { CalendarClock, Plus, MapPin, X, Loader2, Users, Link2, Trash2 } from "lucide-react";
+import { CustosLinhas, somaCustos, type ItemCusto } from "./CustosLinhas";
 import { formatCurrency } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ export function DiariasProjeto({
   const [local, setLocal] = useState("");
   const [equipe, setEquipe] = useState<string[]>([]);
   const [fracao, setFracao] = useState(1);
-  const [custos, setCustos] = useState({ logistica: "", alimentacao: "", hospedagem: "" });
+  const [custos, setCustos] = useState<ItemCusto[]>([]);
 
   const { data: diarias = [], isLoading } = useQuery({
     queryKey: ["projeto-diarias", projectId],
@@ -101,15 +102,18 @@ export function DiariasProjeto({
         fracao,
         local: local.trim() || null,
         equipe,
-        custo_logistica: Number(custos.logistica) || 0,
-        custo_alimentacao: Number(custos.alimentacao) || 0,
-        custo_hospedagem: Number(custos.hospedagem) || 0,
+        // As linhas mandam: o trigger no banco refaz os três totais a partir
+        // delas. Mando os totais junto só pra tela não esperar o refetch.
+        custos_itens: custos.filter((c) => c.descricao.trim() || c.valor),
+        custo_logistica: somaCustos(custos.filter((c) => c.cat === "logistica")),
+        custo_alimentacao: somaCustos(custos.filter((c) => c.cat === "alimentacao")),
+        custo_hospedagem: somaCustos(custos.filter((c) => c.cat === "hospedagem")),
         status: "agendada",
       },
       {
         onSuccess: () => {
           setData(""); setLocal(""); setEquipe([]); setAbrindo(false);
-          setFracao(1); setCustos({ logistica: "", alimentacao: "", hospedagem: "" });
+          setFracao(1); setCustos([]);
           invalidar();
           toast.success("Diária agendada");
         },
@@ -226,26 +230,10 @@ export function DiariasProjeto({
               ))}
             </div>
 
-            {/* Custos do dia — repassados com margem própria e imposto. Ficam
-                aqui porque quem agenda é quem sabe o que a saída vai custar. */}
-            <div className="grid gap-2 sm:grid-cols-3">
-              {([
-                ["logistica", "Logística", "carro, combustível", Fuel],
-                ["alimentacao", "Alimentação", "equipe em campo", UtensilsCrossed],
-                ["hospedagem", "Hospedagem", "se dormir fora", BedDouble],
-              ] as const).map(([k, rot, dica, Icon]) => (
-                <div key={k}>
-                  <label className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground" title={dica}>
-                    <Icon className="h-3 w-3" /> {rot} (R$)
-                  </label>
-                  <Input
-                    type="number" step="0.01" placeholder="0,00" className="h-9"
-                    value={(custos as any)[k]}
-                    onChange={(e) => setCustos({ ...custos, [k]: e.target.value })}
-                  />
-                </div>
-              ))}
-            </div>
+            {/* Custos do dia, linha a linha. Antes eram três totais e quem
+                agendava somava de cabeça — aluguel + combustível + pedágio —
+                e o que estava dentro do número se perdia. */}
+            <CustosLinhas itens={custos} onChange={setCustos} compacto />
 
             {/* Já agendado nesse dia pra este cliente? Avisa antes. */}
             {data && diaCompartilhado(data) && (
@@ -257,7 +245,7 @@ export function DiariasProjeto({
             )}
 
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); setFracao(1); setCustos({ logistica: "", alimentacao: "", hospedagem: "" }); }}>
+              <Button size="sm" variant="ghost" className="h-8" onClick={() => { setAbrindo(false); setData(""); setLocal(""); setEquipe([]); setFracao(1); setCustos([]); }}>
                 Cancelar
               </Button>
               <Button size="sm" className="h-8 bg-amber-500 text-black hover:bg-amber-600" onClick={agendar} disabled={salvar.isPending || !data}>

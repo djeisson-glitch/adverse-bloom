@@ -21,6 +21,8 @@ export interface SaidaProducao {
   equipe: string[];
   observacoes: string | null;
   /** Custos do dia — repassados com margem própria (15%) e imposto do cliente. */
+  /** Linhas de custo: [{cat, descricao, valor}]. Os custo_* são a soma delas. */
+  custos_itens: { cat: string; descricao: string; valor: number }[];
   custo_logistica: number;
   custo_alimentacao: number;
   custo_hospedagem: number;

@@ -3,14 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CalendarClock, Link2, Fuel, UtensilsCrossed, BedDouble } from "lucide-react";
+import { CalendarClock, Link2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { CustosLinhas, somaCustos, type ItemCusto } from "./CustosLinhas";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { toast } from "sonner";
 
 type Diaria = {
   id: string; data: string; local: string | null; fracao: number;
   custo_logistica: number; custo_alimentacao: number; custo_hospedagem: number;
+  custos_itens?: ItemCusto[] | null;
 };
 
 /**
@@ -82,27 +84,22 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
     return d && d.projetos > 1;
   };
 
-  const valor = (d: Diaria, campo: keyof Diaria) => {
-    const r = rascunho[d.id]?.[campo];
-    return r !== undefined ? String(r) : String(Number(d[campo] || 0) || "");
+  /** Linhas em edição (rascunho) ou as que vieram do banco. */
+  const linhasDe = (d: Diaria): ItemCusto[] =>
+    (rascunho[d.id]?.custos_itens as ItemCusto[] | undefined) ?? (d.custos_itens || []);
+
+  const mudarLinhas = (d: Diaria, novas: ItemCusto[]) => {
+    setRascunho((r) => ({ ...r, [d.id]: { ...r[d.id], custos_itens: novas as any } }));
+    // Só as linhas vão pro banco: o trigger refaz os três totais a partir
+    // delas. Mandar total junto seria abrir espaço pra divergirem.
+    salvar.agendar({ id: d.id, custos_itens: novas.filter((c) => c.descricao.trim() || c.valor) } as any);
   };
-  const mudar = (d: Diaria, campo: keyof Diaria, v: string) => {
-    setRascunho((r) => ({ ...r, [d.id]: { ...r[d.id], [campo]: v as any } }));
-    salvar.agendar({ id: d.id, [campo]: Number(v) || 0 } as any);
-  };
-  const custoDe = (d: Diaria) =>
-    (["custo_logistica", "custo_alimentacao", "custo_hospedagem"] as const)
-      .reduce((s, c) => s + (Number(rascunho[d.id]?.[c] ?? d[c]) || 0), 0);
+
+  const custoDe = (d: Diaria) => somaCustos(linhasDe(d));
 
   const custoTotal = diarias.reduce((s, d) => s + custoDe(d), 0);
   const repasseTotal = diarias.reduce((s, d) => s + repasseDe(custoDe(d)), 0);
   const contadas = diarias.reduce((s, d) => s + Number(d.fracao ?? 1), 0);
-
-  const CAMPOS = [
-    ["custo_logistica", "Logística", Fuel],
-    ["custo_alimentacao", "Alimentação", UtensilsCrossed],
-    ["custo_hospedagem", "Hospedagem", BedDouble],
-  ] as const;
 
   return (
     <Card className="glass-card">
@@ -141,20 +138,10 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
                 )}
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-3">
-                {CAMPOS.map(([campo, rotulo, Icon]) => (
-                  <div key={campo}>
-                    <label className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <Icon className="h-3 w-3" /> {rotulo} (R$)
-                    </label>
-                    <Input
-                      type="number" step="0.01" placeholder="0,00" className="h-8"
-                      value={valor(d, campo)}
-                      onChange={(e) => mudar(d, campo, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
+              {/* Linha a linha: é aqui que as notas do dia chegam, e somar
+                  três recibos de cabeça pra escrever um total só é onde o
+                  erro entra — e onde a origem do número se perde. */}
+              <CustosLinhas itens={linhasDe(d)} onChange={(novas) => mudarLinhas(d, novas)} compacto />
             </div>
           );
         })}
