@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFiltro } from "@/hooks/useFiltro";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,8 +28,10 @@ import { mesISO, primeiroDiaISO } from "@/lib/dataLocal";
  */
 export default function EntregasDoMes() {
   const { canSeeMoney, canSeeHours } = usePermissions();
-  const [ref, setRef] = useState(() => mesISO(-1));
-  const [cliente, setCliente] = useState("todos");
+  // Filtros na URL + memória da aba: dá pra abrir um entregável, voltar, e
+  // encontrar a tela como estava. Antes zerava e refazia-se tudo.
+  const [ref, setRef] = useFiltro("mes", mesISO(-1), "entregas-mes");
+  const [cliente, setCliente] = useFiltro<string>("cliente", "todos", "entregas-mes");
 
   const [ano, mes] = ref.split("-").map(Number);
   const fim = primeiroDiaISO(ano, mes + 1);
@@ -44,7 +47,7 @@ export default function EntregasDoMes() {
    * não. "entrega" continua aqui porque responde outra pergunta — o que saiu
    * neste mês —, e as duas são legítimas dependendo de quem pergunta.
    */
-  const [base, setBase] = useState<"criacao" | "entrega">("criacao");
+  const [base, setBase] = useFiltro<"criacao" | "entrega">("base", "criacao", "entregas-mes");
 
   const { data: clientes = [] } = useQuery({
     queryKey: ["entregas-clientes"],

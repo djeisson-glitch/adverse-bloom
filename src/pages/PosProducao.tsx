@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFiltro } from "@/hooks/useFiltro";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -29,7 +30,9 @@ const ENCERRADOS = ["entregue", "aprovado", "faturado"];
  * "com fulano", sem substituir o dono.
  */
 export default function PosProducao() {
-  const [busca, setBusca] = useState("");
+  // Busca também persiste: procurar uma peça, abrir, voltar e ter que
+  // digitar de novo é o mesmo atrito do filtro que se perdia.
+  const [busca, setBusca] = useFiltro<string>("q", "", "ilha");
   const hoje = hojeISO();
 
   const { data: pecas = [], isLoading } = useQuery({
