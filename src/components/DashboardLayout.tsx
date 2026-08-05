@@ -219,7 +219,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Header + barra do timer num bloco sticky só: os dois sempre
               andaram juntos, e agora têm uma altura única pra medir. */}
-          <div ref={topoRef} className="sticky top-0 z-10">
+          <div ref={topoRef} className="no-print sticky top-0 z-10">
             <header className="flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
               <SidebarTrigger />
               <BuscaGlobal />
