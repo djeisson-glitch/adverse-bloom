@@ -94,7 +94,10 @@ export default function Comercial() {
     }
   };
 
-  const handleLostConfirm = async (data: { reason: string; followup?: { title: string; dueDate: string; responsibleId: string } }) => {
+  const handleLostConfirm = async (data: {
+    reason: string; obs?: string; anexos?: any[];
+    followup?: { title: string; dueDate: string; responsibleId: string };
+  }) => {
     if (pendingMove) {
       const deal = deals.find((d) => d.id === pendingMove.dealId);
       await updateDeal.mutateAsync({
@@ -102,7 +105,11 @@ export default function Comercial() {
         stage: "perdido",
         notes: deal?.notes ? `${deal.notes}\n[Motivo da perda] ${data.reason}` : `[Motivo da perda] ${data.reason}`,
         lost_reason: data.reason,
-      });
+        // A resposta do cliente e os prints: é o que o follow-up de 60 dias
+        // vai querer ler antes de recontatar.
+        lost_obs: data.obs || null,
+        lost_anexos: data.anexos || [],
+      } as any);
       if (data.followup) {
         await createFollowupTask.mutateAsync({
           deal_id: pendingMove.dealId,

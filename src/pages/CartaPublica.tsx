@@ -82,6 +82,26 @@ export default function CartaPublica() {
     );
   }
 
+  /**
+   * Negócio marcado como perdido: o link fecha.
+   *
+   * Mensagem própria, e não "não encontrada": o link ESTÁ certo, e quem abre
+   * pode ser o cliente que recusou semana passada — dizer que não existe
+   * pareceria erro nosso. E nada de valor ou escopo vai junto: o que foi
+   * recusado sai do ar.
+   */
+  if (data.encerrada) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-[#0f0f10] px-6 text-center">
+        <p className="text-lg font-bold text-[#E8E1D0]">Esta proposta foi encerrada</p>
+        <p className="max-w-sm text-sm text-[#9A968C]">
+          O link não está mais ativo. Se quiser retomar a conversa, é só falar com a Adverse
+          que a gente prepara uma proposta atualizada.
+        </p>
+      </div>
+    );
+  }
+
   const deal = data.deal || {};
   const cli = data.cliente || {};
   const salvo: Proposta = (data.proposta && typeof data.proposta === "object" ? data.proposta : {}) as Proposta;
