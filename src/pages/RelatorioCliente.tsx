@@ -43,7 +43,7 @@ function CelulaSolicitado({ linha }: { linha: any }) {
   }
   if (linha.inicioEm) {
     return (
-      <span title="Sem registro de solicitação — data em que o trabalho começou">
+      <span title="Sem registro de solicitação pelo formulário — data em que o job entrou no sistema, que é a mesma que define o período">
         ~{fmtISO(String(linha.inicioEm).slice(0, 10))}
       </span>
     );
@@ -61,31 +61,51 @@ export default function RelatorioCliente() {
   const { data, isLoading } = useQuery({
     queryKey: ["relatorio-cliente", clientId, mes],
     queryFn: async () => {
-      const [cli, fat, proj, ent, alt, dem, dia, hrs, prof] = await Promise.all([
+      // Projetos primeiro: o resto filtra por eles. Antes as horas vinham
+      // filtradas por `start_at` no mês, e era daí que o relatório divergia
+      // da fatura — o fechamento passou a cortar o mês pela CRIAÇÃO do job, e
+      // aqui continuava cortando por quando a hora foi lançada.
+      const proj = await (supabase as any)
+        .from("projects").select("id, name, numero, client_id, faturamento, criado_em, created_at")
+        .eq("client_id", clientId);
+      const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
+      const ids = [...meus] as string[];
+
+      const [cli, fat, ent, criacao, alt, dem, dia, hrs, prof] = await Promise.all([
         (supabase as any).from("clients").select("*").eq("id", clientId).maybeSingle(),
         (supabase as any).from("faturamento_mensal").select("*").eq("client_id", clientId).eq("ref_mes", ref).maybeSingle(),
-        (supabase as any).from("projects").select("id, name, numero, client_id, faturamento").eq("client_id", clientId),
-        // Todas as peças dos projetos do cliente: o recorte do mês é feito
-        // depois, pelo mesmo critério do fechamento (hora lançada no período
-        // OU entrega no período) — filtrar por data_entrega aqui deixaria de
-        // fora hora gasta em peça entregue noutro mês, que É cobrada.
-        (supabase as any).from("deliverables").select("id, codigo, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status, solicitado_por"),
+        ids.length
+          ? (supabase as any).from("deliverables")
+              .select("id, codigo, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status, solicitado_por")
+              .in("project_id", ids)
+          : Promise.resolve({ data: [] }),
+        // A data que decide o mês — a mesma fonte que o fechamento usa.
+        (supabase as any).from("deliverables_criacao").select("id, criacao_efetiva")
+          .gte("criacao_efetiva", ref).lt("criacao_efetiva", fim),
         (supabase as any).from("deliverable_alteracoes").select("id, deliverable_id, titulo, created_at, criado_por"),
         (supabase as any).from("demandas").select("id, projeto_id, solicitante_nome, created_at").eq("client_id", clientId),
         (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId).gte("data", ref).lt("data", fim),
-        (supabase as any).from("time_entries").select("deliverable_id, project_id, duration_min, alteracao_id, billable, start_at").gte("start_at", ref).lt("start_at", fim),
+        // TODAS as horas dos projetos do cliente, sem corte de data: quem
+        // decide o mês é a peça, não o dia do apontamento. Hora de alteração
+        // lançada depois do virar do mês estava sumindo da carta.
+        ids.length
+          ? (supabase as any).from("time_entries")
+              .select("deliverable_id, project_id, duration_min, alteracao_id, billable, start_at")
+              .in("project_id", ids)
+          : Promise.resolve({ data: [] }),
         (supabase as any).from("profiles").select("id, full_name, avatar_url"),
       ]);
-      const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
       return {
         cliente: cli.data, fatura: fat.data,
         projetos: new Map<string, any>((proj.data || []).map((p: any) => [p.id, p])),
         entregas: ((ent.data || []) as any[]).filter((e: any) => meus.has(e.project_id)),
         projetosMensais: meus,
+        // Peças cuja criação cai no mês — o recorte do fechamento.
+        idsDoMes: new Set(((criacao.data || []) as any[]).map((r: any) => r.id)),
         alteracoes: (alt.data || []) as any[],
         demandas: (dem.data || []) as any[],
         diarias: (dia.data || []) as any[],
-        horas: ((hrs.data || []) as any[]).filter((t: any) => t.billable && meus.has(t.project_id)),
+        horas: ((hrs.data || []) as any[]).filter((t: any) => t.billable),
         pessoas: new Map<string, string>((prof.data || []).map((p: any) => [p.id, p.full_name])),
       };
     },
@@ -107,15 +127,15 @@ export default function RelatorioCliente() {
       altPorEnt.get(a.deliverable_id)!.push(a);
     }
 
-    // Quando o trabalho começou, por peça. Serve de referência quando não há
-    // demanda: `created_at` da peça é a data de CADASTRO, e nas 13 peças
-    // vindas da importação do ClickUp isso é o dia da importação — todas
-    // iguais. Data de cadastro em massa não é data de pedido.
+    // Referência de "quando entrou" pra quem não veio de demanda: a data de
+    // CRIAÇÃO do job — a mesma que define o mês. Era o primeiro apontamento
+    // de hora, e por isso o ADVR-4288 saía com "~29/07" numa carta de julho
+    // sendo de 12/06: a data mostrada contradizia o próprio período.
     const inicio = new Map<string, string>();
-    for (const t of horas) {
-      if (!t.deliverable_id || !t.start_at) continue;
-      const atual = inicio.get(t.deliverable_id);
-      if (!atual || t.start_at < atual) inicio.set(t.deliverable_id, t.start_at);
+    for (const e of entregas) {
+      const p = data.projetos.get(e.project_id);
+      const criacao = p?.criado_em || p?.created_at || e.created_at;
+      if (criacao) inicio.set(e.id, criacao);
     }
 
     // Horas por peça, separando edição de alteração.
@@ -128,13 +148,12 @@ export default function RelatorioCliente() {
       hPorEnt.set(t.deliverable_id, cur);
     }
 
-    // Peça entra na carta se teve HORA no período ou se foi ENTREGUE no
-    // período. É o mesmo recorte do fechamento: sem isso, a carta lista menos
-    // trabalho do que a fatura cobra.
-    const comHora = new Set(horas.map((t: any) => t.deliverable_id).filter(Boolean));
-    const doPeriodo = entregas.filter(
-      (e: any) => comHora.has(e.id) || ((e.data_entrega || "") >= ref && (e.data_entrega || "") < fim),
-    );
+    // Peça entra na carta quando FOI CRIADA no período — o mesmo recorte da
+    // fatura. Antes entrava por hora lançada no mês ou entrega no mês, e por
+    // isso a carta listava um trabalho e a fatura cobrava outro: o ADVR-4288
+    // (criado em 12/06) aparecia em julho porque a hora dele foi apontada em
+    // 29/07, e o total embaixo — que vem do fechamento — não o incluía.
+    const doPeriodo = entregas.filter((e: any) => data.idsDoMes.has(e.id));
 
     const linhas: any[] = doPeriodo.map((e: any) => {
       const dem = demPorProjeto.get(e.project_id);
@@ -180,9 +199,15 @@ export default function RelatorioCliente() {
     };
 
     // Hora lançada no projeto sem peça vinculada: aparece como uma linha
-    // própria em vez de sumir. O fechamento cobra, a carta mostra.
+    // própria em vez de sumir. O fechamento cobra, a carta mostra. Sem peça,
+    // quem dá o mês é a criação do PROJETO — mesma regra da função.
     const minSemPeca = horas
-      .filter((t: any) => !t.deliverable_id)
+      .filter((t: any) => {
+        if (t.deliverable_id) return false;
+        const p = data.projetos.get(t.project_id);
+        const criacao = p?.criado_em || p?.created_at || "";
+        return criacao >= ref && criacao < fim;
+      })
       .reduce((s: number, t: any) => s + (t.duration_min || 0), 0);
 
     return {
