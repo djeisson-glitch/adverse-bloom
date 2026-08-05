@@ -118,7 +118,7 @@ export default function EntregavelDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, client_id, budget:budgets(budget_number))")
+        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, client_id, criado_em, budget:budgets(budget_number))")
         .eq("id", did!)
         .single();
       if (error) throw error;
@@ -428,6 +428,8 @@ export default function EntregavelDetalhe() {
               deliverableId={did!}
               criadoEm={entregavel?.criado_em}
               createdAt={entregavel?.created_at}
+              // Piso: a peça anda pra frente do job, nunca pra trás dele.
+              pisoProjeto={entregavel?.project?.criado_em}
               podeEditar={podeRevisar}
               onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
             />
