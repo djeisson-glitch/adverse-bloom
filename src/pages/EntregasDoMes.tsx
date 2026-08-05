@@ -37,19 +37,41 @@ export default function EntregasDoMes() {
     [ano, mes],
   );
 
+  /**
+   * Sobre qual data o mês é cortado.
+   *
+   * "criação" é o padrão porque é a data estável: entrega escorrega, criação
+   * não. "entrega" continua aqui porque responde outra pergunta — o que saiu
+   * neste mês —, e as duas são legítimas dependendo de quem pergunta.
+   */
+  const [base, setBase] = useState<"criacao" | "entrega">("criacao");
+
   const { data: clientes = [] } = useQuery({
     queryKey: ["entregas-clientes"],
     queryFn: async () => (await (supabase as any).from("clients").select("id, name").order("name")).data || [],
   });
 
   const { data: dados, isLoading } = useQuery({
-    queryKey: ["entregas-do-mes", ref],
+    queryKey: ["entregas-do-mes", ref, base],
     queryFn: async () => {
+      // Corte por CRIAÇÃO: a data que vale vem da view, onde a do projeto
+      // manda sobre a da peça — senão um job de julho apareceria espalhado em
+      // três meses só porque as peças foram cadastradas ao longo do tempo.
+      let idsDoMes: string[] | null = null;
+      if (base === "criacao") {
+        const { data } = await (supabase as any)
+          .from("deliverables_criacao").select("id")
+          .gte("criacao_efetiva", ref).lt("criacao_efetiva", fim);
+        idsDoMes = (data || []).map((r: any) => r.id);
+      }
+
+      const qEnt = (supabase as any).from("deliverables")
+        .select("id, titulo, codigo, status, data_entrega, criado_em, created_at, project_id, responsavel_id, tipo_cobranca, cobranca_percent");
+
       const [ent, proj, prof, hrs] = await Promise.all([
-        (supabase as any).from("deliverables")
-          .select("id, titulo, codigo, status, data_entrega, project_id, responsavel_id, tipo_cobranca, cobranca_percent")
-          .gte("data_entrega", ref).lt("data_entrega", fim)
-          .order("data_entrega"),
+        base === "criacao"
+          ? (idsDoMes!.length ? qEnt.in("id", idsDoMes!).order("data_entrega") : Promise.resolve({ data: [] }))
+          : qEnt.gte("data_entrega", ref).lt("data_entrega", fim).order("data_entrega"),
         (supabase as any).from("projects").select("id, numero, name, client_id, faturamento"),
         (supabase as any).from("profiles").select("id, full_name, avatar_url"),
         (supabase as any).from("time_entries").select("deliverable_id, duration_min")
@@ -107,13 +129,31 @@ export default function EntregasDoMes() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Entregas do mês</h1>
           <p className="text-sm text-muted-foreground">
-            O que saiu para cada cliente, por projeto. Entram todos — inclusive quem não tem
-            cobrança configurada.
+            {base === "criacao"
+              ? "O que ENTROU no mês, por cliente e projeto — a data de criação manda (a do projeto prevalece sobre a da peça)."
+              : "O que SAIU no mês, por cliente e projeto — corte pela data de entrega."}
+            {" "}Entram todos — inclusive quem não tem cobrança configurada.
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-card px-4 py-3">
+        {/* Sobre qual data o mês é cortado. Criação é o padrão: é a data
+            estável — entrega escorrega, criação não. */}
+        <div className="flex items-center gap-1 rounded-md border border-border/60 p-0.5">
+          {([["criacao", "por criação"], ["entrega", "por entrega"]] as const).map(([v, rot]) => (
+            <button
+              key={v}
+              onClick={() => setBase(v)}
+              className={`rounded px-2 py-1 text-[11px] transition-colors ${
+                base === v ? "bg-primary/15 font-medium text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {rot}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => andarMes(-1)}><ChevronLeft className="h-4 w-4" /></Button>
           <div className="min-w-[190px] text-center">

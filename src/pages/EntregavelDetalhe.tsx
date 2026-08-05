@@ -3,6 +3,7 @@ import { TextoComLinks } from "@/lib/autolink";
 import { useVoltar } from "@/hooks/useVoltar";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
+import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -399,6 +400,17 @@ export default function EntregavelDetalhe() {
           </div>
 
           <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            {/* Quando a peça entrou. Editável pelo mesmo motivo do projeto:
+                o que veio do ClickUp tem a data da importação. Pro corte
+                mensal de relatório quem manda é a data do PROJETO — esta
+                responde "quando ESTA peça entrou". */}
+            <CriadoEmPeca
+              deliverableId={did!}
+              criadoEm={entregavel?.criado_em}
+              createdAt={entregavel?.created_at}
+              podeEditar={podeRevisar}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+            />
             {/* Cliente antes do projeto: quando a peça chega pro editor, "de
                 quem é isso?" vem antes de "de que job é". */}
             {proj?.client_name && (
