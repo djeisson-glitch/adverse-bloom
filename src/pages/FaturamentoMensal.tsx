@@ -326,7 +326,16 @@ export default function FaturamentoMensal() {
           <Receipt className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">Faturamento mensal</h1>
-            <p className="text-sm text-muted-foreground">Rascunhos por cliente — gerados no dia 01, revisáveis antes de enviar.</p>
+            <p className="text-sm text-muted-foreground">
+              Rascunhos por cliente — gerados no dia 01, revisáveis antes de enviar.
+            </p>
+            {/* O critério do mês precisa estar escrito: ele muda o valor, e a
+                consequência (o mês crescer depois) surpreende quem já mandou. */}
+            <p className="mt-1 text-xs text-muted-foreground/80">
+              O mês é cortado pela <strong className="text-foreground">data de criação</strong> do job —
+              a mesma de <em>Entregas do mês</em>. Hora lançada depois, num job deste mês,
+              entra aqui: <strong className="text-foreground">regere antes de faturar</strong>.
+            </p>
           </div>
         </div>
         <Button onClick={() => gerar.mutate()} disabled={gerar.isPending}>
@@ -672,7 +681,7 @@ export default function FaturamentoMensal() {
 
                       {/* Horas por projeto */}
                       {Array.isArray(f.detalhe?.por_projeto) && f.detalhe.por_projeto.length > 0 && (
-                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo="Horas por projeto">
+                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo="Horas por projeto (jobs criados no mês)">
                           <div className="space-y-1">
                             {/* A data de criação vem junto porque a pergunta
                                 "esse projeto não é de junho?" nasce todo
@@ -694,7 +703,7 @@ export default function FaturamentoMensal() {
                                       }`}
                                       title={
                                         antigo
-                                          ? "Projeto criado em mês anterior — as horas abaixo foram trabalhadas NESTE mês, por isso entram neste fechamento."
+                                          ? "Projeto de mês anterior aparecendo aqui não deveria mais acontecer — o corte agora é pela criação. Se aparecer, é sinal de erro: me avise."
                                           : "Data de criação do projeto"
                                       }
                                     >
