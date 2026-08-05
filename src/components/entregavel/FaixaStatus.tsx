@@ -82,10 +82,11 @@ export function FaixaStatus({
     // Gruda no topo ao rolar. A peça é longa (briefing, alterações, timesheet,
     // anexos) e a etapa é justamente o que se quer conferir enquanto se lê o
     // resto — voltar ao topo pra lembrar em que pé estava é o que a faixa veio
-    // evitar. `top-0` e não `top-14`: quem rola é o <main>, então zero já é
-    // logo abaixo do cabeçalho do app. Fundo opaco porque o conteúdo passa
-    // por baixo.
-    <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
+    // evitar. `--topo-fixo` é a altura real do cabeçalho do app, medida pelo
+    // DashboardLayout — vale com e sem a barra do timer, que aparece e some.
+    // z abaixo do topo (10) e acima dos cards. Fundo opaco porque o conteúdo
+    // passa por baixo.
+    <div className="sticky top-[var(--topo-fixo,3.5rem)] z-[9] -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
       <div className={`flex items-stretch overflow-hidden rounded-xl border shadow-sm ${c.faixa}`}>
         {/* Barra sólida na cor da etapa: dá pra saber a etapa pelo canto do
             olho, de longe, sem ler. */}

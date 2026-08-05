@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -157,7 +157,10 @@ function TimerBar() {
   const { sessao, stop, cancel, elapsedSec } = useTimer();
   if (!sessao) return null;
   return (
-    <div className="sticky top-14 z-10 flex items-center gap-3 border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm backdrop-blur">
+    // Sem sticky próprio: mora dentro do bloco fixo do topo, junto do header.
+    // Antes eram dois sticky irmãos (top-0 e top-14) mantidos em sincronia na
+    // mão — e nada mais podia grudar embaixo sem saber a altura dos dois.
+    <div className="flex items-center gap-3 border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm backdrop-blur">
       <span className="flex shrink-0 items-center gap-2 font-semibold text-warning">
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-75" />
@@ -189,24 +192,53 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   // que expirou, ou upsert que falhou no dia em que a pessoa clicou Ligar.
   useEffect(() => { void sincronizarPush(); }, []);
 
+  /**
+   * O topo fixo publica a própria altura em `--topo-fixo`.
+   *
+   * Sem isto, quem quisesse grudar algo logo abaixo do cabeçalho tinha que
+   * chutar o número — e o chute muda: a barra do timer aparece e some, e aí o
+   * elemento gruda no lugar errado metade do tempo. Medido de verdade, e
+   * remedido quando a altura muda.
+   */
+  const topoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = topoRef.current;
+    if (!el) return;
+    const medir = () =>
+      document.documentElement.style.setProperty("--topo-fixo", `${el.offsetHeight}px`);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
-            <SidebarTrigger />
-            <BuscaGlobal />
-            <div className="ml-auto flex items-center gap-2">
-              <TimerButton />
-              <ValoresBotao />
-              <TemaBotao />
-              <NotificacoesSino />
-              <UserChip />
-            </div>
-          </header>
-          <TimerBar />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          {/* Header + barra do timer num bloco sticky só: os dois sempre
+              andaram juntos, e agora têm uma altura única pra medir. */}
+          <div ref={topoRef} className="sticky top-0 z-10">
+            <header className="flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur">
+              <SidebarTrigger />
+              <BuscaGlobal />
+              <div className="ml-auto flex items-center gap-2">
+                <TimerButton />
+                <ValoresBotao />
+                <TemaBotao />
+                <NotificacoesSino />
+                <UserChip />
+              </div>
+            </header>
+            <TimerBar />
+          </div>
+          {/* `overflow-x-clip` e não `overflow-auto`: `auto` fazia o <main>
+              virar um scrollport que nunca rolava (quem rola é o documento),
+              e sticky ancorado num scrollport parado NUNCA gruda — era por
+              isso que a faixa de status subia junto com a página. `clip`
+              segura o vazamento horizontal sem criar scrollport. */}
+          <main className="flex-1 overflow-x-clip p-6">{children}</main>
         </div>
       </div>
       <AssistenteFlutuante />
