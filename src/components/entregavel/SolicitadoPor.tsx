@@ -4,12 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X } from "lucide-react";
+import { UserPlus, Check, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 type Contato = { nome: string; email?: string };
 
 const OUTRO = "__novo__";
+const NINGUEM = "__ninguem__";
 
 /**
  * Quem pediu a peça — escolhido entre as pessoas DAQUELE cliente.
@@ -44,6 +45,23 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
       return (Array.isArray(data) ? data : []) as Contato[];
     },
   });
+
+  /**
+   * Tira o contato da lista do cliente.
+   *
+   * NÃO mexe nas peças que já apontam pra esse nome: `solicitado_por` é
+   * texto, e apagar o histórico de quem pediu o quê seria pior que um nome a
+   * mais na lista.
+   */
+  const remover = async (nome: string) => {
+    if (!clientId) return;
+    const { error } = await (supabase as any).rpc("cliente_remover_contato", {
+      _client_id: clientId, _nome: nome,
+    });
+    if (error) return toast.error("Não removeu", { description: error.message });
+    qc.invalidateQueries({ queryKey: ["contatos-cliente", clientId] });
+    toast.success(`${nome} saiu da lista`, { description: "As peças que já apontam pra ele continuam como estão." });
+  };
 
   const cadastrar = async () => {
     const nome = novo.nome.trim();
@@ -96,12 +114,17 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
     <div className="space-y-1">
       <Select
         value={valor || ""}
-        onValueChange={(v) => (v === OUTRO ? setCriando(true) : onChange(v))}
+        onValueChange={(v) =>
+          v === OUTRO ? setCriando(true) : onChange(v === NINGUEM ? "" : v)
+        }
       >
         <SelectTrigger className="h-8">
           <SelectValue placeholder={contatos.length ? "quem pediu" : "ninguém cadastrado"} />
         </SelectTrigger>
         <SelectContent>
+          {/* Sem esta opção, um solicitante escolhido por engano fica pra
+              sempre: seletor sem saída é armadilha. */}
+          {valor && <SelectItem value={NINGUEM}>— ninguém —</SelectItem>}
           {/* Nome que já estava salvo e não está na lista (veio do formulário
               antigo ou de texto livre): aparece pra não sumir da peça. */}
           {valor && !contatos.some((c) => c.nome === valor) && (
@@ -124,6 +147,30 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
         <p className="text-[10px] text-muted-foreground">
           Este cliente ainda não tem contatos — cadastre pelo seletor.
         </p>
+      )}
+
+      {/* Gerenciar fica escondido atrás de um clique: é manutenção rara, e
+          lixeira à vista em lista de gente convida ao acidente. */}
+      {!!contatos.length && (
+        <details className="text-[10px]">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            gerenciar contatos ({contatos.length})
+          </summary>
+          <div className="mt-1 space-y-0.5">
+            {contatos.map((c) => (
+              <div key={c.nome} className="flex items-center justify-between gap-2 rounded px-1 py-0.5 hover:bg-muted/30">
+                <span className="truncate text-muted-foreground">{c.nome}</span>
+                <button
+                  onClick={() => remover(c.nome)}
+                  title={`Tirar ${c.nome} da lista deste cliente`}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );
