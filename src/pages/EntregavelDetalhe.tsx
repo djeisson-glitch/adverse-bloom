@@ -428,7 +428,10 @@ export default function EntregavelDetalhe() {
                 quem é isso?" vem antes de "de que job é". */}
             {proj?.client_name && (
               <Campo label="Cliente">
-                <span className="truncate text-foreground">{proj.client_name}</span>
+                {/* `block`: `truncate` não corta span inline — sem isto, cliente
+                    de nome longo ("Sicredi Região da Produção RS/SC/MG")
+                    atravessava por cima do link do projeto ao lado. */}
+                <span className="block truncate text-foreground">{proj.client_name}</span>
               </Campo>
             )}
             <Campo label="Projeto" className="sm:col-span-2">
