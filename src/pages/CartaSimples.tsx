@@ -216,8 +216,17 @@ export default function CartaSimples() {
         @media print {
           @page { size: A4; margin: 16mm; }
           .nota { max-width: none !important; margin: 0 !important; padding: 0 !important; }
-          .nota, .nota * { color: #1a1a1a !important; border-color: #d8d8d8 !important; }
+          /* inherit, e não uma cor fixa: com #1a1a1a aqui, ESTE seletor
+             alcançava também o <span> do valor dentro da faixa preta — e o
+             total saía preto sobre preto, invisível no PDF que vai pro
+             cliente. Herdando, cada bloco decide a sua cor e os filhos
+             acompanham. */
+          .nota { color: #1a1a1a !important; }
+          .nota * { color: inherit !important; border-color: #d8d8d8 !important; }
+          /* A faixa e TUDO dentro dela em branco — a regra acima cobre os
+             filhos por herança, e esta define a cor de onde herdar. */
           .nota .faixa { background: #1a1a1a !important; color: #fff !important; }
+          .nota .faixa * { color: #fff !important; }
           .nota .zebra { background: #f4f4f4 !important; }
           .nota tr { break-inside: avoid; }
           .nota thead { display: table-header-group; }
