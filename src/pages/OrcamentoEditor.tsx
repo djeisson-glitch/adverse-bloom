@@ -771,11 +771,25 @@ function AcaoBotoes({
     navigate(`/orcamentos/${deal.id}/carta`);
   };
 
+  // A carta simples vale em QUALQUER estágio. Ganho, perdido ou em aberto, é o
+  // documento que alguém pede de volta depois — pro financeiro do cliente, pro
+  // contrato, pra conferir o que foi orçado. Fechar o negócio não é motivo pra
+  // esconder o papel.
+  const botaoCartaSimples = (
+    <Button variant="outline" onClick={() => navigate(`/orcamentos/${deal.id}/carta-simples`)}>
+      <FileText className="mr-1.5 h-3.5 w-3.5" />
+      Carta simples
+    </Button>
+  );
+
   if (deal.stage === "perdido") {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
-        <Info className="h-3.5 w-3.5" />
-        Orçamento foi marcado como perdido.
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5" />
+          Orçamento foi marcado como perdido.
+        </span>
+        {botaoCartaSimples}
       </div>
     );
   }
@@ -788,6 +802,9 @@ function AcaoBotoes({
           saídas do orçamento pra fora, uma pro cliente e outra pra quem você
           quiser mostrar. Só aparece pra quem já vê dinheiro. */}
       {budget?.id && canSeeMoney && <CompartilharOrcamento budgetId={budget.id} />}
+      {/* Fora do dropdown de propósito: aquele desabilita quando o negócio é
+          ganho, e a carta simples continua valendo. */}
+      {botaoCartaSimples}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" disabled={ganho}>
