@@ -65,6 +65,21 @@ function fmtHoras(h: number) {
   return resto === 0 ? `${horas}h` : `${horas}h${String(resto).padStart(2, "0")}`;
 }
 
+/**
+ * O projeto nasceu antes do mês que está sendo fechado?
+ *
+ * Compara ANO+MÊS, não a data crua: projeto de 30/06 e fechamento de julho são
+ * meses diferentes mesmo separados por um dia. `ref_mes` vem do banco como
+ * 'YYYY-MM-DD' — fatiar a string evita o fuso transformar 2026-07-01 em 30/06.
+ */
+function mesAnterior(criacao?: string | null, refMes?: string | null): boolean {
+  if (!criacao || !refMes) return false;
+  const d = new Date(criacao);
+  if (Number.isNaN(d.getTime())) return false;
+  const [ano, mes] = refMes.slice(0, 7).split("-").map(Number);
+  return d.getFullYear() * 12 + d.getMonth() < ano * 12 + (mes - 1);
+}
+
 export default function FaturamentoMensal() {
   const qc = useQueryClient();
   const confirmar = useConfirm();
@@ -659,12 +674,38 @@ export default function FaturamentoMensal() {
                       {Array.isArray(f.detalhe?.por_projeto) && f.detalhe.por_projeto.length > 0 && (
                         <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo="Horas por projeto">
                           <div className="space-y-1">
-                            {f.detalhe.por_projeto.map((p: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between text-xs">
-                                <span className="truncate text-muted-foreground">{p.projeto}</span>
-                                <span className="text-foreground">{fmtHoras(p.horas)} <span className="text-muted-foreground">(ed {fmtHoras(p.horas_edicao)} · alt {fmtHoras(p.horas_alteracao)})</span></span>
+                            {/* A data de criação vem junto porque a pergunta
+                                "esse projeto não é de junho?" nasce todo
+                                fechamento: o nome carrega a data no prefixo
+                                (#20261206 = 12/jun) e bate o olho como erro de
+                                mês. Projeto de mês anterior aparecendo aqui é
+                                NORMAL — o fechamento por horas cobra o trabalho
+                                do mês, não os projetos nascidos no mês. */}
+                            {f.detalhe.por_projeto.map((p: any, i: number) => {
+                              const antigo = mesAnterior(p.criacao, f.ref_mes);
+                              return (
+                              <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  <span className="truncate text-muted-foreground">{p.projeto}</span>
+                                  {p.criacao && (
+                                    <span
+                                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] ${
+                                        antigo ? "bg-muted text-muted-foreground" : "text-muted-foreground/60"
+                                      }`}
+                                      title={
+                                        antigo
+                                          ? "Projeto criado em mês anterior — as horas abaixo foram trabalhadas NESTE mês, por isso entram neste fechamento."
+                                          : "Data de criação do projeto"
+                                      }
+                                    >
+                                      criado {new Date(p.criacao).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="shrink-0 text-foreground">{fmtHoras(p.horas)} <span className="text-muted-foreground">(ed {fmtHoras(p.horas_edicao)} · alt {fmtHoras(p.horas_alteracao)})</span></span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </Bloco>
                       )}
