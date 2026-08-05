@@ -67,7 +67,6 @@ import BriefingPublico from "./pages/BriefingPublico";
 // Onda 0 — placeholders dos novos módulos do Adverse OS Produtora
 import Fechamento from "./pages/Fechamento";
 import PosProducao from "./pages/PosProducao";
-import Pauta from "./pages/Pauta";
 import Calendario from "./pages/Calendario";
 import AgendaProducao from "./pages/AgendaProducao";
 import Horas from "./pages/Horas";
@@ -196,7 +195,6 @@ const App = () => (
               <Route path="/relatorio-cliente/:clientId/:mes" element={<ProtectedRoute><ModuleGuard module="faturamento"><RelatorioCliente /></ModuleGuard></ProtectedRoute>} />
               <Route path="/entregas" element={<ProtectedRoute><ModuleGuard module="projetos"><EntregasDoMes /></ModuleGuard></ProtectedRoute>} />
               <Route path="/pos-producao" element={<ProtectedRoute><ModuleGuard module="pos_producao"><PosProducao /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/pauta" element={<ProtectedRoute><ModuleGuard module="pauta"><Pauta /></ModuleGuard></ProtectedRoute>} />
               <Route path="/minha-mesa" element={<ProtectedRoute><ModuleGuard module="minha_mesa"><MinhaMesa /></ModuleGuard></ProtectedRoute>} />
               <Route path="/calendario" element={<ProtectedRoute><ModuleGuard module="calendario"><Calendario /></ModuleGuard></ProtectedRoute>} />
               <Route path="/saidas" element={<ProtectedRoute><ModuleGuard module="calendario"><AgendaProducao /></ModuleGuard></ProtectedRoute>} />
