@@ -563,6 +563,7 @@ export default function EntregavelDetalhe() {
           profiles={profiles}
           horasTotal={horas.total}
           temAlteracaoAberta={!!alteracaoAberta}
+          alteracoes={alteracoes}
           onChanged={recarregarHoras}
         />
       )}
@@ -1214,10 +1215,10 @@ function AnexosEntregavel({
 }
 
 function TimesheetEntregavel({
-  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, onChanged,
+  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, alteracoes = [], onChanged,
 }: {
   did: string; projectId: string; entries: any[]; profiles: any[]; horasTotal: number;
-  temAlteracaoAberta: boolean; onChanged: () => void;
+  temAlteracaoAberta: boolean; alteracoes?: any[]; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
@@ -1336,17 +1337,29 @@ function TimesheetEntregavel({
 
         {entries.length > 0 && (
           <div className="space-y-1">
-            {entries.map((e) => (
+            {entries.map((e) => {
+              // Com etapa preenchida ("Edição") a linha de alteração ficava
+              // idêntica à de edição pura. A versão na frente resolve na lida.
+              const alt = e.alteracao_id ? alteracoes.find((a: any) => a.id === e.alteracao_id) : null;
+              return (
               <div key={e.id} className="grid grid-cols-[90px_1fr_120px_60px_30px] items-center gap-2 text-xs">
                 <span className="text-muted-foreground">{new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
-                <span className="truncate text-foreground">{e.description || (e.alteracao_id ? "alteração cliente" : "edição")}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {e.alteracao_id && (
+                    <span className="shrink-0 rounded bg-warning/15 px-1 py-0.5 text-[9px] font-semibold text-warning">
+                      {alt?.versao || (alt ? `V${alt.numero}` : "alteração")}
+                    </span>
+                  )}
+                  <span className="truncate text-foreground">{e.description || (e.alteracao_id ? "alteração cliente" : "edição")}</span>
+                </span>
                 <span className="truncate text-muted-foreground">{nomeDe(profiles, e.user_id) || "—"}</span>
                 <span className="text-right">{fmtDuracao(e.duration_min)}</span>
                 <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -1355,6 +1368,114 @@ function TimesheetEntregavel({
 }
 
 /* ------------------------------------------------ Alterações do cliente */
+
+/** Rótulo da versão da peça (V1, V2, V2.1…), editável no lugar. */
+function VersaoAlteracao({ a, onChanged }: { a: any; onChanged: () => void }) {
+  const padrao = `V${a.numero}`;
+  const [v, setV] = useState<string>(a.versao || padrao);
+  const [salvando, setSalvando] = useState(false);
+
+  // Ressincroniza quando a linha muda por fora (outra aba, refetch): sem isto
+  // o input segura o valor antigo depois de um invalidate.
+  useEffect(() => setV(a.versao || padrao), [a.versao, padrao]);
+
+  const salvar = async () => {
+    const novo = v.trim() || padrao;
+    setV(novo);
+    if (novo === (a.versao || padrao)) return;
+    setSalvando(true);
+    const { error } = await (supabase as any)
+      .from("deliverable_alteracoes").update({ versao: novo }).eq("id", a.id);
+    setSalvando(false);
+    if (error) return toast.error("Não salvou a versão", { description: error.message });
+    onChanged();
+  };
+
+  return (
+    <span className="relative shrink-0">
+      <Input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={salvar}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        title="Versão da peça — clique pra renomear"
+        className="h-6 w-16 border-warning/30 bg-warning/15 px-1.5 text-center text-[11px] font-semibold text-warning focus-visible:ring-warning/40"
+      />
+      {salvando && <Loader2 className="absolute -right-4 top-1 h-3 w-3 animate-spin text-muted-foreground" />}
+    </span>
+  );
+}
+
+/**
+ * Lançar hora NA alteração — o que faltava.
+ *
+ * O cronômetro já sabia jogar tempo na alteração aberta, mas quem trabalhou
+ * sem dar play (ou fechou a alteração antes de apontar) não tinha por onde
+ * registrar: a hora ia parar na edição pura ou não ia a lugar nenhum. E hora
+ * de alteração é justamente a que se cobra à parte no fechamento.
+ */
+function LancarHoraAlteracao({
+  did, projectId, alteracaoId, onChanged,
+}: { did: string; projectId: string; alteracaoId: string; onChanged: () => void }) {
+  const { user } = useAuth();
+  const [dur, setDur] = useState("");
+  const [etapa, setEtapa] = useState("");
+  const durMin = parseDuracaoMin(dur, "h");   // número puro = horas, igual ao timesheet
+
+  const lancar = useMutation({
+    mutationFn: async () => {
+      const min = parseDuracaoMin(dur, "h");
+      if (!min || min <= 0) throw new Error('Duração não entendida — tente "2h10", "1.5", "90min" ou "1:30".');
+      const { error } = await (supabase as any).from("time_entries").insert({
+        user_id: user?.id,
+        project_id: projectId,
+        deliverable_id: did,
+        alteracao_id: alteracaoId,      // <- é isto que separa da edição pura
+        start_at: new Date().toISOString(),
+        duration_min: min,
+        description: etapa || null,
+        billable: true,
+        source: "manual",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setDur(""); setEtapa("");
+      onChanged();
+      toast.success("Horas lançadas na alteração");
+    },
+    onError: (e: any) => toast.error("Erro", { description: e.message }),
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="w-28">
+        <Input
+          value={dur}
+          onChange={(e) => setDur(e.target.value)}
+          placeholder="1.5, 2h10, 90min"
+          className="h-7 text-xs"
+        />
+        {dur.trim() && (
+          durMin
+            ? <p className="mt-0.5 text-[10px] text-success">{fmtDuracao(durMin)}</p>
+            : <p className="mt-0.5 text-[10px] text-destructive">não entendi</p>
+        )}
+      </div>
+      <Select value={etapa || undefined} onValueChange={setEtapa}>
+        <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="— etapa —" /></SelectTrigger>
+        <SelectContent>
+          {ETAPAS_TRABALHO.map((e) => (
+            <SelectItem key={e} value={e} className="text-xs">{e}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button size="sm" variant="outline" className="h-7" onClick={() => lancar.mutate()} disabled={lancar.isPending || !durMin}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> Lançar horas
+      </Button>
+    </div>
+  );
+}
 
 function AlteracoesSection({
   did, projectId, projectName, alteracoes, podeHoras, horasPorAlteracao, onChanged,
@@ -1412,7 +1533,7 @@ function AlteracoesSection({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">Alterações do cliente</p>
-            <p className="text-xs text-muted-foreground">Pedidos do cliente (portal ou registrados aqui). Cada uma rastreia horas próprias — o editor dá play na alteração.</p>
+            <p className="text-xs text-muted-foreground">Cada alteração é uma versão da peça (V1, V2…). Horas próprias: o cronômetro joga aqui sozinho enquanto ela está aberta, e dá pra lançar na mão a qualquer momento.</p>
           </div>
           <Button size="sm" onClick={() => setAberto((v) => !v)} className="bg-primary text-primary-foreground">
             <MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente
@@ -1433,6 +1554,9 @@ function AlteracoesSection({
 
         {aberto && (
           <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
+            <p className="text-[11px] text-muted-foreground">
+              Vai nascer como <strong className="text-warning">V{(alteracoes.at(-1)?.numero ?? 0) + 1}</strong> — dá pra renomear depois no rótulo.
+            </p>
             <Input value={nova.titulo} onChange={(e) => setNova({ ...nova, titulo: e.target.value })} placeholder="Título (ex.: Trocar trilha, cortar cena 3)" />
             <Textarea rows={2} value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} placeholder="O que o cliente pediu…" />
             <div className="flex justify-end">
@@ -1447,7 +1571,7 @@ function AlteracoesSection({
           alteracoes.map((a) => (
             <div key={a.id} className={`rounded-md border p-3 ${a.status === "aberta" ? "border-warning/50 bg-warning/[0.06]" : "border-border/40 bg-muted/10"}`}>
               <div className="flex items-center gap-2">
-                <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">R{a.numero}</span>
+                <VersaoAlteracao a={a} onChanged={onChanged} />
                 <span className="flex-1 truncate text-sm font-medium text-foreground">{a.titulo}</span>
                 {podeHoras && (
                   <span className="text-xs text-muted-foreground">{((horasPorAlteracao[a.id] || 0) / 60).toFixed(1)}h</span>
@@ -1476,6 +1600,20 @@ function AlteracoesSection({
                   {a.status === "resolvida" ? "Reabrir" : "Marcar resolvida"}
                 </Button>
               </div>
+
+              {/* Lançamento manual da hora desta versão. Fica também nas
+                  resolvidas de propósito: quase sempre a pessoa só lembra de
+                  apontar depois de fechar a alteração. */}
+              {podeHoras && (
+                <div className="mt-2 border-t border-border/40 pt-2">
+                  <LancarHoraAlteracao
+                    did={did}
+                    projectId={projectId}
+                    alteracaoId={a.id}
+                    onChanged={onChanged}
+                  />
+                </div>
+              )}
             </div>
           ))
         )}
