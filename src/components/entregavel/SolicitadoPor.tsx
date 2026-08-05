@@ -37,9 +37,11 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
     queryKey: ["contatos-cliente", clientId],
     enabled: !!clientId,
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("clients").select("intake_contatos").eq("id", clientId).maybeSingle();
-      return (Array.isArray(data?.intake_contatos) ? data.intake_contatos : []) as Contato[];
+      // RPC e não select direto: a RLS de `clients` exige permissão no módulo
+      // do cliente, que a coordenação não tem — e dar essa permissão abriria
+      // a ficha comercial junto (cobrança, valor-hora, tabela).
+      const { data } = await (supabase as any).rpc("contatos_do_cliente", { _client_id: clientId });
+      return (Array.isArray(data) ? data : []) as Contato[];
     },
   });
 
@@ -48,13 +50,11 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
     if (!nome) return toast.error("Escreva o nome");
     if (!clientId) return toast.error("Esta peça não tem cliente — defina no projeto primeiro");
     setSalvando(true);
-    const lista = [...contatos, { nome, email: novo.email.trim() || undefined }];
-    // .select() porque o PostgREST devolve 204 mesmo quando a RLS barra tudo.
-    const { data, error } = await (supabase as any)
-      .from("clients").update({ intake_contatos: lista }).eq("id", clientId).select("id");
+    const { error } = await (supabase as any).rpc("cliente_adicionar_contato", {
+      _client_id: clientId, _nome: nome, _email: novo.email.trim() || null,
+    });
     setSalvando(false);
     if (error) return toast.error("Não cadastrou", { description: error.message });
-    if (!data?.length) return toast.error("Nada foi salvo — você tem permissão pra editar este cliente?");
     qc.invalidateQueries({ queryKey: ["contatos-cliente", clientId] });
     onChange(nome);
     setNovo({ nome: "", email: "" });
