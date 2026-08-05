@@ -27,11 +27,14 @@ function paraInput(iso?: string | null): string {
  * porque nem toda peça nasce junto do job: um projeto de julho ganha uma
  * redução em agosto.
  *
- * Pro corte de MÊS vale esta data — mas com PISO na data do projeto: a peça
- * anda pra frente (a redução pedida três dias depois é da semana seguinte),
- * nunca pra trás (peça que nasce antes do job é engano de digitação, e engano
- * aqui vira dinheiro no mês errado). Quem precisa puxar pra trás ajusta o
- * PROJETO — e aí as peças acompanham.
+ * NÃO muda o mês do fechamento: ali vale a data do PROJETO, sempre — um job
+ * tem um mês só. É justamente isso que torna este campo seguro de ajustar:
+ * ele responde "quando ESTA peça entrou" sem mexer em fatura.
+ *
+ * Ainda assim não anda pra trás do projeto: peça que nasce antes do job é
+ * engano de digitação, e engano que fica no banco vira dúvida no fechamento
+ * seguinte. Quem precisa puxar pra trás ajusta o PROJETO — e aí as peças
+ * acompanham sozinhas.
  */
 export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, podeEditar, onChanged }: {
   deliverableId: string;
@@ -93,7 +96,8 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, 
         </div>
         {pisoProjeto && (
           <p className="mt-1 text-[10px] text-muted-foreground">
-            só a partir de {fmtCarimbo(pisoProjeto)} — é quando o projeto entrou
+            só a partir de {fmtCarimbo(pisoProjeto)} — é quando o projeto entrou.
+            O mês do fechamento segue a data do projeto.
           </p>
         )}
         {createdAt && (
