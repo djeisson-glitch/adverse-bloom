@@ -328,6 +328,19 @@ export default function EntregavelDetalhe() {
   // é função, não aprovação.
   const isRevisor = !!eu && (eu === n1 || eu === n2 || podeRevisar);
   const isEditor = !!eu && (entregavel.responsavel_id === eu || isAdmin);
+
+  /**
+   * Quem fez a peça não aprova a própria peça.
+   *
+   * O Djêisson viu "Revisão 2 · Djêisson Mauss" com o botão Aprovar numa peça
+   * de que ele era o RESPONSÁVEL. Aprovar o próprio trabalho não é revisão —
+   * é carimbo. E o valor da revisão é justamente o segundo par de olhos.
+   *
+   * Não é bloqueio absoluto: quem precisa mesmo passar por cima tem o
+   * "Corrigir status", que é declaradamente um atalho e fica registrado. Aqui
+   * só se tira o caminho fácil, e se diz por quê.
+   */
+  const souDono = !!eu && entregavel.responsavel_id === eu;
   const alteracaoAberta = (alteracoes as any[]).find((a: any) => a.status === "aberta") || null;
 
   return (
@@ -527,6 +540,7 @@ export default function EntregavelDetalhe() {
         isN1={isN1}
         isN2={isN2}
         isRevisor={isRevisor}
+        souDono={souDono}
         podeForcar={podeRevisar}
         canSeeMoney={canSeeMoney}
         clientId={proj?.client_id}
@@ -658,12 +672,14 @@ export default function EntregavelDetalhe() {
 
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
-  isEditor, isN1, isN2, isRevisor, podeForcar, alteracaoAberta, onChanged,
+  isEditor, isN1, isN2, isRevisor, souDono, podeForcar, alteracaoAberta, onChanged,
   canSeeMoney, clientId, horasMin,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
   n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
   isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
+  /** Quem fez a peça não aprova a própria peça. */
+  souDono: boolean;
   podeForcar: boolean; alteracaoAberta: any; onChanged: () => void;
   canSeeMoney: boolean; clientId?: string | null; horasMin: number;
 }) {
@@ -783,17 +799,17 @@ function FluxoCard({
   }
 
   // REVISÃO 1 (1ª vez)
-  if (status === "revisao_n1" && isN1) {
+  if (status === "revisao_n1" && isN1 && !souDono) {
     B("n1a", <Button size="sm" onClick={n1AprovaSegue} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar → Revisão 2</Button>);
     B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste → Revisão 2</Button>);
   }
   // REVISÃO 2
-  if (status === "revisao_n2" && isN2) {
+  if (status === "revisao_n2" && isN2 && !souDono) {
     B("n2a", <Button size="sm" onClick={n2Aprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
     B("n2j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n2Ajuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
   }
   // REVISÃO ÚNICA (retrabalho, só N1) — com escalar pra N2 opcional
-  if (status === "revisao" && isN1) {
+  if (status === "revisao" && isN1 && !souDono) {
     B("rua", <Button size="sm" onClick={revUnicaAprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
     B("ruj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={revUnicaAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
     B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda revisão"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir Revisão 2</Button>);
@@ -833,7 +849,13 @@ function FluxoCard({
           <div className="flex flex-wrap gap-2">{botoes}</div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            {["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
+            {/* Sem esta linha, quem fez a peça vê a revisão parada e nenhum
+                botão, sem entender que a bola está com outra pessoa. */}
+            {souDono && ["revisao_n1", "revisao_n2", "revisao"].includes(status)
+              ? `Você é o responsável por esta peça — a aprovação é de ${
+                  nomeDe(profiles, status === "revisao_n2" ? n2 : n1) || "outra pessoa"
+                }. Quem faz não aprova o próprio trabalho; se precisar destravar, use “Corrigir status”.`
+              : ["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
               : status === "com_cliente" ? "Está com o cliente — fora do seu controle por enquanto."
               // Sem responsável, os botões de edição não aparecem pra ninguém —
               // avisa pra definir um (o campo Responsável, acima).
