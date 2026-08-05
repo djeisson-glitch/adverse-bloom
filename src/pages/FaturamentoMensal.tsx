@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useFiltro } from "@/hooks/useFiltro";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
 import { CustosLinhas, type ItemCusto } from "@/components/producao/CustosLinhas";
@@ -68,7 +69,7 @@ export default function FaturamentoMensal() {
   const qc = useQueryClient();
   const confirmar = useConfirm();
   // padrão: mês anterior (é o que o dia 01 fatura)
-  const [ref, setRef] = useState(() => mesISO(-1));
+  const [ref, setRef] = useFiltro("mes", mesISO(-1), "faturamento");
   const [aberto, setAberto] = useState<string | null>(null);
 
   const mesLabel = useMemo(() => {

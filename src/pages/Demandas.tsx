@@ -3,6 +3,7 @@ import { hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useFiltro } from "@/hooks/useFiltro";
 import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock, Sparkles, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function Demandas() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [aberta, setAberta] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<string>("abertas");
+  const [filtro, setFiltro] = useFiltro<string>("filtro", "abertas", "demandas");
 
   const { data: demandas = [], isLoading } = useQuery({
     queryKey: ["demandas"],

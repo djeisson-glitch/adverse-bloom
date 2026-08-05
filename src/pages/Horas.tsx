@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { dataISO } from "@/lib/dataLocal";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useFiltro } from "@/hooks/useFiltro";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Timer, Plus, Trash2, CalendarCheck, Play, Check, X, Pencil } from "lucide-react";
@@ -72,7 +73,7 @@ export default function Horas() {
   // Filtro da LISTA — separado do "lançar para" do formulário. Antes eram a
   // mesma coisa, e escolher alguém pra lançar trocava a lista embaixo.
   // Vazio = o time inteiro (admin) ou só as suas (todo o resto).
-  const [filtroPessoa, setFiltroPessoa] = useState("");
+  const [filtroPessoa, setFiltroPessoa] = useFiltro<string>("pessoa", "", "horas");
   const viewUserId = isAdmin ? (filtroPessoa || null) : user?.id;
   const vendoTodos = isAdmin && !filtroPessoa;
   const suasHoras = viewUserId === user?.id;
@@ -85,7 +86,7 @@ export default function Horas() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }, []);
-  const [verMes, setVerMes] = useState(mesAtual);
+  const [verMes, setVerMes] = useFiltro("mes", mesAtual, "horas");
   // Abre a lista de projetos pros já entregues — pra apontar hora retroativa.
   const [incluirEntregues, setIncluirEntregues] = useState(false);
   const ehMesAtual = verMes === mesAtual;
