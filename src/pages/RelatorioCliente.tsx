@@ -26,6 +26,31 @@ import { primeiroDiaISO } from "@/lib/dataLocal";
  * A4 e o preto vira branco — carta de cobrança se imprime, se assina e se
  * arquiva; fundo escuro gasta tinta e fica ilegível no fax do financeiro.
  */
+/** 2026-07-30 → 30/07/26. Fora do componente: a célula abaixo também usa. */
+const fmtISO = (iso?: string | null) =>
+  iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—";
+
+/**
+ * Data de solicitação. Só a demanda é fonte confiável — `created_at` da peça
+ * é data de CADASTRO, e nas peças importadas do ClickUp isso é o dia da
+ * importação (todas iguais, o que o Djêisson viu no fechamento). Sem demanda,
+ * mostra o início do trabalho com "~", que diz ao leitor que é referência e
+ * não o pedido.
+ */
+function CelulaSolicitado({ linha }: { linha: any }) {
+  if (linha.veioDeDemanda && linha.solicitadoEm) {
+    return <>{fmtISO(String(linha.solicitadoEm).slice(0, 10))}</>;
+  }
+  if (linha.inicioEm) {
+    return (
+      <span title="Sem registro de solicitação — data em que o trabalho começou">
+        ~{fmtISO(String(linha.inicioEm).slice(0, 10))}
+      </span>
+    );
+  }
+  return <>—</>;
+}
+
 export default function RelatorioCliente() {
   const { clientId, mes } = useParams();
   const voltar = useVoltar("/faturamento-mensal");
@@ -44,11 +69,11 @@ export default function RelatorioCliente() {
         // depois, pelo mesmo critério do fechamento (hora lançada no período
         // OU entrega no período) — filtrar por data_entrega aqui deixaria de
         // fora hora gasta em peça entregue noutro mês, que É cobrada.
-        (supabase as any).from("deliverables").select("id, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status"),
+        (supabase as any).from("deliverables").select("id, codigo, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status"),
         (supabase as any).from("deliverable_alteracoes").select("id, deliverable_id, titulo, created_at, criado_por"),
         (supabase as any).from("demandas").select("id, projeto_id, solicitante_nome, created_at").eq("client_id", clientId),
         (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId).gte("data", ref).lt("data", fim),
-        (supabase as any).from("time_entries").select("deliverable_id, project_id, duration_min, alteracao_id, billable").gte("start_at", ref).lt("start_at", fim),
+        (supabase as any).from("time_entries").select("deliverable_id, project_id, duration_min, alteracao_id, billable, start_at").gte("start_at", ref).lt("start_at", fim),
         (supabase as any).from("profiles").select("id, full_name, avatar_url"),
       ]);
       const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
@@ -82,6 +107,17 @@ export default function RelatorioCliente() {
       altPorEnt.get(a.deliverable_id)!.push(a);
     }
 
+    // Quando o trabalho começou, por peça. Serve de referência quando não há
+    // demanda: `created_at` da peça é a data de CADASTRO, e nas 13 peças
+    // vindas da importação do ClickUp isso é o dia da importação — todas
+    // iguais. Data de cadastro em massa não é data de pedido.
+    const inicio = new Map<string, string>();
+    for (const t of horas) {
+      if (!t.deliverable_id || !t.start_at) continue;
+      const atual = inicio.get(t.deliverable_id);
+      if (!atual || t.start_at < atual) inicio.set(t.deliverable_id, t.start_at);
+    }
+
     // Horas por peça, separando edição de alteração.
     const hPorEnt = new Map<string, { edic: number; alt: number }>();
     for (const t of horas) {
@@ -109,7 +145,11 @@ export default function RelatorioCliente() {
         // Data de SOLICITAÇÃO: a da demanda quando o pedido entrou pelo
         // formulário; senão a data em que a peça foi criada no sistema, que
         // é o mais perto disso que existe.
-        solicitadoEm: dem?.created_at || e.created_at,
+        // Só a demanda é fonte de "quando pediram". Sem ela, mostramos o
+        // início do trabalho, marcado como aproximado — melhor um dado
+        // honesto e rotulado do que uma data errada com cara de certa.
+        solicitadoEm: dem?.created_at || null,
+        inicioEm: inicio.get(e.id) || null,
         veioDeDemanda: !!dem,
         solicitante: dem?.solicitante_nome || null,
         alteracoes: altPorEnt.get(e.id) || [],
@@ -161,7 +201,6 @@ export default function RelatorioCliente() {
   const emissao = new Date();
   const venc = new Date(emissao.getTime() + 7 * 86400000);
   const fmtD = (d: Date) => d.toLocaleDateString("pt-BR");
-  const fmtISO = (iso?: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}` : "—");
   const periodo = new Date(ano, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const ultimoDia = new Date(ano, m, 0).getDate();
   const custoLogistica = data.diarias.reduce(
@@ -221,6 +260,7 @@ export default function RelatorioCliente() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-[#ddd] text-left text-[10px] uppercase tracking-wider text-[#888]">
+                    <th className="py-1.5 font-medium">Cód.</th>
                     <th className="py-1.5 font-medium">Entrega</th>
                     <th className="py-1.5 font-medium">Solicitado</th>
                     <th className="py-1.5 font-medium">Por</th>
@@ -231,8 +271,9 @@ export default function RelatorioCliente() {
                 <tbody>
                   {calc.linhas.map((l: any) => (
                     <tr key={l.id} className="border-b border-[#f0f0f0]">
+                      <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
                       <td className="py-1.5 pr-3">{l.titulo}</td>
-                      <td className="py-1.5 pr-3 tabular-nums text-[#555]">{fmtISO(l.solicitadoEm?.slice(0, 10))}</td>
+                      <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
                       <td className="py-1.5 pr-3 text-[#555]">{l.solicitante || "—"}</td>
                       <td className="py-1.5 pr-3">
                         {l.tipo_cobranca || "—"}
@@ -271,6 +312,7 @@ export default function RelatorioCliente() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-[#ddd] text-left text-[10px] uppercase tracking-wider text-[#888]">
+                    <th className="py-1.5 font-medium">Cód.</th>
                     <th className="py-1.5 font-medium">Entregável</th>
                     <th className="py-1.5 font-medium">Solicitado</th>
                     <th className="py-1.5 font-medium">Por</th>
@@ -281,8 +323,9 @@ export default function RelatorioCliente() {
                 <tbody>
                   {calc.linhas.map((l: any) => (
                     <tr key={l.id} className="border-b border-[#f0f0f0]">
+                      <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
                       <td className="py-1.5 pr-3">{l.titulo}</td>
-                      <td className="py-1.5 pr-3 tabular-nums text-[#555]">{fmtISO(l.solicitadoEm?.slice(0, 10))}</td>
+                      <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
                       <td className="py-1.5 pr-3 text-[#555]">{l.solicitante || "—"}</td>
                       <td className="py-1.5 text-right tabular-nums">{l.minEdic > 0 ? fmtDuracao(l.minEdic) : "—"}</td>
                       <td className="py-1.5 text-right tabular-nums">
@@ -294,6 +337,7 @@ export default function RelatorioCliente() {
                   ))}
                   {calc.minSemPeca > 0 && (
                     <tr className="border-b border-[#f0f0f0] text-[#555]">
+                      <td className="py-1.5 pr-3">—</td>
                       <td className="py-1.5 pr-3 italic">Horas de projeto sem peça específica</td>
                       <td className="py-1.5 pr-3">—</td>
                       <td className="py-1.5 pr-3">—</td>
@@ -412,8 +456,10 @@ export default function RelatorioCliente() {
       {calc.semSolicitante > 0 && (
         <p className="no-print mx-auto max-w-4xl px-10 py-4 text-xs text-muted-foreground">
           {calc.semSolicitante} de {calc.linhas.length} entregas estão sem solicitante: elas não vieram
-          pelo formulário de demandas. A coluna “Solicitado” mostra, nesses casos, a data em que a peça
-          entrou no sistema.
+          pelo formulário de demandas. Nesses casos a coluna “Solicitado” mostra{" "}
+          <b>~a data em que o trabalho começou</b> (primeira hora lançada), não a data do pedido — o
+          til está lá pra dizer isso. Antes aparecia a data de cadastro da peça, que nas importadas do
+          ClickUp é o dia da importação: todas iguais.
         </p>
       )}
     </>
