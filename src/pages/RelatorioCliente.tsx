@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -221,6 +221,23 @@ export default function RelatorioCliente() {
     };
   }, [data, ref, fim]);
 
+  /**
+   * O Chrome usa o `document.title` como nome do arquivo ao "Salvar como PDF".
+   * Sem isto o cliente recebe "os.adverse.rec.br.pdf" — e o Djêisson teria que
+   * renomear à mão toda vez, na hora de anexar no e-mail.
+   *
+   * Hook ANTES dos early returns: o número de hooks não pode variar entre o
+   * render de carregamento e o de conteúdo (React #310).
+   */
+  const nomeCliente = data?.cliente?.name || "";
+  useEffect(() => {
+    if (!nomeCliente || !mes) return;
+    const anterior = document.title;
+    const [aa, mm] = mes.split("-");
+    document.title = `Fechamento ${mm}-${aa} — ${nomeCliente}`;
+    return () => { document.title = anterior; };
+  }, [nomeCliente, mes]);
+
   if (isLoading || !data || !calc) {
     return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -236,14 +253,40 @@ export default function RelatorioCliente() {
 
   return (
     <>
+      {/* A moldura do app (menu, cabeçalho, botões flutuantes) sai pelo bloco
+          `@media print` global do index.css. Aqui fica só o que é DESTE
+          documento: como ele se parte entre páginas. */}
       <style>{`
         @media print {
-          .no-print { display: none !important; }
           @page { size: A4; margin: 14mm; }
-          body { background: #fff !important; }
-          .folha { color: #111 !important; background: #fff !important; }
+
+          /* Fundo branco e texto preto de verdade — a folha é renderizada com
+             as cores do tema em tela, e cinza sobre cinza não se lê no papel. */
+          .folha { color: #111 !important; background: #fff !important;
+                   max-width: none !important; margin: 0 !important; padding: 0 !important; }
           .folha * { color: inherit !important; border-color: #ddd !important; }
           .folha .destaque { color: #111 !important; }
+
+          /* --------------------------------------------- quebra de página
+             O documento vai pro cliente: linha partida ao meio, cabeçalho de
+             seção sozinho no pé da página e total separado do vencimento são
+             erros que a gente não vê na tela e o cliente vê no PDF. */
+
+          /* Título de seção nunca fica órfão no fim da página. */
+          .folha .secao > p:first-child { break-after: avoid; }
+
+          /* Linha da tabela é indivisível, e o cabeçalho se repete. */
+          .folha tr { break-inside: avoid; }
+          .folha thead { display: table-header-group; }
+
+          /* Blocos curtos (resumo, rankings, total) não se partem. */
+          .folha .bloco-inteiro { break-inside: avoid; }
+
+          /* O rodapé de valor anda junto com o que vem antes dele. */
+          .folha .rodape-valor { break-inside: avoid; break-before: auto; }
+
+          /* Cabeçalho do documento não se separa do período. */
+          .folha .cabecalho { break-after: avoid; break-inside: avoid; }
         }
       `}</style>
 
@@ -261,7 +304,7 @@ export default function RelatorioCliente() {
 
       <div className="folha mx-auto max-w-4xl bg-white p-10 text-[#111]">
         {/* Cabeçalho: quem manda, pra quem, e de que período. */}
-        <div className="flex items-start justify-between gap-6 border-b border-[#ddd] pb-5">
+        <div className="cabecalho flex items-start justify-between gap-6 border-b border-[#ddd] pb-5">
           <div>
             <p className="text-xl font-bold tracking-tight">{PRODUTORA.wordmark}</p>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#888]">{PRODUTORA.descricao}</p>
@@ -314,7 +357,7 @@ export default function RelatorioCliente() {
               </table>
             </Secao>
 
-            <Secao titulo="Resumo por tipo">
+            <Secao titulo="Resumo por tipo" inteira>
               <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs sm:grid-cols-3">
                 {[...calc.porTipo.entries()].map(([tipo, v]) => (
                   <div key={tipo} className="flex justify-between border-b border-[#f0f0f0] py-1">
@@ -377,7 +420,7 @@ export default function RelatorioCliente() {
               </table>
             </Secao>
 
-            <Secao titulo="Resumo do período">
+            <Secao titulo="Resumo do período" inteira>
               <div className="grid grid-cols-3 gap-6 text-xs">
                 <Kpi rot="Horas de edição" v={fmtDuracao(calc.minEdic)} />
                 <Kpi rot="Horas de alteração" v={fmtDuracao(calc.minAlt)} />
@@ -413,7 +456,7 @@ export default function RelatorioCliente() {
 
         {/* Diárias: valem pros dois formatos quando existem. */}
         {data.diarias.length > 0 && (
-          <Secao titulo="Diárias de gravação">
+          <Secao titulo="Diárias de gravação" inteira>
             <div className="space-y-1 text-xs">
               {data.diarias.map((d: any) => (
                 <div key={d.data} className="flex justify-between border-b border-[#f0f0f0] py-1">
@@ -453,8 +496,9 @@ export default function RelatorioCliente() {
           </Secao>
         )}
 
-        {/* Valor e prazo — o motivo do documento. */}
-        <div className="mt-8 border-t-2 border-[#111] pt-4">
+        {/* Valor e prazo — o motivo do documento. Nunca se parte: vencimento
+            numa página e total na outra é o pior lugar pra quebrar. */}
+        <div className="rodape-valor mt-8 border-t-2 border-[#111] pt-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="text-xs text-[#555]">
               <p>Vencimento: <b className="text-[#111]">{fmtD(venc)}</b></p>
@@ -494,9 +538,15 @@ export default function RelatorioCliente() {
   );
 }
 
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Secao({ titulo, children, inteira }: {
+  titulo: string; children: React.ReactNode;
+  /** Bloco curto: prefere ir inteiro pra próxima página a se partir. */
+  inteira?: boolean;
+}) {
   return (
-    <div className="mt-7">
+    // `secao` existe pro CSS de impressão: o título não pode ficar sozinho no
+    // pé da página, separado do conteúdo que ele nomeia.
+    <div className={`secao mt-7 ${inteira ? "bloco-inteiro" : ""}`}>
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#888]">{titulo}</p>
       {children}
     </div>

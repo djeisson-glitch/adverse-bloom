@@ -204,3 +204,42 @@
 .recharts-surface {
   overflow: hidden;
 }
+
+/* =====================================================================
+   IMPRESSÃO — a moldura do app sai; só o documento vai pro papel.
+   Vale pra qualquer tela que se imprima (carta do cliente, proposta):
+   antes cada uma tentava esconder as suas coisas e o botão flutuante
+   de Conversas ia junto no PDF que o cliente recebe.
+   ===================================================================== */
+@media print {
+  /* Marca explícita: qualquer componente pode se declarar fora do papel. */
+  .no-print { display: none !important; }
+
+  /* A moldura: menu lateral, cabeçalho fixo, botões flutuantes. Escondida
+     por atributo porque são componentes de terceiros que não aceitam
+     className em todos os nós. */
+  [data-sidebar="sidebar"],
+  [data-sidebar="rail"],
+  [data-sidebar="trigger"] { display: none !important; }
+
+  /* Sem sombra e sem fundo escuro: economiza tinta e evita o cinza que a
+     impressora traduz como faixa. */
+  * { box-shadow: none !important; }
+  html, body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* O <main> perde o respiro de tela: a margem quem dá é o @page. */
+  main { padding: 0 !important; overflow: visible !important; }
+
+  /* Linha órfã no fim/começo de página é o que mais estraga leitura de
+     tabela — três linhas de convívio mínimo. */
+  p, li { orphans: 3; widows: 3; }
+
+  /* Cabeçalho de tabela repete em toda página; linha não parte no meio. */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, img { break-inside: avoid; }
+}

@@ -45,8 +45,10 @@ export function AssistenteFlutuante() {
 
   return (
     <>
-      {/* Botões fixos: Conversas (primário, mais acessado) embaixo; IA acima */}
-      <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+      {/* Botões fixos: Conversas (primário, mais acessado) embaixo; IA acima.
+          `no-print` porque estes dois estavam saindo impressos na carta que
+          vai pro cliente — um balão de "Conversas" no meio da fatura. */}
+      <div className="no-print fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
         <button
           onClick={() => setAberto((v) => !v)}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg transition hover:border-primary/50"
