@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { nomeDeEntregavel, nomeDeProjeto } from "@/lib/nomeCurto";
 import { hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -129,7 +130,9 @@ export default function Demandas() {
       const { data: proj, error: pErr } = await (supabase as any)
         .from("projects")
         .insert({
-          name: d.nome_projeto,
+          // Nome do projeto sem o cliente repetido: a lista já agrupa por
+          // cliente, e o intake costuma vir com ele colado no fim.
+          name: nomeDeProjeto(d.nome_projeto, clientName),
           client_name: clientName,
           client_id: d.client_id,
           // ID da etapa, não o rótulo: o board filtra por id, e "Pré-produção"
@@ -147,7 +150,10 @@ export default function Demandas() {
       if (entregas.length > 0) {
         const rows = entregas.map((e: any, i: number) => ({
           project_id: proj.id,
-          titulo: (e.titulo || "").trim() || `Vídeo ${i + 1}`,
+          // Mesma regra da criação manual: prefixo "PÓS | " e sem redundância.
+          // O fallback continua numerando, e cai na regra junto — "Vídeo 2"
+          // vira "PÓS | 2" só se houver o que sobrar; senão volta inteiro.
+          titulo: nomeDeEntregavel((e.titulo || "").trim() || `Peça ${i + 1}`, clientName),
           descricao: e.briefing || null,
           formato: e.formato || null,
           duracao: e.duracao || null,

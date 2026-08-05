@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { nomeDeProjeto } from "@/lib/nomeCurto";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
@@ -62,6 +63,10 @@ export function useCreateProject() {
     mutationFn: async (project: any) => {
       // o dinheiro não entra no insert: vai pela RPC, que checa o papel
       const { sold_value, direct_costs, contract_value, invoiced_value, custo_hora_padrao, ...campos } = project;
+      // Nome sem o cliente repetido. Vale só no INSERT: renomear os 199
+      // projetos que já existem quebraria busca, pasta do DaVinci e a memória
+      // de quem procura pelo nome que sempre viu.
+      if (campos.name) campos.name = nomeDeProjeto(campos.name, campos.client_name);
       const { data, error } = await supabase.from("projects").insert(campos as any).select().single();
       if (error) throw error;
 
