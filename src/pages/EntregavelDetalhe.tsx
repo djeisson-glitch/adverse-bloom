@@ -4,6 +4,7 @@ import { useVoltar } from "@/hooks/useVoltar";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
+import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -452,11 +453,10 @@ export default function EntregavelDetalhe() {
                 WhatsApp — que é a maioria, e é a primeira pergunta quando uma
                 entrega é questionada no fechamento. */}
             <Campo label="Solicitado por">
-              <Input
-                value={form.solicitado_por}
-                onChange={(e) => set({ solicitado_por: e.target.value })}
-                placeholder="quem pediu esta peça"
-                className="h-8"
+              <SolicitadoPor
+                clientId={proj?.client_id}
+                valor={form.solicitado_por}
+                onChange={(v) => setJa({ solicitado_por: v })}
               />
             </Campo>
             <Campo label="Prazo interno">
