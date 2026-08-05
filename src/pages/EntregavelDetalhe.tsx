@@ -5,6 +5,7 @@ import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
+import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +19,7 @@ import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
 import { useConfirm, usePrompt } from "@/components/ui/confirm";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import {
-  STATUS_ENTREGAVEL, statusTone, statusPill, statusBorda, statusLabel, iconeStatus,
+  STATUS_ENTREGAVEL, statusBorda, statusLabel,
 } from "@/lib/statusEntregavel";
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
@@ -87,14 +88,6 @@ async function copiarTexto(texto: string, oque: string) {
   } catch {
     toast.error("Não consegui copiar — copie manualmente.");
   }
-}
-
-// Rótulo do status deixando explícito QUEM revisa em cada nível.
-function labelStatus(status: string, n1Nome: string, n2Nome: string) {
-  const base = statusLabel(status);
-  if (status === "revisao_n1") return `${base} · ${n1Nome}`;
-  if (status === "revisao_n2") return `${base} · ${n2Nome}`;
-  return base;
 }
 
 export default function EntregavelDetalhe() {
@@ -306,8 +299,6 @@ export default function EntregavelDetalhe() {
   // Config efetiva de aprovação (override por projeto > global)
   const n1 = proj?.aprovador_n1_id ?? config?.nivel1_user_id ?? null;
   const n2 = proj?.aprovador_n2_id ?? config?.nivel2_user_id ?? null;
-  const n1Nome = nomeDe(profiles, n1);
-  const n2Nome = nomeDe(profiles, n2);
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
   // Papéis pra máquina de estados. A coordenadora revisa e envia por PAPEL —
@@ -359,15 +350,23 @@ export default function EntregavelDetalhe() {
         </button>
       </div>
 
+      {/* Onde a peça está — primeira coisa da página, sozinha na faixa. O
+          status vivia espremido entre botão verde, botão vermelho e selo de
+          retrabalho; achar em que pé estava a peça dava trabalho. */}
+      <FaixaStatus
+        status={form.status}
+        entregavel={entregavel}
+        n1={n1}
+        n2={n2}
+        profiles={profiles}
+      />
+
       {/* Header */}
       <Card className="glass-card">
         <CardContent className="space-y-4 p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex-1">
               <div className="mb-1 flex items-center gap-2">
-                <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${statusTone(form.status)}`}>
-                  {labelStatus(form.status, n1Nome, n2Nome)}
-                </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Film className="h-3 w-3" /> Entregável
                 </span>
@@ -689,7 +688,6 @@ function FluxoCard({
   const confirmar = useConfirm();
   const perguntar = usePrompt();
   const status = entregavel.status || "pendente";
-  const retrab = !!entregavel.retrabalho;
   const rodandoAqui = sessao?.deliverable_id === did;
 
   const upd = async (patch: any, msg?: string) => {
@@ -825,20 +823,17 @@ function FluxoCard({
     B("alt", <Button size="sm" variant="outline" className="text-warning hover:text-warning" onClick={alteracaoCliente}><MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente</Button>);
   }
 
-  const StatusIcon = iconeStatus(status);
   return (
     <Card className={`glass-card border-l-4 ${statusBorda(status)}`}>
       <CardContent className="space-y-3 p-5">
+        {/* O status saiu daqui: agora mora na faixa do topo da página, sozinho.
+            Este card responde outra pergunta — "o que eu faço agora" — e é o
+            que os botões são. O que fica é a TRILHA de aprovação, que é
+            histórico (quem já carimbou), não etapa atual. */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Status é o DESTAQUE da tela — pílula grande, ícone e cor da etapa. */}
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</span>
-            <span className={`inline-flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-base font-bold ${statusPill(status)}`}>
-              <StatusIcon className="h-4 w-4" />
-              {labelStatus(status, nomeDe(profiles, n1), nomeDe(profiles, n2))}
-            </span>
-            {retrab && <span className="rounded-md bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-warning" title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só">↻ retrabalho · revisão única</span>}
-          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            O que fazer agora
+          </span>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Nivel ok={!!entregavel.aprovado_n1_em} pediuAjuste={!!entregavel.rev_n1_ajuste} label="R1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
             <Nivel ok={!!entregavel.aprovado_n2_em} pediuAjuste={!!entregavel.rev_n2_ajuste} label="R2" quem={nomeDe(profiles, entregavel.aprovado_n2_por)} />
