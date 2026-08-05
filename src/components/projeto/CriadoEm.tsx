@@ -57,7 +57,12 @@ export function CriadoEm({ projectId, criadoEm, createdAt, podeEditar, onChanged
     if (!data?.length) return toast.error("Nada mudou — você tem permissão pra editar este projeto?");
     setEditando(false);
     onChanged();
-    toast.success("Data de criação atualizada");
+    // Diz o efeito colateral em vez de escondê-lo: um trigger acabou de
+    // reescrever a data de TODAS as peças do projeto, e quem ajustou precisa
+    // saber disso antes de estranhar no fechamento.
+    toast.success("Data de criação atualizada", {
+      description: "Os entregáveis deste projeto passaram a ter a mesma data.",
+    });
   };
 
   if (editando) {

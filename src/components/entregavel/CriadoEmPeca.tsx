@@ -27,14 +27,18 @@ function paraInput(iso?: string | null): string {
  * porque nem toda peça nasce junto do job: um projeto de julho ganha uma
  * redução em agosto.
  *
- * Pro corte de MÊS em relatório, quem manda é a data do projeto (view
- * `deliverables_criacao`): sem isso um job de julho apareceria espalhado em
- * três meses só porque as peças foram cadastradas ao longo do tempo.
+ * Pro corte de MÊS vale esta data — mas com PISO na data do projeto: a peça
+ * anda pra frente (a redução pedida três dias depois é da semana seguinte),
+ * nunca pra trás (peça que nasce antes do job é engano de digitação, e engano
+ * aqui vira dinheiro no mês errado). Quem precisa puxar pra trás ajusta o
+ * PROJETO — e aí as peças acompanham.
  */
-export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, podeEditar, onChanged }: {
+export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, podeEditar, onChanged }: {
   deliverableId: string;
   criadoEm?: string | null;
   createdAt?: string | null;
+  /** Data ajustada do projeto — a peça não pode ser anterior a ela. */
+  pisoProjeto?: string | null;
   podeEditar: boolean;
   onChanged: () => void;
 }) {
@@ -47,6 +51,13 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, podeEditar, o
     new Date(criadoEm).toDateString() !== new Date(createdAt).toDateString();
 
   const salvar = async () => {
+    // O banco também barra (trigger), mas avisar aqui evita a viagem e dá o
+    // erro no campo em que a pessoa está olhando.
+    if (pisoProjeto && new Date(valor) < new Date(pisoProjeto)) {
+      return toast.error("Data anterior ao projeto", {
+        description: `O projeto começou em ${fmtCarimbo(pisoProjeto)}. Empurre a peça pra frente, ou ajuste a data do projeto.`,
+      });
+    }
     setSalvando(true);
     // .select() porque o PostgREST devolve 204 mesmo quando a RLS barra tudo.
     const { data, error } = await (supabase as any)
@@ -69,6 +80,7 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, podeEditar, o
           <Input
             type="datetime-local"
             value={valor}
+            min={pisoProjeto ? paraInput(pisoProjeto) : undefined}
             onChange={(e) => setValor(e.target.value)}
             className="h-8 text-xs"
           />
@@ -79,6 +91,11 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, podeEditar, o
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
+        {pisoProjeto && (
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            só a partir de {fmtCarimbo(pisoProjeto)} — é quando o projeto entrou
+          </p>
+        )}
         {createdAt && (
           <p className="mt-1 text-[10px] text-muted-foreground">
             cadastrada no sistema em {fmtCarimbo(createdAt)}
