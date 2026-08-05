@@ -6,6 +6,7 @@ import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
+import { encurtarNome } from "@/lib/nomeCurto";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -65,11 +66,17 @@ function caixaPasta(s: string): string {
 // [COD] [NOME COMPLETO] [FORMATO] [V1]
 // ex.: "[ADVR-4036] [SPOT DE RADIO 01 - FILME MAE] [16X9] [V1]"
 // Sem formato preenchido, saem 3 blocos — o bloco não vira placeholder.
-function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined): string {
+function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined, cliente?: string | null): string {
   const cod = (codigo || "").trim();
   // O prefixo interno ("PÓS | ") fica de fora: ele contava como palavra e o
-  // nome saía truncado em "[PÓS | Spot]".
-  const nome = caixaPasta((titulo || "").replace(/^\s*(PÓS|POS|PROD|DESL)\s*\|\s*/i, "").trim());
+  // nome saía truncado em "[PÓS | Spot]". O cliente e a palavra "vídeo"
+  // também saem: o código já identifica o job, e nome de pasta longo é o que
+  // faz o DaVinci e o Finder cortarem justamente o fim, que é o que distingue
+  // uma peça da outra. Vale também pras peças antigas — aqui é só a cópia,
+  // o dado no banco não muda.
+  const nome = caixaPasta(
+    encurtarNome((titulo || "").replace(/^\s*(PÓS|POS|PROD|DESL)\s*\|\s*/i, "").trim(), cliente),
+  );
   const f = caixaPasta(normFormato(formato));
   return [cod && `[${cod}]`, nome && `[${nome}]`, f && `[${f}]`, "[V1]"].filter(Boolean).join(" ");
 }
@@ -375,8 +382,8 @@ export default function EntregavelDetalhe() {
                 )}
                 <IndicadorAutosave status={auto.status} />
                 <button
-                  onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
-                  title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
+                  onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato, proj?.client_name), "Nome DaVinci")}
+                  title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato, proj?.client_name)}`}
                   className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Copy className="h-3 w-3" /> Nome DaVinci

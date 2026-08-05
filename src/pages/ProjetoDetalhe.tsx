@@ -36,6 +36,7 @@ import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
 import { agruparEntregaveis } from "@/lib/familiaEntregavel";
+import { nomeDeEntregavel } from "@/lib/nomeCurto";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
 
@@ -408,6 +409,7 @@ export default function ProjetoDetalhe() {
           {tab === "entregaveis" && (
             <EntregaveisSection
               projectId={project.id}
+              clienteNome={project.client_name}
               profiles={profiles}
               onAbrirConversa={(did) => setComentContexto(`deliverable:${did}`)}
             />
@@ -1472,7 +1474,7 @@ function rotuloStatus(status: string | null | undefined): string {
   return STATUS_ENTREGAVEL_LABEL[status] || status.replace(/_/g, " ");
 }
 
-function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectId: string; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
+function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa }: { projectId: string; clienteNome?: string | null; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [agrupar, setAgrupar] = useLocalPref<"sim" | "nao">("entregaveis:agrupar", "sim", ["sim", "nao"]);
@@ -1540,7 +1542,9 @@ function EntregaveisSection({ projectId, profiles, onAbrirConversa }: { projectI
       if (!novo.titulo.trim()) throw new Error("Informe o nome");
       const { error } = await (supabase as any).from("deliverables").insert({
         project_id: projectId,
-        titulo: novo.titulo,
+        // Entra padronizado: "PÓS | " na frente e sem o que a tela já diz em
+        // volta (nome do cliente, a palavra "vídeo"). "Fotos" nunca sai.
+        titulo: nomeDeEntregavel(novo.titulo, clienteNome),
         formato: novo.formato || null,
         duracao: novo.duracao || null,
         arquivo_url: novo.arquivo_url || null,
