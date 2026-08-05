@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PessoaAvatar } from "@/components/PessoaAvatar";
+import { CriadoEm } from "@/components/projeto/CriadoEm";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
@@ -334,6 +335,15 @@ export default function ProjetoDetalhe() {
                 value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
               />
             )}
+            {/* Quando o projeto nasceu, com hora. Editável pra corrigir o
+                retroativo do ClickUp, onde created_at é o dia da importação. */}
+            <CriadoEm
+              projectId={project.id}
+              criadoEm={project.criado_em}
+              createdAt={project.created_at}
+              podeEditar={podeEditarProjeto}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
+            />
             <FaturamentoProjeto
               projectId={project.id}
               valor={project.faturamento || "mensal"}
@@ -1330,6 +1340,14 @@ function LinhaEntregavel({
           {d.codigo && <span className="mr-1.5 font-mono text-[10px] font-normal text-primary">{d.codigo}</span>}
           {d.titulo}
         </span>
+        {/* Quem pediu, embaixo do nome: é linha de apoio, não coluna — a
+            tabela já tem sete e a pergunta "quem pediu isso?" só aparece
+            quando alguém está olhando aquela peça específica. */}
+        {d.solicitado_por && (
+          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground" title={`Solicitado por ${d.solicitado_por}`}>
+            pedido por {d.solicitado_por}
+          </span>
+        )}
         {/* Marca de alteração do cliente: âmbar e forte quando há aberta;
             discreta ("teve alteração") quando todas já foram resolvidas. */}
         {alt && alt.total > 0 && (

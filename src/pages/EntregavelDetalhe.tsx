@@ -210,6 +210,7 @@ export default function EntregavelDetalhe() {
       aprovador_id: entregavel.aprovador_id || "",
       data_entrega: entregavel.data_entrega || "",
       data_entrega_hora: (entregavel.data_entrega_hora || "").slice(0, 5),
+      solicitado_por: entregavel.solicitado_por || "",
       prazo_interno: entregavel.prazo_interno || "",
       prazo_interno_hora: (entregavel.prazo_interno_hora || "").slice(0, 5),
       arquivo_url: entregavel.arquivo_url || "",
@@ -426,6 +427,18 @@ export default function EntregavelDetalhe() {
             </Campo>
             <Campo label="Duração">
               <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
+            </Campo>
+            {/* Quem pediu. Vem preenchido quando a peça nasceu de uma demanda
+                do formulário; digitado à mão quando o pedido chegou por
+                WhatsApp — que é a maioria, e é a primeira pergunta quando uma
+                entrega é questionada no fechamento. */}
+            <Campo label="Solicitado por">
+              <Input
+                value={form.solicitado_por}
+                onChange={(e) => set({ solicitado_por: e.target.value })}
+                placeholder="quem pediu esta peça"
+                className="h-8"
+              />
             </Campo>
             <Campo label="Prazo interno">
               <SeletorPrazo

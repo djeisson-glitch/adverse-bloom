@@ -69,7 +69,7 @@ export default function RelatorioCliente() {
         // depois, pelo mesmo critério do fechamento (hora lançada no período
         // OU entrega no período) — filtrar por data_entrega aqui deixaria de
         // fora hora gasta em peça entregue noutro mês, que É cobrada.
-        (supabase as any).from("deliverables").select("id, codigo, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status"),
+        (supabase as any).from("deliverables").select("id, codigo, titulo, project_id, data_entrega, created_at, tipo_cobranca, cobranca_percent, status, solicitado_por"),
         (supabase as any).from("deliverable_alteracoes").select("id, deliverable_id, titulo, created_at, criado_por"),
         (supabase as any).from("demandas").select("id, projeto_id, solicitante_nome, created_at").eq("client_id", clientId),
         (supabase as any).from("diarias_por_dia").select("*").eq("client_id", clientId).gte("data", ref).lt("data", fim),
@@ -151,7 +151,10 @@ export default function RelatorioCliente() {
         solicitadoEm: dem?.created_at || null,
         inicioEm: inicio.get(e.id) || null,
         veioDeDemanda: !!dem,
-        solicitante: dem?.solicitante_nome || null,
+        // Prioriza o que está NA PEÇA: a demanda diz quem abriu o projeto,
+        // a peça diz quem pediu aquele material — quando são pessoas
+        // diferentes, é a segunda que responde a dúvida do fechamento.
+        solicitante: e.solicitado_por || dem?.solicitante_nome || null,
         alteracoes: altPorEnt.get(e.id) || [],
         minEdic: h.edic, minAlt: h.alt,
       };
