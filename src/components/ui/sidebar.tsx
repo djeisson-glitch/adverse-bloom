@@ -174,6 +174,10 @@ const Sidebar = React.forwardRef<
     <div
       ref={ref}
       className="group peer hidden text-sidebar-foreground md:block"
+      // O wrapper é quem ocupa a largura no fluxo (o `data-sidebar="sidebar"`
+      // de dentro é `fixed`). Sem marcação aqui, esconder a sidebar na
+      // impressão deixava um vão de 256px empurrando o documento pra direita.
+      data-sidebar="wrapper"
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}

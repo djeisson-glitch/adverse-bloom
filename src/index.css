@@ -218,6 +218,7 @@
   /* A moldura: menu lateral, cabeçalho fixo, botões flutuantes. Escondida
      por atributo porque são componentes de terceiros que não aceitam
      className em todos os nós. */
+  [data-sidebar="wrapper"],
   [data-sidebar="sidebar"],
   [data-sidebar="rail"],
   [data-sidebar="trigger"] { display: none !important; }
