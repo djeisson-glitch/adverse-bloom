@@ -79,58 +79,66 @@ export function FaixaStatus({
   const retrab = !!entregavel.retrabalho;
 
   return (
-    <div className={`flex items-stretch overflow-hidden rounded-xl border ${c.faixa}`}>
-      {/* Barra sólida na cor da etapa: dá pra saber a etapa pelo canto do olho,
-          de longe, sem ler. */}
-      <div className={`w-1.5 shrink-0 ${c.barra}`} />
+    // Gruda no topo ao rolar. A peça é longa (briefing, alterações, timesheet,
+    // anexos) e a etapa é justamente o que se quer conferir enquanto se lê o
+    // resto — voltar ao topo pra lembrar em que pé estava é o que a faixa veio
+    // evitar. `top-0` e não `top-14`: quem rola é o <main>, então zero já é
+    // logo abaixo do cabeçalho do app. Fundo opaco porque o conteúdo passa
+    // por baixo.
+    <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
+      <div className={`flex items-stretch overflow-hidden rounded-xl border shadow-sm ${c.faixa}`}>
+        {/* Barra sólida na cor da etapa: dá pra saber a etapa pelo canto do
+            olho, de longe, sem ler. */}
+        <div className={`w-1.5 shrink-0 ${c.barra}`} />
 
-      <div className="flex flex-1 flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Status do entregável
-          </p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2">
-            <Icone className={`h-5 w-5 shrink-0 ${c.texto}`} />
-            <span className={`text-xl font-bold leading-none ${c.texto}`}>{statusLabel(status)}</span>
-            {desde && <span className="text-xs text-muted-foreground">· {desde}</span>}
-            {retrab && (
-              <span
-                className="rounded-md bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning"
-                title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só"
-              >
-                ↻ retrabalho · revisão única
-              </span>
-            )}
+        <div className="flex flex-1 flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Status do entregável
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <Icone className={`h-5 w-5 shrink-0 ${c.texto}`} />
+              <span className={`text-xl font-bold leading-none ${c.texto}`}>{statusLabel(status)}</span>
+              {desde && <span className="text-xs text-muted-foreground">· {desde}</span>}
+              {retrab && (
+                <span
+                  className="rounded-md bg-warning/15 px-2 py-0.5 text-[10px] font-medium text-warning"
+                  title="Teve ajuste interno ou alteração do cliente — passa por 1 revisão só"
+                >
+                  ↻ retrabalho · revisão única
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {pessoa ? (
-            <>
-              <PessoaAvatar
-                nome={pessoa.full_name || pessoa.email}
-                foto={pessoa.avatar_url}
-                seed={pessoa.id}
-                tamanho={32}
-              />
+          <div className="flex items-center gap-2">
+            {pessoa ? (
+              <>
+                <PessoaAvatar
+                  nome={pessoa.full_name || pessoa.email}
+                  foto={pessoa.avatar_url}
+                  seed={pessoa.id}
+                  tamanho={32}
+                />
+                <div className="leading-tight">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    A bola está com
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {primeiroNome(pessoa.full_name || pessoa.email)}{" "}
+                    <span className="font-normal text-muted-foreground">· {papel}</span>
+                  </p>
+                </div>
+              </>
+            ) : (
               <div className="leading-tight">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  A bola está com
+                  {encerrado ? "Fim de linha" : "A bola está"}
                 </p>
-                <p className="text-sm font-semibold text-foreground">
-                  {primeiroNome(pessoa.full_name || pessoa.email)}{" "}
-                  <span className="font-normal text-muted-foreground">· {papel}</span>
-                </p>
+                <p className="text-sm font-semibold text-foreground">{papel}</p>
               </div>
-            </>
-          ) : (
-            <div className="leading-tight">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {encerrado ? "Fim de linha" : "A bola está"}
-              </p>
-              <p className="text-sm font-semibold text-foreground">{papel}</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
