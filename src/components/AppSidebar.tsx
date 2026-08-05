@@ -79,7 +79,7 @@ type NavGrupo = {
 /**
  * O menu é agrupado pela PERGUNTA que a pessoa está se fazendo, não pelo acaso
  * histórico. Antes "Produção" era um saco de gatos: misturava comercial
- * (Demandas, Orçamentos), execução (Projetos, Pauta), tempo (Horas, Timesheet)
+ * (Demandas, Orçamentos), execução (Projetos, Ilha de edição), tempo (Horas, Timesheet)
  * e planejamento (Capacidade, Previsão) — 15 itens sem parentesco nenhum.
  */
 const GRUPOS: NavGrupo[] = [
@@ -118,8 +118,7 @@ const GRUPOS: NavGrupo[] = [
     label: "Produção",
     itens: [
       { title: "Projetos", url: "/projetos", icon: LayoutGrid, module: "projetos" },
-      { title: "Pauta", url: "/pauta", icon: ListChecks, module: "pauta" },
-      { title: "Pós-Produção", url: "/pos-producao", icon: Clapperboard, module: "pos_producao" },
+      { title: "Ilha de edição", url: "/pos-producao", icon: Clapperboard, module: "pos_producao" },
       { title: "Entregas do mês", url: "/entregas", icon: PackageCheck, module: "projetos" },
       { title: "Saídas de produção", url: "/saidas", icon: Video, module: "calendario" },
       { title: "Calendário", url: "/calendario", icon: CalendarDays, module: "calendario" },

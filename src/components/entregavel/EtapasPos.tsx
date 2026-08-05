@@ -37,7 +37,7 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
   const { data: peca } = useQuery({
     queryKey: ["etapa-atual", did],
     queryFn: async () =>
-      (await (supabase as any).from("deliverables").select("etapa_atual, responsavel_id").eq("id", did).maybeSingle()).data,
+      (await (supabase as any).from("deliverables").select("etapa_atual, responsavel_id, etapa_responsavel_id").eq("id", did).maybeSingle()).data,
   });
 
   const { data: passou = [] } = useQuery({
@@ -63,7 +63,9 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
     if (error || data?.erro) return toast.error("Não deu", { description: error?.message || data?.erro });
     const nome = etapas.find((e: any) => e.slug === slug)?.nome;
     const dono = profiles.find((p: any) => p.id === data?.responsavel);
-    toast.success(nome ? `Agora em ${nome} · ${primeiroNome(dono?.full_name) || "sem dono"}` : "Fora das etapas");
+    // "com fulano" e não "responsável fulano": o responsável da peça continua
+    // sendo quem era — a etapa só diz quem está com ela agora.
+    toast.success(nome ? `Agora em ${nome} · com ${primeiroNome(dono?.full_name) || "ninguém"}` : "Fora das etapas");
     setAbrirTrilha(false);
     qc.invalidateQueries({ queryKey: ["etapa-atual", did] });
     qc.invalidateQueries({ queryKey: ["entregavel", did] });
@@ -80,8 +82,17 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Etapa</span>
 
         {atual ? (
-          <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary">
-            {atual.nome}
+          <span className="flex items-center gap-1.5">
+            <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary">
+              {atual.nome}
+            </span>
+            {/* Quem está COM a peça nesta etapa — separado do responsável do
+                entregável, que aparece no cabeçalho e não muda. */}
+            {peca?.etapa_responsavel_id && (
+              <span className="text-muted-foreground">
+                com {primeiroNome(profiles.find((p: any) => p.id === peca.etapa_responsavel_id)?.full_name)}
+              </span>
+            )}
           </span>
         ) : podeMover ? (
           <span className="text-muted-foreground">

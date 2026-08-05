@@ -399,6 +399,13 @@ export default function EntregavelDetalhe() {
           </div>
 
           <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            {/* Cliente antes do projeto: quando a peça chega pro editor, "de
+                quem é isso?" vem antes de "de que job é". */}
+            {proj?.client_name && (
+              <Campo label="Cliente">
+                <span className="truncate text-foreground">{proj.client_name}</span>
+              </Campo>
+            )}
             <Campo label="Projeto" className="sm:col-span-2">
               <div className="flex items-center gap-2">
                 <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
