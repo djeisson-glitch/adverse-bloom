@@ -65,10 +65,16 @@ export default function Orcamentos() {
   };
 
   // Assinatura vem da LostReasonModal legada: recebe { reason, otherReason?, followup? }
-  const handleConfirmLost = (data: { reason: string; otherReason?: string }) => {
+  const handleConfirmLost = (data: { reason: string; otherReason?: string; obs?: string; anexos?: any[] }) => {
     if (!pendingMove) return;
     updateDeal.mutate(
-      { id: pendingMove.dealId, stage: pendingMove.stage, lost_reason: data.reason } as any,
+      {
+        id: pendingMove.dealId, stage: pendingMove.stage, lost_reason: data.reason,
+        // Guardar aqui também: as duas telas movem pra Perdido, e o histórico
+        // não pode depender de por qual delas a pessoa passou.
+        lost_obs: data.obs || null,
+        lost_anexos: data.anexos || [],
+      } as any,
       {
         onSuccess: () => {
           setLostOpen(false);
