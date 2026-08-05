@@ -210,8 +210,16 @@ export default function RelatorioCliente() {
       })
       .reduce((s: number, t: any) => s + (t.duration_min || 0), 0);
 
+    // Quantas peças o cliente recebeu no período. É a primeira pergunta que
+    // ele faz ao abrir a carta ("quantos vídeos vocês fizeram?"), e o resumo
+    // só respondia com horas — que é a nossa unidade, não a dele.
+    const ENTREGUES = ["entregue", "aprovado", "faturado"];
+    const totalPecas = linhas.length;
+    const pecasEntregues = linhas.filter((l: any) => ENTREGUES.includes(l.status)).length;
+
     return {
       linhas, porTipo, minSemPeca,
+      totalPecas, pecasEntregues,
       totalAlt: altDoMes.length,
       minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0) + minSemPeca,
       minAlt: linhas.reduce((s: number, l: any) => s + l.minAlt, 0),
@@ -358,6 +366,17 @@ export default function RelatorioCliente() {
             </Secao>
 
             <Secao titulo="Resumo por tipo" inteira>
+              {/* O total antes da quebra por tipo: no modelo tabela a lista
+                  por tipo já existia, mas obrigava o cliente a somar de
+                  cabeça pra saber quantas peças recebeu no mês. */}
+              <div className="mb-3 flex items-baseline gap-2 border-b border-[#ddd] pb-2">
+                <span className="text-2xl font-bold tabular-nums">{calc.totalPecas}</span>
+                <span className="text-xs text-[#555]">
+                  {calc.totalPecas === 1 ? "entrega no período" : "entregas no período"}
+                  {calc.pecasEntregues < calc.totalPecas &&
+                    ` · ${calc.pecasEntregues} concluídas, ${calc.totalPecas - calc.pecasEntregues} em andamento`}
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs sm:grid-cols-3">
                 {[...calc.porTipo.entries()].map(([tipo, v]) => (
                   <div key={tipo} className="flex justify-between border-b border-[#f0f0f0] py-1">
@@ -421,7 +440,18 @@ export default function RelatorioCliente() {
             </Secao>
 
             <Secao titulo="Resumo do período" inteira>
-              <div className="grid grid-cols-3 gap-6 text-xs">
+              <div className="grid grid-cols-4 gap-6 text-xs">
+                {/* Entregas primeiro: é o que o cliente conta. Horas é como a
+                    gente cobra, e vem depois. */}
+                <Kpi
+                  rot="Entregas"
+                  v={String(calc.totalPecas)}
+                  nota={
+                    calc.pecasEntregues < calc.totalPecas
+                      ? `${calc.pecasEntregues} entregues · ${calc.totalPecas - calc.pecasEntregues} em andamento`
+                      : undefined
+                  }
+                />
                 <Kpi rot="Horas de edição" v={fmtDuracao(calc.minEdic)} />
                 <Kpi rot="Horas de alteração" v={fmtDuracao(calc.minAlt)} />
                 <Kpi rot="Alterações pedidas" v={String(calc.totalAlt)} />
@@ -553,11 +583,14 @@ function Secao({ titulo, children, inteira }: {
   );
 }
 
-function Kpi({ rot, v }: { rot: string; v: string }) {
+function Kpi({ rot, v, nota }: { rot: string; v: string; nota?: string }) {
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-[#888]">{rot}</p>
       <p className="text-lg font-semibold tabular-nums">{v}</p>
+      {/* Só aparece quando há o que ressalvar — número redondo não precisa de
+          nota, e nota vazia vira ruído numa carta que vai pro cliente. */}
+      {nota && <p className="text-[10px] text-[#888]">{nota}</p>}
     </div>
   );
 }
