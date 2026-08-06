@@ -9,6 +9,7 @@ import { fmtDuracao } from "@/lib/duracao";
 import { PRODUTORA } from "@/lib/produtora";
 import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroDiaISO } from "@/lib/dataLocal";
+import { alteracoesDoPeriodo, contarEntregues } from "@/lib/fechamentoCliente";
 
 /**
  * Carta de fechamento do mês — o documento que vai pro cliente.
@@ -117,10 +118,17 @@ export default function RelatorioCliente() {
     const demPorProjeto = new Map<string, any>(demandas.filter((d: any) => d.projeto_id).map((d: any) => [d.projeto_id, d]));
     const idsEnt = new Set(entregas.map((e: any) => e.id));   // todas as peças do cliente
 
-    // Alterações do mês, só das peças deste relatório.
-    const altDoMes = alteracoes.filter(
-      (a: any) => idsEnt.has(a.deliverable_id) && (a.created_at || "") >= ref && (a.created_at || "") < fim,
-    );   // idsEnt = todas as peças do cliente, não só as do mês
+    // Alterações do período: seguem a PEÇA, não a data em que foram pedidas.
+    //
+    // Auditoria de julho/2026 (Sul Minas) achou TRÊS números pra isso na mesma
+    // folha — 4 (alterações das peças do mês), 3 (pedidas no mês, qualquer
+    // peça) e 2 (as duas coisas juntas). O resumo mostrava 3 e a tabela
+    // listava 2, porque cada bloco aplicava o seu recorte.
+    //
+    // Vale a mesma régua das horas: alteração pedida em 05/08 numa peça de
+    // julho é de julho — é lá que a hora dela é cobrada. E alteração pedida
+    // em 30/07 numa peça de junho é de JUNHO, mesmo tendo sido pedida agora.
+    const altDoMes = alteracoesDoPeriodo(alteracoes as any[], data.idsDoMes as Set<string>);
     const altPorEnt = new Map<string, any[]>();
     for (const a of altDoMes) {
       if (!altPorEnt.has(a.deliverable_id)) altPorEnt.set(a.deliverable_id, []);
@@ -213,9 +221,8 @@ export default function RelatorioCliente() {
     // Quantas peças o cliente recebeu no período. É a primeira pergunta que
     // ele faz ao abrir a carta ("quantos vídeos vocês fizeram?"), e o resumo
     // só respondia com horas — que é a nossa unidade, não a dele.
-    const ENTREGUES = ["entregue", "aprovado", "faturado"];
     const totalPecas = linhas.length;
-    const pecasEntregues = linhas.filter((l: any) => ENTREGUES.includes(l.status)).length;
+    const pecasEntregues = contarEntregues(linhas as any[]);
 
     return {
       linhas, porTipo, minSemPeca,
@@ -224,7 +231,17 @@ export default function RelatorioCliente() {
       minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0) + minSemPeca,
       minAlt: linhas.reduce((s: number, l: any) => s + l.minAlt, 0),
       quemSolicita: ranking((l) => l.solicitante, () => 1),
-      quemAltera: ranking((l) => l.solicitante, (l) => l.alteracoes.length).filter(([, n]) => n > 0),
+      // As alterações do período, uma a uma — em vez de um ranking de pessoa.
+      //
+      // O ranking anterior atribuía cada alteração ao SOLICITANTE DA PEÇA, e
+      // saía impresso como "quem mais pediu alteração". Na base real, quem
+      // registra a alteração é a nossa equipe (criacao@adverse.rec.br,
+      // djeisson@…, "ClickUp") — não existe o dado "qual pessoa do cliente
+      // pediu". A carta estava dizendo ao cliente que gente dele pediu
+      // retrabalho que talvez não tenha pedido. Num documento de cobrança,
+      // esse é o pior erro possível.
+      alteracoesLista: linhas.flatMap((l: any) =>
+        (l.alteracoes || []).map((a: any) => ({ peca: l.codigo || l.titulo, titulo: a.titulo }))),
       semSolicitante: linhas.filter((l: any) => !l.solicitante).length,
     };
   }, [data, ref, fim]);
@@ -456,7 +473,7 @@ export default function RelatorioCliente() {
                 <Kpi rot="Horas de alteração" v={fmtDuracao(calc.minAlt)} />
                 <Kpi rot="Alterações pedidas" v={String(calc.totalAlt)} />
               </div>
-              {(calc.quemSolicita.length > 0 || calc.quemAltera.length > 0) && (
+              {(calc.quemSolicita.length > 0 || calc.alteracoesLista.length > 0) && (
                 <div className="mt-4 grid gap-6 sm:grid-cols-2">
                   {calc.quemSolicita.length > 0 && (
                     <div>
@@ -468,12 +485,13 @@ export default function RelatorioCliente() {
                       ))}
                     </div>
                   )}
-                  {calc.quemAltera.length > 0 && (
+                  {calc.alteracoesLista.length > 0 && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-[#888]">Quem mais pediu alteração</p>
-                      {calc.quemAltera.slice(0, 5).map(([q, n]) => (
-                        <div key={q} className="flex justify-between border-b border-[#f0f0f0] py-1 text-xs">
-                          <span>{q}</span><span className="tabular-nums">{n}</span>
+                      <p className="text-[10px] uppercase tracking-wider text-[#888]">Alterações do período</p>
+                      {calc.alteracoesLista.slice(0, 8).map((a: any, i: number) => (
+                        <div key={i} className="flex justify-between gap-3 border-b border-[#f0f0f0] py-1 text-xs">
+                          <span className="min-w-0 truncate">{a.titulo}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-[#888]">{a.peca}</span>
                         </div>
                       ))}
                     </div>
