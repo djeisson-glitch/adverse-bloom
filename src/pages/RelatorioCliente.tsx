@@ -38,18 +38,25 @@ const fmtISO = (iso?: string | null) =>
  * mostra o início do trabalho com "~", que diz ao leitor que é referência e
  * não o pedido.
  */
+const SEM_SOLICITANTE = "Sem solicitante";
+
+/** 1,5 — não 1.5. Vírgula decimal, e sem zero à toa em número inteiro. */
+const qtdBR = (n: number) => String(Number(n)).replace(".", ",");
+
+/** A data que a linha mostra — e por onde ela é ordenada. */
+function dataDaLinha(l: any): string {
+  const d = (l.veioDeDemanda && l.solicitadoEm) || l.inicioEm;
+  return d ? String(d).slice(0, 10) : "";
+}
+
 function CelulaSolicitado({ linha }: { linha: any }) {
-  if (linha.veioDeDemanda && linha.solicitadoEm) {
-    return <>{fmtISO(String(linha.solicitadoEm).slice(0, 10))}</>;
-  }
-  if (linha.inicioEm) {
-    return (
-      <span title="Sem registro de solicitação pelo formulário — data em que o job entrou no sistema, que é a mesma que define o período">
-        ~{fmtISO(String(linha.inicioEm).slice(0, 10))}
-      </span>
-    );
-  }
-  return <>—</>;
+  // Sem o "~" que existia antes. Ele marcava "data aproximada" de quando a
+  // referência era o primeiro apontamento de hora — um palpite. Hoje é a data
+  // de CRIAÇÃO do job, a mesma que define o período do documento: não há
+  // aproximação nenhuma pra sinalizar, e o til só levantava dúvida sobre um
+  // número exato.
+  const d = (linha.veioDeDemanda && linha.solicitadoEm) || linha.inicioEm;
+  return <>{d ? fmtISO(String(d).slice(0, 10)) : "—"}</>;
 }
 
 export default function RelatorioCliente() {
@@ -188,7 +195,7 @@ export default function RelatorioCliente() {
         alteracoes: altPorEnt.get(e.id) || [],
         minEdic: h.edic, minAlt: h.alt,
       };
-    }).sort((a: any, b: any) => (a.data_entrega || "").localeCompare(b.data_entrega || ""));
+    }).sort((a: any, b: any) => dataDaLinha(a).localeCompare(dataDaLinha(b)));
 
     const porTipo = new Map<string, { n: number; meias: number }>();
     for (const l of linhas) {
@@ -227,8 +234,22 @@ export default function RelatorioCliente() {
     const totalPecas = linhas.length;
     const pecasEntregues = contarEntregues(linhas as any[]);
 
+    // Agrupado por quem pediu. As linhas já vêm ordenadas por data, então
+    // cada grupo herda a ordem cronológica sem ordenar de novo; os grupos
+    // saem na ordem do primeiro pedido de cada pessoa. "Sem solicitante" vai
+    // pro fim: é o resto, e o rodapé da carta já explica o que ele é.
+    const grupos = new Map<string, any[]>();
+    for (const l of linhas) {
+      const k = l.solicitante || SEM_SOLICITANTE;
+      const g = grupos.get(k);
+      if (g) g.push(l); else grupos.set(k, [l]);
+    }
+    const porSolicitante = [...grupos.entries()]
+      .map(([nome, itens]) => ({ nome, itens }))
+      .sort((a, b) => (a.nome === SEM_SOLICITANTE ? 1 : b.nome === SEM_SOLICITANTE ? -1 : 0));
+
     return {
-      linhas, porTipo, minSemPeca,
+      linhas, porSolicitante, porTipo, minSemPeca,
       totalPecas, pecasEntregues,
       totalAlt: altDoMes.length,
       minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0) + minSemPeca,
@@ -276,6 +297,10 @@ export default function RelatorioCliente() {
   const fmtD = (d: Date) => d.toLocaleDateString("pt-BR");
   const periodo = new Date(ano, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const ultimoDia = new Date(ano, m, 0).getDate();
+  const diariasQtd = Number(data.fatura?.detalhe?.diarias_qtd || 0);
+  const diariasAbatidas = Number(data.fatura?.detalhe?.diarias_saldo_abatido || 0);
+  const diariasCobradas = Number(data.fatura?.detalhe?.diarias_cobradas || 0);
+
   const custoLogistica = data.diarias.reduce(
     (s: number, d: any) => s + Number(d.custo_logistica || 0) + Number(d.custo_alimentacao || 0) + Number(d.custo_hospedagem || 0), 0);
 
@@ -362,26 +387,42 @@ export default function RelatorioCliente() {
                     <th className="py-1.5 font-medium">Cód.</th>
                     <th className="py-1.5 font-medium">Entrega</th>
                     <th className="py-1.5 font-medium">Solicitado</th>
-                    <th className="py-1.5 font-medium">Por</th>
-                    <th className="py-1.5 font-medium">Tipo</th>
-                    <th className="py-1.5 text-right font-medium">Entregue</th>
+                    <th className="py-1.5 text-right font-medium">Tipo</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {calc.linhas.map((l: any) => (
-                    <tr key={l.id} className="border-b border-[#f0f0f0]">
-                      <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
-                      <td className="py-1.5 pr-3">{l.titulo}</td>
-                      <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
-                      <td className="py-1.5 pr-3 text-[#555]">{l.solicitante || "—"}</td>
-                      <td className="py-1.5 pr-3">
-                        {l.tipo_cobranca || "—"}
-                        {Number(l.cobranca_percent ?? 100) !== 100 && ` (${Number(l.cobranca_percent)}%)`}
+                {/* Agrupado por quem pediu, e por data dentro do grupo.
+                    A coluna "Por" some daqui: virou o cabeçalho do grupo, e
+                    repetir o mesmo nome em oito linhas seguidas era a coluna
+                    mais redundante da folha. */}
+                {calc.porSolicitante.map((g: any, gi: number) => (
+                  <tbody key={g.nome}>
+                    {/* `breakAfter: avoid` pra o nome do solicitante não ficar
+                        sozinho no pé de uma página, com as entregas dele na
+                        seguinte. */}
+                    <tr style={{ breakAfter: "avoid" }}>
+                      <td
+                        colSpan={4}
+                        className={`pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] ${gi === 0 ? "pt-2" : "pt-5"}`}
+                      >
+                        {g.nome}
+                        <span className="ml-2 font-normal normal-case tracking-normal text-[#aaa]">
+                          {g.itens.length} {g.itens.length === 1 ? "entrega" : "entregas"}
+                        </span>
                       </td>
-                      <td className="py-1.5 text-right tabular-nums text-[#555]">{fmtISO(l.data_entrega)}</td>
                     </tr>
-                  ))}
-                </tbody>
+                    {g.itens.map((l: any) => (
+                      <tr key={l.id} className="border-b border-[#f0f0f0]">
+                        <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
+                        <td className="py-1.5 pr-3">{l.titulo}</td>
+                        <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
+                        <td className="py-1.5 text-right">
+                          {l.tipo_cobranca || "—"}
+                          {Number(l.cobranca_percent ?? 100) !== 100 && ` (${Number(l.cobranca_percent)}%)`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ))}
               </table>
             </Secao>
 
@@ -524,16 +565,45 @@ export default function RelatorioCliente() {
                 dia são repasse. Somar os dois numa linha só faria o cliente
                 perguntar de onde veio o número. */}
             <div className="mt-2 space-y-0.5 text-xs">
-              {Number(data.fatura?.detalhe?.diarias_valor || 0) > 0 && (
-                <p className="flex justify-between">
-                  <span>
-                    {String(Number(data.fatura.detalhe.diarias_cobradas || 0)).replace(".", ",")} diária(s) ×{" "}
-                    {formatCurrency(Number(data.fatura.detalhe.diarias_valor_unitario || 0))}
-                    {Number(data.fatura.detalhe.diarias_saldo_abatido || 0) > 0 &&
-                      ` · ${String(Number(data.fatura.detalhe.diarias_saldo_abatido)).replace(".", ",")} abatida(s) do saldo`}
-                  </span>
-                  <b className="tabular-nums">{formatCurrency(Number(data.fatura.detalhe.diarias_valor))}</b>
-                </p>
+              {/* Quando há saldo abatido, a conta das diárias abre.
+                  Antes o abatimento era um parêntese cinza no meio da linha de
+                  valor — a parte que o cliente NÃO paga era a que menos
+                  aparecia, e meia diária virava um "1,5" sem explicação. As
+                  três linhas fecham por construção: na função de fechamento
+                  `abatidas = LEAST(saldo, qtd)` e `cobradas = qtd - saldo`,
+                  as duas derivadas do mesmo `qtd` que soma os dias listados
+                  acima — não há como a caixa discordar da lista. */}
+              {diariasAbatidas > 0 ? (
+                <div className="rounded border border-[#ddd] px-3 py-2">
+                  <p className="flex justify-between">
+                    <span className="text-[#555]">Diárias realizadas no período</span>
+                    <span className="tabular-nums">{qtdBR(diariasQtd)}</span>
+                  </p>
+                  <p className="mt-1 flex justify-between font-semibold">
+                    <span>Abatidas do saldo do cliente</span>
+                    <span className="tabular-nums">−{qtdBR(diariasAbatidas)}</span>
+                  </p>
+                  <p className="mt-1 flex justify-between border-t border-[#ddd] pt-1">
+                    <span className="text-[#555]">
+                      A cobrar · {qtdBR(diariasCobradas)} ×{" "}
+                      {formatCurrency(Number(data.fatura?.detalhe?.diarias_valor_unitario || 0))}
+                    </span>
+                    <b className="tabular-nums">{formatCurrency(Number(data.fatura?.detalhe?.diarias_valor || 0))}</b>
+                  </p>
+                  <p className="mt-1.5 text-[10px] text-[#888]">
+                    {qtdBR(diariasAbatidas)} diária(s) saíram do saldo já contratado e não são cobradas neste fechamento.
+                  </p>
+                </div>
+              ) : (
+                Number(data.fatura?.detalhe?.diarias_valor || 0) > 0 && (
+                  <p className="flex justify-between">
+                    <span>
+                      {qtdBR(diariasCobradas)} diária(s) ×{" "}
+                      {formatCurrency(Number(data.fatura.detalhe.diarias_valor_unitario || 0))}
+                    </span>
+                    <b className="tabular-nums">{formatCurrency(Number(data.fatura.detalhe.diarias_valor))}</b>
+                  </p>
+                )
               )}
               {custoLogistica > 0 && (
                 <p className="flex justify-between">
