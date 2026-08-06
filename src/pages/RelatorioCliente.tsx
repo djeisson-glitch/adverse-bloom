@@ -128,7 +128,15 @@ export default function RelatorioCliente() {
     // Vale a mesma régua das horas: alteração pedida em 05/08 numa peça de
     // julho é de julho — é lá que a hora dela é cobrada. E alteração pedida
     // em 30/07 numa peça de junho é de JUNHO, mesmo tendo sido pedida agora.
-    const altDoMes = alteracoesDoPeriodo(alteracoes as any[], data.idsDoMes as Set<string>);
+    //
+    // O conjunto vem das PEÇAS DESTA CARTA, não de `idsDoMes` cru: aquele é o
+    // índice de tudo que foi criado no mês NO SISTEMA INTEIRO — todos os
+    // clientes. Usá-lo direto fez o resumo dizer "22 alterações" com 4
+    // listadas: exatamente o mesmo defeito que esta mudança veio corrigir,
+    // reintroduzido um passo adiante. O número do resumo tem que sair da
+    // mesma lista que a tabela imprime, e é isso que a linha abaixo garante.
+    const doPeriodo = entregas.filter((e: any) => data.idsDoMes.has(e.id));
+    const altDoMes = alteracoesDoPeriodo(alteracoes as any[], doPeriodo as any[]);
     const altPorEnt = new Map<string, any[]>();
     for (const a of altDoMes) {
       if (!altPorEnt.has(a.deliverable_id)) altPorEnt.set(a.deliverable_id, []);
@@ -156,13 +164,8 @@ export default function RelatorioCliente() {
       hPorEnt.set(t.deliverable_id, cur);
     }
 
-    // Peça entra na carta quando FOI CRIADA no período — o mesmo recorte da
-    // fatura. Antes entrava por hora lançada no mês ou entrega no mês, e por
-    // isso a carta listava um trabalho e a fatura cobrava outro: o ADVR-4288
-    // (criado em 12/06) aparecia em julho porque a hora dele foi apontada em
-    // 29/07, e o total embaixo — que vem do fechamento — não o incluía.
-    const doPeriodo = entregas.filter((e: any) => data.idsDoMes.has(e.id));
-
+    // (doPeriodo definido acima: peça entra quando FOI CRIADA no período — o
+    // mesmo recorte da fatura.)
     const linhas: any[] = doPeriodo.map((e: any) => {
       const dem = demPorProjeto.get(e.project_id);
       const h = hPorEnt.get(e.id) || { edic: 0, alt: 0 };

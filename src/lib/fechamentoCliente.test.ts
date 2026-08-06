@@ -27,14 +27,15 @@ describe("recorte das alterações", () => {
       { id: "a1", deliverable_id: "p1" },   // pedida em julho
       { id: "a2", deliverable_id: "p2" },   // pedida em AGOSTO, peça de julho
     ];
-    expect(alteracoesDoPeriodo(alts, noMes).map((a) => a.id)).toEqual(["a1", "a2"]);
+    const pecas = [{ id: "p1" }, { id: "p2" }];
+    expect(alteracoesDoPeriodo(alts, pecas).map((a) => a.id)).toEqual(["a1", "a2"]);
   });
 
   it("alteração de peça de OUTRO mês não entra, mesmo pedida dentro do mês", () => {
     // Caso real: ADVR-4298 é peça de junho, alteração pedida em 30/07. Era ela
     // que fazia o resumo dizer 3 e a tabela listar 2.
     const alts = [{ id: "a1", deliverable_id: "p1" }, { id: "a3", deliverable_id: foraDoMes }];
-    expect(alteracoesDoPeriodo(alts, noMes).map((a) => a.id)).toEqual(["a1"]);
+    expect(alteracoesDoPeriodo(alts, [{ id: "p1" }]).map((a) => a.id)).toEqual(["a1"]);
   });
 
   it("o número do resumo é o mesmo que a soma das linhas", () => {
@@ -46,10 +47,9 @@ describe("recorte das alterações", () => {
       { id: "a4", deliverable_id: foraDoMes },
     ];
     const doPeriodo = pecasDoPeriodo(pecas, noMes);
-    const idsPeriodo = new Set(doPeriodo.map((p) => p.id));
-    const resumo = alteracoesDoPeriodo(alts, idsPeriodo).length;
+    const resumo = alteracoesDoPeriodo(alts, doPeriodo).length;
     const somaDasLinhas = doPeriodo.reduce(
-      (s, p) => s + alteracoesDoPeriodo(alts, idsPeriodo).filter((a) => a.deliverable_id === p.id).length, 0);
+      (s, p) => s + alteracoesDoPeriodo(alts, doPeriodo).filter((a) => a.deliverable_id === p.id).length, 0);
     expect(resumo).toBe(somaDasLinhas);
     expect(resumo).toBe(3);
   });
@@ -91,5 +91,21 @@ describe("recorte das horas", () => {
   it("hora não faturável fica de fora em qualquer caso", () => {
     const horas = [{ deliverable_id: "p1", billable: false }];
     expect(horasDoPeriodo(horas, noMes, doProjeto)).toHaveLength(0);
+  });
+});
+
+describe("o resumo nunca conta o que a tabela não lista", () => {
+  it("peça de outro CLIENTE no índice global não entra na conta", () => {
+    // O erro real: a tela passou o índice de tudo criado no mês no sistema
+    // inteiro. O resumo disse 22 alterações com 4 listadas. Passando as peças
+    // DA CARTA, o conjunto errado deixa de ser representável.
+    const pecasDaCarta = [{ id: "p1" }];
+    const alts = [
+      { id: "a1", deliverable_id: "p1" },
+      { id: "outroCliente", deliverable_id: "zzz" },
+    ];
+    const r = alteracoesDoPeriodo(alts, pecasDaCarta);
+    expect(r).toHaveLength(1);
+    expect(r.every((a) => pecasDaCarta.some((p) => p.id === a.deliverable_id))).toBe(true);
   });
 });

@@ -35,12 +35,20 @@ export function pecasDoPeriodo<T extends PecaRecorte>(pecas: T[], idsCriadasNoPe
  *
  * Segue a PEÇA, não a data do pedido. É a mesma regra das horas — e é o que
  * faz o número do resumo bater com o que está listado nas linhas.
+ *
+ * RECEBE AS PEÇAS DA CARTA, não um Set de ids, de propósito. Na primeira
+ * versão recebia um Set — e a tela passou o índice de tudo que foi criado no
+ * mês NO SISTEMA INTEIRO, todos os clientes: o resumo saiu "22 alterações"
+ * com 4 listadas. Um Set aceita qualquer conjunto de ids e não tem como
+ * saber que veio o errado; a lista de peças da carta é o único conjunto que
+ * a tabela realmente imprime, então derivar dela fecha a porta.
  */
 export function alteracoesDoPeriodo<T extends AlteracaoRecorte>(
   alteracoes: T[],
-  idsPecasDoPeriodo: Set<string>,
+  pecasDaCarta: PecaRecorte[],
 ): T[] {
-  return alteracoes.filter((a) => idsPecasDoPeriodo.has(a.deliverable_id));
+  const ids = new Set(pecasDaCarta.map((p) => p.id));
+  return alteracoes.filter((a) => ids.has(a.deliverable_id));
 }
 
 /** Fecharam de verdade — o resto é trabalho em curso, e a carta diz isso. */
