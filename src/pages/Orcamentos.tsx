@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { IndicadoresComercial } from "@/components/comercial/IndicadoresComercial";
 
 /**
  * Funil comercial no estilo Catalunya OS.
@@ -31,10 +32,20 @@ export default function Orcamentos() {
   const [wonDealTitle, setWonDealTitle] = useState("");
   const [wonClientName, setWonClientName] = useState("");
 
-  const openDeals = useMemo(() => deals.filter((d) => d.stage !== "perdido"), [deals]);
+  /**
+   * O board mostra TODAS as colunas com o que está nelas — inclusive Perdido.
+   *
+   * Antes os perdidos eram filtrados aqui, mas a coluna "Perdido" continuava
+   * sendo desenhada pelo mapa de estágios: você arrastava o card pra lá, ele
+   * sumia, e a coluna que deveria recebê-lo ficava marcando 0. O negócio
+   * existia só no banco — e num relatório que ninguém abre pra reaquecer.
+   *
+   * O contador do topo segue contando só os ABERTOS: perdido não é pipeline.
+   */
+  const openDeals = deals;
   const activeDeals = useMemo(
-    () => openDeals.filter((d) => !isWonStage(d.stage)),
-    [openDeals],
+    () => deals.filter((d) => !isWonStage(d.stage) && d.stage !== "perdido"),
+    [deals],
   );
   const pipelineValue = useMemo(
     () => activeDeals.reduce((s, d) => s + ((d as any).approved_value ?? d.value ?? 0), 0),
@@ -148,6 +159,8 @@ export default function Orcamentos() {
           </Button>
         </div>
       </div>
+
+      <IndicadoresComercial deals={deals as any[]} meta={settings?.monthly_target} />
 
       {vista === "board" ? (
         <KanbanBoard

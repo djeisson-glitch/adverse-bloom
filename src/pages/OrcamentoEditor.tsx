@@ -783,13 +783,59 @@ function AcaoBotoes({
   );
 
   if (deal.stage === "perdido") {
+    const anexos: any[] = Array.isArray((deal as any).lost_anexos) ? (deal as any).lost_anexos : [];
     return (
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
-          <Info className="h-3.5 w-3.5" />
-          Orçamento foi marcado como perdido.
-        </span>
-        {botaoCartaSimples}
+      // O que o cliente respondeu fica À VISTA, não guardado. Em 60 dias o
+      // follow-up de reaquecimento cai na mesa de alguém, e é esta tela que
+      // essa pessoa abre — "Escolheu concorrente" sozinho não reabre conversa
+      // nenhuma; o print do WhatsApp reabre.
+      <div className="space-y-3 rounded-md border border-destructive/25 bg-destructive/[0.04] p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-2 text-xs font-medium text-destructive">
+            <Info className="h-3.5 w-3.5" />
+            Orçamento perdido
+            {(deal as any).lost_reason ? ` · ${(deal as any).lost_reason}` : ""}
+          </span>
+          {(deal as any).lost_at && (
+            <span className="text-[11px] text-muted-foreground">
+              em {new Date((deal as any).lost_at).toLocaleDateString("pt-BR")}
+            </span>
+          )}
+          <div className="ml-auto">{botaoCartaSimples}</div>
+        </div>
+
+        {(deal as any).lost_obs && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              O que o cliente respondeu
+            </p>
+            <p className="mt-0.5 whitespace-pre-wrap text-xs text-foreground">{(deal as any).lost_obs}</p>
+          </div>
+        )}
+
+        {anexos.length > 0 && (
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Prints e arquivos ({anexos.length})
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {anexos.map((a: any, i: number) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                   className="group overflow-hidden rounded-md border border-border/50 bg-muted/20"
+                   title={a.nome}>
+                  {String(a.mime || "").startsWith("image/") ? (
+                    <img src={a.url} alt={a.nome} loading="lazy" className="h-20 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-20 w-full flex-col items-center justify-center gap-1 px-1 text-muted-foreground">
+                      <FileText className="h-5 w-5" />
+                      <span className="max-w-full truncate text-[9px]">{a.nome}</span>
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
