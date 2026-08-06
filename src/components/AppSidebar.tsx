@@ -215,21 +215,41 @@ export function AppSidebar() {
     return null;
   }, [grupos, location.pathname]);
 
-  // Acordeão: um grupo aberto por vez. Abrir o próximo fecha o anterior, senão o
-  // menu volta a virar a lista comprida que a gente acabou de desfazer.
-  const [aberto, setAberto] = useState<string | null>(() => localStorage.getItem(CHAVE_ABERTOS));
+  /**
+   * Quantos grupos quiser abertos ao mesmo tempo.
+   *
+   * Era acordeão — abrir um fechava o outro. A intenção era não deixar o menu
+   * virar uma lista comprida, mas quem trabalha em duas frentes ao mesmo tempo
+   * (Comercial e Produção, por exemplo) reabria o mesmo grupo o dia inteiro. A
+   * lista comprida é escolha de quem a abriu; fechar sozinho não é.
+   *
+   * Guarda a lista, não um id. A chave antiga guardava uma string solta, então
+   * quem já usa o sistema tem esse valor salvo — ele é aceito como grupo único
+   * em vez de virar menu todo fechado no primeiro carregamento.
+   */
+  const [abertos, setAbertos] = useState<string[]>(() => {
+    const salvo = localStorage.getItem(CHAVE_ABERTOS);
+    if (!salvo) return [];
+    try {
+      const v = JSON.parse(salvo);
+      return Array.isArray(v) ? v : [String(v)];
+    } catch {
+      return [salvo];   // formato antigo: um id cru
+    }
+  });
 
-  // O grupo da página em que você está fica sempre aberto (senão você não se acha).
+  // O grupo da página em que você está abre sozinho — e os outros ficam como
+  // estavam. Antes isto fechava todo o resto a cada navegação.
   useEffect(() => {
-    if (grupoDaRota) setAberto(grupoDaRota);
+    if (grupoDaRota) setAbertos((a) => (a.includes(grupoDaRota) ? a : [...a, grupoDaRota]));
   }, [grupoDaRota]);
 
   useEffect(() => {
-    if (aberto) localStorage.setItem(CHAVE_ABERTOS, aberto);
-    else localStorage.removeItem(CHAVE_ABERTOS);
-  }, [aberto]);
+    localStorage.setItem(CHAVE_ABERTOS, JSON.stringify(abertos));
+  }, [abertos]);
 
-  const alternar = (id: string) => setAberto((atual) => (atual === id ? null : id));
+  const alternar = (id: string) =>
+    setAbertos((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
 
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "";
   const avatarUrl = profile?.avatar_url || "";
@@ -277,7 +297,7 @@ export function AppSidebar() {
             );
           }
 
-          const estaAberto = aberto === g.id;
+          const estaAberto = abertos.includes(g.id);
           const temAtiva = g.id === grupoDaRota;
 
           return (
@@ -292,8 +312,11 @@ export function AppSidebar() {
                     <span>{g.label}</span>
                     <span className="flex items-center gap-1.5">
                       {/* Fechado com item ativo dentro? um ponto avisa onde você está. */}
-                      {!aberto && temAtiva && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${aberto ? "" : "-rotate-90"}`} />
+                      {/* `estaAberto`, não o estado global: com um id só, a seta
+                          de TODOS os grupos girava junto quando qualquer um
+                          abria, e o ponto de "você está aqui" sumia de todos. */}
+                      {!estaAberto && temAtiva && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${estaAberto ? "" : "-rotate-90"}`} />
                     </span>
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
