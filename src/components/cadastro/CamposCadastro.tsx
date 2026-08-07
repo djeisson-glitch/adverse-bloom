@@ -43,26 +43,65 @@ export function Linha({ children }: { children: ReactNode }) {
 }
 
 export function Campo({
-  rotulo, tema, valor, onChange, placeholder, tipo = "text", obrigatorio, area,
+  rotulo, tema, valor, onChange, placeholder, tipo = "text", obrigatorio, area, erro, ajuda,
 }: {
   rotulo: string; tema: Tema; valor: string; onChange: (v: string) => void;
   placeholder?: string; tipo?: string; obrigatorio?: boolean; area?: boolean;
+  erro?: boolean; ajuda?: string;
 }) {
   const s = est(tema);
+  // `data-erro` é o gancho do scroll: depois de tentar enviar, a tela rola até
+  // o primeiro campo faltando. Num formulário desta altura, uma mensagem no
+  // rodapé dizendo "faltou o CPF" manda a pessoa caçar o campo — e quem está
+  // no celular desiste antes de achar.
+  const borda = erro ? " !border-red-500" : "";
   return (
-    <div>
+    <div data-erro={erro ? "1" : undefined}>
       <label className={s.rotulo}>
         {rotulo} {obrigatorio && <span className="text-red-500">*</span>}
       </label>
       {area ? (
-        <textarea className={s.campo} rows={3} value={valor} placeholder={placeholder}
+        <textarea className={s.campo + borda} rows={3} value={valor} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)} />
       ) : (
-        <input className={s.campo} type={tipo} value={valor} placeholder={placeholder}
+        <input className={s.campo + borda} type={tipo} value={valor} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)} />
       )}
+      {ajuda && <p className={tema === "escuro" ? "mt-1 text-[11px] text-zinc-500" : "mt-1 text-[11px] text-slate-500"}>{ajuda}</p>}
     </div>
   );
+}
+
+/* ------------------------------------------------------------ obrigatórios */
+
+export type Regra = { campo: string; rotulo: string; ok: boolean };
+
+/**
+ * Quais regras não passaram — todas de uma vez, não a primeira.
+ *
+ * Validar uma por vez faz a pessoa enviar, corrigir, enviar de novo, descobrir
+ * a próxima. Num cadastro que ela preenche de graça pra trabalhar com a gente,
+ * cada rodada dessas é uma chance de fechar a aba.
+ */
+export function pendencias(regras: Regra[]): Regra[] {
+  return regras.filter((r) => !r.ok);
+}
+
+/** "CPF, WhatsApp e Cidade" — vírgula até o penúltimo, "e" no último. */
+export function listar(itens: string[]): string {
+  if (itens.length <= 1) return itens[0] || "";
+  return `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`;
+}
+
+/** E-mail com cara de e-mail. Não valida se existe — valida se dá pra tentar. */
+export const emailValido = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+
+/** Rola até o primeiro campo marcado com erro, depois de uma tentativa de envio. */
+export function rolarAteOErro() {
+  requestAnimationFrame(() => {
+    const alvo = document.querySelector('[data-erro="1"]');
+    alvo?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
 }
 
 /** Lista de funções vinda do banco — mesma taxonomia nos dois formulários. */
@@ -80,9 +119,10 @@ export function useFuncoes() {
 
 /** Seleção de funções (o ponto que o Djêisson pediu pra filtrar rápido depois). */
 export function SeletorFuncoes({
-  tema, selecionadas, onChange,
+  tema, selecionadas, onChange, obrigatorio, erro,
 }: {
   tema: Tema; selecionadas: string[]; onChange: (v: string[]) => void;
+  obrigatorio?: boolean; erro?: boolean;
 }) {
   const s = est(tema);
   const { data: funcoes = [] } = useFuncoes();
@@ -96,8 +136,11 @@ export function SeletorFuncoes({
   }, {} as Record<string, typeof funcoes>);
 
   return (
-    <div>
-      <label className={s.rotulo}>Funções — marque tudo que você faz</label>
+    <div data-erro={erro ? "1" : undefined}>
+      <label className={s.rotulo}>
+        Funções — marque tudo que você faz {obrigatorio && <span className="text-red-500">*</span>}
+      </label>
+      {erro && <p className="mb-2 text-xs text-red-500">Marque pelo menos uma função — é por ela que a gente encontra você.</p>}
       <div className="space-y-3">
         {Object.entries(grupos).map(([grupo, itens]) => (
           <div key={grupo}>

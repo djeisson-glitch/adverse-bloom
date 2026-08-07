@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Secao, Linha, Campo, SeletorFuncoes, Enviado, est } from "@/components/cadastro/CamposCadastro";
+import {
+  Secao, Linha, Campo, SeletorFuncoes, Enviado, est,
+  pendencias, listar, emailValido, rolarAteOErro, type Regra,
+} from "@/components/cadastro/CamposCadastro";
 import { CabecalhoPublico, RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 
 /** Cadastro público de FREELANCER (tema claro). Mesma entrada por RPC. */
@@ -24,11 +27,47 @@ export default function CadastroFreelancer() {
   const [enviando, setEnviando] = useState(false);
   const [pronto, setPronto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [faltando, setFaltando] = useState<Set<string>>(new Set());
   const set = (k: keyof typeof f) => (v: string) => setF((o) => ({ ...o, [k]: v }));
+  const falta = (c: string) => faltando.has(c);
+
+  /**
+   * Obrigatórios — o mesmo conjunto que a RPC exige.
+   *
+   * A régua: o que é preciso pra CHAMAR, CONTRATAR e AVALIAR o trabalho.
+   *
+   * "Portfólio OU Instagram" e não os dois: o objetivo é conseguir ver o
+   * trabalho da pessoa, e um dos dois já resolve. Exigir link específico
+   * excluiria quem só tem Instagram, e exigir os dois é burocracia.
+   *
+   * Dado bancário, PJ e valor da diária continuam opcionais de propósito:
+   * é informação sensível ou negociável, num formulário público, e travar o
+   * cadastro nela custa freelancer bom que preenche pela metade e desiste.
+   */
+  const regras: Regra[] = [
+    { campo: "nome_completo", rotulo: "Nome completo", ok: !!f.nome_completo.trim() },
+    { campo: "email", rotulo: "E-mail", ok: emailValido(f.email) },
+    { campo: "whatsapp", rotulo: "WhatsApp", ok: !!f.whatsapp.trim() },
+    { campo: "cpf", rotulo: "CPF", ok: !!f.cpf.trim() },
+    { campo: "funcoes", rotulo: "Funções", ok: funcoes.length > 0 },
+    { campo: "cidade", rotulo: "Cidade", ok: !!f.cidade.trim() },
+    { campo: "estado", rotulo: "Estado", ok: !!f.estado.trim() },
+    { campo: "trabalho", rotulo: "Portfólio ou Instagram", ok: !!(f.portfolio.trim() || f.instagram.trim()) },
+  ];
 
   const enviar = async () => {
     setErro(null);
-    if (!f.nome_completo.trim() || !f.email.trim()) { setErro("Preencha o nome completo e o e-mail."); return; }
+    const faltam = pendencias(regras);
+    setFaltando(new Set(faltam.map((r) => r.campo)));
+    if (faltam.length) {
+      setErro(
+        faltam.length === 1 && faltam[0].campo === "email" && f.email.trim()
+          ? "Confira o e-mail — parece incompleto."
+          : `Faltou preencher: ${listar(faltam.map((r) => r.rotulo))}.`,
+      );
+      rolarAteOErro();
+      return;
+    }
     setEnviando(true);
     const { error } = await (supabase as any).rpc("cadastro_freelancer_submit", {
       p: { ...f, funcoes, sem_restricao: semRestricao },
@@ -51,10 +90,11 @@ export default function CadastroFreelancer() {
 
         <div className="space-y-5">
           <Secao titulo="Dados pessoais" tema={tema}>
-            <Campo rotulo="Nome completo" tema={tema} obrigatorio valor={f.nome_completo} onChange={set("nome_completo")} />
+            <Campo rotulo="Nome completo" tema={tema} obrigatorio erro={falta("nome_completo")} valor={f.nome_completo} onChange={set("nome_completo")} />
             <Linha>
-              <Campo rotulo="Instagram" tema={tema} valor={f.instagram} onChange={set("instagram")} placeholder="@usuario" />
-              <Campo rotulo="Portfólio" tema={tema} valor={f.portfolio} onChange={set("portfolio")} placeholder="https://..." />
+              <Campo rotulo="Instagram" tema={tema} obrigatorio erro={falta("trabalho")} valor={f.instagram} onChange={set("instagram")} placeholder="@usuario" />
+              <Campo rotulo="Portfólio" tema={tema} obrigatorio erro={falta("trabalho")} valor={f.portfolio} onChange={set("portfolio")}
+                placeholder="site, Vimeo, Behance, Drive…" ajuda="Portfólio ou Instagram — precisamos de pelo menos um pra ver seu trabalho." />
             </Linha>
             <Linha>
               <Campo rotulo="Nome artístico / apelido profissional" tema={tema} valor={f.nome_artistico} onChange={set("nome_artistico")} />
@@ -67,7 +107,7 @@ export default function CadastroFreelancer() {
             </Linha>
             <Campo rotulo="Condições comerciais" tema={tema} area valor={f.condicoes_comerciais} onChange={set("condicoes_comerciais")} placeholder="Ex: Aceito PIX, emito nota fiscal MEI..." />
             <Linha>
-              <Campo rotulo="CPF" tema={tema} valor={f.cpf} onChange={set("cpf")} placeholder="000.000.000-00" />
+              <Campo rotulo="CPF" tema={tema} obrigatorio erro={falta("cpf")} valor={f.cpf} onChange={set("cpf")} placeholder="000.000.000-00" />
               <Campo rotulo="RG" tema={tema} valor={f.rg} onChange={set("rg")} />
             </Linha>
             <Linha>
@@ -75,17 +115,17 @@ export default function CadastroFreelancer() {
               <Campo rotulo="Data de nascimento" tema={tema} tipo="date" valor={f.data_nascimento} onChange={set("data_nascimento")} />
             </Linha>
             <Linha>
-              <Campo rotulo="E-mail" tema={tema} obrigatorio tipo="email" valor={f.email} onChange={set("email")} />
-              <Campo rotulo="WhatsApp" tema={tema} valor={f.whatsapp} onChange={set("whatsapp")} />
+              <Campo rotulo="E-mail" tema={tema} obrigatorio erro={falta("email")} tipo="email" valor={f.email} onChange={set("email")} />
+              <Campo rotulo="WhatsApp" tema={tema} obrigatorio erro={falta("whatsapp")} valor={f.whatsapp} onChange={set("whatsapp")} />
             </Linha>
             <Linha>
-              <Campo rotulo="Cidade" tema={tema} valor={f.cidade} onChange={set("cidade")} />
-              <Campo rotulo="Estado" tema={tema} valor={f.estado} onChange={set("estado")} placeholder="UF" />
+              <Campo rotulo="Cidade" tema={tema} obrigatorio erro={falta("cidade")} valor={f.cidade} onChange={set("cidade")} />
+              <Campo rotulo="Estado" tema={tema} obrigatorio erro={falta("estado")} valor={f.estado} onChange={set("estado")} placeholder="UF" />
             </Linha>
           </Secao>
 
           <Secao titulo="O que você faz" tema={tema}>
-            <SeletorFuncoes tema={tema} selecionadas={funcoes} onChange={setFuncoes} />
+            <SeletorFuncoes tema={tema} selecionadas={funcoes} onChange={setFuncoes} obrigatorio erro={falta("funcoes")} />
           </Secao>
 
           <Secao titulo="Dados jurídicos (se emite nota por PJ)" tema={tema}>
