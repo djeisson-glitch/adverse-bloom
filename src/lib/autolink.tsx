@@ -20,8 +20,14 @@ import type { ReactNode } from "react";
 // entra: "veja em exemplo.com/a." não deve levar o ponto pro href.
 const RE_URL = /((?:https?:\/\/|www\.)[^\s<>"')\]]+[^\s<>"')\].,;:!?])/gi;
 
-/** Só http/https viram link — javascript: e data: ficam como texto puro. */
-function hrefSeguro(bruto: string): string | null {
+/**
+ * Só http/https viram link — javascript: e data: ficam como texto puro.
+ *
+ * Exportado porque o portfólio do banco de talentos precisa da MESMA regra:
+ * ali o link também vem de formulário público, e uma segunda implementação
+ * do "que protocolo é seguro" é uma segunda chance de errar.
+ */
+export function hrefSeguro(bruto: string): string | null {
   const url = bruto.startsWith("www.") ? `https://${bruto}` : bruto;
   try {
     const u = new URL(url);

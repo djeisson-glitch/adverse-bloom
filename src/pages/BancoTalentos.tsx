@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useFuncoes } from "@/components/cadastro/CamposCadastro";
-import { Users, Truck, Copy, Check, Link2, Search, Lock, ChevronDown } from "lucide-react";
+import { Users, Truck, Copy, Check, Link2, Search, Lock, ChevronDown, Instagram, Globe } from "lucide-react";
+import { linkPortfolio, linkInstagram, rotuloLink } from "@/lib/perfilLinks";
 import { toast } from "sonner";
 
 /**
@@ -53,7 +54,8 @@ export default function BancoTalentos() {
     const q = busca.trim().toLowerCase();
     return base.filter((x) => {
       const casaFuncao = !funcao || (x.funcoes || []).includes(funcao);
-      const casaBusca = !q || `${x._nome} ${x._contato} ${x.cidade || ""}`.toLowerCase().includes(q);
+      const casaBusca = !q ||
+        `${x._nome} ${x._contato} ${x.cidade || ""} ${x.portfolio || ""} ${x.instagram || ""}`.toLowerCase().includes(q);
       return casaFuncao && casaBusca;
     });
   }, [aba, fornecedores, freelancers, busca, funcao]);
@@ -128,10 +130,14 @@ export default function BancoTalentos() {
                 const aberto = abertos.has(p.id);
                 return (
                   <li key={p.id}>
-                    {/* Cabeçalho da linha — clicável, abre/fecha */}
+                    {/* O botão de expandir NÃO embrulha a linha inteira: os
+                        links de portfólio precisam ser <a> de verdade, e <a>
+                        dentro de <button> é HTML inválido — o clique abriria
+                        e fecharia a linha em vez de abrir o site. */}
+                    <div className="flex w-full flex-wrap items-start gap-3 px-5 py-3 hover:bg-muted/20">
                     <button
                       onClick={() => toggle(p.id)}
-                      className="flex w-full flex-wrap items-start gap-3 px-5 py-3 text-left hover:bg-muted/20"
+                      className="flex min-w-0 flex-1 items-start gap-3 text-left"
                     >
                       <ChevronDown className={`mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />
                       <div className="min-w-0 flex-1">
@@ -154,10 +160,14 @@ export default function BancoTalentos() {
                           </div>
                         )}
                       </div>
-                      {p.valor_diaria != null && (
-                        <span className="shrink-0 text-xs text-muted-foreground">diária ~ R$ {Number(p.valor_diaria).toFixed(0)}</span>
-                      )}
                     </button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <LinksPerfil portfolio={p.portfolio} instagram={p.instagram} />
+                        {p.valor_diaria != null && (
+                          <span className="text-xs text-muted-foreground">diária ~ R$ {Number(p.valor_diaria).toFixed(0)}</span>
+                        )}
+                      </div>
+                    </div>
 
                     {aberto && <DetalheTalento aba={aba} p={p} nomeFuncao={nomeFuncao} />}
                   </li>
@@ -172,6 +182,50 @@ export default function BancoTalentos() {
         <Lock className="h-3 w-3" /> Conta bancária e chave PIX só aparecem pra quem paga (admin/gestão).
       </p>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------ ver o trabalho */
+
+/**
+ * Portfólio e Instagram como botão, na linha — o pedido do Djêisson: "pra
+ * gente conseguir visualizar de forma rápida o trabalho de cada um".
+ *
+ * Fica no cabeçalho e não só no detalhe de propósito: olhar o trabalho de
+ * cinco cinegrafistas pra escolher um é o gesto real, e abrir/fechar cinco
+ * fichas pra isso é o que a tela existia pra evitar.
+ *
+ * Link que não dá pra abrir (a pessoa escreveu "mando por WhatsApp") não vira
+ * botão — vira nada. Botão que leva a lugar nenhum é pior que campo vazio.
+ */
+function LinksPerfil({ portfolio, instagram }: { portfolio?: string | null; instagram?: string | null }) {
+  const site = linkPortfolio(portfolio);
+  const insta = linkInstagram(instagram);
+  if (!site && !insta) return null;
+  const cls = "rounded-md border border-border/60 p-1.5 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary";
+  return (
+    <>
+      {site && (
+        <a href={site} target="_blank" rel="noreferrer" className={cls} title={`Portfólio: ${rotuloLink(portfolio)}`}>
+          <Globe className="h-3.5 w-3.5" />
+        </a>
+      )}
+      {insta && (
+        <a href={insta} target="_blank" rel="noreferrer" className={cls} title={`Instagram: ${rotuloLink(instagram)}`}>
+          <Instagram className="h-3.5 w-3.5" />
+        </a>
+      )}
+    </>
+  );
+}
+
+/** O mesmo link, escrito, pro detalhe. */
+function LinkTexto({ href, texto }: { href: string | null; texto?: string | null }) {
+  if (!href) return <>{texto || ""}</>;
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">
+      {rotuloLink(texto)}
+    </a>
   );
 }
 
@@ -194,7 +248,9 @@ function Grupo({ titulo, campos }: { titulo: string; campos: Par[] }) {
         {validos.map(([label, valor]) => (
           <div key={label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">{label}</p>
-            <p className="break-words text-sm text-foreground">{String(valor)}</p>
+            <p className="break-words text-sm text-foreground">
+              {typeof valor === "object" ? valor : String(valor)}
+            </p>
           </div>
         ))}
       </div>
@@ -214,6 +270,10 @@ function DetalheTalento({ aba, p, nomeFuncao }: { aba: Aba; p: any; nomeFuncao: 
   const grupos: { titulo: string; campos: Par[] }[] = aba === "fornecedores"
     ? [
         { titulo: "Contato", campos: [["E-mail", p.email], ["Telefone", p.telefone]] },
+        { titulo: "Trabalho", campos: [
+          ["Portfólio", p.portfolio ? <LinkTexto href={linkPortfolio(p.portfolio)} texto={p.portfolio} /> : null],
+          ["Instagram", p.instagram ? <LinkTexto href={linkInstagram(p.instagram)} texto={p.instagram} /> : null],
+        ] },
         { titulo: "Documento", campos: [["CPF / CNPJ", p.cpf_cnpj], ["Razão social", p.razao_social]] },
         { titulo: "Endereço", campos: [
           ["Endereço", juntar([p.logradouro, p.numero, p.complemento, p.bairro])],
@@ -225,8 +285,10 @@ function DetalheTalento({ aba, p, nomeFuncao }: { aba: Aba; p: any; nomeFuncao: 
       ]
     : [
         { titulo: "Contato", campos: [
-          ["E-mail", p.email], ["WhatsApp", p.whatsapp], ["Instagram", p.instagram],
-          ["Portfólio", p.portfolio], ["Cidade / UF", juntar([p.cidade, p.estado], "/")],
+          ["E-mail", p.email], ["WhatsApp", p.whatsapp],
+          ["Instagram", p.instagram ? <LinkTexto href={linkInstagram(p.instagram)} texto={p.instagram} /> : null],
+          ["Portfólio", p.portfolio ? <LinkTexto href={linkPortfolio(p.portfolio)} texto={p.portfolio} /> : null],
+          ["Cidade / UF", juntar([p.cidade, p.estado], "/")],
         ] },
         { titulo: "Perfil", campos: [
           ["Função principal", p.funcao_principal ? nomeFuncao(p.funcao_principal) : null],
