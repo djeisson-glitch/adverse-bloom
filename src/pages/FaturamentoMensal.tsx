@@ -1115,7 +1115,7 @@ function LinhaJob({ p, modelo, refMes, ocupado, onBalde, onValor, onBaldePeca }:
             onClick={() => onValor(orcamento, "orcamento")}
             className="rounded border border-primary/40 px-1.5 py-0.5 text-primary hover:bg-primary/10"
           >
-            usar o orçamento ({formatCurrency(orcamento)})
+            usar o orçamento{p.orcamento_numero ? ` #${String(p.orcamento_numero).padStart(4, "0")}` : ""} ({formatCurrency(orcamento)})
           </button>
         )}
         {combinado != null && (
