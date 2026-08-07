@@ -178,7 +178,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -277,24 +277,52 @@ export default function MinhaMesa() {
     }
   };
 
+  /**
+   * Quem está com a peça AGORA.
+   *
+   * A etapa vence o responsável. Desde que passar pra Color deixou de trocar o
+   * responsável (05/08 — e com razão: quem responde pelo entregável de ponta a
+   * ponta não muda), a mesa continuou filtrando só por `responsavel_id`. A
+   * peça ia pro color no banco e não chegava na mesa de ninguém: sumia da
+   * lista de quem passou e nunca aparecia na de quem recebeu.
+   *
+   * Media três peças assim hoje — duas em color com o Djêisson, que nunca as
+   * viu. Era esse o "passar de etapa pra etapa não está funcionando".
+   */
+  const quemEstaCom = (d: any) => d.etapa_responsavel_id || d.responsavel_id;
+  const nomeEtapa = (slug: string) => etapas.find((e: any) => e.slug === slug)?.nome || slug;
+
+  // Nomes das etapas — a mesa mostra "Sua vez — Color", não "color".
+  const { data: etapas = [] } = useQuery({
+    queryKey: ["etapas-pos"],
+    queryFn: async () => (await (supabase as any).from("etapas_pos").select("slug, nome").order("ordem")).data || [],
+    staleTime: 60 * 60 * 1000,
+  });
+
   // ---------- Feed pessoal ----------
   const itens = useMemo<Item[]>(() => {
     if (!user?.id) return [];
     const out: Item[] = [];
 
-    // EDITOR: meus entregáveis abertos. Alteração do cliente entra DENTRO do item
-    // (não como linha separada) — some a duplicidade.
+    // EDITOR: os entregáveis que estão COMIGO agora. Alteração do cliente entra
+    // DENTRO do item (não como linha separada) — some a duplicidade.
     deliverables
-      .filter((d) => d.responsavel_id === user.id && ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
+      .filter((d) => quemEstaCom(d) === user.id && ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
       .forEach((d) => {
         const alt = altAbertaDe(d.id);
         const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
+        // Peça que chegou POR ETAPA diz qual trabalho é. "Começar edição" numa
+        // peça que veio pro color manda a pessoa fazer a coisa errada — e o
+        // nome da etapa é a única informação que distingue as duas.
+        const porEtapa = !!d.etapa_responsavel_id && d.etapa_atual
+          ? nomeEtapa(d.etapa_atual) : null;
         out.push({
           key: `edit-${d.id}`, tipo: "editar", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
           nota: alt ? `Alteração do cliente: ${alt.titulo}` : undefined,
           acao: ajuste
             ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
+            : porEtapa ? `Sua vez — ${porEtapa}`
             : d.status === "pendente" ? "Começar edição"
             : d.status === "em_pausa" ? "Retomar edição"
             : d.status === "em_edicao" ? "Editando" : "Continuar",
