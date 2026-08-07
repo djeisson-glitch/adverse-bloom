@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFiltro } from "@/hooks/useFiltro";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
+import { BALDES, rotuloCurto } from "@/lib/faturamentoBalde";
 import { CustosLinhas, type ItemCusto } from "@/components/producao/CustosLinhas";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -206,6 +207,50 @@ export default function FaturamentoMensal() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
     onError: (e: any) => toast.error("Não trocou", { description: e.message }),
+  });
+
+  /**
+   * Mudar o balde de um projeto (ou de uma peça) e o valor combinado — daqui,
+   * sem abrir o job.
+   *
+   * Era o pedido: "um botão simples pra clicar em faturar separado, seria
+   * mais fácil que dentro da tarefa/projeto". Decidir dentro de cada job é
+   * como o Sul Minas ficou com dois projetos marcados como nota separada e
+   * as peças deles fixadas em 'mensal' — a nota saiu zero e não havia tela
+   * onde isso aparecesse.
+   *
+   * Toda mutação regera o rascunho na sequência: número na tela que não
+   * acompanha o clique é número em que ninguém confia.
+   */
+  const regerar = async () => {
+    const { error } = await (supabase as any).rpc("gerar_faturamento_mensal", {
+      _ref_mes: ref, _client: null, _apenas_auto: false,
+    });
+    if (error) throw error;
+  };
+
+  const mudarProjeto = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
+      const { data, error } = await (supabase as any)
+        .from("projects").update(patch).eq("id", id).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("sem permissão para alterar este projeto");
+      await regerar();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
+    onError: (e: any) => toast.error("Não mudou", { description: e.message }),
+  });
+
+  const mudarPeca = useMutation({
+    mutationFn: async ({ did, balde }: { did: string; balde: string | null }) => {
+      const { data, error } = await (supabase as any)
+        .from("deliverables").update({ faturamento: balde }).eq("id", did).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("sem permissão para alterar esta peça");
+      await regerar();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["faturamento_mensal", ref] }),
+    onError: (e: any) => toast.error("Não mudou", { description: e.message }),
   });
 
   /**
@@ -681,40 +726,25 @@ export default function FaturamentoMensal() {
 
                       {/* Horas por projeto */}
                       {Array.isArray(f.detalhe?.por_projeto) && f.detalhe.por_projeto.length > 0 && (
-                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo="Horas por projeto (jobs criados no mês)">
-                          <div className="space-y-1">
-                            {/* A data de criação vem junto porque a pergunta
-                                "esse projeto não é de junho?" nasce todo
-                                fechamento: o nome carrega a data no prefixo
-                                (#20261206 = 12/jun) e bate o olho como erro de
-                                mês. Projeto de mês anterior aparecendo aqui é
-                                NORMAL — o fechamento por horas cobra o trabalho
-                                do mês, não os projetos nascidos no mês. */}
-                            {f.detalhe.por_projeto.map((p: any, i: number) => {
-                              const antigo = mesAnterior(p.criacao, f.ref_mes);
-                              return (
-                              <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                  <span className="truncate text-muted-foreground">{p.projeto}</span>
-                                  {p.criacao && (
-                                    <span
-                                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] ${
-                                        antigo ? "bg-muted text-muted-foreground" : "text-muted-foreground/60"
-                                      }`}
-                                      title={
-                                        antigo
-                                          ? "Projeto de mês anterior aparecendo aqui não deveria mais acontecer — o corte agora é pela criação. Se aparecer, é sinal de erro: me avise."
-                                          : "Data de criação do projeto"
-                                      }
-                                    >
-                                      criado {new Date(p.criacao).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="shrink-0 text-foreground">{fmtHoras(p.horas)} <span className="text-muted-foreground">(ed {fmtHoras(p.horas_edicao)} · alt {fmtHoras(p.horas_alteracao)})</span></span>
-                              </div>
-                              );
-                            })}
+                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo={`Jobs do mês (${f.detalhe.por_projeto.length}) — onde se decide a nota`}>
+                          <div className="space-y-2">
+                            {f.detalhe.por_projeto.map((p: any, i: number) => (
+                              <LinhaJob
+                                key={p.project_id || i}
+                                p={p}
+                                modelo={f.detalhe?.modelo}
+                                refMes={f.ref_mes}
+                                ocupado={mudarProjeto.isPending || mudarPeca.isPending}
+                                onBalde={(balde) => mudarProjeto.mutate({ id: p.project_id, patch: { faturamento: balde } })}
+                                onValor={(valor, origem) =>
+                                  mudarProjeto.mutate({
+                                    id: p.project_id,
+                                    patch: { valor_fechamento: valor, valor_fechamento_origem: valor == null ? null : origem },
+                                  })
+                                }
+                                onBaldePeca={(did, balde) => mudarPeca.mutate({ did, balde })}
+                              />
+                            ))}
                           </div>
                         </Bloco>
                       )}
@@ -957,6 +987,172 @@ function Kpi({ label, v, destaque }: { label: string; v: string; destaque?: bool
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-sm ${destaque ? "font-bold text-primary" : "font-medium text-foreground"}`}>{v}</p>
+    </div>
+  );
+}
+
+/**
+ * Uma linha por job do mês: o que ele deu, quanto vale, em qual nota entra.
+ *
+ * É o painel que faltava. As três decisões do fechamento — em qual nota o job
+ * cai, quanto ele vale, e se alguma peça dele foge da regra do job — moravam
+ * em três telas diferentes, cada uma dentro de um projeto. Quem fecha o mês
+ * olha trinta jobs; abrir trinta fichas pra decidir é o trabalho que a tela
+ * existia pra tirar.
+ *
+ * A lista de peças só abre quando ALGUMA peça diverge do balde do job. É o
+ * caso raro, e é exatamente o que explica uma nota separada em zero — mostrar
+ * as peças sempre esconderia esse sinal no meio do ruído.
+ */
+function LinhaJob({ p, modelo, refMes, ocupado, onBalde, onValor, onBaldePeca }: {
+  p: any; modelo?: string; refMes?: string; ocupado: boolean;
+  onBalde: (b: string) => void;
+  onValor: (v: number | null, origem: "orcamento" | "manual") => void;
+  onBaldePeca: (did: string, balde: string | null) => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [txt, setTxt] = useState("");
+  const balde = String(p.balde || "mensal");
+  const antigo = mesAnterior(p.criacao, refMes);
+  const pecas: any[] = Array.isArray(p.pecas) ? p.pecas : [];
+  const divergem = pecas.filter((pc) => String(pc.balde) !== balde);
+  const orcamento = Number(p.orcamento_valor || 0);
+  const combinado = p.valor_fechamento != null ? Number(p.valor_fechamento) : null;
+  // No modelo horas o valor calculado é horas × valor-hora; no de tabela ele
+  // sai da soma das peças e vive no bloco de entregas, então aqui a conta por
+  // hora aparece como referência.
+  const valorHoras = Number(p.valor_horas || 0);
+
+  const confirmar = () => {
+    const n = Number(txt.replace(/\./g, "").replace(",", "."));
+    setEditando(false);
+    if (!txt.trim()) return onValor(null, "manual");
+    if (!Number.isFinite(n) || n < 0) return toast.error("Valor inválido");
+    onValor(n, "manual");
+  };
+
+  return (
+    <div className={`rounded-md border p-2 ${balde === "mensal" ? "border-border/40" : "border-warning/30 bg-warning/[0.04]"}`}>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="min-w-0 flex-1 truncate">
+          {p.numero && <span className="text-muted-foreground">{p.numero} · </span>}
+          {p.projeto}
+          {p.criacao && (
+            <span
+              className={`ml-1.5 rounded px-1 py-0.5 text-[9px] ${antigo ? "bg-muted text-muted-foreground" : "text-muted-foreground/60"}`}
+              title={antigo
+                ? "Projeto de mês anterior aparecendo aqui não deveria mais acontecer — o corte agora é pela criação. Se aparecer, me avise."
+                : "Data de criação do projeto"}
+            >
+              {new Date(p.criacao).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            </span>
+          )}
+        </span>
+
+        <span className="shrink-0 tabular-nums text-muted-foreground" title="horas apontadas no job neste mês">
+          {fmtHoras(p.horas)}
+        </span>
+
+        {/* Em qual nota o job entra — um clique, sem abrir o job. */}
+        <select
+          value={balde}
+          disabled={ocupado}
+          onChange={(e) => onBalde(e.target.value)}
+          className={`h-6 shrink-0 rounded border bg-transparent px-1 text-[11px] ${
+            balde === "mensal" ? "border-border/50 text-muted-foreground" : "border-warning/50 text-warning"
+          }`}
+          title="em qual nota este job entra"
+        >
+          {BALDES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+        </select>
+
+        {/* Valor combinado. Vazio = calcula pelo normal. */}
+        {editando ? (
+          <input
+            autoFocus
+            value={txt}
+            onChange={(e) => setTxt(e.target.value)}
+            onBlur={confirmar}
+            onKeyDown={(e) => { if (e.key === "Enter") confirmar(); if (e.key === "Escape") setEditando(false); }}
+            placeholder="vazio = calcular"
+            className="h-6 w-28 shrink-0 rounded border border-primary/50 bg-transparent px-1 text-right text-[11px]"
+          />
+        ) : (
+          <button
+            disabled={ocupado}
+            onClick={() => { setTxt(combinado != null ? String(combinado).replace(".", ",") : ""); setEditando(true); }}
+            title={combinado != null
+              ? `valor combinado (${p.valor_origem === "orcamento" ? "do orçamento" : "digitado"}) — clique para editar`
+              : "clique para combinar um valor fixo para este job"}
+            className={`h-6 w-28 shrink-0 rounded border px-1 text-right tabular-nums text-[11px] ${
+              combinado != null ? "border-primary/50 text-foreground" : "border-dashed border-border/50 text-muted-foreground"
+            }`}
+          >
+            {combinado != null ? formatCurrency(combinado) : modelo === "horas" ? formatCurrency(valorHoras) : "combinar"}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[10px] text-muted-foreground">
+        {combinado != null ? (
+          <span>
+            Vale <b className="text-foreground">{formatCurrency(combinado)}</b>{" "}
+            {p.valor_origem === "orcamento" ? "pelo orçamento" : "por acordo"} — as horas deste job saem da conta por hora.
+          </span>
+        ) : modelo === "horas" ? (
+          <span>{fmtHoras(p.horas)} × valor-hora = {formatCurrency(valorHoras)}</span>
+        ) : (
+          <span>Cobrado pelas peças (ver Entregas do mês)</span>
+        )}
+
+        {/* O atalho do pedido: job que já tem orçamento entra pelo valor
+            vendido, porque foi trabalhado de forma individual. Não é
+            automático — preço de cliente mudando por efeito colateral de
+            outra ação é como se perde a confiança no número. */}
+        {orcamento > 0 && combinado !== orcamento && (
+          <button
+            disabled={ocupado}
+            onClick={() => onValor(orcamento, "orcamento")}
+            className="rounded border border-primary/40 px-1.5 py-0.5 text-primary hover:bg-primary/10"
+          >
+            usar o orçamento ({formatCurrency(orcamento)})
+          </button>
+        )}
+        {combinado != null && (
+          <button
+            disabled={ocupado}
+            onClick={() => onValor(null, "manual")}
+            className="rounded border border-border/50 px-1.5 py-0.5 hover:text-foreground"
+          >
+            voltar ao cálculo
+          </button>
+        )}
+      </div>
+
+      {/* Peça que não segue o job. É o sinal que explicava a nota em zero. */}
+      {divergem.length > 0 && (
+        <div className="mt-1.5 space-y-1 rounded border border-destructive/30 bg-destructive/[0.05] p-1.5">
+          <p className="text-[10px] text-destructive">
+            {divergem.length} {divergem.length === 1 ? "peça está" : "peças estão"} em nota diferente da do job —
+            a marcação da peça vence a do job.
+          </p>
+          {divergem.map((pc: any) => (
+            <div key={pc.deliverable_id} className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="min-w-0 truncate">{pc.entregavel}</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <span className="text-muted-foreground">{rotuloCurto(pc.balde)}</span>
+                <button
+                  disabled={ocupado}
+                  onClick={() => onBaldePeca(pc.deliverable_id, null)}
+                  className="rounded border border-border/50 px-1.5 py-0.5 hover:text-foreground"
+                >
+                  seguir o job
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
