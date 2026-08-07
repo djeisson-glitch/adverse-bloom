@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { fmtDuracao } from "@/lib/duracao";
 import { primeiroNome } from "@/lib/pessoa";
 import { toast } from "sonner";
@@ -33,6 +33,8 @@ export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: 
   const qc = useQueryClient();
   const { user } = useAuth();
   const [abrirTrilha, setAbrirTrilha] = useState(false);
+  const [destino, setDestino] = useState<string>("");
+  const [quem, setQuem] = useState<string>("");
 
   const { data: etapas = [] } = useQuery({
     queryKey: ["etapas-pos"],
@@ -62,15 +64,41 @@ export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: 
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["etapas-profiles"],
-    queryFn: async () => (await (supabase as any).from("profiles").select("id, full_name, avatar_url")).data || [],
+    queryFn: async () => (await (supabase as any).from("profiles")
+      .select("id, full_name, avatar_url, ativo").neq("ativo", false).order("full_name")).data || [],
+  });
+
+  // Quem faz cada etapa. Serve pra pôr os candidatos no topo da lista — o
+  // resto do time continua escolhível, porque a vida real tem substituição.
+  const { data: candidatos = [] } = useQuery({
+    queryKey: ["etapa-candidatos"],
+    queryFn: async () => (await (supabase as any).from("etapa_candidatos")
+      .select("etapa, user_id, preferencia").order("preferencia")).data || [],
+    staleTime: 60 * 60 * 1000,
   });
 
   const atual = etapas.find((e: any) => e.slug === peca?.etapa_atual);
   const proxima = etapas.find((e: any) => e.ordem === (atual?.ordem ?? 0) + 1);
 
-  const mover = async (slug: string | null, eu: boolean) => {
+  // Quem faz a etapa escolhida vem primeiro na lista; o resto do time continua
+  // lá embaixo, porque a vida real tem substituição e férias.
+  const ehCandidato = (uid: string) =>
+    candidatos.some((c: any) => c.etapa === (destino || proxima?.slug) && c.user_id === uid);
+  const ordenados = [...profiles].sort(
+    (a: any, b: any) => Number(ehCandidato(b.id)) - Number(ehCandidato(a.id)),
+  );
+
+  // Abre o painel já apontando pro caminho comum: a próxima etapa, sugerido.
+  const abrirPainel = () => {
+    setDestino(proxima?.slug || atual?.slug || etapas[0]?.slug || "");
+    setQuem("");
+    setAbrirTrilha(true);
+  };
+
+  /** `pessoa` explícita vence tudo; null deixa o sistema sugerir. */
+  const mover = async (slug: string | null, eu: boolean, pessoa?: string | null) => {
     const { data, error } = await (supabase as any).rpc("mover_etapa", {
-      _deliverable_id: did, _etapa: slug, _user_id: eu ? user?.id : null,
+      _deliverable_id: did, _etapa: slug, _user_id: pessoa ?? (eu ? user?.id : null),
     });
     if (error || data?.erro) return toast.error("Não deu", { description: error?.message || data?.erro });
     const nome = etapas.find((e: any) => e.slug === slug)?.nome;
@@ -122,22 +150,13 @@ export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: 
         {/* UM botão, não três. Antes havia "Continuo eu · X", "Passar pra X" e
             "outra etapa" lado a lado, competindo com o "Enviar para revisão"
             do fluxo — quatro coisas com cara de avançar, e nenhuma dizendo
-            qual é a normal. O caminho comum (passar adiante pra próxima
-            etapa, com a pessoa sugerida) fica no botão; os outros dois viram
-            uma linha discreta, que é a frequência real deles. */}
-        {mover_ok && proxima && (
-          <Button size="sm" className="h-7 text-xs" onClick={() => mover(proxima.slug, false)}>
-            <ArrowRight className="mr-1 h-3 w-3" /> Passar pra {proxima.nome}
-          </Button>
-        )}
-
+            qual é a normal. Agora é uma decisão só, e ela abre onde a decisão
+            de fato mora: pra qual etapa e COM QUEM. */}
         {mover_ok && (
-          <button
-            onClick={() => setAbrirTrilha((v) => !v)}
-            className="flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            outra etapa, ou sigo eu <ChevronDown className={`h-3 w-3 transition-transform ${abrirTrilha ? "rotate-180" : ""}`} />
-          </button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => (abrirTrilha ? setAbrirTrilha(false) : abrirPainel())}>
+            <ArrowRight className="mr-1 h-3 w-3" /> Passar adiante
+            <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${abrirTrilha ? "rotate-180" : ""}`} />
+          </Button>
         )}
 
         {/* Passou por: o histórico fica na mesma linha enquanto couber — é
@@ -153,37 +172,58 @@ export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: 
         )}
       </div>
 
-      {/* Trilha completa: pular etapa que não se aplica, ou tirar a peça das
-          etapas. Fechada por padrão — abrir é a exceção. */}
+      {/* Escolher A ETAPA e A PESSOA — pedido do Djêisson. Antes o sistema
+          decidia quem pegava (o candidato com menos fila) e só dava a opção
+          "ou continuo eu"; na prática quem coordena sabe pra quem vai antes
+          do sistema. A sugestão continua, agora como valor inicial da lista,
+          não como decisão. */}
       {mover_ok && abrirTrilha && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* "Sigo eu" mora aqui, junto das outras etapas: é a mesma decisão
-              (pra onde vai e com quem), e ter um botão irmão só pra isso
-              fazia parecer duas decisões diferentes. */}
-          {proxima && (
-            <button
-              onClick={() => mover(proxima.slug, true)}
-              className="rounded-md border border-primary/40 px-2 py-1 text-[11px] text-primary hover:bg-primary/10"
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 bg-muted/20 p-2">
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Etapa
+            <select
+              value={destino}
+              onChange={(e) => { setDestino(e.target.value); setQuem(""); }}
+              className="mt-0.5 block h-7 w-36 rounded border border-border bg-background px-1 text-xs text-foreground"
             >
-              <Check className="mr-1 inline h-3 w-3" /> {proxima.nome}, sigo eu
+              {etapas.map((e: any) => <option key={e.slug} value={e.slug}>{e.nome}</option>)}
+            </select>
+          </label>
+
+          <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Com quem
+            <select
+              value={quem}
+              onChange={(e) => setQuem(e.target.value)}
+              className="mt-0.5 block h-7 w-40 rounded border border-border bg-background px-1 text-xs text-foreground"
+            >
+              <option value="">sugerido pelo sistema</option>
+              <option value={user?.id || ""}>eu mesmo</option>
+              {ordenados.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {primeiroNome(p.full_name)}{ehCandidato(p.id) ? " ✓" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <Button size="sm" className="h-7 text-xs" onClick={() => mover(destino, null, quem || null)}>
+            <ArrowRight className="mr-1 h-3 w-3" /> Passar
+          </Button>
+
+          {atual && (
+            <button
+              onClick={() => mover(null, false, null)}
+              className="h-7 rounded border border-border/60 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              title="A peça deixa de ser separada por etapas"
+            >
+              tirar das etapas
             </button>
           )}
-          {etapas.map((e: any) => (
-            <button
-              key={e.slug}
-              onClick={() => mover(e.slug === peca?.etapa_atual ? null : e.slug, false)}
-              title={e.slug === peca?.etapa_atual ? "Clique pra tirar a peça das etapas" : `Mover pra ${e.nome}`}
-              className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
-                e.slug === peca?.etapa_atual
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              }`}
-            >
-              {e.nome}
-            </button>
-          ))}
+          <span className="text-[10px] text-muted-foreground">✓ = faz esta etapa</span>
         </div>
       )}
+
     </div>
   );
 }
