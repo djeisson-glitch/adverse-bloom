@@ -5,6 +5,7 @@ import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { BALDES, rotuloBalde } from "@/lib/faturamentoBalde";
 import { useConfirm } from "@/components/ui/confirm";
 import { statusPill, iconeStatus } from "@/lib/statusEntregavel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -463,9 +464,13 @@ export default function ProjetoDetalhe() {
 }
 
 /**
- * Como ESTE projeto é faturado. "Mensal" entra no fechamento do mês do
- * cliente; "avulso" fica fora de toda a soma e é cobrado à parte — inclusive
- * as horas apontadas nele.
+ * Como ESTE projeto é faturado — os três baldes de `faturamentoBalde`.
+ *
+ * "No fechamento do mês" é o dia a dia. Os outros dois saem em documento
+ * próprio e diferem no PREÇO: "nota separada" continua valendo a tabela (ou o
+ * valor-hora) que o cliente já combinou, porque é o mesmo dia a dia indo pra
+ * outra área dele; "avulso" é outro projeto, cobrado por hora. Nos dois casos
+ * as horas apontadas aqui saem da soma do mês.
  *
  * Só quem enxerga dinheiro troca; o resto do time vê a marcação (precisa
  * saber que aquele job é cobrado separado), mas não mexe.
@@ -498,7 +503,7 @@ function FaturamentoProjeto({
     return (
       <HeaderInfo
         label="Faturamento"
-        value={valor === "avulso" ? "Avulso (à parte)" : "No fechamento do mês"}
+        value={rotuloBalde(valor)}
       />
     );
   }
@@ -520,8 +525,9 @@ function FaturamentoProjeto({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="mensal" className="text-xs">No fechamento do mês</SelectItem>
-          <SelectItem value="avulso" className="text-xs">Avulso — faturo à parte</SelectItem>
+          {BALDES.map((b) => (
+            <SelectItem key={b.id} value={b.id} className="text-xs">{b.label}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

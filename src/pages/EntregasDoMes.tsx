@@ -3,6 +3,7 @@ import { useFiltro } from "@/hooks/useFiltro";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { balde, rotuloCurto, foraDoFechamento } from "@/lib/faturamentoBalde";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,8 +213,10 @@ export default function EntregasDoMes() {
                     <Link to={`/projetos/${projeto.id}`} className="truncate text-sm font-medium text-foreground hover:text-primary">
                       {projeto.name}
                     </Link>
-                    {projeto.faturamento === "avulso" && (
-                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">avulso</span>
+                    {foraDoFechamento(projeto.faturamento) && (
+                      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">
+                        {rotuloCurto(projeto.faturamento)}
+                      </span>
                     )}
                   </div>
                   {entregas.map((e: any) => {
@@ -227,15 +230,16 @@ export default function EntregasDoMes() {
                         <Link to={`/projetos/${projeto.id}/entregaveis/${e.id}`} className="min-w-0 flex-1 truncate text-muted-foreground hover:text-foreground">
                           {e.titulo}
                         </Link>
-                        {/* A peça saiu (ou voltou) na mão, contra o que o
-                            projeto diz. Sem esta marca, quem confere o mês
-                            aqui conta uma peça que a carta não cobra — e as
-                            duas telas discordam sem dizer por quê. */}
-                        {e.faturamento === "avulso" && (
-                          <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">à parte</span>
-                        )}
-                        {e.faturamento === "mensal" && projeto.faturamento === "avulso" && (
-                          <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">no mês</span>
+                        {/* A peça foi marcada na mão, contra o que o projeto
+                            diz. Sem esta marca, quem confere o mês aqui conta
+                            uma peça que a carta não cobra — e as duas telas
+                            discordam sem dizer por quê. */}
+                        {e.faturamento && balde(e.faturamento) !== balde(projeto.faturamento) && (
+                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+                            foraDoFechamento(e.faturamento) ? "bg-amber-500/15 text-warning" : "bg-primary/15 text-primary"
+                          }`}>
+                            {rotuloCurto(e.faturamento)}
+                          </span>
                         )}
                         {e.responsavel_id && (
                           <span className="shrink-0 text-[11px] text-muted-foreground">
