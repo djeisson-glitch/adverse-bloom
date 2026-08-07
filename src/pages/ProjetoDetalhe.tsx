@@ -488,10 +488,20 @@ function FaturamentoProjeto({
 }) {
   const auto = useFormAutosave<Record<string, unknown>>(
     async (patch) => {
-      const { error } = await (supabase as any).from("projects").update(patch).eq("id", projectId);
+      // `.select()` e conta as linhas: sem ele o PostgREST devolve 204 mesmo
+      // quando a RLS barra tudo, e a tela diz "salvo" sobre uma gravação que
+      // não aconteceu. Foi a suspeita quando este campo parou de persistir —
+      // não era isto (a causa era a view sem a coluna), mas o silêncio que
+      // deixou a suspeita de pé é real e fecha aqui.
+      const { data, error } = await (supabase as any)
+        .from("projects").update(patch).eq("id", projectId).select("id");
       if (error) {
         toast.error("Não salvou o faturamento", { description: error.message });
         throw error;
+      }
+      if (!data?.length) {
+        toast.error("Não salvou o faturamento", { description: "Sem permissão para alterar este projeto." });
+        throw new Error("update sem efeito");
       }
       onChanged();
     },
