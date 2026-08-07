@@ -242,5 +242,11 @@
   /* Cabeçalho de tabela repete em toda página; linha não parte no meio. */
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
+
+  /* Menos na carta do cliente: ali o tfoot é o TOTAL das entregas, e um
+     total repetido no pé de cada página aparece antes do fim da lista —
+     o cliente lê um fechamento no meio do documento e pergunta qual vale.
+     Aqui ele é a última linha da tabela, uma vez só. */
+  .folha tfoot { display: table-row-group; }
   tr, img { break-inside: avoid; }
 }

@@ -75,3 +75,78 @@ export function horasDoPeriodo<T extends { deliverable_id?: string | null; proje
     return projetoNoPeriodo(t.project_id);
   });
 }
+
+/* ------------------------------------------------------------ preço da peça */
+
+export type ItemFatura = {
+  deliverable_id?: string | null;
+  preco?: number | string | null;
+  tipo?: string | null;
+  percent?: number | string | null;
+};
+
+export type Cobranca = {
+  temPreco: boolean;
+  tipoCobrado: string | null;
+  percentCobrado: number;
+  valorCobrado: number | null;
+  valorTabela: number | null;
+};
+
+/**
+ * O que a carta imprime na linha da peça.
+ *
+ * Vem da FATURA, não de um cálculo próprio da carta. A fatura é o documento;
+ * a carta explica o documento. Se a carta recalculasse o preço, um dia os
+ * dois divergiriam e o cliente teria em mãos duas contas nossas que não
+ * fecham — e a discussão não seria sobre qual está certa, seria sobre se dá
+ * pra confiar em alguma.
+ *
+ * O valor de TABELA sai da tabela de preços do cliente, casada pelo tipo, e
+ * não de dividir o cobrado pelo percentual: a peça de brinde (0%) não teria
+ * como voltar ao valor cheio por aritmética, e uma divisão por zero numa
+ * folha de cobrança é o tipo de erro que ninguém perdoa.
+ */
+export function cobrancaDaPeca(
+  peca: { id: string; tipo_cobranca?: string | null; cobranca_percent?: number | null },
+  itens: Map<string, ItemFatura>,
+  precos: Map<string, number>,
+): Cobranca {
+  const it = itens.get(peca.id);
+  // O tipo que a FATURA resolveu vence o que está na peça: foi ele que gerou
+  // o preço. A peça pode ter sido reclassificada na revisão do fechamento.
+  const tipo = it?.tipo || peca.tipo_cobranca || null;
+  const percent = it ? Number(it.percent ?? 100) : Number(peca.cobranca_percent ?? 100);
+  return {
+    temPreco: !!it,
+    tipoCobrado: tipo,
+    percentCobrado: percent,
+    valorCobrado: it ? Number(it.preco || 0) : null,
+    valorTabela: tipo ? precos.get(String(tipo).toLowerCase()) ?? null : null,
+  };
+}
+
+/**
+ * A carta e a fatura falam dos mesmos números?
+ *
+ * Divergem quando o rascunho do fechamento está velho: uma peça criada
+ * depois da última geração sai na carta sem preço, e o total mente por
+ * omissão — mostra a soma do que tem preço como se fosse tudo. O aviso é de
+ * tela, nunca de impressão: quem precisa ver é quem envia, não o cliente.
+ */
+export function conferePrecos(
+  linhas: { temPreco?: boolean; valorCobrado?: number | null }[],
+  itensFatura: ItemFatura[],
+): { totalEntregas: number; totalItensFatura: number; semPreco: number; confere: boolean } {
+  const totalEntregas = linhas.reduce((s, l) => s + Number(l.valorCobrado || 0), 0);
+  const totalItensFatura = itensFatura.reduce((s, i) => s + Number(i.preco || 0), 0);
+  const semPreco = linhas.filter((l) => !l.temPreco).length;
+  // Um centavo de tolerância: os dois lados somam os MESMOS numéricos, mas em
+  // ordens diferentes, e ponto flutuante não promete associatividade.
+  return {
+    totalEntregas,
+    totalItensFatura,
+    semPreco,
+    confere: semPreco === 0 && Math.abs(totalEntregas - totalItensFatura) < 0.01,
+  };
+}
