@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   pecasDoPeriodo, alteracoesDoPeriodo, contarEntregues, horasDoPeriodo,
+  cobrancaDaPeca, conferePrecos,
 } from "./fechamentoCliente";
 
 /**
@@ -107,5 +108,93 @@ describe("o resumo nunca conta o que a tabela não lista", () => {
     const r = alteracoesDoPeriodo(alts, pecasDaCarta);
     expect(r).toHaveLength(1);
     expect(r.every((a) => pecasDaCarta.some((p) => p.id === a.deliverable_id))).toBe(true);
+  });
+});
+
+/* ---------------------------------------------------- preço na linha da carta */
+
+// Números reais do Sicredi Região da Produção, julho/2026: 30 entregas, das
+// quais 10 saíram pela metade. É esse um-terço que torna "valor de tabela" e
+// "valor cobrado" duas colunas diferentes em vez de uma repetida.
+const PRECOS = new Map([
+  ["pílula", 446.6],
+  ["pílula +", 761.25],
+  ["vídeo principal", 1268.75],
+  ["edição urgente", 497.35],
+  ["captação", 1928.5],
+]);
+
+describe("preço da peça na carta", () => {
+  it("meia entrega mostra o cheio ao lado do cobrado", () => {
+    const itens = new Map([["p1", { deliverable_id: "p1", tipo: "Pílula", percent: 50, preco: 223.3 }]]);
+    const c = cobrancaDaPeca({ id: "p1" }, itens, PRECOS);
+    expect(c.valorCobrado).toBe(223.3);
+    expect(c.valorTabela).toBe(446.6);   // o "por que não é 446,60?" respondido na própria linha
+    expect(c.percentCobrado).toBe(50);
+  });
+
+  it("o tipo da FATURA vence o que está na peça", () => {
+    // A revisão do fechamento reclassificou a peça; foi o tipo novo que gerou
+    // o preço, então é ele que a carta tem que mostrar.
+    const itens = new Map([["p1", { deliverable_id: "p1", tipo: "Vídeo principal", percent: 100, preco: 1268.75 }]]);
+    const c = cobrancaDaPeca({ id: "p1", tipo_cobranca: "Pílula" }, itens, PRECOS);
+    expect(c.tipoCobrado).toBe("Vídeo principal");
+    expect(c.valorTabela).toBe(1268.75);
+  });
+
+  it("brinde (0%) não tenta reconstruir o cheio por divisão", () => {
+    const itens = new Map([["p1", { deliverable_id: "p1", tipo: "Pílula", percent: 0, preco: 0 }]]);
+    const c = cobrancaDaPeca({ id: "p1" }, itens, PRECOS);
+    expect(c.valorCobrado).toBe(0);
+    expect(c.valorTabela).toBe(446.6);
+    expect(Number.isFinite(c.valorTabela!)).toBe(true);
+  });
+
+  it("peça sem item na fatura fica sem preço, não com zero", () => {
+    // Zero seria uma afirmação ("esta entrega é de graça"); null é a verdade
+    // ("não sei"), e é o que faz o aviso de conferência aparecer.
+    const c = cobrancaDaPeca({ id: "p9" }, new Map(), PRECOS);
+    expect(c.temPreco).toBe(false);
+    expect(c.valorCobrado).toBeNull();
+  });
+
+  it("tipo com caixa diferente ainda acha o preço", () => {
+    const itens = new Map([["p1", { deliverable_id: "p1", tipo: "PÍLULA +", percent: 100, preco: 761.25 }]]);
+    expect(cobrancaDaPeca({ id: "p1" }, itens, PRECOS).valorTabela).toBe(761.25);
+  });
+});
+
+describe("carta × fatura", () => {
+  it("bate quando toda linha tem o seu item", () => {
+    const itens = [
+      { deliverable_id: "p1", preco: 446.6 },
+      { deliverable_id: "p2", preco: 223.3 },
+    ];
+    const linhas = [
+      { temPreco: true, valorCobrado: 446.6 },
+      { temPreco: true, valorCobrado: 223.3 },
+    ];
+    const r = conferePrecos(linhas, itens);
+    expect(r.totalEntregas).toBeCloseTo(669.9, 2);
+    expect(r.confere).toBe(true);
+  });
+
+  it("acusa quando uma entrega entrou depois do rascunho", () => {
+    const itens = [{ deliverable_id: "p1", preco: 446.6 }];
+    const linhas = [
+      { temPreco: true, valorCobrado: 446.6 },
+      { temPreco: false, valorCobrado: null },   // criada depois da geração
+    ];
+    const r = conferePrecos(linhas, itens);
+    expect(r.semPreco).toBe(1);
+    expect(r.confere).toBe(false);
+  });
+
+  it("acusa quando a fatura tem item que a carta não lista", () => {
+    // O inverso do caso acima: a soma da folha ficaria MENOR que a nota, e o
+    // cliente receberia uma carta que não explica o valor que vai cobrar.
+    const itens = [{ deliverable_id: "p1", preco: 446.6 }, { deliverable_id: "p2", preco: 223.3 }];
+    const linhas = [{ temPreco: true, valorCobrado: 446.6 }];
+    expect(conferePrecos(linhas, itens).confere).toBe(false);
   });
 });

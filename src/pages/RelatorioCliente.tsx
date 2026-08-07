@@ -9,7 +9,9 @@ import { fmtDuracao } from "@/lib/duracao";
 import { PRODUTORA } from "@/lib/produtora";
 import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroDiaISO } from "@/lib/dataLocal";
-import { alteracoesDoPeriodo, contarEntregues } from "@/lib/fechamentoCliente";
+import {
+  alteracoesDoPeriodo, contarEntregues, cobrancaDaPeca, conferePrecos,
+} from "@/lib/fechamentoCliente";
 
 /**
  * Carta de fechamento do mês — o documento que vai pro cliente.
@@ -98,7 +100,7 @@ export default function RelatorioCliente() {
         ((fatur.data || []) as any[]).filter((r) => r.faturamento_efetivo === "mensal").map((r) => r.id),
       );
 
-      const [cli, fat, ent, criacao, alt, dem, dia, hrs, prof] = await Promise.all([
+      const [cli, fat, ent, criacao, alt, dem, dia, hrs, prof, precos] = await Promise.all([
         (supabase as any).from("clients").select("*").eq("id", clientId).maybeSingle(),
         (supabase as any).from("faturamento_mensal").select("*").eq("client_id", clientId).eq("ref_mes", ref).maybeSingle(),
         ids.length
@@ -121,6 +123,13 @@ export default function RelatorioCliente() {
               .in("project_id", ids)
           : Promise.resolve({ data: [] }),
         (supabase as any).from("profiles").select("id, full_name, avatar_url"),
+        // A tabela de preços do cliente — o "valor cadastrado" de cada tipo.
+        // Vem daqui e não de dividir o preço cobrado pelo percentual: a peça
+        // de brinde (0%) não teria como voltar ao valor de tabela por
+        // aritmética, e uma divisão por zero numa folha de cobrança é o tipo
+        // de erro que ninguém perdoa.
+        (supabase as any).from("client_precos").select("tipo, preco, e_diaria, ordem")
+          .eq("client_id", clientId).eq("ativo", true),
       ]);
       return {
         cliente: cli.data, fatura: fat.data,
@@ -137,6 +146,9 @@ export default function RelatorioCliente() {
           (t: any) => t.billable && (t.deliverable_id ? pecasMensais.has(t.deliverable_id) : projMensais.has(t.project_id)),
         ),
         pessoas: new Map<string, string>((prof.data || []).map((p: any) => [p.id, p.full_name])),
+        precos: new Map<string, number>(
+          ((precos.data || []) as any[]).map((r) => [String(r.tipo).toLowerCase(), Number(r.preco || 0)]),
+        ),
       };
     },
   });
@@ -164,7 +176,14 @@ export default function RelatorioCliente() {
     // listadas: exatamente o mesmo defeito que esta mudança veio corrigir,
     // reintroduzido um passo adiante. O número do resumo tem que sair da
     // mesma lista que a tabela imprime, e é isso que a linha abaixo garante.
-    const doPeriodo = entregas.filter((e: any) => data.idsDoMes.has(e.id));
+    // Peça reprovada ou cancelada não entra — a MESMA exclusão que a função
+    // de fechamento faz. Sem ela, o dia em que alguém cancelar uma entrega a
+    // carta lista uma linha que a nota não cobra, e a soma das linhas deixa
+    // de bater com a fatura. Hoje não há nenhuma nesse estado em julho; a
+    // regra existe pro dia em que houver.
+    const doPeriodo = entregas.filter(
+      (e: any) => data.idsDoMes.has(e.id) && !["reprovado", "cancelado"].includes(String(e.status || "")),
+    );
     const altDoMes = alteracoesDoPeriodo(alteracoes as any[], doPeriodo as any[]);
     const altPorEnt = new Map<string, any[]>();
     for (const a of altDoMes) {
@@ -195,11 +214,21 @@ export default function RelatorioCliente() {
 
     // (doPeriodo definido acima: peça entra quando FOI CRIADA no período — o
     // mesmo recorte da fatura.)
+    // O que foi cobrado por peça sai da FATURA, não de um cálculo próprio
+    // desta tela. A fatura é o documento; a carta explica o documento. Se a
+    // carta recalculasse o preço, um dia os dois divergiriam e o cliente
+    // teria em mãos duas contas nossas que não fecham.
+    const itensFatura: any[] = (data.fatura?.detalhe?.itens || []) as any[];
+    const cobradoPorPeca = new Map<string, any>(
+      itensFatura.filter((i) => i.deliverable_id).map((i) => [i.deliverable_id, i]),
+    );
+
     const linhas: any[] = doPeriodo.map((e: any) => {
       const dem = demPorProjeto.get(e.project_id);
       const h = hPorEnt.get(e.id) || { edic: 0, alt: 0 };
       return {
         ...e,
+        ...cobrancaDaPeca(e, cobradoPorPeca, data.precos),
         projeto: data.projetos.get(e.project_id)?.name || "",
         // Data de SOLICITAÇÃO: a da demanda quando o pedido entrou pelo
         // formulário; senão a data em que a peça foi criada no sistema, que
@@ -266,12 +295,20 @@ export default function RelatorioCliente() {
       const g = grupos.get(k);
       if (g) g.push(l); else grupos.set(k, [l]);
     }
+    const somaValor = (arr: any[]) => arr.reduce((s: number, l: any) => s + Number(l.valorCobrado || 0), 0);
     const porSolicitante = [...grupos.entries()]
-      .map(([nome, itens]) => ({ nome, itens }))
+      .map(([nome, itens]) => ({ nome, itens, valor: somaValor(itens) }))
       .sort((a, b) => (a.nome === SEM_SOLICITANTE ? 1 : b.nome === SEM_SOLICITANTE ? -1 : 0));
+
+    // Conferência que NÃO vai pro cliente (fica em bloco `no-print`): as
+    // linhas impressas têm que somar o mesmo que os itens da fatura. Divergem
+    // quando o rascunho está velho — peça criada depois da última geração
+    // sairia na carta sem preço, e o total mentiria por omissão.
+    const { totalEntregas, totalItensFatura, semPreco, confere } = conferePrecos(linhas, itensFatura);
 
     return {
       linhas, porSolicitante, porTipo, minSemPeca,
+      totalEntregas, totalItensFatura, semPreco, confere,
       totalPecas, pecasEntregues,
       totalAlt: altDoMes.length,
       minEdic: linhas.reduce((s: number, l: any) => s + l.minEdic, 0) + minSemPeca,
@@ -322,6 +359,7 @@ export default function RelatorioCliente() {
   const diariasQtd = Number(data.fatura?.detalhe?.diarias_qtd || 0);
   const diariasAbatidas = Number(data.fatura?.detalhe?.diarias_saldo_abatido || 0);
   const diariasCobradas = Number(data.fatura?.detalhe?.diarias_cobradas || 0);
+  const diariaUnitario = Number(data.fatura?.detalhe?.diarias_valor_unitario || 0);
 
   const custoLogistica = data.diarias.reduce(
     (s: number, d: any) => s + Number(d.custo_logistica || 0) + Number(d.custo_alimentacao || 0) + Number(d.custo_hospedagem || 0), 0);
@@ -409,7 +447,9 @@ export default function RelatorioCliente() {
                     <th className="py-1.5 font-medium">Cód.</th>
                     <th className="py-1.5 font-medium">Entrega</th>
                     <th className="py-1.5 font-medium">Solicitado</th>
-                    <th className="py-1.5 text-right font-medium">Tipo</th>
+                    <th className="py-1.5 font-medium">Tipo</th>
+                    <th className="py-1.5 text-right font-medium">Tabela</th>
+                    <th className="py-1.5 text-right font-medium">Valor</th>
                   </tr>
                 </thead>
                 {/* Agrupado por quem pediu, e por data dentro do grupo.
@@ -422,14 +462,22 @@ export default function RelatorioCliente() {
                         sozinho no pé de uma página, com as entregas dele na
                         seguinte. */}
                     <tr style={{ breakAfter: "avoid" }}>
-                      <td
-                        colSpan={4}
-                        className={`pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] ${gi === 0 ? "pt-2" : "pt-5"}`}
-                      >
-                        {g.nome}
-                        <span className="ml-2 font-normal normal-case tracking-normal text-[#aaa]">
+                      <td colSpan={4} className={`pb-2 ${gi === 0 ? "pt-2" : "pt-6"}`}>
+                        {/* Retângulo, não texto solto: quem lê a folha procura
+                            o próprio nome antes de olhar as entregas, e uma
+                            linha em maiúsculas cinza se perdia no meio de
+                            trinta linhas de tabela. */}
+                        <span className="inline-block rounded border border-[#111] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#111]">
+                          {g.nome}
+                        </span>
+                        <span className="ml-2 text-[10px] text-[#888]">
                           {g.itens.length} {g.itens.length === 1 ? "entrega" : "entregas"}
                         </span>
+                      </td>
+                      <td colSpan={2} className={`pb-2 text-right ${gi === 0 ? "pt-2" : "pt-6"}`}>
+                        {g.valor > 0 && (
+                          <span className="tabular-nums text-[11px] font-semibold">{formatCurrency(g.valor)}</span>
+                        )}
                       </td>
                     </tr>
                     {g.itens.map((l: any) => (
@@ -437,15 +485,60 @@ export default function RelatorioCliente() {
                         <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
                         <td className="py-1.5 pr-3">{l.titulo}</td>
                         <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
-                        <td className="py-1.5 text-right">
-                          {l.tipo_cobranca || "—"}
-                          {Number(l.cobranca_percent ?? 100) !== 100 && ` (${Number(l.cobranca_percent)}%)`}
+                        <td className="py-1.5 pr-3">
+                          {l.tipoCobrado || "—"}
+                          {l.percentCobrado !== 100 && (
+                            <span className="text-[#888]"> · {l.percentCobrado}%</span>
+                          )}
+                        </td>
+                        {/* Tabela ao lado do valor: um terço das entregas sai
+                            pela metade, e sem o preço cheio à vista a linha
+                            "Pílula · R$ 223,30" só levanta a pergunta de por
+                            que não são R$ 446,60. Com os dois, a folha se
+                            explica sozinha. */}
+                        <td className="py-1.5 pr-3 text-right tabular-nums text-[#888]">
+                          {l.valorTabela != null ? formatCurrency(l.valorTabela) : "—"}
+                        </td>
+                        <td className="py-1.5 text-right tabular-nums font-medium">
+                          {l.valorCobrado != null ? formatCurrency(l.valorCobrado) : "—"}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 ))}
+                <tfoot>
+                  <tr>
+                    <td colSpan={4} className="pt-2 text-right text-[11px] font-semibold uppercase tracking-wider">
+                      Total das entregas
+                    </td>
+                    <td />
+                    <td className="border-t-2 border-[#111] pt-2 text-right tabular-nums text-sm font-bold">
+                      {formatCurrency(calc.totalEntregas)}
+                    </td>
+                  </tr>
+                  {custoLogistica + Number(data.fatura?.detalhe?.diarias_valor || 0) > 0 && (
+                    <tr>
+                      <td colSpan={6} className="pt-1 text-right text-[10px] text-[#888]">
+                        As diárias de gravação estão detalhadas abaixo e somam à parte.
+                      </td>
+                    </tr>
+                  )}
+                </tfoot>
               </table>
+
+              {/* SÓ NA TELA. Se o rascunho do fechamento estiver velho, uma
+                  peça criada depois sai sem preço e o total mente por omissão
+                  — o Djêisson precisa ver isso antes de mandar, e o cliente
+                  nunca. */}
+              {!calc.confere && (
+                <div className="no-print mt-3 rounded border border-red-400 bg-red-50 p-2 text-[11px] text-red-700">
+                  <b>Confira antes de enviar.</b>{" "}
+                  {calc.semPreco > 0
+                    ? `${calc.semPreco} entrega(s) desta carta não têm preço na fatura — provavelmente entraram depois da última geração do rascunho.`
+                    : `A soma das linhas (${formatCurrency(calc.totalEntregas)}) difere dos itens da fatura (${formatCurrency(calc.totalItensFatura)}).`}{" "}
+                  Regere o rascunho em Faturamento e recarregue esta página.
+                </div>
+              )}
             </Secao>
 
             <Secao titulo="Resumo por tipo" inteira>
@@ -573,13 +666,22 @@ export default function RelatorioCliente() {
           <Secao titulo="Diárias de gravação" inteira>
             <div className="space-y-1 text-xs">
               {data.diarias.map((d: any) => (
-                <div key={d.data} className="flex justify-between border-b border-[#f0f0f0] py-1">
-                  <span>
+                <div key={d.data} className="flex justify-between gap-3 border-b border-[#f0f0f0] py-1">
+                  <span className="min-w-0">
                     {fmtISO(d.data)}
                     {Number(d.fracao) < 1 && <span className="text-[#888]"> · meia diária</span>}
                     {d.projetos > 1 && <span className="text-[#888]"> · {d.projetos} projetos no mesmo dia</span>}
                   </span>
-                  <span className="tabular-nums">{String(d.fracao).replace(".", ",")}</span>
+                  {/* O valor de CADA dia, pelo preço cheio de tabela. O que o
+                      saldo abate aparece na conta logo abaixo, não aqui: se o
+                      abatimento entrasse por dia, a soma da lista não bateria
+                      com nenhum dos dois números da caixa. */}
+                  <span className="shrink-0 tabular-nums">
+                    {String(d.fracao).replace(".", ",")}
+                    {diariaUnitario > 0 && (
+                      <span className="ml-2 text-[#555]">{formatCurrency(Number(d.fracao) * diariaUnitario)}</span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
