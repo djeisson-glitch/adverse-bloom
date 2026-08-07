@@ -76,8 +76,27 @@ export default function RelatorioCliente() {
       const proj = await (supabase as any)
         .from("projects").select("id, name, numero, client_id, faturamento, criado_em, created_at")
         .eq("client_id", clientId);
-      const meus = new Set((proj.data || []).filter((p: any) => p.faturamento === "mensal").map((p: any) => p.id));
-      const ids = [...meus] as string[];
+      const ids = (proj.data || []).map((p: any) => p.id) as string[];
+      // Projetos que seguem o mês. Serve só pra hora lançada solta, sem peça:
+      // não há peça a quem perguntar, então quem decide é o projeto.
+      const projMensais = new Set(
+        (proj.data || []).filter((p: any) => (p.faturamento || "mensal") === "mensal").map((p: any) => p.id),
+      );
+
+      // Quais PEÇAS entram no fechamento do mês. Vem da mesma view que a
+      // função de fechamento usa — a carta não recalcula a regra.
+      //
+      // Antes esta tela filtrava por PROJETO ("faturamento = mensal"), e isso
+      // deixou de bastar quando a separação passou a valer por peça: uma peça
+      // marcada pra nota separada continuaria impressa numa carta que não a
+      // cobra, e uma peça resgatada de um projeto avulso sumiria de uma carta
+      // que a cobra. Nos dois casos o cliente lê um documento que discorda da
+      // fatura — o erro que esta carta não pode cometer.
+      const fatur = await (supabase as any)
+        .from("deliverables_faturamento").select("id, faturamento_efetivo").eq("client_id", clientId);
+      const pecasMensais = new Set(
+        ((fatur.data || []) as any[]).filter((r) => r.faturamento_efetivo === "mensal").map((r) => r.id),
+      );
 
       const [cli, fat, ent, criacao, alt, dem, dia, hrs, prof] = await Promise.all([
         (supabase as any).from("clients").select("*").eq("id", clientId).maybeSingle(),
@@ -106,14 +125,17 @@ export default function RelatorioCliente() {
       return {
         cliente: cli.data, fatura: fat.data,
         projetos: new Map<string, any>((proj.data || []).map((p: any) => [p.id, p])),
-        entregas: ((ent.data || []) as any[]).filter((e: any) => meus.has(e.project_id)),
-        projetosMensais: meus,
+        entregas: ((ent.data || []) as any[]).filter((e: any) => pecasMensais.has(e.id)),
         // Peças cuja criação cai no mês — o recorte do fechamento.
         idsDoMes: new Set(((criacao.data || []) as any[]).map((r: any) => r.id)),
         alteracoes: (alt.data || []) as any[],
         demandas: (dem.data || []) as any[],
         diarias: (dia.data || []) as any[],
-        horas: ((hrs.data || []) as any[]).filter((t: any) => t.billable),
+        // Hora presa a uma peça segue a peça; hora solta segue o projeto.
+        // Mesmo par de regras da função de fechamento.
+        horas: ((hrs.data || []) as any[]).filter(
+          (t: any) => t.billable && (t.deliverable_id ? pecasMensais.has(t.deliverable_id) : projMensais.has(t.project_id)),
+        ),
         pessoas: new Map<string, string>((prof.data || []).map((p: any) => [p.id, p.full_name])),
       };
     },
