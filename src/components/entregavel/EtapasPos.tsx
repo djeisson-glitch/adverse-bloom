@@ -24,7 +24,12 @@ import { toast } from "sonner";
  * "Passou por" sai das HORAS, não de campo preenchido: é o que de fato
  * aconteceu. Hora lançada antes disso existir aparece como "não separado".
  */
-export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean }) {
+/** Status em que alguém está de fato com a peça na bancada. Mesma régua da
+ *  função `status_em_producao` no banco — se divergirem, a tela oferece mover
+ *  uma peça que o banco já soltou. */
+const EM_PRODUCAO = ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"];
+
+export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: boolean; status?: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [abrirTrilha, setAbrirTrilha] = useState(false);
@@ -39,6 +44,13 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
     queryFn: async () =>
       (await (supabase as any).from("deliverables").select("etapa_atual, responsavel_id, etapa_responsavel_id").eq("id", did).maybeSingle()).data,
   });
+
+  // Peça fora da produção não está em bancada nenhuma: a etapa vira histórico
+  // e os controles somem. Antes ela dizia "Color · com Djêisson" numa peça
+  // que já estava COM O CLIENTE — dois eixos afirmando coisas incompatíveis
+  // sobre a mesma peça, que é de onde vinha a sensação de fluxo confuso.
+  const naBancada = !status || EM_PRODUCAO.includes(status);
+  const mover_ok = podeMover && naBancada;
 
   const { data: passou = [] } = useQuery({
     queryKey: ["passou-por", did],
@@ -74,7 +86,7 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
   // Sem nada a mostrar nem a fazer: some. Mas peça encerrada continua
   // exibindo por onde passou — é histórico, não controle, e é o que responde
   // "quem mexeu nisso" seis meses depois.
-  if (!podeMover && !atual && passou.length === 0) return null;
+  if (!mover_ok && !atual && passou.length === 0) return null;
 
   return (
     <div className="space-y-2 border-t border-border/40 pt-3">
@@ -83,18 +95,23 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
 
         {atual ? (
           <span className="flex items-center gap-1.5">
-            <span className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary">
+            <span className={`rounded-md border px-2 py-0.5 font-medium ${
+              naBancada ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border/50 text-muted-foreground"
+            }`}>
               {atual.nome}
             </span>
             {/* Quem está COM a peça nesta etapa — separado do responsável do
-                entregável, que aparece no cabeçalho e não muda. */}
-            {peca?.etapa_responsavel_id && (
+                entregável, que aparece no cabeçalho e não muda. Fora da
+                produção ninguém está com ela, e o banco já limpou o dono. */}
+            {naBancada && peca?.etapa_responsavel_id && (
               <span className="text-muted-foreground">
                 com {primeiroNome(profiles.find((p: any) => p.id === peca.etapa_responsavel_id)?.full_name)}
               </span>
             )}
+            {!naBancada && <span className="text-muted-foreground">— parou aqui</span>}
           </span>
-        ) : podeMover ? (
+        ) : mover_ok ? (
           <span className="text-muted-foreground">
             nenhuma — só separe se a peça passar por mais de uma mão
           </span>
@@ -102,26 +119,24 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
           <span className="text-muted-foreground">não separada por etapas</span>
         )}
 
-        {podeMover && proxima && (
-          <>
-            {/* Dois caminhos, um clique cada: quem faz de ponta a ponta
-                continua com a peça; quem entrega, entrega. "Passar pra"
-                troca a etapa E o responsável — uma ação, não duas. */}
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => mover(proxima.slug, true)}>
-              <Check className="mr-1 h-3 w-3" /> Continuo eu · {proxima.nome}
-            </Button>
-            <Button size="sm" className="h-7 text-xs" onClick={() => mover(proxima.slug, false)}>
-              <ArrowRight className="mr-1 h-3 w-3" /> Passar pra {proxima.nome}
-            </Button>
-          </>
+        {/* UM botão, não três. Antes havia "Continuo eu · X", "Passar pra X" e
+            "outra etapa" lado a lado, competindo com o "Enviar para revisão"
+            do fluxo — quatro coisas com cara de avançar, e nenhuma dizendo
+            qual é a normal. O caminho comum (passar adiante pra próxima
+            etapa, com a pessoa sugerida) fica no botão; os outros dois viram
+            uma linha discreta, que é a frequência real deles. */}
+        {mover_ok && proxima && (
+          <Button size="sm" className="h-7 text-xs" onClick={() => mover(proxima.slug, false)}>
+            <ArrowRight className="mr-1 h-3 w-3" /> Passar pra {proxima.nome}
+          </Button>
         )}
 
-        {podeMover && (
+        {mover_ok && (
           <button
             onClick={() => setAbrirTrilha((v) => !v)}
             className="flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
           >
-            outra etapa <ChevronDown className={`h-3 w-3 transition-transform ${abrirTrilha ? "rotate-180" : ""}`} />
+            outra etapa, ou sigo eu <ChevronDown className={`h-3 w-3 transition-transform ${abrirTrilha ? "rotate-180" : ""}`} />
           </button>
         )}
 
@@ -140,8 +155,19 @@ export function EtapasPos({ did, podeMover }: { did: string; podeMover: boolean 
 
       {/* Trilha completa: pular etapa que não se aplica, ou tirar a peça das
           etapas. Fechada por padrão — abrir é a exceção. */}
-      {podeMover && abrirTrilha && (
-        <div className="flex flex-wrap gap-1.5">
+      {mover_ok && abrirTrilha && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* "Sigo eu" mora aqui, junto das outras etapas: é a mesma decisão
+              (pra onde vai e com quem), e ter um botão irmão só pra isso
+              fazia parecer duas decisões diferentes. */}
+          {proxima && (
+            <button
+              onClick={() => mover(proxima.slug, true)}
+              className="rounded-md border border-primary/40 px-2 py-1 text-[11px] text-primary hover:bg-primary/10"
+            >
+              <Check className="mr-1 inline h-3 w-3" /> {proxima.nome}, sigo eu
+            </button>
+          )}
           {etapas.map((e: any) => (
             <button
               key={e.slug}

@@ -898,7 +898,7 @@ function FluxoCard({
             (a etapa em que parou e por quem passou). O único controle que
             continua é o "corrigir status", que existe justamente pra
             destravar quem foi encerrado por engano. */}
-        <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} />
+        <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} status={status} />
 
         {/* Como a peça é cobrada. Só pra quem vê dinheiro — o editor não tem
             que pensar em preço enquanto edita, e continua sem ver nada. */}
