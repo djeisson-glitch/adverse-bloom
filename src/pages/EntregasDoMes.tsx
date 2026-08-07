@@ -69,7 +69,7 @@ export default function EntregasDoMes() {
       }
 
       const qEnt = (supabase as any).from("deliverables")
-        .select("id, titulo, codigo, status, data_entrega, criado_em, created_at, project_id, responsavel_id, tipo_cobranca, cobranca_percent");
+        .select("id, titulo, codigo, status, data_entrega, criado_em, created_at, project_id, responsavel_id, tipo_cobranca, cobranca_percent, faturamento");
 
       const [ent, proj, prof, hrs] = await Promise.all([
         base === "criacao"
@@ -227,6 +227,16 @@ export default function EntregasDoMes() {
                         <Link to={`/projetos/${projeto.id}/entregaveis/${e.id}`} className="min-w-0 flex-1 truncate text-muted-foreground hover:text-foreground">
                           {e.titulo}
                         </Link>
+                        {/* A peça saiu (ou voltou) na mão, contra o que o
+                            projeto diz. Sem esta marca, quem confere o mês
+                            aqui conta uma peça que a carta não cobra — e as
+                            duas telas discordam sem dizer por quê. */}
+                        {e.faturamento === "avulso" && (
+                          <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-warning">à parte</span>
+                        )}
+                        {e.faturamento === "mensal" && projeto.faturamento === "avulso" && (
+                          <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">no mês</span>
+                        )}
                         {e.responsavel_id && (
                           <span className="shrink-0 text-[11px] text-muted-foreground">
                             {primeiroNome(dados!.pessoas.get(e.responsavel_id))}

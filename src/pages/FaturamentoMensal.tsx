@@ -719,30 +719,69 @@ export default function FaturamentoMensal() {
                         </Bloco>
                       )}
 
-                      {/* Avulsos: NÃO entram no total acima. Ficam em destaque
-                          porque é justamente o que se esquece de cobrar. */}
+                      {/* Nota separada: NÃO entra no total acima. Fica em
+                          destaque porque é justamente o que se esquece de
+                          cobrar — e agora com VALOR, que era o que faltava
+                          pra emitir a nota sem refazer a conta à mão. */}
                       {Array.isArray(f.detalhe?.avulsos) && f.detalhe.avulsos.length > 0 && (
                         <Bloco
                           icon={<AlertTriangle className="h-3.5 w-3.5" />}
                           titulo={`Fora do fechamento — faturar à parte (${f.detalhe.avulsos.length})`}
                         >
-                          <div className="space-y-1 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
+                          <div className="space-y-2 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
                             <p className="text-[11px] text-warning">
-                              Estes projetos NÃO estão somados no total deste rascunho.
+                              Nada disto está somado no total deste rascunho.
                             </p>
                             {f.detalhe.avulsos.map((a: any, i: number) => (
-                              <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                                <span className="truncate text-muted-foreground">
-                                  {a.numero ? `${a.numero} · ` : ""}{a.projeto}
-                                </span>
-                                <span className="shrink-0 text-foreground">
+                              <div key={i} className="space-y-0.5">
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="min-w-0 truncate">
+                                    {a.numero ? <span className="text-muted-foreground">{a.numero} · </span> : ""}
+                                    {a.projeto}
+                                    {a.projeto_todo === false && (
+                                      <span className="ml-1 text-[10px] text-muted-foreground">(só algumas peças)</span>
+                                    )}
+                                  </span>
+                                  <span className="shrink-0 font-semibold tabular-nums text-foreground">
+                                    {formatCurrency(Number(a.valor || 0))}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
                                   {fmtHoras(a.horas)}
-                                  {a.entregas > 0 && (
-                                    <span className="text-muted-foreground"> · {a.entregas} entrega{a.entregas > 1 ? "s" : ""}</span>
-                                  )}
-                                </span>
+                                  {Number(a.horas_alteracao || 0) > 0 &&
+                                    ` (${fmtHoras(a.horas_edicao)} edição + ${fmtHoras(a.horas_alteracao)} alteração)`}
+                                  {a.entregas > 0 && ` · ${a.entregas} entrega${a.entregas > 1 ? "s" : ""}`}
+                                </p>
+                                {/* As peças só quando a separação foi feita
+                                    peça a peça: no projeto inteiro avulso a
+                                    lista seria só o conteúdo do job, e o link
+                                    do projeto já leva lá. */}
+                                {a.projeto_todo === false && Array.isArray(a.pecas) && a.pecas.map((pc: any, j: number) => (
+                                  <div key={j} className="flex items-center justify-between gap-2 pl-3 text-[10px] text-muted-foreground">
+                                    <span className="min-w-0 truncate">{pc.codigo ? `${pc.codigo} · ` : ""}{pc.entregavel}</span>
+                                    <span className="shrink-0 tabular-nums">{fmtHoras(pc.horas)}</span>
+                                  </div>
+                                ))}
                               </div>
                             ))}
+                            <div className="flex items-center justify-between gap-2 border-t border-amber-500/25 pt-1.5 text-xs">
+                              <span className="text-muted-foreground">Total a faturar à parte</span>
+                              <b className="tabular-nums text-warning">
+                                {formatCurrency(Number(f.detalhe?.avulsos_valor || 0))}
+                              </b>
+                            </div>
+                            {/* Qual régua pariu esses valores. Sem isto, um
+                                cliente que paga por tabela veria um total em
+                                reais sem jeito de saber que ele saiu do nosso
+                                valor-hora interno, e não do combinado com
+                                ele. Nota errada nasce assim. */}
+                            <p className="text-[10px] text-muted-foreground">
+                              {f.detalhe?.avulsos_valor_hora_origem === "cliente"
+                                ? `Horas × ${formatCurrency(Number(f.detalhe?.avulsos_valor_hora || 0))} — valor-hora deste cliente.`
+                                : f.detalhe?.avulsos_valor_hora_origem === "rate_card"
+                                  ? `Horas × ${formatCurrency(Number(f.detalhe?.avulsos_valor_hora || 0))} — nosso valor de tabela (Edição). Este cliente não tem valor-hora combinado; confira antes de emitir.`
+                                  : "Sem valor-hora cadastrado nem no cliente nem no rate card — o valor sai zerado."}
+                            </p>
                           </div>
                         </Bloco>
                       )}
