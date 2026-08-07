@@ -11,6 +11,7 @@ import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { BALDES, balde, rotuloBalde, foraDoFechamento } from "@/lib/faturamentoBalde";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimer, formatElapsed } from "@/contexts/TimerContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -1646,23 +1647,22 @@ function AlteracoesSection({
 /**
  * Em qual nota esta peça entra.
  *
- * O normal é herdar o projeto — e é isso que a opção de cima diz por extenso,
- * em vez de um "—" que obrigaria a abrir o projeto pra descobrir. Marcar a
- * peça tira ela do fechamento do mês e a joga no bloco "faturar à parte",
- * com o valor das horas dela; o inverso também vale, pra resgatar uma peça de
- * um projeto que inteiro é avulso.
+ * O normal é herdar o projeto — e é isso que a primeira opção diz por
+ * extenso, em vez de um "—" que obrigaria a abrir o projeto pra descobrir.
  *
- * As duas opções são escritas a partir do que o PROJETO é: num projeto mensal
- * ninguém precisa da opção "entra no fechamento" (já entra), e oferecê-la só
- * criaria um jeito de gravar um valor que não muda nada.
+ * As outras opções são os baldes que o projeto NÃO é. Oferecer o mesmo balde
+ * do projeto criaria um jeito de gravar um valor que não muda nada — e, pior,
+ * uma peça marcada "mensal" dentro de um projeto mensal deixaria de
+ * acompanhar o projeto no dia em que ele virasse outra coisa, sem ninguém
+ * lembrar por quê.
  */
 function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
   did: string; valor: string | null; doProjeto: string; onChanged: () => void;
 }) {
   const HERDA = "__herda__";
   const [v, setV] = useState(valor || HERDA);
-  const projetoAvulso = doProjeto === "avulso";
-  const oposto = projetoAvulso ? "mensal" : "avulso";
+  const doProjetoOk = balde(doProjeto);
+  const outros = BALDES.filter((b) => b.id !== doProjetoOk);
 
   const salvar = async (nv: string) => {
     setV(nv);
@@ -1676,11 +1676,7 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
       setV(valor || HERDA);
       return;
     }
-    toast.success(
-      nv === HERDA ? "Voltou a seguir o projeto"
-        : nv === "avulso" ? "Peça separada pra nota à parte"
-        : "Peça trazida pro fechamento do mês",
-    );
+    toast.success(nv === HERDA ? "Voltou a seguir o projeto" : `Peça: ${rotuloBalde(nv).toLowerCase()}`);
     onChanged();
   };
 
@@ -1690,16 +1686,16 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={HERDA} className="text-xs">
-            Segue o projeto — {projetoAvulso ? "faturado à parte" : "no fechamento do mês"}
+            Segue o projeto — {rotuloBalde(doProjetoOk).toLowerCase()}
           </SelectItem>
-          <SelectItem value={oposto} className="text-xs">
-            {projetoAvulso ? "Só esta peça: no fechamento do mês" : "Só esta peça: faturar à parte"}
-          </SelectItem>
+          {outros.map((b) => (
+            <SelectItem key={b.id} value={b.id} className="text-xs">Só esta peça: {b.label.toLowerCase()}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
-      {v === "avulso" && (
+      {foraDoFechamento(v === HERDA ? doProjetoOk : v) && (
         <p className="mt-1 text-[10px] text-warning">
-          Fora do fechamento do mês. Aparece em Faturamento com o valor das horas.
+          {BALDES.find((b) => b.id === (v === HERDA ? doProjetoOk : v))?.ajuda}
         </p>
       )}
     </div>

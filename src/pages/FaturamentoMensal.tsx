@@ -719,6 +719,77 @@ export default function FaturamentoMensal() {
                         </Bloco>
                       )}
 
+                      {/* A nota separada DENTRO do mês: mesmo preço do
+                          fechamento, documento próprio. Fica logo acima do
+                          bloco dos avulsos porque as duas respondem "o que
+                          mais eu tenho pra emitir?" — mas por réguas de preço
+                          diferentes, e a tela diz qual é qual. */}
+                      {Number(f.detalhe?.nota_mes?.total || 0) > 0 && (
+                        <Bloco
+                          icon={<FileText className="h-3.5 w-3.5" />}
+                          titulo="No mês, em nota separada"
+                        >
+                          <div className="space-y-2 rounded-md border border-primary/25 bg-primary/[0.05] p-2">
+                            <p className="text-[11px] text-muted-foreground">
+                              Preço do mês, nota própria. <b className="text-foreground">Não</b> está somado no total
+                              deste rascunho.
+                            </p>
+
+                            {(f.detalhe.nota_mes.projetos || []).map((pr: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="min-w-0 truncate">
+                                  {pr.numero ? <span className="text-muted-foreground">{pr.numero} · </span> : ""}
+                                  {pr.projeto}
+                                  {pr.projeto_todo === false && (
+                                    <span className="ml-1 text-[10px] text-muted-foreground">(só algumas peças)</span>
+                                  )}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {pr.entregas > 0 && `${pr.entregas} entrega${pr.entregas > 1 ? "s" : ""}`}
+                                  {Number(pr.horas || 0) > 0 && ` · ${fmtHoras(pr.horas)}`}
+                                </span>
+                              </div>
+                            ))}
+
+                            {(f.detalhe.nota_mes.itens || []).map((it: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 pl-3 text-[10px] text-muted-foreground">
+                                <span className="min-w-0 truncate">{it.entregavel}</span>
+                                <span className="shrink-0 tabular-nums">{formatCurrency(Number(it.preco || 0))}</span>
+                              </div>
+                            ))}
+
+                            {/* Subtotal, margem e imposto abertos: é a mesma
+                                conta do fechamento, e mostrar só o total faria
+                                o número parecer tirado do nada na hora de
+                                conferir com o contador. */}
+                            <div className="space-y-0.5 border-t border-primary/25 pt-1.5 text-xs">
+                              <Linha rot="Subtotal" v={formatCurrency(Number(f.detalhe.nota_mes.subtotal || 0))} />
+                              {Number(f.detalhe.nota_mes.margem || 0) > 0 && (
+                                <Linha rot="Margem" v={formatCurrency(Number(f.detalhe.nota_mes.margem))} />
+                              )}
+                              {Number(f.detalhe.nota_mes.imposto || 0) > 0 && (
+                                <Linha rot="Imposto" v={formatCurrency(Number(f.detalhe.nota_mes.imposto))} />
+                              )}
+                              <div className="flex items-center justify-between gap-2 pt-0.5">
+                                <span className="font-medium text-foreground">Total desta nota</span>
+                                <b className="tabular-nums text-primary">
+                                  {formatCurrency(Number(f.detalhe.nota_mes.total || 0))}
+                                </b>
+                              </div>
+                            </div>
+
+                            {f.detalhe.nota_mes.regra && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Calculado por {f.detalhe.nota_mes.regra}
+                                {Number(f.detalhe.nota_mes.horas_alteracao || 0) > 0 &&
+                                  ` · ${fmtHoras(f.detalhe.nota_mes.horas_edicao)} edição + ${fmtHoras(f.detalhe.nota_mes.horas_alteracao)} alteração`}
+                                .
+                              </p>
+                            )}
+                          </div>
+                        </Bloco>
+                      )}
+
                       {/* Nota separada: NÃO entra no total acima. Fica em
                           destaque porque é justamente o que se esquece de
                           cobrar — e agora com VALOR, que era o que faltava
@@ -886,6 +957,16 @@ function Kpi({ label, v, destaque }: { label: string; v: string; destaque?: bool
     <div>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`text-sm ${destaque ? "font-bold text-primary" : "font-medium text-foreground"}`}>{v}</p>
+    </div>
+  );
+}
+
+/** Rótulo à esquerda, número à direita — a linha de conta desta tela. */
+function Linha({ rot, v }: { rot: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{rot}</span>
+      <span className="tabular-nums text-foreground">{v}</span>
     </div>
   );
 }

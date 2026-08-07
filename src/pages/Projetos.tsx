@@ -3,6 +3,7 @@ import { dataISO, hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { rotuloCurto, foraDoFechamento } from "@/lib/faturamentoBalde";
 import {
   useProjects,
   useUpdateProject,
@@ -328,12 +329,12 @@ function ListaVista({
                       </p>
                       {/* Avulso é a exceção: só ele ganha marca, pra não poluir
                           a lista com um selo em cada linha. */}
-                      {(p as any).faturamento === "avulso" && (
+                      {foraDoFechamento((p as any).faturamento) && (
                         <span
                           className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-warning"
-                          title="Fora do fechamento mensal — faturado à parte"
+                          title="Fora do fechamento mensal — sai em nota própria"
                         >
-                          avulso
+                          {rotuloCurto((p as any).faturamento)}
                         </span>
                       )}
                     </div>
