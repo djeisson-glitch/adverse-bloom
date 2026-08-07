@@ -34,8 +34,11 @@ export function donoDaVez(
   n1: string | null,
   n2: string | null,
   profiles: any[],
+  etapas: { slug: string; nome: string }[] = [],
 ): { pessoa: any | null; papel: string; encerrado: boolean } {
   const acha = (id: string | null | undefined) => (id ? profiles.find((p) => p.id === id) || null : null);
+  const nomeEtapa = (slug?: string | null) =>
+    (slug ? etapas.find((e) => e.slug === slug)?.nome : null) || null;
 
   if (["entregue", "aprovado", "faturado"].includes(status)) {
     return { pessoa: null, papel: "nada a fazer — a peça está encerrada", encerrado: true };
@@ -52,7 +55,15 @@ export function donoDaVez(
   if (status === "revisao_n1" || status === "revisao") {
     return { pessoa: acha(n1), papel: "revisa", encerrado: false };
   }
-  // Resto do ciclo (pendente, em edição, em pausa, ajustes) é do editor.
+  // Resto do ciclo (pendente, em edição, em pausa, ajustes): a bola é de quem
+  // está com a peça na bancada. A ETAPA vence o responsável — a peça passada
+  // pro color está com o colorista, e dizer o nome do responsável aqui manda
+  // cobrar a pessoa errada. Era esse o "não sei de quem é a bola".
+  const naEtapa = acha(entregavel.etapa_responsavel_id);
+  if (naEtapa) {
+    const etapa = nomeEtapa(entregavel.etapa_atual);
+    return { pessoa: naEtapa, papel: etapa ? `faz o ${etapa}` : "está com a peça", encerrado: false };
+  }
   return { pessoa: acha(entregavel.responsavel_id), papel: "edita", encerrado: false };
 }
 
@@ -67,14 +78,15 @@ function desdeQuando(iso?: string | null): string | null {
 }
 
 export function FaixaStatus({
-  status, entregavel, n1, n2, profiles,
+  status, entregavel, n1, n2, profiles, etapas = [],
 }: {
   status: string; entregavel: any;
   n1: string | null; n2: string | null; profiles: any[];
+  etapas?: { slug: string; nome: string }[];
 }) {
   const Icone = iconeStatus(status);
   const c = CORES[statusTom(status)] || CORES.muted;
-  const { pessoa, papel, encerrado } = donoDaVez(status, entregavel, n1, n2, profiles);
+  const { pessoa, papel, encerrado } = donoDaVez(status, entregavel, n1, n2, profiles, etapas);
   const desde = desdeQuando(entregavel.updated_at);
   const retrab = !!entregavel.retrabalho;
 

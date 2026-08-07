@@ -155,6 +155,15 @@ export default function EntregavelDetalhe() {
     },
   });
 
+  // Nomes das etapas — a faixa do topo precisa deles pra dizer "faz o Color"
+  // em vez de "edita" numa peça que está na bancada de outra pessoa.
+  const { data: etapas = [] } = useQuery({
+    queryKey: ["etapas-pos"],
+    queryFn: async () =>
+      (await (supabase as any).from("etapas_pos").select("slug, nome").order("ordem")).data || [],
+    staleTime: 60 * 60 * 1000,
+  });
+
   const { data: config } = useQuery({
     queryKey: ["approval-settings"],
     queryFn: async () => {
@@ -367,6 +376,7 @@ export default function EntregavelDetalhe() {
         n1={n1}
         n2={n2}
         profiles={profiles}
+        etapas={etapas}
       />
 
       {/* Header */}
