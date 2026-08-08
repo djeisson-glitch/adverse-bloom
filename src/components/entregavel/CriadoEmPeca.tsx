@@ -36,7 +36,7 @@ function paraInput(iso?: string | null): string {
  * seguinte. Quem precisa puxar pra trás ajusta o PROJETO — e aí as peças
  * acompanham sozinhas.
  */
-export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, podeEditar, onChanged }: {
+export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, podeEditar, onChanged, discreto }: {
   deliverableId: string;
   criadoEm?: string | null;
   createdAt?: string | null;
@@ -44,6 +44,8 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, 
   pisoProjeto?: string | null;
   podeEditar: boolean;
   onChanged: () => void;
+  /** Uma linha só, sem rótulo próprio — pro cabeçalho denso. */
+  discreto?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(() => paraInput(criadoEm || createdAt));
@@ -106,6 +108,24 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, 
           </p>
         )}
       </div>
+    );
+  }
+
+  if (discreto) {
+    // Sem rótulo próprio: quem rotula é a linha do cabeçalho denso.
+    return (
+      <p className="group flex items-center gap-1.5 text-sm text-foreground">
+        {fmtCarimbo(efetiva)}
+        {podeEditar && (
+          <button
+            onClick={() => { setValor(paraInput(efetiva)); setEditando(true); }}
+            title="Corrigir a data — útil pro que veio do ClickUp com a data da importação"
+            className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </p>
     );
   }
 

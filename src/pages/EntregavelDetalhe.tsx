@@ -431,82 +431,80 @@ export default function EntregavelDetalhe() {
             </div>
           </div>
 
-          {/* Os grupos empilham; a grade agora vive DENTRO de cada um. */}
-          <div className="space-y-3 text-sm">
-            {/* Quando a peça entrou. Editável pelo mesmo motivo do projeto:
-                o que veio do ClickUp tem a data da importação. Pro corte
-                mensal de relatório quem manda é a data do PROJETO — esta
-                responde "quando ESTA peça entrou". */}
-            {/* TRÊS GRUPOS, e não doze campos em fila. Cada um responde uma
-                pergunta diferente, e antes elas se misturavam: "de quem é
-                isso" ficava entre um formato e um prazo. A ordem é a de quem
-                abre a peça — de quem é, com quem está, pra quando. */}
-            <Grupo titulo="De quem é">
-              {proj?.client_name && (
-                <Campo label="Cliente">
-                  {/* `block`: `truncate` não corta span inline — sem isto,
-                      cliente de nome longo atravessava o link do lado. */}
-                  <span className="block truncate text-foreground">{proj.client_name}</span>
-                </Campo>
-              )}
-              <Campo label="Projeto">
-                <div className="flex items-center gap-2">
-                  <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
-                    {proj?.numero} · {proj?.name}
-                  </Link>
-                  <button
-                    onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
-                    title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
-                    className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </Campo>
-              {/* Quem pediu. Vem preenchido quando a peça nasceu de uma
-                  demanda do formulário; digitado à mão quando o pedido chegou
-                  por WhatsApp — que é a maioria, e é a primeira pergunta
-                  quando uma entrega é questionada no fechamento. */}
-              <Campo label="Solicitado por">
-                <SolicitadoPor
-                  clientId={proj?.client_id}
-                  valor={form.solicitado_por}
-                  onChange={(v) => setJa({ solicitado_por: v })}
-                />
-              </Campo>
-              {/* Só pra quem vê dinheiro. Um editor não decide nota de cliente
-                  e não precisa saber que existe uma — a regra de sempre. */}
-              {canSeeMoney && (
-                <Campo label="Faturamento">
-                  <FaturamentoPeca
-                    did={did!}
-                    valor={entregavel.faturamento || null}
-                    doProjeto={proj?.faturamento || "mensal"}
-                    onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
-                  />
-                </Campo>
-              )}
-            </Grupo>
+          {/* DENSIDADE, no formato do ClickUp: rótulo à esquerda, valor à
+              direita, uma linha por campo, duas colunas quando cabe. Os
+              cartões de grupo empilhavam altura — cada um gastava borda,
+              padding e um título — e o Djêisson tem razão: dá pra mostrar a
+              mesma coisa em metade da tela sem virar amontoado. O agrupamento
+              não some, vira separador: as linhas continuam na ordem "de quem
+              é → com quem → quando → onde está". */}
+          <div className="grid gap-x-10 gap-y-0.5 text-sm sm:grid-cols-2">
+            {proj?.client_name && (
+              <L label="Cliente">
+                <span className="block truncate text-foreground" title={proj.client_name}>{proj.client_name}</span>
+              </L>
+            )}
+            <L label="Projeto">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
+                  {proj?.numero} · {proj?.name}
+                </Link>
+                <button
+                  onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
+                  title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </L>
 
-            <Grupo titulo="Com quem, e o quê">
-              <Campo label="Responsável">
-                <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
-                  <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— sem responsável —</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Campo>
-              <Campo label="Formato">
-                <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9" className="h-8" />
-              </Campo>
-              <Campo label="Duração">
-                <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
-              </Campo>
-            </Grupo>
+            <L label="Responsável">
+              <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger className="h-7 border-0 bg-transparent px-0 text-sm hover:bg-muted/40 focus:ring-0"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— sem responsável —</SelectItem>
+                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </L>
+            {/* Quem pediu. Vem preenchido quando a peça nasceu de uma demanda
+                do formulário; digitado à mão quando o pedido chegou por
+                WhatsApp — que é a maioria, e é a primeira pergunta quando uma
+                entrega é questionada no fechamento. */}
+            <L label="Solicitado por">
+              <SolicitadoPor
+                clientId={proj?.client_id}
+                valor={form.solicitado_por}
+                onChange={(v) => setJa({ solicitado_por: v })}
+              />
+            </L>
 
-            <Grupo titulo="Datas">
+            <L label="Formato">
+              <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9"
+                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
+            </L>
+            <L label="Duração">
+              <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"'
+                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
+            </L>
+
+            <L label="Prazo interno">
+              <SeletorPrazo
+                data={form.prazo_interno}
+                hora={form.prazo_interno_hora}
+                onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
+              />
+            </L>
+            <L label="Prazo do cliente">
+              <SeletorPrazo
+                data={form.data_entrega}
+                hora={form.data_entrega_hora}
+                onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
+              />
+            </L>
+
+            <L label="Criado em">
               <CriadoEmPeca
                 deliverableId={did!}
                 criadoEm={entregavel?.criado_em}
@@ -515,28 +513,26 @@ export default function EntregavelDetalhe() {
                 pisoProjeto={entregavel?.project?.criado_em}
                 podeEditar={podeRevisar}
                 onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+                discreto
               />
-              <Campo label="Prazo interno">
-                <SeletorPrazo
-                  data={form.prazo_interno}
-                  hora={form.prazo_interno_hora}
-                  onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
+            </L>
+            {/* Só pra quem vê dinheiro. Um editor não decide nota de cliente
+                e não precisa saber que existe uma — a regra de sempre. */}
+            {canSeeMoney && (
+              <L label="Faturamento">
+                <FaturamentoPeca
+                  did={did!}
+                  valor={entregavel.faturamento || null}
+                  doProjeto={proj?.faturamento || "mensal"}
+                  onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
                 />
-              </Campo>
-              <Campo label="Prazo do cliente">
-                <SeletorPrazo
-                  data={form.data_entrega}
-                  hora={form.data_entrega_hora}
-                  onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
-                />
-              </Campo>
-            </Grupo>
+              </L>
+            )}
 
-            <Grupo titulo="Onde está o arquivo">
-              <Campo label="Link do arquivo / Frame.io" className="sm:col-span-2 lg:col-span-3">
-                <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
-              </Campo>
-            </Grupo>
+            {/* O link ocupa as duas colunas: é o botão mais clicado da tela. */}
+            <div className="mt-2 sm:col-span-2">
+              <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -814,6 +810,20 @@ function FluxoCard({
     await run(() => Fluxo.registrarAlteracaoCliente(entregavel, titulo));
   };
 
+  /**
+   * A PALETA DIZ O QUE O BOTÃO FAZ. Antes tudo era laranja: "Editar",
+   * "Enviar para revisão" e "Enviar ao cliente" tinham a mesma cara, e são
+   * três coisas de consequência bem diferente — a última manda o vídeo pra
+   * fora da casa. Uma cor por família:
+   *
+   *   laranja (primary)  trabalhar nisso agora — Editar, Retomar
+   *   azul               entregar adiante, internamente — Enviar pra revisão
+   *   verde              aprovar / confirmar — Aprovar, Cliente aprovou
+   *   roxo               sai da Adverse — Enviar ao cliente
+   *   vermelho (outline) devolve pra trás — Pedir ajuste, Alteração
+   *
+   * Cinza/ghost é o que existe mas raramente se usa (escalar pra R2).
+   */
   const botoes: React.ReactNode[] = [];
   const B = (key: string, node: React.ReactNode) => botoes.push(<span key={key}>{node}</span>);
   const editorTrabalha = ["pendente", "em_pausa", "ajuste_interno", "ajuste_solicitado", "em_edicao"].includes(status);
@@ -825,10 +835,10 @@ function FluxoCard({
     if (status === "em_edicao" && rodandoAqui) {
       B("par", <Button size="sm" variant="outline" onClick={pausar}><Pause className="mr-1 h-3.5 w-3.5" /> Parar edição</Button>);
     } else {
-      B("edt", <Button size="sm" onClick={editar} className="bg-primary text-primary-foreground"><Play className="mr-1 h-3.5 w-3.5" /> {status === "em_edicao" ? "Retomar edição" : "Editar"}</Button>);
+      B("edt", <Button size="sm" onClick={editar} className="bg-primary text-primary-foreground hover:bg-primary/90"><Play className="mr-1 h-3.5 w-3.5" /> {status === "em_edicao" ? "Retomar edição" : "Editar"}</Button>);
     }
     if (status === "em_edicao" || status === "em_pausa") {
-      B("env", <Button size="sm" onClick={enviarRevisao} className="bg-primary text-primary-foreground"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Enviar para revisão</Button>);
+      B("env", <Button size="sm" onClick={enviarRevisao} className="bg-sky-600 text-white hover:bg-sky-600/90"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Enviar para revisão</Button>);
     }
   }
 
@@ -850,7 +860,7 @@ function FluxoCard({
   }
   // ENVIAR AO CLIENTE
   if (status === "pronto" && isRevisor) {
-    B("env", <Button size="sm" onClick={enviarCliente} className="bg-primary text-primary-foreground"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Enviar para aprovação do cliente</Button>);
+    B("env", <Button size="sm" onClick={enviarCliente} className="bg-violet-600 text-white hover:bg-violet-600/90"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Enviar para aprovação do cliente</Button>);
   }
   // COM O CLIENTE — coordenação registra alteração ou aprovação
   if (status === "com_cliente" && isRevisor) {
@@ -984,6 +994,7 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
   const qc = useQueryClient();
   const { user } = useAuth();
   const [novo, setNovo] = useState({ titulo: "", url: "", tipo: "roteiro" });
+  const [verDoc, setVerDoc] = useState<{ nome: string; url: string } | null>(null);
 
   const { data: docs = [] } = useQuery({
     queryKey: ["deliverable-documents", did],
@@ -1044,27 +1055,48 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
           </p>
         </div>
 
-        {docs.map((d) => {
-          const t = tipoDe(d.tipo);
-          return (
-            <div key={d.id} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2">
-              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${t.cor}`}>{t.label}</span>
-              <span className="text-sm font-medium text-foreground">{d.titulo}</span>
-              <a href={d.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-xs text-muted-foreground hover:text-primary">
-                {d.url}
-              </a>
-              <a href={d.url} target="_blank" rel="noreferrer" className="shrink-0 text-muted-foreground hover:text-primary" title="Abrir">
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-              <button onClick={() => excluir.mutate(d.id)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Remover">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          );
-        })}
+        {/* BLOCOS, não linhas. Uma linha por documento gastava a largura toda
+            pra mostrar a URL — que ninguém lê — e escondia o que importa (o
+            que é aquilo). Em cartão, o tipo e o título ficam grandes, a URL
+            vira legenda, e o cartão inteiro é a área de clique.
+
+            Clicar ABRE AQUI DENTRO quando dá (PDF, imagem, vídeo). Link do
+            Docs/Drive o navegador não deixa embutir — nesses o visualizador
+            mostra o arquivo e leva pra fora, em vez de abrir um quadro
+            branco. */}
+        {docs.length > 0 && (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {docs.map((d) => {
+              const t = tipoDe(d.tipo);
+              return (
+                <div key={d.id} className="group relative rounded-lg border border-border/50 bg-muted/10 p-3 transition-colors hover:border-primary/40">
+                  <button onClick={() => setVerDoc({ nome: d.titulo, url: d.url })} className="block w-full text-left">
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium uppercase ${t.cor}`}>{t.label}</span>
+                    <p className="mt-1.5 line-clamp-2 break-words text-sm font-medium leading-tight text-foreground" title={d.titulo}>
+                      {d.titulo}
+                    </p>
+                    <p className="mt-1 truncate text-[10px] text-muted-foreground" title={d.url}>
+                      {d.url.replace(/^https?:\/\//, "")}
+                    </p>
+                  </button>
+                  <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <a href={d.url} target="_blank" rel="noreferrer" className="hover:text-primary" title="Abrir em nova aba">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    <button onClick={() => excluir.mutate(d.id)} className="ml-auto opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" title="Remover">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {docs.length === 0 && (
           <p className="py-1 text-xs text-muted-foreground">Nenhum documento anexado ainda.</p>
         )}
+
+        <VisualizarAnexo anexo={verDoc} onClose={() => setVerDoc(null)} />
 
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border/60 p-3">
           <Select value={novo.tipo} onValueChange={(v) => setNovo({ ...novo, tipo: v })}>
@@ -1765,12 +1797,20 @@ function BriefingComVerMais({ valor, onChange }: { valor: string; onChange: (v: 
         )}
       </div>
       {linhas.length > LIMITE && (
-        <button
-          onClick={() => setAberto((v) => !v)}
-          className="mt-1 text-xs font-medium text-primary hover:underline"
-        >
-          {aberto ? "ver menos" : `ver mais (+${linhas.length - LIMITE} linhas)`}
-        </button>
+        // Centralizado, em caixa, PULSANDO — pedido do Djêisson depois de ver
+        // o link discreto: "o ver mais tá MUITO discreto". Um texto pequeno
+        // no canto perde justamente pra quem já achou que leu tudo; o que
+        // precisa acontecer aqui é a pessoa notar sem estar procurando.
+        <div className="mt-2 flex justify-center">
+          <button
+            onClick={() => setAberto((v) => !v)}
+            className={`rounded-lg border border-primary/60 px-4 py-1.5 text-xs font-semibold text-primary transition-shadow ${
+              aberto ? "" : "animate-pulse shadow-[0_0_16px_2px_hsl(var(--primary)/0.55)]"
+            }`}
+          >
+            {aberto ? "ver menos" : `ver mais (+${linhas.length - LIMITE} linhas)`}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1835,19 +1875,19 @@ function LinkDoArquivo({ valor, onChange }: { valor: string; onChange: (v: strin
 }
 
 /**
- * Um bloco de campos que respondem à MESMA pergunta.
+ * Uma linha do cabeçalho: rótulo à esquerda, valor à direita.
  *
- * O cabeçalho tinha doze campos numa grade única, na ordem em que foram
- * nascendo: "de quem é isso" caía entre um formato e um prazo. Agrupados,
- * a página deixa de ser uma lista e vira três respostas — e quem procura uma
- * data sabe onde olhar sem varrer a tela inteira.
+ * O formato é o do ClickUp, e o motivo é densidade — rótulo EM CIMA do campo
+ * gasta duas linhas por informação, e a peça tem doze. Aqui cada uma ocupa
+ * uma linha só, e a coluna de rótulos alinhada deixa a lista varrível: o olho
+ * desce pela esquerda até achar o que procura, sem ler os valores.
  */
-function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function L({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border/40 bg-muted/10 p-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{titulo}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-    </section>
+    <div className="flex min-w-0 items-center gap-3 border-b border-border/25 py-1.5">
+      <span className="w-28 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }
 
@@ -1897,43 +1937,38 @@ function EstimativaEntregavel({
   const tom = fator == null ? "" : fator > 1.2 ? "text-destructive" : fator < 0.8 ? "text-warning" : "text-success";
 
   return (
+    // Uma linha, não um bloco largo. Eram três colunas e um parágrafo de
+    // explicação pra mostrar dois números — e a explicação, que se lê uma vez
+    // na vida, ocupava o mesmo espaço que os números, que se leem sempre.
+    // Virou `title`, que é onde a explicação de uma vez pertence.
     <Card className="glass-card">
-      <CardContent className="flex flex-wrap items-end gap-4 p-4">
-        <div>
-          <Label className="text-xs text-muted-foreground">Horas estimadas</Label>
-          <div className="mt-1 flex items-center gap-2">
-            <Input
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              onBlur={salvar}
-              onKeyDown={(e) => e.key === "Enter" && salvar()}
-              placeholder="—"
-              className="h-9 w-24"
-              inputMode="decimal"
-            />
-            <span className="text-sm text-muted-foreground">h</span>
-            {salvando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-          </div>
+      <CardContent
+        className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-sm"
+        title="A estimativa reserva o tempo de quem é responsável. O realizado mede o quanto a gente erra — é esse histórico que vai permitir corrigir depois."
+      >
+        <span className="text-xs text-muted-foreground">Horas estimadas</span>
+        <div className="flex items-center gap-1">
+          <Input
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            onBlur={salvar}
+            onKeyDown={(e) => e.key === "Enter" && salvar()}
+            placeholder="—"
+            className="h-7 w-16 text-sm"
+            inputMode="decimal"
+          />
+          <span className="text-xs text-muted-foreground">h</span>
+          {salvando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         </div>
 
-        <div className="border-l border-border/40 pl-4">
-          <p className="text-xs text-muted-foreground">Realizado</p>
-          <p className="text-lg font-semibold text-foreground">{realizadas.toFixed(1)}h</p>
-        </div>
+        <span className="text-xs text-muted-foreground">· realizado</span>
+        <span className="font-semibold text-foreground">{realizadas.toFixed(1)}h</span>
 
         {fator != null && (
-          <div className="border-l border-border/40 pl-4">
-            <p className="text-xs text-muted-foreground">Estimativa</p>
-            <p className={`text-lg font-semibold ${tom}`}>
-              {fator > 1 ? `${((fator - 1) * 100).toFixed(0)}% acima` : fator < 1 ? `${((1 - fator) * 100).toFixed(0)}% abaixo` : "no ponto"}
-            </p>
-          </div>
+          <span className={`text-xs font-medium ${tom}`}>
+            {fator > 1 ? `${((fator - 1) * 100).toFixed(0)}% acima` : fator < 1 ? `${((1 - fator) * 100).toFixed(0)}% abaixo` : "no ponto"}
+          </span>
         )}
-
-        <p className="ml-auto max-w-[280px] text-[11px] text-muted-foreground/70">
-          A estimativa reserva o tempo de quem é responsável. O realizado ao lado
-          mede o quanto a gente erra — é esse histórico que vai permitir corrigir depois.
-        </p>
       </CardContent>
     </Card>
   );
