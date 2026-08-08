@@ -318,8 +318,22 @@ export default function ProjetoDetalhe() {
             </div>
           </div>
 
-          {/* flex-wrap em vez de grid fixo: quando o cartão de horas ou de
-              valor some (coordenadora), o resto não fica com buraco. */}
+          {/* A data de criação vive aqui, discreta: é ela que decide o mês do
+              fechamento, então precisa existir e ser editável — só não precisa
+              do mesmo tamanho do nome do cliente. */}
+          <div className="-mt-1 mb-3">
+            <CriadoEm
+              projectId={project.id}
+              criadoEm={project.criado_em}
+              createdAt={project.created_at}
+              podeEditar={podeEditarProjeto}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
+              discreto
+            />
+          </div>
+
+          {/* flex-wrap em vez de grid fixo: quando um cartão some (permissão),
+              o resto não fica com buraco. */}
           <div className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
             <HeaderSelect
               label="Cliente"
@@ -355,39 +369,26 @@ export default function ProjetoDetalhe() {
               ]}
               onChange={(v) => salvarProjeto({ status: v }, "Status atualizado")}
             />
+            {/* VALOR, FATURAMENTO, ORÇAMENTO e HORAS saíram daqui (decisão do
+                Djêisson): dinheiro mora na aba Fechamento, que é onde a
+                decisão de dinheiro acontece, e as horas viraram uma coluna por
+                entregável. O cabeçalho ficou com o que TODO mundo que abre o
+                projeto precisa — cliente, status e prazo — em vez de oito
+                campos com o mesmo peso, metade deles invisíveis pra quem não
+                vê dinheiro.
+
+                "Criado em" continua editável, agora discreto ao lado do
+                número do projeto: é a data que decide o mês do fechamento, e
+                precisa existir sem competir por atenção. */}
             {canSeeMoney && (
-              <HeaderInfo label="Valor" value={formatCurrency(project.sold_value || 0)} />
-            )}
-            {canSeeHours && (
-              <HeaderInfo
-                label="Horas rastreadas"
-                value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
-              />
-            )}
-            {/* Quando o projeto nasceu, com hora. Editável pra corrigir o
-                retroativo do ClickUp, onde created_at é o dia da importação. */}
-            <CriadoEm
-              projectId={project.id}
-              criadoEm={project.criado_em}
-              createdAt={project.created_at}
-              podeEditar={podeEditarProjeto}
-              onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
-            />
-            <FaturamentoProjeto
-              projectId={project.id}
-              valor={project.faturamento || "mensal"}
-              podeEditar={canSeeMoney}
-              onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
-            />
-            {/* De qual orçamento este projeto nasceu — só admin. */}
-            {isAdmin && (
-              <OrcamentoDoProjeto
+              <FaturamentoProjeto
                 projectId={project.id}
-                budgetId={project.budget_id}
-                dealId={project.deal_id}
+                valor={project.faturamento || "mensal"}
+                podeEditar={canSeeMoney}
                 onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
               />
             )}
+
           </div>
 
           {resumo.total > 0 && (
@@ -448,6 +449,7 @@ export default function ProjetoDetalhe() {
 
           {tab === "entregaveis" && (
             <EntregaveisSection
+              canSeeHours={canSeeHours}
               projectId={project.id}
               clienteNome={project.client_name}
               profiles={profiles}
@@ -479,6 +481,29 @@ export default function ProjetoDetalhe() {
 
           {tab === "fechamento" && canSeeMoney && (
             <>
+              {/* O dinheiro do projeto num lugar só: valor vendido, orçamento
+                  de origem e as horas que o job consumiu. Saíram do cabeçalho
+                  porque metade de quem abre um projeto não pode nem ver isso,
+                  e a outra metade só olha na hora de fechar. */}
+              <Card className="glass-card">
+                <CardContent className="flex flex-wrap items-start gap-x-10 gap-y-3 p-5 text-sm">
+                  <HeaderInfo label="Valor" value={formatCurrency(project.sold_value || 0)} />
+                  {canSeeHours && (
+                    <HeaderInfo
+                      label="Horas rastreadas"
+                      value={`${Number(horasProjeto?.horas_total || 0).toFixed(1)}h`}
+                    />
+                  )}
+                  {isAdmin && (
+                    <OrcamentoDoProjeto
+                      projectId={project.id}
+                      budgetId={project.budget_id}
+                      dealId={project.deal_id}
+                      onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
+                    />
+                  )}
+                </CardContent>
+              </Card>
               <FechamentoSection project={project} onChanged={invalidate} />
               {/* Diárias e custos de campo: o dia rendeu deslocamento, comida e
                   às vezes hotel, e isso é repasse — entra no fechamento com
@@ -1367,7 +1392,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
  *  renderizada solta OU dentro de um grupo de semelhança. */
 function LinhaEntregavel({
   d,
-  alt,
+  alt, horas,
   projectId,
   nomeDe,
   navigate,
@@ -1376,6 +1401,8 @@ function LinhaEntregavel({
 }: {
   d: any;
   alt?: { abertas: number; total: number };
+  /** Horas apontadas nesta peça. `undefined` = quem olha não vê tempo. */
+  horas?: number;
   projectId: string;
   nomeDe: (id: string | null) => string;
   navigate: (to: string) => void;
@@ -1385,7 +1412,7 @@ function LinhaEntregavel({
   return (
     <div
       onClick={() => navigate(`/projetos/${projectId}/entregaveis/${d.id}`)}
-      className="grid min-w-[680px] cursor-pointer grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40"
+      className={`grid min-w-[680px] cursor-pointer items-center gap-2 rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-sm hover:border-primary/40 hover:bg-sidebar-accent/40 ${COLS(horas !== undefined)}`}
     >
       <span className="min-w-0">
         {/* Código (ADVR-xxxx) na frente: quando se tem o código em mãos, bate o
@@ -1441,6 +1468,11 @@ function LinhaEntregavel({
         {(() => { const I = iconeStatus(d.status); return <I className="h-3 w-3 shrink-0" />; })()}
         <span className="truncate">{rotuloStatus(d.status)}</span>
       </span>
+      {horas !== undefined && (
+        <span className="text-right text-xs tabular-nums text-muted-foreground" title="horas apontadas nesta peça">
+          {horas > 0 ? `${horas.toFixed(1)}h` : "—"}
+        </span>
+      )}
       {/* Ações rápidas — Frame, conversa e excluir deste entregável.
           A lixeira mora aqui (e não em coluna própria) pra linha não estourar a largura do card. */}
       <span className="flex items-center justify-end gap-1">
@@ -1509,6 +1541,14 @@ function corDoGrupo(chave: string, indice: number) {
 
 // Status do entregável em português. O valor cru do banco ("em_edicao",
 // "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
+/** A grade da lista de entregáveis. Uma definição só pro cabeçalho e pra
+ *  linha: com duas, a coluna de horas desalinha o cabeçalho no dia em que
+ *  alguém mexer em uma delas. */
+const COLS = (comHoras: boolean) =>
+  comHoras
+    ? "grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_60px_84px]"
+    : "grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px]";
+
 const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
   pendente: "Pendente",
   em_edicao: "Em edição",
@@ -1529,10 +1569,30 @@ function rotuloStatus(status: string | null | undefined): string {
   return STATUS_ENTREGAVEL_LABEL[status] || status.replace(/_/g, " ");
 }
 
-function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa }: { projectId: string; clienteNome?: string | null; profiles: any[]; onAbrirConversa: (deliverableId: string) => void }) {
+function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa, canSeeHours }: { projectId: string; clienteNome?: string | null; profiles: any[]; onAbrirConversa: (deliverableId: string) => void; canSeeHours: boolean }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [agrupar, setAgrupar] = useLocalPref<"sim" | "nao">("entregaveis:agrupar", "sim", ["sim", "nao"]);
+
+  /**
+   * Horas por peça. Uma consulta pro projeto inteiro e a soma no cliente —
+   * são dezenas de apontamentos, não milhares, e uma chamada por linha faria
+   * a lista disparar N requisições pra mostrar N números.
+   */
+  const { data: horasPorPeca = new Map<string, number>() } = useQuery({
+    queryKey: ["projeto-horas-peca", projectId],
+    enabled: canSeeHours,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("time_entries").select("deliverable_id, duration_min").eq("project_id", projectId);
+      const m = new Map<string, number>();
+      for (const t of (data as any[]) || []) {
+        if (!t.deliverable_id) continue;
+        m.set(t.deliverable_id, (m.get(t.deliverable_id) || 0) + Number(t.duration_min || 0) / 60);
+      }
+      return m;
+    },
+  });
   const [novo, setNovo] = useState({
     titulo: "",
     formato: "",
@@ -1648,14 +1708,20 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa 
         {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
             lixeira ficava pra fora do card. */}
         <div className="-mx-1 space-y-4 overflow-x-auto px-1 pb-1">
+        {/* HORAS por entregável, só pra quem pode ver tempo (admin/coord.):
+            saiu do cabeçalho do projeto, onde era um total que não dizia onde
+            o tempo foi. Aqui responde "qual peça consumiu o quê", que é a
+            pergunta que se faz de verdade. O timesheet manual do editor
+            continua dentro da peça, intocado. */}
         {items.length > 0 && (
-          <div className="grid min-w-[680px] grid-cols-[minmax(180px,1.6fr)_56px_56px_96px_88px_96px_84px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className={`grid min-w-[680px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${COLS(canSeeHours)}`}>
             <span>Entregável</span>
             <span>Formato</span>
             <span>Duração</span>
             <span>Responsável</span>
             <span>Prazo interno</span>
             <span>Status</span>
+            {canSeeHours && <span className="text-right">Horas</span>}
             <span className="text-right">Ações</span>
           </div>
         )}
@@ -1682,6 +1748,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa 
                       key={d.id}
                       d={d}
                       alt={(mapaAlt as any)[d.id]}
+                      horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
                       projectId={projectId}
                       nomeDe={nomeDe}
                       navigate={navigate}
@@ -1697,6 +1764,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa 
                 key={d.id}
                 d={d}
                 alt={(mapaAlt as any)[d.id]}
+                horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
                 projectId={projectId}
                 nomeDe={nomeDe}
                 navigate={navigate}

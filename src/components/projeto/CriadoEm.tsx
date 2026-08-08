@@ -30,12 +30,15 @@ function paraInput(iso?: string | null): string {
  * Quem edita vê as duas: o valor ajustado em cima e, embaixo, "cadastrado no
  * sistema em ..." — assim a correção nunca apaga o rastro de origem.
  */
-export function CriadoEm({ projectId, criadoEm, createdAt, podeEditar, onChanged }: {
+export function CriadoEm({ projectId, criadoEm, createdAt, podeEditar, onChanged, discreto }: {
   projectId: string;
   criadoEm?: string | null;
   createdAt?: string | null;
   podeEditar: boolean;
   onChanged: () => void;
+  /** Uma linha só, tamanho de legenda — pro cabeçalho do projeto, onde a data
+   *  precisa existir sem competir com o nome do cliente. */
+  discreto?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(() => paraInput(criadoEm || createdAt));
@@ -89,6 +92,24 @@ export function CriadoEm({ projectId, criadoEm, createdAt, podeEditar, onChanged
           </p>
         )}
       </div>
+    );
+  }
+
+  if (discreto) {
+    return (
+      <p className="group flex items-center gap-1.5 text-xs text-muted-foreground">
+        criado em {fmtCarimbo(efetiva)}
+        {ajustada && <span title={`Entrou no sistema em ${fmtCarimbo(createdAt)}`}>· ajustada</span>}
+        {podeEditar && (
+          <button
+            onClick={() => { setValor(paraInput(efetiva)); setEditando(true); }}
+            title="Corrigir a data — é ela que decide o mês do fechamento"
+            className="opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </p>
     );
   }
 

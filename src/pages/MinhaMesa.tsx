@@ -292,6 +292,31 @@ export default function MinhaMesa() {
   const quemEstaCom = (d: any) => d.etapa_responsavel_id || d.responsavel_id;
   const nomeEtapa = (slug: string) => etapas.find((e: any) => e.slug === slug)?.nome || slug;
 
+  /**
+   * Gravações dos próximos dias.
+   *
+   * Ficam na mesa porque sair a campo é a única coisa que não dá pra
+   * remarcar de manhã — e hoje a saída de amanhã não aparecia em lugar
+   * nenhum que a pessoa abre todo dia.
+   *
+   * NÃO filtra por pessoa, de propósito: `producao_saidas.equipe` aponta pra
+   * `team_members`, que está VAZIA no banco. Filtrar por um vínculo que
+   * ninguém preenche esconderia todas as gravações de todo mundo — pior que
+   * mostrar as do time. Quando a escala existir, o filtro entra aqui.
+   */
+  const { data: gravacoes = [] } = useQuery({
+    queryKey: ["minha-mesa-gravacoes"],
+    queryFn: async () => {
+      const hojeISO = new Date().toISOString().slice(0, 10);
+      const { data } = await (supabase as any)
+        .from("producao_saidas")
+        .select("id, titulo, data, hora_inicio, local, tipo, status, project:projects(id, name, client_name)")
+        .gte("data", hojeISO).neq("status", "cancelada")
+        .order("data").limit(8);
+      return (data as any[]) || [];
+    },
+  });
+
   // Nomes das etapas — a mesa mostra "Sua vez — Color", não "color".
   const { data: etapas = [] } = useQuery({
     queryKey: ["etapas-pos"],
@@ -453,7 +478,11 @@ export default function MinhaMesa() {
     return out.sort((a, b) => (a.ord - b.ord) || (a.due || "9999").localeCompare(b.due || "9999"));
   }, [coordena, deliverables, alteracoes, demandas, profiles, hoje]);
 
-  const total = itens.length;
+  // O contador conta o que é MEU pra resolver — não o que espera outra
+  // pessoa. Antes somava tudo: no print da Maiara dizia "8 pra resolver" com
+  // 3 na tela, e as 8 eram peças paradas com o cliente. Contador que promete
+  // trabalho inexistente é ruído com cara de cobrança.
+  const total = itens.filter((i) => i.tipo !== "cliente").length;
 
   // FILA ÚNICA. As 4 seções viraram uma lista só: a ordem JÁ é a prioridade
   // (atrasado > te esperando > esta semana > em andamento), então repetir isso
@@ -464,25 +493,19 @@ export default function MinhaMesa() {
   );
 
   /**
-   * O AGORA. A tela escolhe de 1 a 3 coisas e diz por quê.
+   * OS BLOCOS. Cada um responde uma pergunta, e a soma deles é a fila antiga.
    *
-   * Antes os 11 itens vinham com o mesmo botão laranja: a prioridade existia no
-   * código (a ordem da fila) e era invisível na tela — então quem abria a mesa
-   * fazia a triagem de novo, na mão. Se nada é urgente a seção não inventa
-   * urgência: mostra só o próximo e diz que não há nada pegando fogo.
+   * O que muda em relação a "Agora / Depois": ali a ordem era a prioridade e
+   * tudo dividia a mesma lista — o que estava comigo, o que esperava alguém e
+   * o que estava com o cliente. Quem abria a mesa fazia a triagem de novo.
+   *
+   * "Pra eu editar" já inclui a peça em que eu entro só numa ETAPA: quem
+   * decide é `quemEstaCom`, e ele é o dono da etapa quando existe.
    */
-  const { agora, semUrgencia } = useMemo(() => {
-    // "cliente" é coisa parada esperando outra pessoa — tem seção própria.
-    const candidatos = fila.filter((it) => it.tipo !== "cliente");
-    const urgentes = candidatos.filter((it) => urgencia(it, hoje) <= 2).slice(0, 3);
-    if (urgentes.length) return { agora: urgentes, semUrgencia: false };
-    return { agora: candidatos.slice(0, 1), semUrgencia: true };
-  }, [fila, hoje]);
-
-  const resto = useMemo(() => {
-    const noTopo = new Set(agora.map((i) => i.key));
-    return fila.filter((it) => !noTopo.has(it.key) && it.tipo !== "cliente");
-  }, [fila, agora]);
+  const praEditar = useMemo(() => fila.filter((it) => it.tipo === "editar"), [fila]);
+  const praAprovar = useMemo(() => fila.filter((it) => it.tipo === "aprovar" || it.tipo === "enviar"), [fila]);
+  const comCliente = useMemo(() => fila.filter((it) => it.tipo === "cliente"), [fila]);
+  const outras = useMemo(() => fila.filter((it) => it.tipo === "tarefa" || it.tipo === "demanda"), [fila]);
 
   /**
    * PARADO ESPERANDO ALGUÉM — com quantos dias de parado.
@@ -497,7 +520,9 @@ export default function MinhaMesa() {
     const eu = user.id;
     // Quem já está no destaque ou na fila não repete aqui — ver a mesma peça
     // em dois lugares faz a contagem mentir.
-    const jaNoTopo = new Set(agora.map((i) => i.d?.id).filter(Boolean));
+    // Não repete o que já está em "Pra eu editar" / "Pra eu aprovar": ver a
+    // mesma peça em dois blocos faz a contagem mentir.
+    const jaNoTopo = new Set([...praEditar, ...praAprovar].map((i) => i.d?.id).filter(Boolean));
     deliverables.forEach((d: any) => {
       if (jaNoTopo.has(d.id)) return;
       const ctx = d.project?.client_name || d.project?.name || "";
@@ -521,7 +546,20 @@ export default function MinhaMesa() {
     });
     // Mexeu hoje não está parado.
     return out.filter((t) => t.dias >= 1).sort((a, b) => b.dias - a.dias);
-  }, [deliverables, itens, agora, user?.id, podeCliente, settings, profiles]);
+  }, [deliverables, itens, praEditar, praAprovar, user?.id, podeCliente, settings, profiles]);
+  /**
+   * "Vai entrar pra você": peça em que EU sou o responsável e que está na mão
+   * de outra pessoa — etapa anterior ou revisão. Não é tarefa minha hoje, mas
+   * volta pra mim, e saber disso é o que evita a surpresa de sexta.
+   *
+   * O que está com o CLIENTE sai daqui: tem bloco próprio, com as ações de
+   * cobrar retorno.
+   */
+  const vaiEntrar = useMemo(
+    () => travados.filter((t: any) => t.item?.tipo !== "cliente"),
+    [travados],
+  );
+
   const [aba, setAba] = useState<"minha" | "time">("minha");
 
   if (isLoading) {
@@ -570,77 +608,102 @@ export default function MinhaMesa() {
         </Card>
       ) : (
         <>
-          {/* ---- AGORA: a tela decide, e diz por quê ---- */}
-          {agora.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                {semUrgencia ? "Nada urgente — o próximo é" : "Agora"}
-              </p>
-              {agora.map((it) => (
-                <CardAgora
-                  key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                />
-              ))}
-            </div>
-          )}
+          {/* ---- BLOCOS. Cada um responde uma pergunta diferente ----
+              Antes era uma fila só ("Agora" / "Depois") com tudo misturado:
+              o que estava comigo, o que esperava aprovação e o que estava com
+              o cliente competiam pela mesma leitura. O desenho aqui é o que o
+              Djêisson descreveu — o que é MEU em destaque, e o resto separado
+              por quem está segurando. */}
 
-          {/* ---- Depois: mesma fila de antes, quieta ---- */}
-          {resto.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Depois · {resto.length}
-              </p>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {resto.map((it) => (
-                    <ItemRow
-                      key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                    />
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <Bloco titulo="Pra eu editar" destaque n={praEditar.length}>
+            {praEditar.map((it) => (
+              <CardAgora
+                key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+              />
+            ))}
+          </Bloco>
 
-          {/* ---- Parado esperando alguém ---- */}
-          {travados.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Parado esperando alguém · {travados.length}
-              </p>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {travados.map((t) => (
-                    <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40">
-                      <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
-                        {t.titulo}
-                      </Link>
-                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
-                        {t.quem} · {t.falta}
-                      </span>
-                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
-                        há {t.dias} {t.dias === 1 ? "dia" : "dias"}
-                      </span>
-                      <div className="flex w-[190px] shrink-0 items-center justify-end gap-1">
-                        {t.item ? botoesDoItem(t.item).map((b, i) => (
-                          <Button
-                            key={b.kind} size="sm" variant={i === 0 ? "default" : "ghost"}
-                            disabled={busy === t.item.key}
-                            onClick={() => agir(b.kind, t.item)}
-                            className={`h-7 px-2.5 text-xs ${i === 0 ? "" : "text-muted-foreground"}`}
-                          >
-                            {b.label}
-                          </Button>
-                        )) : null}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          <Bloco titulo="Pra eu aprovar" n={praAprovar.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {praAprovar.map((it) => (
+                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
+          {/* Gravações: o que não dá pra remarcar de manhã. */}
+          <Bloco titulo="Gravações" n={gravacoes.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {gravacoes.map((g: any) => (
+                  <div key={g.id} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                    <span className="w-16 shrink-0 text-xs font-medium text-foreground">
+                      {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
+                      {g.titulo}
+                      {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
+                    </span>
+                    <span className="hidden w-44 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
+                      {g.project?.client_name || g.project?.name || ""}{g.local ? ` · ${g.local}` : ""}
+                    </span>
+                    <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+                      ver <ChevronRight className="inline h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
+          <Bloco titulo="Com o cliente" n={comCliente.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {comCliente.map((it) => (
+                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
+          {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
+              que está na mão de outra pessoa (etapa anterior ou revisão). */}
+          <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {vaiEntrar.map((t: any) => (
+                  <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                    <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
+                      {t.titulo}
+                    </Link>
+                    <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
+                      {t.quem} · {t.falta}
+                    </span>
+                    <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
+                      há {t.dias} {t.dias === 1 ? "dia" : "dias"}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
+          <Bloco titulo="Outras tarefas" n={outras.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {outras.map((it) => (
+                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
         </>
       )}
     </div>
@@ -672,6 +735,26 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
  * escrito. Sem o motivo, destacar vira palpite — a pessoa não sabe se pode
  * confiar na ordem.
  */
+/**
+ * Um bloco da mesa. Some quando está vazio — bloco vazio com título é uma
+ * linha a mais pra ler dizendo que não há nada pra ler.
+ */
+function Bloco({ titulo, n, destaque, children }: {
+  titulo: string; n: number; destaque?: boolean; children: React.ReactNode;
+}) {
+  if (!n) return null;
+  return (
+    <div className="space-y-2">
+      <p className={`text-[11px] font-medium uppercase tracking-wider ${
+        destaque ? "text-foreground" : "text-muted-foreground"
+      }`}>
+        {titulo} · {n}
+      </p>
+      {children}
+    </div>
+  );
+}
+
 function CardAgora({ it, hoje, busy, rodando, onAgir }: {
   it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void;
 }) {
