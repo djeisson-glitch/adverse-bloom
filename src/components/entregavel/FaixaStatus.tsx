@@ -50,11 +50,16 @@ export function donoDaVez(
     return { pessoa: null, papel: "com a coordenação, pra enviar ao cliente", encerrado: false };
   }
   if (status === "revisao_n2") {
-    return { pessoa: acha(n2), papel: "revisa (Revisão 2)", encerrado: false };
+    return { pessoa: acha(n2), papel: "revisão 2", encerrado: false };
   }
   if (status === "revisao_n1" || status === "revisao") {
-    return { pessoa: acha(n1), papel: "revisa", encerrado: false };
+    return { pessoa: acha(n1), papel: "revisão", encerrado: false };
   }
+  // O papel é SUBSTANTIVO ("edição", "revisão", "color") e não verbo
+  // ("edita"): a frase é "a bola está com Djêisson · edição", que se lê como
+  // rótulo. Com verbo virava uma afirmação sobre o que a pessoa está fazendo
+  // agora — e ela pode estar em qualquer outra coisa.
+  //
   // Resto do ciclo (pendente, em edição, em pausa, ajustes): a bola é de quem
   // está com a peça na bancada. A ETAPA vence o responsável — a peça passada
   // pro color está com o colorista, e dizer o nome do responsável aqui manda
@@ -62,9 +67,9 @@ export function donoDaVez(
   const naEtapa = acha(entregavel.etapa_responsavel_id);
   if (naEtapa) {
     const etapa = nomeEtapa(entregavel.etapa_atual);
-    return { pessoa: naEtapa, papel: etapa ? `faz o ${etapa}` : "está com a peça", encerrado: false };
+    return { pessoa: naEtapa, papel: etapa ? etapa.toLowerCase() : "com a peça", encerrado: false };
   }
-  return { pessoa: acha(entregavel.responsavel_id), papel: "edita", encerrado: false };
+  return { pessoa: acha(entregavel.responsavel_id), papel: "edição", encerrado: false };
 }
 
 function desdeQuando(iso?: string | null): string | null {

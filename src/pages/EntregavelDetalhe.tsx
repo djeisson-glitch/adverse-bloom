@@ -6,6 +6,7 @@ import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
+import { VisualizarAnexo, podeVerAqui } from "@/components/entregavel/VisualizarAnexo";
 import { encurtarNome } from "@/lib/nomeCurto";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -26,7 +27,7 @@ import {
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip,
+  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip, Pencil,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -430,113 +431,112 @@ export default function EntregavelDetalhe() {
             </div>
           </div>
 
-          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          {/* Os grupos empilham; a grade agora vive DENTRO de cada um. */}
+          <div className="space-y-3 text-sm">
             {/* Quando a peça entrou. Editável pelo mesmo motivo do projeto:
                 o que veio do ClickUp tem a data da importação. Pro corte
                 mensal de relatório quem manda é a data do PROJETO — esta
                 responde "quando ESTA peça entrou". */}
-            <CriadoEmPeca
-              deliverableId={did!}
-              criadoEm={entregavel?.criado_em}
-              createdAt={entregavel?.created_at}
-              // Piso: a peça anda pra frente do job, nunca pra trás dele.
-              pisoProjeto={entregavel?.project?.criado_em}
-              podeEditar={podeRevisar}
-              onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
-            />
-            {/* Cliente antes do projeto: quando a peça chega pro editor, "de
-                quem é isso?" vem antes de "de que job é". */}
-            {proj?.client_name && (
-              <Campo label="Cliente">
-                {/* `block`: `truncate` não corta span inline — sem isto, cliente
-                    de nome longo ("Sicredi Região da Produção RS/SC/MG")
-                    atravessava por cima do link do projeto ao lado. */}
-                <span className="block truncate text-foreground">{proj.client_name}</span>
+            {/* TRÊS GRUPOS, e não doze campos em fila. Cada um responde uma
+                pergunta diferente, e antes elas se misturavam: "de quem é
+                isso" ficava entre um formato e um prazo. A ordem é a de quem
+                abre a peça — de quem é, com quem está, pra quando. */}
+            <Grupo titulo="De quem é">
+              {proj?.client_name && (
+                <Campo label="Cliente">
+                  {/* `block`: `truncate` não corta span inline — sem isto,
+                      cliente de nome longo atravessava o link do lado. */}
+                  <span className="block truncate text-foreground">{proj.client_name}</span>
+                </Campo>
+              )}
+              <Campo label="Projeto">
+                <div className="flex items-center gap-2">
+                  <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
+                    {proj?.numero} · {proj?.name}
+                  </Link>
+                  <button
+                    onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
+                    title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
+                    className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </Campo>
-            )}
-            <Campo label="Projeto" className="sm:col-span-2">
-              <div className="flex items-center gap-2">
-                <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
-                  {proj?.numero} · {proj?.name}
-                </Link>
-                <button
-                  onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
-                  title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
-                  className="shrink-0 rounded-md border border-border/60 p-1 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </Campo>
-            <Campo label="Responsável">
-              <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
-                <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— sem responsável —</SelectItem>
-                  {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Campo>
-            <Campo label="Formato">
-              <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9" className="h-8" />
-            </Campo>
-            <Campo label="Duração">
-              <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
-            </Campo>
-            {/* Quem pediu. Vem preenchido quando a peça nasceu de uma demanda
-                do formulário; digitado à mão quando o pedido chegou por
-                WhatsApp — que é a maioria, e é a primeira pergunta quando uma
-                entrega é questionada no fechamento. */}
-            <Campo label="Solicitado por">
-              <SolicitadoPor
-                clientId={proj?.client_id}
-                valor={form.solicitado_por}
-                onChange={(v) => setJa({ solicitado_por: v })}
-              />
-            </Campo>
-            <Campo label="Prazo interno">
-              <SeletorPrazo
-                data={form.prazo_interno}
-                hora={form.prazo_interno_hora}
-                onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
-              />
-            </Campo>
-            <Campo label="Prazo do cliente">
-              <SeletorPrazo
-                data={form.data_entrega}
-                hora={form.data_entrega_hora}
-                onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
-              />
-            </Campo>
-            {/* Só pra quem vê dinheiro. Um editor não decide nota de cliente
-                e não precisa saber que existe uma — a regra de sempre. */}
-            {canSeeMoney && (
-              <Campo label="Faturamento">
-                <FaturamentoPeca
-                  did={did!}
-                  valor={entregavel.faturamento || null}
-                  doProjeto={proj?.faturamento || "mensal"}
-                  onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+              {/* Quem pediu. Vem preenchido quando a peça nasceu de uma
+                  demanda do formulário; digitado à mão quando o pedido chegou
+                  por WhatsApp — que é a maioria, e é a primeira pergunta
+                  quando uma entrega é questionada no fechamento. */}
+              <Campo label="Solicitado por">
+                <SolicitadoPor
+                  clientId={proj?.client_id}
+                  valor={form.solicitado_por}
+                  onChange={(v) => setJa({ solicitado_por: v })}
                 />
               </Campo>
-            )}
-            <Campo label="Link do arquivo / Frame.io" className="sm:col-span-2 lg:col-span-4">
-              <div className="flex gap-2">
-                <Input value={form.arquivo_url} onChange={(e) => set({ arquivo_url: e.target.value })} placeholder="https://frame.io/…" className="h-8" />
-                {form.arquivo_url && (
-                  <a
-                    href={form.arquivo_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Abrir o link em nova aba"
-                    className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Abrir
-                  </a>
-                )}
-              </div>
-            </Campo>
+              {/* Só pra quem vê dinheiro. Um editor não decide nota de cliente
+                  e não precisa saber que existe uma — a regra de sempre. */}
+              {canSeeMoney && (
+                <Campo label="Faturamento">
+                  <FaturamentoPeca
+                    did={did!}
+                    valor={entregavel.faturamento || null}
+                    doProjeto={proj?.faturamento || "mensal"}
+                    onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+                  />
+                </Campo>
+              )}
+            </Grupo>
+
+            <Grupo titulo="Com quem, e o quê">
+              <Campo label="Responsável">
+                <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— sem responsável —</SelectItem>
+                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Campo>
+              <Campo label="Formato">
+                <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9" className="h-8" />
+              </Campo>
+              <Campo label="Duração">
+                <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"' className="h-8" />
+              </Campo>
+            </Grupo>
+
+            <Grupo titulo="Datas">
+              <CriadoEmPeca
+                deliverableId={did!}
+                criadoEm={entregavel?.criado_em}
+                createdAt={entregavel?.created_at}
+                // Piso: a peça anda pra frente do job, nunca pra trás dele.
+                pisoProjeto={entregavel?.project?.criado_em}
+                podeEditar={podeRevisar}
+                onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+              />
+              <Campo label="Prazo interno">
+                <SeletorPrazo
+                  data={form.prazo_interno}
+                  hora={form.prazo_interno_hora}
+                  onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
+                />
+              </Campo>
+              <Campo label="Prazo do cliente">
+                <SeletorPrazo
+                  data={form.data_entrega}
+                  hora={form.data_entrega_hora}
+                  onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
+                />
+              </Campo>
+            </Grupo>
+
+            <Grupo titulo="Onde está o arquivo">
+              <Campo label="Link do arquivo / Frame.io" className="sm:col-span-2 lg:col-span-3">
+                <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
+              </Campo>
+            </Grupo>
           </div>
         </CardContent>
       </Card>
@@ -610,7 +610,7 @@ export default function EntregavelDetalhe() {
             <Label>Briefing / observações deste entregável</Label>
             <IndicadorAutosave status={auto.status} />
           </div>
-          <Textarea rows={5} value={form.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Direcionamento, referências, o que precisa entregar…" />
+          <BriefingComVerMais valor={form.descricao} onChange={(v) => set({ descricao: v })} />
         </CardContent>
       </Card>
 
@@ -1105,6 +1105,7 @@ function AnexosEntregavel({
   const inputRef = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [arrastando, setArrastando] = useState(false);
+  const [vendo, setVendo] = useState<any | null>(null);
 
   const { data: anexos = [] } = useQuery({
     queryKey: ["entregavel-anexos", did, categoria],
@@ -1205,18 +1206,22 @@ function AnexosEntregavel({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {anexos.map((a) => (
               <div key={a.id} className="group relative overflow-hidden rounded-md border border-border/40 bg-black/30">
+                {/* Clique abre o VISUALIZADOR, não outra aba: conferir o
+                    roteiro acontece durante a edição, e trocar de aba tira a
+                    peça da tela. O que o navegador não renderiza embutido
+                    continua indo pro link, dentro do próprio modal. */}
                 {a.tipo === "foto" ? (
-                  <a href={a.url} target="_blank" rel="noreferrer">
+                  <button onClick={() => setVendo(a)} className="block w-full" title="Ver aqui">
                     <img src={a.url} alt={a.nome} loading="lazy" className="h-28 w-full object-cover" />
-                  </a>
+                  </button>
                 ) : a.tipo === "video" ? (
                   <video src={a.url} className="h-28 w-full bg-black object-contain" controls preload="metadata" />
                 ) : (
-                  <a href={a.url} target="_blank" rel="noreferrer" download title="Abrir / baixar"
+                  <button onClick={() => setVendo(a)} title={podeVerAqui(a) ? "Ver aqui" : "Abrir"}
                     className="flex h-28 w-full flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary">
                     <FileText className="h-7 w-7" />
                     <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide">{ext(a.nome)}</span>
-                  </a>
+                  </button>
                 )}
                 {a.tamanho ? (
                   <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
@@ -1224,9 +1229,9 @@ function AnexosEntregavel({
                   </span>
                 ) : null}
                 <div className="flex items-center justify-between gap-1 px-2 py-1">
-                  <a href={a.url} target="_blank" rel="noreferrer" className="truncate text-[11px] text-foreground hover:text-primary" title={a.nome}>
+                  <button onClick={() => setVendo(a)} className="min-w-0 truncate text-left text-[11px] text-foreground hover:text-primary" title={a.nome}>
                     {a.nome}
-                  </a>
+                  </button>
                   <button
                     onClick={() => excluir(a)}
                     className="shrink-0 text-muted-foreground hover:text-destructive"
@@ -1239,6 +1244,8 @@ function AnexosEntregavel({
             ))}
           </div>
         )}
+
+        <VisualizarAnexo anexo={vendo} onClose={() => setVendo(null)} />
       </CardContent>
     </Card>
   );
@@ -1709,6 +1716,138 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Briefing: fechado por padrão, com "ver mais".
+ *
+ * O problema não era o tamanho da caixa — era não haver sinal nenhum de que
+ * havia MAIS texto embaixo. Um textarea com barra de rolagem interna esconde
+ * o resto sem avisar, e quem lê acha que leu tudo. Aqui o corte é
+ * proposital: some o fim do texto atrás de um degradê e um botão diz quantas
+ * linhas faltam — obriga o clique, que é o ponto.
+ *
+ * Clicar em qualquer lugar do texto abre pra edição. Briefing curto (até 6
+ * linhas) nunca corta: não há o que esconder.
+ */
+function BriefingComVerMais({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const linhas = (valor || "").split("\n");
+  const LIMITE = 6;
+  const cortado = !aberto && linhas.length > LIMITE;
+
+  if (editando || !valor) {
+    return (
+      <Textarea
+        autoFocus={!!valor}
+        rows={Math.min(20, Math.max(5, linhas.length + 1))}
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setEditando(false)}
+        placeholder="Direcionamento, referências, o que precisa entregar…"
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div
+        onClick={() => setEditando(true)}
+        title="Clique para editar"
+        className="relative cursor-text whitespace-pre-wrap rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm leading-relaxed text-foreground"
+      >
+        {cortado ? linhas.slice(0, LIMITE).join("\n") : valor}
+        {/* O degradê é o sinal: o texto morre no meio, e isso se vê. */}
+        {cortado && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-md bg-gradient-to-t from-card to-transparent" />
+        )}
+      </div>
+      {linhas.length > LIMITE && (
+        <button
+          onClick={() => setAberto((v) => !v)}
+          className="mt-1 text-xs font-medium text-primary hover:underline"
+        >
+          {aberto ? "ver menos" : `ver mais (+${linhas.length - LIMITE} linhas)`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * O link do arquivo: preenchido, ele É o botão.
+ *
+ * Antes o campo era um input largo com um "Abrir" do lado — pra ver a peça
+ * era preciso mirar num botão pequeno depois de atravessar um campo de texto
+ * que quase nunca se edita. O link, uma vez posto, é lido cem vezes e mudado
+ * uma. Então o estado de repouso passa a ser o link clicável ocupando a
+ * linha toda, com um lápis discreto pra trocar.
+ */
+function LinkDoArquivo({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+  const [editando, setEditando] = useState(!valor);
+  const [txt, setTxt] = useState(valor);
+  useEffect(() => { if (!editando) setTxt(valor); }, [valor, editando]);
+
+  const salvar = () => { setEditando(false); if (txt !== valor) onChange(txt.trim()); };
+
+  if (editando || !valor) {
+    return (
+      <div className="flex gap-2">
+        <Input
+          autoFocus={!!valor}
+          value={txt}
+          onChange={(e) => setTxt(e.target.value)}
+          onBlur={salvar}
+          onKeyDown={(e) => { if (e.key === "Enter") salvar(); if (e.key === "Escape") { setTxt(valor); setEditando(false); } }}
+          placeholder="https://f.io/…"
+          className="h-9"
+        />
+        {valor && (
+          <Button size="sm" variant="ghost" className="h-9" onClick={salvar}>ok</Button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <a
+        href={valor}
+        target="_blank"
+        rel="noreferrer"
+        title={valor}
+        className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+      >
+        <ExternalLink className="h-4 w-4 shrink-0" />
+        <span className="truncate">{valor.replace(/^https?:\/\//, "")}</span>
+      </a>
+      <button
+        onClick={() => setEditando(true)}
+        title="Trocar o link"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Um bloco de campos que respondem à MESMA pergunta.
+ *
+ * O cabeçalho tinha doze campos numa grade única, na ordem em que foram
+ * nascendo: "de quem é isso" caía entre um formato e um prazo. Agrupados,
+ * a página deixa de ser uma lista e vira três respostas — e quem procura uma
+ * data sabe onde olhar sem varrer a tela inteira.
+ */
+function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-border/40 bg-muted/10 p-3">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{titulo}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    </section>
   );
 }
 
