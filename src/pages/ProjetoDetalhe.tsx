@@ -128,6 +128,33 @@ export default function ProjetoDetalhe() {
     if (msg) toast.success(msg);
   };
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
+
+  /**
+   * Quanta coisa tem em cada aba — o selo que faz a aba deixar de parecer
+   * vazia. Uma varredura só, com `head: true`: são contagens, e trazer as
+   * linhas pra contar no cliente seria puxar o projeto inteiro pra desenhar
+   * quatro números.
+   */
+  const { data: contagens } = useQuery({
+    queryKey: ["projeto-contagens", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const conta = (tabela: string, filtra: (q: any) => any) =>
+        filtra((supabase as any).from(tabela).select("id", { count: "exact", head: true }).eq("project_id", id!));
+      const [ent, tar, dia, doc] = await Promise.all([
+        conta("deliverables", (q) => q.not("status", "in", "(reprovado,cancelado)")),
+        conta("tasks", (q) => q),
+        conta("producao_saidas", (q) => q.eq("tipo", "diaria").neq("status", "cancelada")),
+        conta("project_documents", (q) => q.is("deliverable_id", null)),
+      ]);
+      return {
+        entregaveis: ent.count || 0,
+        tarefas: tar.count || 0,
+        diarias: dia.count || 0,
+        docs: doc.count || 0,
+      };
+    },
+  });
   // Contexto do painel de comentários (levantado pra cá pra o botão "conversa"
   // de cada entregável poder focar o painel sem sair da lista).
   const [comentContexto, setComentContexto] = useState<string>("project");
@@ -382,27 +409,39 @@ export default function ProjetoDetalhe() {
       {/* ---------- Conteúdo (tabs) + painel lateral de comentários ---------- */}
       <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
         <div className="min-w-0 space-y-5">
-          {/* Navegação por seções */}
+          {/* Navegação por seções, com o CONTADOR do que tem lá dentro.
+              Pedido do Djêisson: "pra que todo mundo saiba que existem docs e
+              etc". Uma aba sem sinal é indistinguível de uma aba vazia — quem
+              não abre não descobre, e roteiro anexado que ninguém lê é o mesmo
+              que roteiro não anexado. O número some quando é zero: aba vazia
+              não precisa de selo dizendo que está vazia. */}
           <div className="flex gap-1 overflow-x-auto border-b border-border/60">
             {(
               [
-                { id: "entregaveis", label: "Entregáveis" },
-                { id: "tarefas", label: "Tarefas" },
-                { id: "diarias", label: "Diárias" },
-                { id: "briefing", label: "Briefing & Docs" },
+                { id: "entregaveis", label: "Entregáveis", n: contagens?.entregaveis },
+                { id: "tarefas", label: "Tarefas", n: contagens?.tarefas },
+                { id: "diarias", label: "Diárias", n: contagens?.diarias },
+                { id: "briefing", label: "Briefing & Docs", n: contagens?.docs },
                 ...(canSeeMoney ? [{ id: "fechamento", label: "Fechamento" }] : []),
-              ] as { id: ProjetoTab; label: string }[]
+              ] as { id: ProjetoTab; label: string; n?: number }[]
             ).map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm transition-colors ${
                   tab === t.id
                     ? "border-primary font-medium text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t.label}
+                {!!t.n && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
+                    tab === t.id ? "bg-primary/20 text-primary" : "bg-foreground/10 text-muted-foreground"
+                  }`}>
+                    {t.n}
+                  </span>
+                )}
               </button>
             ))}
           </div>
