@@ -525,6 +525,15 @@ export default function FaturamentoMensal() {
                           />
                         )}
                         <Kpi label={`Imposto ${f.imposto_percent}%`} v={formatCurrency(f.imposto_valor)} />
+                        {/* Valor combinado (orçamento) entra DEPOIS do imposto:
+                            é preço final, e sem esta linha ele apareceria só
+                            dentro do total, como se a conta não fechasse. */}
+                        {Number(f.detalhe?.valor_combinado || 0) > 0 && (
+                          <Kpi
+                            label="Valor combinado"
+                            v={formatCurrency(Number(f.detalhe.valor_combinado))}
+                          />
+                        )}
                         {Number(f.detalhe?.saldo?.usado || 0) > 0 && (
                           <Kpi label="Saldo abatido" v={`− ${formatCurrency(Number(f.detalhe.saldo.usado))}`} />
                         )}
