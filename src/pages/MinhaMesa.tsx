@@ -178,10 +178,10 @@ function faixaDe(it: Item, hoje: string): Faixa {
   return dias <= 7 ? "agora" : "fila";
 }
 
-const FAIXAS: { id: Faixa; titulo: string; barra: string; texto: string }[] = [
-  { id: "vencido", titulo: "Vencido",            barra: "bg-destructive", texto: "text-destructive" },
-  { id: "agora",   titulo: "Hoje e esta semana", barra: "bg-warning",     texto: "text-warning" },
-  { id: "fila",    titulo: "Na fila",            barra: "bg-border",      texto: "text-muted-foreground" },
+const FAIXAS: { id: Faixa; titulo: string; barra: string }[] = [
+  { id: "vencido", titulo: "Vencido",            barra: "bg-destructive" },
+  { id: "agora",   titulo: "Hoje e esta semana", barra: "bg-warning" },
+  { id: "fila",    titulo: "Na fila",            barra: "bg-border" },
 ];
 
 export default function MinhaMesa() {
@@ -651,17 +651,25 @@ export default function MinhaMesa() {
               if (!desta.length) return null;
               return (
                 <div key={f.id} className="space-y-2">
-                  <p className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider ${f.texto}`}>
-                    <span className={`h-2 w-2 rounded-full ${f.barra}`} />
+                  {/* Título NEUTRO com a bolinha colorida: a palavra "Vencido"
+                      já diz o que é, e pintá-la também somaria uma terceira
+                      mancha de cor por faixa (bolinha + barra + prazo). A cor
+                      aparece uma vez aqui, pequena, e o resto é a lista. */}
+                  <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full ${f.barra}`} />
                     {f.titulo} · {desta.length}
                   </p>
-                  {desta.map((it) => (
-                    <CardAgora
-                      key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                      faixa={f.id}
-                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                    />
-                  ))}
+                  <Card className="glass-card overflow-hidden">
+                    <CardContent className="p-0">
+                      {desta.map((it) => (
+                        <ItemRow
+                          key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                          faixa={f.id}
+                          rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
                 </div>
               );
             })}
@@ -798,72 +806,29 @@ function Bloco({ titulo, n, destaque, children }: {
   );
 }
 
-function CardAgora({ it, hoje, busy, rodando, onAgir, faixa }: {
-  it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void;
-  /** Faixa de prazo — pinta a lateral do card. */
-  faixa?: Faixa;
-}) {
-  const atrasado = it.atrasado;
-  const botoes = botoesDoItem(it);
-  // A cor vai NA BORDA DO CARD, não num wrapper: envolver o card num div com
-  // borda daria duas bordas e dois raios de canto brigando.
-  const lateral =
-    faixa === "vencido" ? "border-l-4 border-l-destructive"
-      : faixa === "agora" ? "border-l-4 border-l-warning"
-      : "";
-  return (
-    <Card className={`glass-card ${lateral} ${atrasado ? "border-destructive/40" : ""}`}>
-      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
-        <div className="min-w-0 flex-1">
-          <Link to={it.link} className="block truncate text-base font-medium text-foreground hover:underline" title={it.titulo}>
-            {it.titulo}
-          </Link>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {/* Etapa como tag: quem bate o olho sabe em que mão a peça está. */}
-            {it.d?.etapa_atual && (
-              <span className="mr-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                {it.d.etapa_atual}
-              </span>
-            )}
-            {it.contexto}
-            <span className={atrasado ? "font-medium text-destructive" : ""}> · {motivoDoTopo(it, hoje)}</span>
-            {it.nota && <span> · {it.nota}</span>}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
-          {botoes.map((b, i) => (
-            <Button
-              key={b.kind} size="sm" disabled={busy}
-              variant={i === 0 ? "default" : "ghost"}
-              onClick={() => onAgir(b.kind, it)}
-              className={`h-8 px-3 text-xs ${i === 0 ? b.cls : "text-muted-foreground"}`}
-            >
-              {busy && i === 0 ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              {b.label}
-            </Button>
-          ))}
-          <Link to={it.link} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" title="Abrir">
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 /**
- * UMA LINHA por item: marca, título, cliente, prazo, ação.
+ * Uma linha da mesa. Densa, e com COR SÓ ONDE ELA DECIDE ALGO.
  *
- * O que saiu e por quê: o ícone de status (a ação à direita já diz o que
- * fazer), a pílula de etapa (idem), a linha de contexto separada e o
- * cabeçalho de seção. Sobrou o que responde "o que eu faço agora".
+ * Antes cada item era um cartão de ~100px com um botão laranja sólido. Oito
+ * itens viravam oito botões idênticos gritando junto: cor em tudo é cor em
+ * nada, e o atrasado se perdia no meio do resto. Agora:
+ *
+ *   · barra de 3px na lateral — vermelha no vencido, âmbar no que vence esta
+ *     semana, NADA na fila. É a marca que o olho pega descendo a lista;
+ *   · o prazo herda a mesma cor, e é a única palavra colorida da linha;
+ *   · o botão principal é SÓLIDO só no vencido. No resto ele existe em
+ *     contorno — continua a um clique, mas para de disputar atenção com o
+ *     que está pegando fogo.
  */
-function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void }) {
+function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
+  it: Item; hoje: string; busy: boolean; rodando: boolean;
+  onAgir: (kind: string, it: Item) => void; faixa?: Faixa;
+}) {
   const atrasado = it.atrasado;
   const botoes = botoesDoItem(it);
   const principal = botoes[0];
   const extras = botoes.slice(1);
+  const urgente = faixa === "vencido" || (!faixa && atrasado);
 
   const prazo = it.due
     ? it.due === hoje
@@ -872,12 +837,11 @@ function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; 
     : "";
 
   return (
-    <div className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40">
-      {/* Marca de atraso ocupa largura fixa: as linhas ficam alinhadas mesmo
-          quando só algumas têm a marca. */}
-      <span className="w-3 shrink-0 text-center text-sm font-bold text-destructive">
-        {atrasado ? "!" : ""}
-      </span>
+    <div className="flex items-center gap-3 border-b border-border/40 py-2 pr-4 last:border-0 hover:bg-sidebar-accent/40">
+      {/* A barra é a cor: 3px na lateral, e só quando significa algo. */}
+      <span className={`h-8 w-[3px] shrink-0 rounded-r ${
+        urgente ? "bg-destructive" : faixa === "agora" ? "bg-warning" : "bg-transparent"
+      }`} />
 
       <Link to={it.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={it.titulo}>
         {it.d?.etapa_atual && (
@@ -893,7 +857,11 @@ function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; 
         {it.contexto}
       </span>
 
-      <span className={`w-16 shrink-0 text-right text-xs ${atrasado ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+      <span className={`w-16 shrink-0 text-right text-xs ${
+        urgente ? "font-medium text-destructive"
+          : faixa === "agora" ? "font-medium text-warning"
+          : "text-muted-foreground"
+      }`}>
         {prazo}
       </span>
 
@@ -905,7 +873,7 @@ function ItemRow({ it, hoje, busy, rodando, onAgir }: { it: Item; hoje: string; 
                 era isso que fazia os 11 itens parecerem igualmente urgentes. */}
             <Button
               size="sm"
-              variant="outline"
+              variant={urgente ? "default" : "outline"}
               disabled={busy}
               onClick={() => onAgir(principal.kind, it)}
               className="h-7 px-2.5 text-xs"
