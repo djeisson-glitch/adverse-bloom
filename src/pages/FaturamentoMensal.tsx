@@ -53,6 +53,21 @@ const STATUS: Record<string, { label: string; cls: string; next?: string; nextLa
  * 3h28. Abaixo de uma hora mostra só os minutos; acima, hora + minuto.
  */
 /** 7 vira "7", 0.5 vira "0,5" — meia diária é rotina. */
+/**
+ * O que o cliente paga por este mês: as DUAS notas somadas.
+ *
+ * `faturamento_mensal.total` é o total de UMA nota — a do fechamento. Quando
+ * parte do mês sai em nota separada, ela é outro documento do MESMO período,
+ * e quem olha a linha do cliente quer saber quanto o mês deu, não quanto deu
+ * um dos dois papéis.
+ *
+ * O avulso NÃO entra: é outro projeto, cobrado por outra régua e muitas vezes
+ * em outro mês. Ele tem bloco e total próprios, com o aviso de que está fora.
+ */
+function totalDoMes(f: any): number {
+  return Number(f.total || 0) + Number(f.detalhe?.nota_mes?.total || 0);
+}
+
 function qtd(v: number) {
   return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
 }
@@ -362,7 +377,9 @@ export default function FaturamentoMensal() {
     if (ok) apagar.mutate(f);
   };
 
-  const totalMes = faturas.reduce((s, f) => s + (f.total || 0), 0);
+  // O total da página soma as DUAS notas de cada cliente, como o card. Somar
+  // só `f.total` faria o topo da tela discordar da soma dos cards abaixo dele.
+  const totalMes = faturas.reduce((s, f) => s + totalDoMes(f), 0);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 py-6">
@@ -501,7 +518,12 @@ export default function FaturamentoMensal() {
                       )}
                     </div>
                     <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
-                    <span className="w-28 text-right text-sm font-semibold text-primary">{formatCurrency(f.total)}</span>
+                    <span className="w-28 shrink-0 text-right">
+                      <span className="block text-sm font-semibold text-primary">{formatCurrency(totalDoMes(f))}</span>
+                      {Number(f.detalhe?.nota_mes?.total || 0) > 0 && (
+                        <span className="block text-[10px] text-muted-foreground">em 2 notas</span>
+                      )}
+                    </span>
                   </button>
 
                   {expandido && (
@@ -537,7 +559,11 @@ export default function FaturamentoMensal() {
                         {Number(f.detalhe?.saldo?.usado || 0) > 0 && (
                           <Kpi label="Saldo abatido" v={`− ${formatCurrency(Number(f.detalhe.saldo.usado))}`} />
                         )}
-                        <Kpi label="Total" v={formatCurrency(f.total)} destaque />
+                        <Kpi
+                          label={Number(f.detalhe?.nota_mes?.total || 0) > 0 ? "Total desta nota" : "Total"}
+                          v={formatCurrency(f.total)}
+                          destaque
+                        />
                       </div>
 
                       {/* Saúde (contrato/tabela × nosso valor-hora) */}
@@ -922,6 +948,34 @@ export default function FaturamentoMensal() {
                             ))}
                           </div>
                         </Bloco>
+                      )}
+
+                      {/* RODAPÉ: o mês fechado, com as notas separadas.
+                          Os blocos acima detalham cada documento; aqui é a
+                          única linha que responde "quanto o cliente paga por
+                          este mês" — que é a pergunta de quem vai emitir, e
+                          estava espalhada em dois totais que ninguém somava
+                          na tela. */}
+                      {Number(f.detalhe?.nota_mes?.total || 0) > 0 && (
+                        <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Total de {mesLabel}
+                          </p>
+                          <Linha rot="Nota do fechamento" v={formatCurrency(f.total)} />
+                          <Linha rot="Nota separada" v={formatCurrency(Number(f.detalhe.nota_mes.total))} />
+                          <div className="mt-1 flex items-center justify-between gap-2 border-t border-border/60 pt-1.5">
+                            <span className="font-medium text-foreground">Total do mês · 2 notas</span>
+                            <b className="tabular-nums text-primary">{formatCurrency(totalDoMes(f))}</b>
+                          </div>
+                          {/* O avulso fica de fora e a folha diz isso: é outro
+                              projeto, por outra régua, às vezes de outro mês. */}
+                          {Number(f.detalhe?.avulsos_valor || 0) > 0 && (
+                            <p className="mt-1.5 text-[10px] text-muted-foreground">
+                              Fora daqui: {formatCurrency(Number(f.detalhe.avulsos_valor))} a faturar à parte
+                              (outros projetos — ver o bloco acima).
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {/* Ações de status */}
