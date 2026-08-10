@@ -156,6 +156,34 @@ function urgencia(it: Item, hoje: string): number {
 }
 const ATIVO = (s: string) => !["aprovado", "entregue", "cancelado", "reprovado"].includes(s);
 
+/**
+ * Em que faixa de prazo o item cai — o que a cor comunica.
+ *
+ * Pedido do Djêisson vendo dez itens em "Pra eu editar": os três atrasados se
+ * perdiam no meio dos que vencem em setembro. A ordem já era a certa, mas
+ * ordem sem marca visual não separa nada — o olho não vê onde o vermelho
+ * acaba.
+ *
+ * Só três faixas, de propósito. Quatro ou cinco viram um degradê que ninguém
+ * decodifica; três é "estou devendo / é pra já / dá tempo".
+ */
+type Faixa = "vencido" | "agora" | "fila";
+
+function faixaDe(it: Item, hoje: string): Faixa {
+  if (it.atrasado) return "vencido";
+  if (!it.due) return "fila";
+  // "Esta semana" = até 7 dias. Prazo de produção se mede em dias, e o que
+  // vence na sexta precisa aparecer na segunda.
+  const dias = Math.round((new Date(it.due + "T00:00:00").getTime() - new Date(hoje + "T00:00:00").getTime()) / 86400000);
+  return dias <= 7 ? "agora" : "fila";
+}
+
+const FAIXAS: { id: Faixa; titulo: string; barra: string; texto: string }[] = [
+  { id: "vencido", titulo: "Vencido",            barra: "bg-destructive", texto: "text-destructive" },
+  { id: "agora",   titulo: "Hoje e esta semana", barra: "bg-warning",     texto: "text-warning" },
+  { id: "fila",    titulo: "Na fila",            barra: "bg-border",      texto: "text-muted-foreground" },
+];
+
 export default function MinhaMesa() {
   const { user } = useAuth();
   const { can, isAdmin, isProdutor, isCoordenadora } = usePermissions();
@@ -616,12 +644,27 @@ export default function MinhaMesa() {
               por quem está segurando. */}
 
           <Bloco titulo="Pra eu editar" destaque n={praEditar.length}>
-            {praEditar.map((it) => (
-              <CardAgora
-                key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-              />
-            ))}
+            {/* Subdividido por prazo, com cor. Dez itens numa lista só faziam
+                os três atrasados sumirem entre os que vencem em setembro. */}
+            {FAIXAS.map((f) => {
+              const desta = praEditar.filter((it) => faixaDe(it, hoje) === f.id);
+              if (!desta.length) return null;
+              return (
+                <div key={f.id} className="space-y-2">
+                  <p className={`flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider ${f.texto}`}>
+                    <span className={`h-2 w-2 rounded-full ${f.barra}`} />
+                    {f.titulo} · {desta.length}
+                  </p>
+                  {desta.map((it) => (
+                    <CardAgora
+                      key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                      faixa={f.id}
+                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </Bloco>
 
           <Bloco titulo="Pra eu aprovar" n={praAprovar.length}>
@@ -755,13 +798,21 @@ function Bloco({ titulo, n, destaque, children }: {
   );
 }
 
-function CardAgora({ it, hoje, busy, rodando, onAgir }: {
+function CardAgora({ it, hoje, busy, rodando, onAgir, faixa }: {
   it: Item; hoje: string; busy: boolean; rodando: boolean; onAgir: (kind: string, it: Item) => void;
+  /** Faixa de prazo — pinta a lateral do card. */
+  faixa?: Faixa;
 }) {
   const atrasado = it.atrasado;
   const botoes = botoesDoItem(it);
+  // A cor vai NA BORDA DO CARD, não num wrapper: envolver o card num div com
+  // borda daria duas bordas e dois raios de canto brigando.
+  const lateral =
+    faixa === "vencido" ? "border-l-4 border-l-destructive"
+      : faixa === "agora" ? "border-l-4 border-l-warning"
+      : "";
   return (
-    <Card className={`glass-card ${atrasado ? "border-destructive/40" : ""}`}>
+    <Card className={`glass-card ${lateral} ${atrasado ? "border-destructive/40" : ""}`}>
       <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
         <div className="min-w-0 flex-1">
           <Link to={it.link} className="block truncate text-base font-medium text-foreground hover:underline" title={it.titulo}>
