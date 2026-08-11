@@ -7,7 +7,6 @@ import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
 import { VisualizarAnexo, podeVerAqui } from "@/components/entregavel/VisualizarAnexo";
-import { encurtarNome } from "@/lib/nomeCurto";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
+import { cru, nomeDaVinciCru } from "@/lib/nomeCru";
 import { toast } from "sonner";
 import { ComentariosSection } from "./ProjetoDetalhe";
 
@@ -52,43 +52,19 @@ function nomeDe(profiles: any[], uid: string | null | undefined) {
   return p?.full_name || p?.email || "—";
 }
 
-// Formato normalizado pra nome de pasta: "16×9" / "16 X 9" → "16x9".
-function normFormato(formato: string | null | undefined): string {
-  return (formato || "").trim().replace(/\s+/g, "").replace(/[×:]/g, "x").toLowerCase();
-}
-
-// Caixa de nome de pasta: tudo maiúsculo e sem acento, no mesmo padrão dos
-// nomes de projeto (CAMPANHA_PME_UNIMED). Acento em nome de pasta dá dor de
-// cabeça no DaVinci e no sistema de arquivos.
-function caixaPasta(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-}
-
-// Nome-padrão pra pasta/projeto no DaVinci — cada bloco entre colchetes:
-// [COD] [NOME COMPLETO] [FORMATO] [V1]
-// ex.: "[ADVR-4036] [SPOT DE RADIO 01 - FILME MAE] [16X9] [V1]"
-// Sem formato preenchido, saem 3 blocos — o bloco não vira placeholder.
-function nomeDaVinci(codigo: string | null | undefined, titulo: string | null | undefined, formato: string | null | undefined, cliente?: string | null): string {
-  const cod = (codigo || "").trim();
-  // O prefixo interno ("PÓS | ") fica de fora: ele contava como palavra e o
-  // nome saía truncado em "[PÓS | Spot]". O cliente e a palavra "vídeo"
-  // também saem: o código já identifica o job, e nome de pasta longo é o que
-  // faz o DaVinci e o Finder cortarem justamente o fim, que é o que distingue
-  // uma peça da outra. Vale também pras peças antigas — aqui é só a cópia,
-  // o dado no banco não muda.
-  const nome = caixaPasta(
-    encurtarNome((titulo || "").replace(/^\s*(PÓS|POS|PROD|DESL)\s*\|\s*/i, "").trim(), cliente),
-  );
-  const f = caixaPasta(normFormato(formato));
-  return [cod && `[${cod}]`, nome && `[${nome}]`, f && `[${f}]`, "[V1]"].filter(Boolean).join(" ");
-}
-
-// Nome do projeto pra copiar: o nome INTEIRO, como está cadastrado. A versão
-// anterior tirava o prefixo (#20260601_) e o que era copiado não batia com o
-// nome da pasta. O padrão de nome mora no cadastro do projeto, não aqui.
-function nomeProjetoCopia(name: string | null | undefined): string {
-  return (name || "").trim();
-}
+/**
+ * O nome copiado agora sai CRU, no formato do banco.
+ *
+ * Djêisson (11/08/2026): "quando a gente for copiar o nome pra usar no davinci
+ * e em outros lugares, deixar sempre sem, cru mesmo... principalmente entre
+ * mac e windows."
+ *
+ * Antes saía em blocos — "[ADVR-4036] [SPOT DE RADIO 01] [16X9] [V1]". Os
+ * acentos já saíam, mas o colchete e o espaço ficavam, e são justamente os
+ * dois que quebram caminho entre os dois sistemas. A composição é a MESMA
+ * (código · nome · formato · versão): não se perde informação, só os
+ * caracteres que davam problema.
+ */
 
 async function copiarTexto(texto: string, oque: string) {
   try {
@@ -394,8 +370,8 @@ export default function EntregavelDetalhe() {
                 )}
                 <IndicadorAutosave status={auto.status} />
                 <button
-                  onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato, proj?.client_name), "Nome DaVinci")}
-                  title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato, proj?.client_name)}`}
+                  onClick={() => copiarTexto(nomeDaVinciCru(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
+                  title={`Copiar nome padrão: ${nomeDaVinciCru(entregavel.codigo, form.titulo, form.formato)}`}
                   className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Copy className="h-3 w-3" /> Nome DaVinci
@@ -450,8 +426,8 @@ export default function EntregavelDetalhe() {
                   {proj?.numero} · {proj?.name}
                 </Link>
                 <button
-                  onClick={() => copiarTexto(nomeProjetoCopia(proj?.name), "Nome do projeto")}
-                  title={`Copiar: ${nomeProjetoCopia(proj?.name)}`}
+                  onClick={() => copiarTexto((proj?.nome_cru || cru(proj?.name)), "Nome do projeto")}
+                  title={`Copiar: ${(proj?.nome_cru || cru(proj?.name))}`}
                   className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Copy className="h-3.5 w-3.5" />

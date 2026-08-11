@@ -6,6 +6,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BALDES, rotuloBalde } from "@/lib/faturamentoBalde";
+import { cru } from "@/lib/nomeCru";
 import { useConfirm } from "@/components/ui/confirm";
 import { statusPill, iconeStatus } from "@/lib/statusEntregavel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +14,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw,
+  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw, Copy,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,16 @@ function resumirEntregas(itens: { formato: string | null; duracao: string | null
 }
 
 type ProjetoTab = "entregaveis" | "tarefas" | "diarias" | "briefing" | "fechamento";
+
+/** Copia o nome cru (pasta/DaVinci) e confirma — sem isso o clique não dá sinal. */
+async function copiarNomeCru(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast.success("Nome cru copiado", { description: texto });
+  } catch {
+    toast.error("Não deu pra copiar");
+  }
+}
 
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -255,7 +266,19 @@ export default function ProjetoDetalhe() {
               <p className="font-mono text-xs text-muted-foreground">
                 {project.numero || "—"} <span className="ml-2">{project.client_name}</span>
               </p>
-              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
+                {/* O nome fica como se escreve; o cru é o que se copia pra
+                    pasta e pro DaVinci. `nome_cru` vem do banco (coluna
+                    gerada), então é o mesmo valor em qualquer consumidor. */}
+                <button
+                  onClick={() => copiarNomeCru(project.nome_cru || cru(project.name))}
+                  title={`Copiar nome cru: ${project.nome_cru || cru(project.name)}`}
+                  className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  <Copy className="h-3 w-3" /> Nome cru
+                </button>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {/* Acabar o projeto é AÇÃO, não etapa: ele fica em Fechamento o
