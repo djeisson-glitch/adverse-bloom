@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseDuracaoMin, fmtDuracao, ETAPAS_TRABALHO } from "@/lib/duracao";
-import { cru, nomeDaVinciCru } from "@/lib/nomeCru";
+import { nomeDaVinci, nomeProjetoPadrao } from "@/lib/nomeCru";
 import { toast } from "sonner";
 import { ComentariosSection } from "./ProjetoDetalhe";
 
@@ -370,8 +370,8 @@ export default function EntregavelDetalhe() {
                 )}
                 <IndicadorAutosave status={auto.status} />
                 <button
-                  onClick={() => copiarTexto(nomeDaVinciCru(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
-                  title={`Copiar nome padrão: ${nomeDaVinciCru(entregavel.codigo, form.titulo, form.formato)}`}
+                  onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
+                  title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
                   className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
                   <Copy className="h-3 w-3" /> Nome DaVinci
@@ -426,8 +426,8 @@ export default function EntregavelDetalhe() {
                   {proj?.numero} · {proj?.name}
                 </Link>
                 <button
-                  onClick={() => copiarTexto((proj?.nome_cru || cru(proj?.name)), "Nome do projeto")}
-                  title={`Copiar: ${(proj?.nome_cru || cru(proj?.name))}`}
+                  onClick={() => copiarTexto(nomeProjetoPadrao(proj?.numero, proj?.name), "Nome do projeto")}
+                  title={`Copiar: ${nomeProjetoPadrao(proj?.numero, proj?.name)}`}
                   className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
                 >
                   <Copy className="h-3.5 w-3.5" />

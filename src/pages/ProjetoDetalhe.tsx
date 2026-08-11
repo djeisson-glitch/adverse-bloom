@@ -6,7 +6,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BALDES, rotuloBalde } from "@/lib/faturamentoBalde";
-import { cru } from "@/lib/nomeCru";
+import { nomeProjetoPadrao } from "@/lib/nomeCru";
 import { useConfirm } from "@/components/ui/confirm";
 import { statusPill, iconeStatus } from "@/lib/statusEntregavel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,11 +109,11 @@ function resumirEntregas(itens: { formato: string | null; duracao: string | null
 
 type ProjetoTab = "entregaveis" | "tarefas" | "diarias" | "briefing" | "fechamento";
 
-/** Copia o nome cru (pasta/DaVinci) e confirma — sem isso o clique não dá sinal. */
-async function copiarNomeCru(texto: string) {
+/** Copia o nome padrão (pasta/DaVinci) e confirma — sem isso o clique não dá sinal. */
+async function copiarNomePadrao(texto: string) {
   try {
     await navigator.clipboard.writeText(texto);
-    toast.success("Nome cru copiado", { description: texto });
+    toast.success("Nome DaVinci copiado", { description: texto });
   } catch {
     toast.error("Não deu pra copiar");
   }
@@ -268,15 +268,15 @@ export default function ProjetoDetalhe() {
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
-                {/* O nome fica como se escreve; o cru é o que se copia pra
-                    pasta e pro DaVinci. `nome_cru` vem do banco (coluna
-                    gerada), então é o mesmo valor em qualquer consumidor. */}
+                {/* O nome fica como se escreve; o padrão em blocos é o que se
+                    copia pra pasta e pro DaVinci. `nome_padrao` vem do banco
+                    (coluna gerada) — mesmo valor em qualquer consumidor. */}
                 <button
-                  onClick={() => copiarNomeCru(project.nome_cru || cru(project.name))}
-                  title={`Copiar nome cru: ${project.nome_cru || cru(project.name)}`}
+                  onClick={() => copiarNomePadrao(project.nome_padrao || nomeProjetoPadrao(project.numero, project.name))}
+                  title={`Copiar nome padrão: ${project.nome_padrao || nomeProjetoPadrao(project.numero, project.name)}`}
                   className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                 >
-                  <Copy className="h-3 w-3" /> Nome cru
+                  <Copy className="h-3 w-3" /> Nome DaVinci
                 </button>
               </div>
             </div>
