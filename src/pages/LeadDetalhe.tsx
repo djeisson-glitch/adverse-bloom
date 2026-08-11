@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { TEMPERATURAS, STATUSES, ORIGENS } from "./Leads";
+import { cadenciaDias, proximoToquePadrao } from "@/lib/leadCadencia";
 
 const TIPOS_INT = [
   { v: "nota", l: "Nota", icon: StickyNote },
@@ -70,6 +71,7 @@ export default function LeadDetalhe() {
       temperatura: lead.temperatura || "frio",
       status: lead.status || "novo",
       proximo_toque: lead.proximo_toque || "",
+      motivo_toque: lead.motivo_toque || "",
       observacoes: lead.observacoes || "",
     });
   }
@@ -82,20 +84,52 @@ export default function LeadDetalhe() {
     });
   };
 
-  const [novaInt, setNovaInt] = useState({ tipo: "nota", descricao: "" });
+  /**
+   * Trocar a temperatura reagenda o próximo toque NO BANCO (trigger). O form
+   * local não tem como saber a data nova, então recarrega — sem isso a tela
+   * seguiria mostrando a data velha e ele acharia que não pegou.
+   */
+  const trocarTemperatura = async (v: string) => {
+    setForm((f: any) => ({ ...f, temperatura: v }));
+    const { error } = await (supabase as any).from("leads")
+      .update({ temperatura: v, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) return toast.error("Não salvou", { description: error.message });
+    await qc.invalidateQueries({ queryKey: ["lead", id] });
+    qc.invalidateQueries({ queryKey: ["leads"] });
+    setForm(null);   // reidrata da ficha recarregada, já com a data nova
+  };
+
+  // `null` = ainda não mexeu no campo → usa o padrão da temperatura / o motivo
+  // que já está no lead. É o que faz o formulário nascer preenchido e continuar
+  // acompanhando a temperatura enquanto ele não digitar nada.
+  const [novaInt, setNovaInt] = useState<{
+    tipo: string; descricao: string; proximo_toque: string | null; motivo_toque: string | null;
+  }>({ tipo: "nota", descricao: "", proximo_toque: null, motivo_toque: null });
+
+  const toqueSugerido = novaInt.proximo_toque ?? proximoToquePadrao(form?.temperatura);
+  const motivoSugerido = novaInt.motivo_toque ?? (form?.motivo_toque || "");
+
   const addInteracao = useMutation({
     mutationFn: async () => {
       if (!novaInt.descricao.trim()) throw new Error("Escreva a interação");
+      // A data e o motivo vão NA INTERAÇÃO: o trigger empurra pro lead e o
+      // histórico guarda o que foi combinado em cada toque.
       const { error } = await (supabase as any).from("lead_interacoes").insert({
-        lead_id: id, tipo: novaInt.tipo, descricao: novaInt.descricao.trim(), user_id: user?.id ?? null,
+        lead_id: id, tipo: novaInt.tipo, descricao: novaInt.descricao.trim(),
+        proximo_toque: toqueSugerido || null,
+        motivo_toque: motivoSugerido,
+        user_id: user?.id ?? null,
       });
       if (error) throw error;
-      // registrar interação = esquenta um pouco: novo → em nutrição
-      if (form?.status === "novo") salvar({ status: "em_nutricao" });
     },
-    onSuccess: () => {
-      setNovaInt({ tipo: "nota", descricao: "" });
+    onSuccess: async () => {
+      setNovaInt({ tipo: "nota", descricao: "", proximo_toque: null, motivo_toque: null });
       qc.invalidateQueries({ queryKey: ["lead-interacoes", id] });
+      // O trigger mexeu no lead (data, motivo e status): recarrega antes de
+      // reidratar o form, senão ele volta a pintar o estado antigo.
+      await qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setForm(null);
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -183,10 +217,13 @@ export default function LeadDetalhe() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <Campo label="Temperatura">
-              <Select value={form.temperatura} onValueChange={(v) => salvar({ temperatura: v })}>
+              <Select value={form.temperatura} onValueChange={trocarTemperatura}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>{TEMPERATURAS.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
               </Select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                volta a cada {cadenciaDias(form.temperatura)} dias
+              </p>
             </Campo>
             <Campo label="Status">
               <Select value={form.status} onValueChange={(v) => salvar({ status: v })}>
@@ -194,15 +231,30 @@ export default function LeadDetalhe() {
                 <SelectContent>{STATUSES.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}</SelectContent>
               </Select>
             </Campo>
-            <Campo label="Próximo toque">
-              <Input type="date" value={form.proximo_toque || ""} onChange={(e) => salvar({ proximo_toque: e.target.value || null })} className="h-8" />
-            </Campo>
             <Campo label="Origem">
               <Select value={form.origem} onValueChange={(v) => salvar({ origem: v })}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>{ORIGENS.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
               </Select>
             </Campo>
+
+            <Campo label="Próximo toque">
+              <Input type="date" value={form.proximo_toque || ""} onChange={(e) => salvar({ proximo_toque: e.target.value || null })} className="h-8" />
+            </Campo>
+            {/* Ao lado da data, e não numa aba: quando o aviso chegar daqui 30
+                dias, "voltar no Fulano" não faz ninguém voltar — o motivo faz. */}
+            <div className="md:col-span-2">
+              <Campo label="Motivo do próximo toque">
+                <Input
+                  value={form.motivo_toque}
+                  onChange={(e) => setForm({ ...form, motivo_toque: e.target.value })}
+                  onBlur={() => salvar({ motivo_toque: form.motivo_toque || null })}
+                  placeholder="ex.: perguntar sobre planejamento 2027"
+                  className="h-8"
+                />
+              </Campo>
+            </div>
+
             <Campo label="E-mail">
               <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} onBlur={() => salvar({ email: form.email || null })} className="h-8" />
             </Campo>
@@ -221,21 +273,51 @@ export default function LeadDetalhe() {
         <CardContent className="space-y-4 p-6">
           <p className="text-sm font-semibold text-foreground">Interações</p>
 
-          <div className="flex flex-wrap items-start gap-2">
-            <Select value={novaInt.tipo} onValueChange={(v) => setNovaInt({ ...novaInt, tipo: v })}>
-              <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-              <SelectContent>{TIPOS_INT.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
-            </Select>
-            <Input
-              value={novaInt.descricao}
-              onChange={(e) => setNovaInt({ ...novaInt, descricao: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
-              placeholder="O que rolou? (ex.: enviei proposta por e-mail)"
-              className="h-9 min-w-[200px] flex-1"
-            />
-            <Button size="sm" onClick={() => addInteracao.mutate()} disabled={addInteracao.isPending} className="h-9">
-              <Plus className="mr-1 h-4 w-4" /> Registrar
-            </Button>
+          {/* Registrar o toque JÁ agenda o próximo: a data nasce calculada pela
+              temperatura e continua editável, porque tem lead que pede pra
+              voltar em novembro e nenhuma cadência cobre isso. */}
+          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+            <div className="flex flex-wrap items-start gap-2">
+              <Select value={novaInt.tipo} onValueChange={(v) => setNovaInt({ ...novaInt, tipo: v })}>
+                <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>{TIPOS_INT.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input
+                value={novaInt.descricao}
+                onChange={(e) => setNovaInt({ ...novaInt, descricao: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
+                placeholder="O que rolou? (ex.: enviei proposta por e-mail)"
+                className="h-9 min-w-[200px] flex-1"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="w-40">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Próximo toque</Label>
+                <Input
+                  type="date" value={toqueSugerido}
+                  onChange={(e) => setNovaInt({ ...novaInt, proximo_toque: e.target.value })}
+                  className="h-9"
+                />
+              </div>
+              <div className="min-w-[180px] flex-1">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Motivo</Label>
+                <Input
+                  value={motivoSugerido}
+                  onChange={(e) => setNovaInt({ ...novaInt, motivo_toque: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
+                  placeholder="por que voltar nele"
+                  className="h-9"
+                />
+              </div>
+              <Button size="sm" onClick={() => addInteracao.mutate()} disabled={addInteracao.isPending} className="h-9">
+                <Plus className="mr-1 h-4 w-4" /> Registrar
+              </Button>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              Sugerido pela temperatura ({cadenciaDias(form.temperatura)} dias). Mude a data se combinaram outra.
+            </p>
           </div>
 
           {interacoes.length === 0 ? (
@@ -267,6 +349,14 @@ export default function LeadDetalhe() {
                         </button>
                       </div>
                       {it.descricao && <p className="mt-0.5 text-sm text-foreground">{it.descricao}</p>}
+                      {/* O que ficou combinado NESTE toque — é pra isso que a
+                          data mora na interação, e não só no lead. */}
+                      {it.proximo_toque && (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          voltar em {new Date(it.proximo_toque + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                          {it.motivo_toque ? ` · ${it.motivo_toque}` : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

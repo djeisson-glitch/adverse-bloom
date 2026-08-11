@@ -181,7 +181,10 @@ export default function Leads() {
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">{l.nome}</p>
-                    <p className="truncate text-xs text-muted-foreground">{l.empresa || "—"} · {label(STATUSES, l.status)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {l.empresa || "—"} · {label(STATUSES, l.status)}
+                      {l.motivo_toque ? ` · ${l.motivo_toque}` : ""}
+                    </p>
                   </div>
                   <span className="text-xs text-muted-foreground">{label(ORIGENS, l.origem)}</span>
                   <span><span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${tempChip(l.temperatura)}`}>{label(TEMPERATURAS, l.temperatura)}</span></span>

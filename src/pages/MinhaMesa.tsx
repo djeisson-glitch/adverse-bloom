@@ -10,6 +10,8 @@ import {
   Clock, CalendarDays, Sparkles, Users, Play, ThumbsUp, RefreshCw,
   CheckCircle2, ExternalLink, MessageSquarePlus, Square, PauseCircle,
 } from "lucide-react";
+import { rotuloAtraso, diasDeAtraso } from "@/lib/leadCadencia";
+import { TEMPERATURAS } from "./Leads";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -345,6 +347,35 @@ export default function MinhaMesa() {
     },
   });
 
+  /**
+   * Leads cujo toque venceu ou vence hoje.
+   *
+   * Meus e os sem dono: lead sem responsável não é de ninguém, e é assim que
+   * ele morre. Convertido e descartado ficam de fora — esses já saíram da
+   * nutrição.
+   */
+  const { data: leadsPraTocar = [] } = useQuery({
+    queryKey: ["minha-mesa-leads", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("leads")
+        .select("id, nome, empresa, temperatura, proximo_toque, motivo_toque, responsavel_id, status")
+        .lte("proximo_toque", dataISO())
+        .order("proximo_toque");
+      if (error) throw error;
+      // Status e dono filtrados aqui, não no PostgREST: a sintaxe de `not.in`
+      // erra calado — devolve lista vazia em vez de estourar — e uma mesa que
+      // esconde lead vencido é exatamente a falha que este bloco existe pra
+      // consertar. São poucas linhas; filtrar em JS não custa nada.
+      return ((data as any[]) || []).filter(
+        (l) =>
+          !["convertido", "descartado"].includes(l.status) &&
+          (!l.responsavel_id || l.responsavel_id === user!.id),
+      );
+    },
+  });
+
   // Nomes das etapas — a mesa mostra "Sua vez — Color", não "color".
   const { data: etapas = [] } = useQuery({
     queryKey: ["etapas-pos"],
@@ -510,7 +541,15 @@ export default function MinhaMesa() {
   // pessoa. Antes somava tudo: no print da Maiara dizia "8 pra resolver" com
   // 3 na tela, e as 8 eram peças paradas com o cliente. Contador que promete
   // trabalho inexistente é ruído com cara de cobrança.
-  const total = itens.filter((i) => i.tipo !== "cliente").length;
+  // Lead vencido é trabalho DELE hoje, então conta junto — é o número que
+  // cobra. Gravação não entra: é compromisso marcado, não pendência.
+  const total = itens.filter((i) => i.tipo !== "cliente").length + leadsPraTocar.length;
+
+  // "Tudo em dia" tem que significar mesa vazia DE VERDADE. Como esse ramo
+  // substitui todos os blocos, quem tivesse só gravações — ou, agora, só leads
+  // pra tocar — via "Tudo em dia" com trabalho na tela e os blocos nem
+  // renderizavam.
+  const mesaVazia = total === 0 && gravacoes.length === 0;
 
   // FILA ÚNICA. As 4 seções viraram uma lista só: a ordem JÁ é a prioridade
   // (atrasado > te esperando > esta semana > em andamento), então repetir isso
@@ -627,7 +666,7 @@ export default function MinhaMesa() {
 
       {aba === "time" && coordena ? (
         <TeamPanel itens={sistema} hoje={hoje} />
-      ) : total === 0 ? (
+      ) : mesaVazia ? (
         <Card className="glass-card">
           <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
             <Sparkles className="h-8 w-8 text-success" />
@@ -707,6 +746,44 @@ export default function MinhaMesa() {
                     </Link>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          </Bloco>
+
+          {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
+              âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
+          <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length}>
+            <Card className="glass-card overflow-hidden">
+              <CardContent className="p-0">
+                {leadsPraTocar.map((l: any) => {
+                  const dias = diasDeAtraso(l.proximo_toque, hoje);
+                  const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
+                  return (
+                    <Link
+                      key={l.id} to={`/leads/${l.id}`}
+                      className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
+                    >
+                      <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={l.nome}>
+                        {l.nome}
+                        {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
+                      </span>
+                      {temp && (
+                        <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium sm:inline ${temp.chip}`}>
+                          {temp.l}
+                        </span>
+                      )}
+                      {/* O motivo é o que faz o toque acontecer — sem ele o aviso
+                          diz "volte no Fulano" e ninguém sabe pra quê. */}
+                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block" title={l.motivo_toque || ""}>
+                        {l.motivo_toque || ""}
+                      </span>
+                      <span className={`w-28 shrink-0 text-right text-xs ${dias > 0 ? "font-medium text-destructive" : "text-warning"}`}>
+                        {rotuloAtraso(l.proximo_toque, hoje)}
+                      </span>
+                    </Link>
+                  );
+                })}
               </CardContent>
             </Card>
           </Bloco>
