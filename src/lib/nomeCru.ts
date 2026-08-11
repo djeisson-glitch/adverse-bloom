@@ -63,12 +63,23 @@ export function formatoCru(formato: string | null | undefined): string {
   return cru((formato || "").replace(/[×:]/g, "x").replace(/\s+/g, ""));
 }
 
-/** `[0318][LITROS_DE_VANTAGEM]` — o nome padrão do projeto. */
+/**
+ * `[0319]_PROMOCAO_PINOS_E_BUCHAS` — o nome padrão do PROJETO.
+ *
+ * Colchete só no número, e o resto com underscore. Os blocos por informação
+ * são regra do ENTREGÁVEL, onde separam quatro coisas diferentes (código,
+ * nome, formato, versão); o projeto tem duas, e ali o underscore basta.
+ * Apliquei blocos nos dois por engano em 11/08 — Djêisson corrigiu no dia
+ * seguinte: "a regra dos colchetes se aplica APENAS nos entregáveis!".
+ */
 export function nomeProjetoPadrao(numero: string | null | undefined, name: string | null | undefined): string {
-  // Tira o prefixo `[0318] ` (ou `[0318]_`, do formato antigo) pra o número
+  // Tira o prefixo `[0319] ` (ou `[0319]_`, do formato antigo) pra o número
   // não aparecer duas vezes.
-  const semCodigo = (name || "").replace(/^\[[0-9]{4}\][_ ]?/, "");
-  return emBlocos(numero, cru(semCodigo));
+  const base = cru((name || "").replace(/^\[[0-9]{4}\][_ ]?/, ""));
+  const num = (numero || "").trim();
+  if (!num) return base;
+  if (!base) return `[${num}]`;
+  return `[${num}]_${base}`;
 }
 
 /**

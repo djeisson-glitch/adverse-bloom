@@ -57,13 +57,27 @@ describe("nome em blocos", () => {
 });
 
 describe("nome padrão do projeto", () => {
-  it("é o número e o nome, cada um no seu bloco", () => {
-    expect(nomeProjetoPadrao("0318", "[0318] Litros de vantagem")).toBe("[0318][LITROS_DE_VANTAGEM]");
+  // Colchete SÓ no número. Blocos por informação são regra do ENTREGÁVEL —
+  // apliquei nos dois por engano em 11/08 e o Djêisson corrigiu no dia
+  // seguinte. Estes testes existem pra isso não voltar.
+  it("é [numero]_NOME, com underscore no resto", () => {
+    expect(nomeProjetoPadrao("0319", "[0319] Promoção Pinos e Buchas"))
+      .toBe("[0319]_PROMOCAO_PINOS_E_BUCHAS");
+  });
+
+  it("não põe o nome do projeto entre colchetes", () => {
+    expect(nomeProjetoPadrao("0318", "Litros de vantagem")).not.toContain("][");
+    expect(nomeProjetoPadrao("0318", "Litros de vantagem")).toBe("[0318]_LITROS_DE_VANTAGEM");
   });
 
   it("não repete o número quando o nome já traz o prefixo — nos dois formatos", () => {
-    expect(nomeProjetoPadrao("0317", "[0317] Blitz de Peças")).toBe("[0317][BLITZ_DE_PECAS]");
-    expect(nomeProjetoPadrao("0317", "[0317]_BLITZ_DE_PECAS")).toBe("[0317][BLITZ_DE_PECAS]");
+    expect(nomeProjetoPadrao("0317", "[0317] Blitz de Peças")).toBe("[0317]_BLITZ_DE_PECAS");
+    expect(nomeProjetoPadrao("0317", "[0317]_BLITZ_DE_PECAS")).toBe("[0317]_BLITZ_DE_PECAS");
+  });
+
+  it("sem número ou sem nome, não sobra colchete solto nem underscore órfão", () => {
+    expect(nomeProjetoPadrao(null, "Só o nome")).toBe("SO_O_NOME");
+    expect(nomeProjetoPadrao("0319", "")).toBe("[0319]");
   });
 });
 
