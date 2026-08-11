@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cru, formatoCru, nomeDaVinciCru } from "./nomeCru";
+import { cru, formatoCru, emBlocos, nomeProjetoPadrao, nomeDaVinci } from "./nomeCru";
 
 /**
  * Os casos vieram dos nomes que estão no banco hoje. O primeiro bloco é o
@@ -45,26 +45,54 @@ describe("formato", () => {
   });
 });
 
+describe("nome em blocos", () => {
+  it("junta com colchete e sem separador — o bloco separa sozinho", () => {
+    expect(emBlocos("0318", "LITROS_DE_VANTAGEM")).toBe("[0318][LITROS_DE_VANTAGEM]");
+  });
+
+  it("pula bloco vazio em vez de deixar [] no meio", () => {
+    expect(emBlocos("ADVR-1", "TESTE", "", "V1")).toBe("[ADVR-1][TESTE][V1]");
+    expect(emBlocos("ADVR-1", "TESTE", null, "V1")).toBe("[ADVR-1][TESTE][V1]");
+  });
+});
+
+describe("nome padrão do projeto", () => {
+  it("é o número e o nome, cada um no seu bloco", () => {
+    expect(nomeProjetoPadrao("0318", "[0318] Litros de vantagem")).toBe("[0318][LITROS_DE_VANTAGEM]");
+  });
+
+  it("não repete o número quando o nome já traz o prefixo — nos dois formatos", () => {
+    expect(nomeProjetoPadrao("0317", "[0317] Blitz de Peças")).toBe("[0317][BLITZ_DE_PECAS]");
+    expect(nomeProjetoPadrao("0317", "[0317]_BLITZ_DE_PECAS")).toBe("[0317][BLITZ_DE_PECAS]");
+  });
+});
+
 describe("nome do DaVinci", () => {
-  it("compõe código, nome, formato e versão sem espaço nenhum", () => {
-    expect(nomeDaVinciCru("ADVR-4036", "Spot de Rádio 01 - Filme Mãe", "16×9"))
-      .toBe("ADVR-4036_SPOT_DE_RADIO_01_FILME_MAE_16X9_V1");
+  it("compõe código, nome, formato e versão em blocos, sem espaço", () => {
+    expect(nomeDaVinci("ADVR-4036", "Spot de Rádio 01 - Filme Mãe", "16×9"))
+      .toBe("[ADVR-4036][SPOT_DE_RADIO_01_FILME_MAE][16X9][V1]");
   });
 
   it("mantém o hífen do código — ele é o código, não pontuação", () => {
-    expect(nomeDaVinciCru("ADVR-4021", "Institucional")).toBe("ADVR-4021_INSTITUCIONAL_V1");
+    expect(nomeDaVinci("ADVR-4021", "Institucional")).toBe("[ADVR-4021][INSTITUCIONAL][V1]");
   });
 
-  it("tira o prefixo interno, que empurrava o fim do nome pra fora", () => {
-    expect(nomeDaVinciCru("ADVR-4021", "PÓS | Promoção Pinos e Buchas 02"))
-      .toBe("ADVR-4021_PROMOCAO_PINOS_E_BUCHAS_02_V1");
+  it("tira o prefixo interno e o pipe, que o Windows proíbe", () => {
+    expect(nomeDaVinci("ADVR-4021", "PÓS | Promoção Pinos e Buchas 02"))
+      .toBe("[ADVR-4021][PROMOCAO_PINOS_E_BUCHAS_02][V1]");
   });
 
   it("sem formato, não inventa bloco vazio", () => {
-    expect(nomeDaVinciCru("ADVR-4001", "Teste", null)).toBe("ADVR-4001_TESTE_V1");
+    expect(nomeDaVinci("ADVR-4001", "Teste", null)).toBe("[ADVR-4001][TESTE][V1]");
   });
 
   it("sem código ainda produz nome usável", () => {
-    expect(nomeDaVinciCru(null, "Teste de Peça", "16x9")).toBe("TESTE_DE_PECA_16X9_V1");
+    expect(nomeDaVinci(null, "Teste de Peça", "16x9")).toBe("[TESTE_DE_PECA][16X9][V1]");
+  });
+
+  it("não sobra nenhum caractere proibido pelo Windows", () => {
+    const n = nomeDaVinci("ADVR-4036", "PÓS | Spot: Rádio? <Filme>", "9:16");
+    expect(n).not.toMatch(/[\\/:*?"<>|]/);
+    expect(n).not.toMatch(/\s/);
   });
 });
