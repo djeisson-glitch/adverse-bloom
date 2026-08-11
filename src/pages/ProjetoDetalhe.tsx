@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BALDES, rotuloBalde } from "@/lib/faturamentoBalde";
 import { nomeProjetoPadrao } from "@/lib/nomeCru";
+import { JANELA_RENOMEAR_MIN, minutosRestantes } from "@/lib/renomearProjeto";
 import { useConfirm } from "@/components/ui/confirm";
 import { statusPill, iconeStatus } from "@/lib/statusEntregavel";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +15,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw, Copy,
+  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw, Copy, Pencil,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,85 @@ export default function ProjetoDetalhe() {
   };
   const [tab, setTab] = useState<ProjetoTab>("entregaveis");
 
+  const { data: project, isLoading } = useQuery({
+    queryKey: ["projeto", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("projects_v").select("*").eq("id", id!).single();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  // ---------- Renomear (janela de 30 min) ----------
+  // A trava de verdade é um trigger no banco; isto aqui é o que faz a tela
+  // dizer a verdade em vez de oferecer um botão que vai dar erro.
+  const [renomeando, setRenomeando] = useState(false);
+  const [novoNome, setNovoNome] = useState("");
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const minutosPraRenomear = minutosRestantes(project?.created_at);
+  const janelaAberta = minutosPraRenomear > 0;
+
+  const abrirRenomear = () => {
+    // Abre SEM o prefixo do código: ele é imutável e o trigger recarimba.
+    // Deixá-lo no campo só convida a apagar por engano.
+    setNovoNome((project?.name || "").replace(/^\[[0-9]{4}\][_ ]?/, ""));
+    setRenomeando(true);
+  };
+
+  const salvarNome = async () => {
+    const nome = novoNome.trim();
+    if (!nome) return toast.error("O projeto precisa de um nome");
+    if (nome === (project?.name || "").replace(/^\[[0-9]{4}\][_ ]?/, "")) return setRenomeando(false);
+
+    // Fora da janela só chega admin — e aí o aviso é sobre o mundo real, não
+    // sobre o banco: o arquivo já pode estar no HD de alguém com o nome velho.
+    if (!janelaAberta) {
+      const ok = await confirmar({
+        title: "Renomear fora do prazo?",
+        description:
+          "Passaram mais de 30 minutos da criação. A pasta no Drive e os arquivos já baixados podem estar com o nome antigo — e vão continuar assim.",
+        confirmText: "Renomear mesmo assim",
+      });
+      if (!ok) return;
+    }
+
+    // Mesmo aviso da criação: nome repetido pode, desde que seja escolha.
+    const { data: iguais } = await (supabase as any).rpc("projetos_mesmo_nome", {
+      _client_id: project?.client_id ?? null,
+      _nome: nome,
+    });
+    const outros = ((iguais as any[]) || []).filter((p) => p.id !== project?.id);
+    if (outros.length) {
+      const ok = await confirmar({
+        title: "Já existe projeto com esse nome",
+        description: (
+          <span className="block space-y-2">
+            <span className="block">
+              {outros.slice(0, 5).map((p: any) => (
+                <span key={p.id} className="block font-mono text-xs">
+                  {p.name}{!p.mesmo_cliente && p.client_name ? ` · ${p.client_name}` : ""}
+                </span>
+              ))}
+            </span>
+            <span className="block">Renomear assim mesmo?</span>
+          </span>
+        ),
+        confirmText: "Renomear assim mesmo",
+      });
+      if (!ok) return;
+    }
+
+    setSalvandoNome(true);
+    const { error } = await (supabase as any).from("projects").update({ name: nome }).eq("id", id);
+    setSalvandoNome(false);
+    if (error) return toast.error("Não renomeou", { description: error.message });
+    setRenomeando(false);
+    qc.invalidateQueries({ queryKey: ["projeto", id] });
+    qc.invalidateQueries({ queryKey: ["projetos"] });
+    toast.success("Projeto renomeado");
+  };
+
   /**
    * Quanta coisa tem em cada aba — o selo que faz a aba deixar de parecer
    * vazia. Uma varredura só, com `head: true`: são contagens, e trazer as
@@ -170,15 +250,6 @@ export default function ProjetoDetalhe() {
   // de cada entregável poder focar o painel sem sair da lista).
   const [comentContexto, setComentContexto] = useState<string>("project");
 
-  const { data: project, isLoading } = useQuery({
-    queryKey: ["projeto", id],
-    enabled: !!id,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).from("projects_v").select("*").eq("id", id!).single();
-      if (error) throw error;
-      return data as any;
-    },
-  });
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["projeto-profiles"],
@@ -266,19 +337,67 @@ export default function ProjetoDetalhe() {
               <p className="font-mono text-xs text-muted-foreground">
                 {project.numero || "—"} <span className="ml-2">{project.client_name}</span>
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
-                {/* O nome fica como se escreve; o padrão em blocos é o que se
-                    copia pra pasta e pro DaVinci. `nome_padrao` vem do banco
-                    (coluna gerada) — mesmo valor em qualquer consumidor. */}
-                <button
-                  onClick={() => copiarNomePadrao(project.nome_padrao || nomeProjetoPadrao(project.numero, project.name))}
-                  title={`Copiar nome padrão: ${project.nome_padrao || nomeProjetoPadrao(project.numero, project.name)}`}
-                  className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                >
-                  <Copy className="h-3 w-3" /> Nome DaVinci
-                </button>
-              </div>
+              {renomeando ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    autoFocus
+                    value={novoNome}
+                    onChange={(e) => setNovoNome(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") salvarNome();
+                      if (e.key === "Escape") setRenomeando(false);
+                    }}
+                    className="h-10 max-w-md text-2xl font-semibold tracking-tight"
+                  />
+                  <Button size="sm" onClick={salvarNome} disabled={salvandoNome}>Salvar</Button>
+                  <button
+                    onClick={() => setRenomeando(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
+                  {/* O nome fica como se escreve; o padrão em blocos é o que se
+                      copia pra pasta e pro DaVinci. `nome_padrao` vem do banco
+                      (coluna gerada) — mesmo valor em qualquer consumidor. */}
+                  <button
+                    onClick={() => copiarNomePadrao(project.nome_padrao || nomeProjetoPadrao(project.numero, project.name))}
+                    title={`Copiar nome padrão: ${project.nome_padrao || nomeProjetoPadrao(project.numero, project.name)}`}
+                    className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  >
+                    <Copy className="h-3 w-3" /> Nome DaVinci
+                  </button>
+
+                  {/* A janela de 30 min é a regra; o admin é a válvula. Quem
+                      não pode renomear não vê botão morto — vê o porquê. */}
+                  {janelaAberta ? (
+                    <button
+                      onClick={abrirRenomear}
+                      className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      <Pencil className="h-3 w-3" /> renomear · {minutosPraRenomear} min
+                    </button>
+                  ) : isAdmin ? (
+                    <button
+                      onClick={abrirRenomear}
+                      title="A janela de 30 min fechou. Como admin você ainda pode renomear — mas a pasta e os arquivos provavelmente já estão com o nome antigo."
+                      className="flex items-center gap-1 rounded-md border border-warning/40 px-2 py-0.5 text-[10px] text-warning transition-colors hover:bg-warning/10"
+                    >
+                      <Pencil className="h-3 w-3" /> renomear (fora do prazo)
+                    </button>
+                  ) : (
+                    <span
+                      title={`O nome trava ${JANELA_RENOMEAR_MIN} minutos depois da criação, pra não divergir da pasta e dos arquivos já baixados.`}
+                      className="text-[10px] text-muted-foreground/60"
+                    >
+                      nome travado
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               {/* Acabar o projeto é AÇÃO, não etapa: ele fica em Fechamento o
