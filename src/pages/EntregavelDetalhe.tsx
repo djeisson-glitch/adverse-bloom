@@ -85,7 +85,14 @@ export default function EntregavelDetalhe() {
   // Uso refetchQueries em vez de invalidateQueries: o invalidate não estava
   // disparando o GET aqui (a query ficava marcada stale mas não refazia), então
   // o card seguia 0.0h até dar F5. refetch força o fetch e atualiza na hora.
-  const recarregarHoras = () => qc.refetchQueries({ queryKey: ["entregavel-horas", did] });
+  // Lançar hora pode mudar o STATUS (o trigger tira a peça do "pendente"),
+  // então o entregável também precisa voltar do banco. Sem isso a tela
+  // seguiria mostrando "Pendente" com hora lançada — exatamente a contradição
+  // que a regra veio consertar.
+  const recarregarHoras = () => {
+    qc.refetchQueries({ queryKey: ["entregavel-horas", did] });
+    qc.invalidateQueries({ queryKey: ["entregavel", did] });
+  };
   const { start } = useTimer();
   const { isAdmin, isCoordenadora, canSeeHours, canSeeMoney } = usePermissions();
   const confirmar = useConfirm();
@@ -584,6 +591,7 @@ export default function EntregavelDetalhe() {
           horasTotal={horas.total}
           temAlteracaoAberta={!!alteracaoAberta}
           alteracoes={alteracoes}
+          statusAtual={status}
           onChanged={recarregarHoras}
         />
       )}
@@ -1274,10 +1282,10 @@ function AnexosEntregavel({
 }
 
 function TimesheetEntregavel({
-  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, alteracoes = [], onChanged,
+  did, projectId, entries, profiles, horasTotal, temAlteracaoAberta, alteracoes = [], statusAtual, onChanged,
 }: {
   did: string; projectId: string; entries: any[]; profiles: any[]; horasTotal: number;
-  temAlteracaoAberta: boolean; alteracoes?: any[]; onChanged: () => void;
+  temAlteracaoAberta: boolean; alteracoes?: any[]; statusAtual?: string; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
@@ -1319,7 +1327,12 @@ function TimesheetEntregavel({
     onSuccess: () => {
       setDur(""); setDesc("");
       onChanged();
-      toast.success("Horas lançadas no entregável");
+      // Quando o lançamento tira a peça do "pendente" (trigger no banco), diz
+      // isso em voz alta: status que muda sozinho e em silêncio é o tipo de
+      // coisa que faz a pessoa desconfiar do sistema.
+      toast.success("Horas lançadas no entregável", {
+        description: statusAtual === "pendente" ? "A peça saiu de Pendente — agora está Em pausa." : undefined,
+      });
     },
     onError: (e: any) => toast.error("Erro", { description: e.message }),
   });
@@ -1351,7 +1364,7 @@ function TimesheetEntregavel({
             </Button>
           ) : (
             <span className="text-[11px] text-muted-foreground">
-              Lançamento manual — pra começar a contar, use <b className="text-foreground">Editar</b> no fluxo acima.
+              Lançamento manual — já conta como trabalhada. Pra cronometrar ao vivo, use <b className="text-foreground">Editar</b> no fluxo acima.
             </span>
           )}
         </div>
