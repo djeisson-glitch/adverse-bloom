@@ -376,9 +376,9 @@ export default function EntregavelDetalhe() {
                 <button
                   onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
                   title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
-                  className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
-                  <Copy className="h-3 w-3" /> Nome DaVinci
+                  <Copy className="h-3.5 w-3.5" /> Nome DaVinci
                 </button>
               </div>
               {/* O código ganha linha própria e tamanho de verdade.
@@ -388,15 +388,17 @@ export default function EntregavelDetalhe() {
                   autosave — sumia justamente quando servia pra achar a peça.
                   Clicável porque o gesto seguinte quase sempre é colar o
                   código em outro lugar (pasta, WhatsApp, e-mail). */}
+              {/* O código NÃO copia — pedido do Djêisson (12/08): "o ID nao
+                  precisa ser copiavel (vai só confundir na hora de copiar pro
+                  davinci)". Dois botões de copiar lado a lado é convite a
+                  copiar o errado, e o que vai pra pasta é o nome DaVinci.
+                  Aqui é identidade, não ação: etiqueta sem fundo, sem ícone e
+                  sem hover. `select-all` deixa marcar o texto num clique
+                  duplo, pra quem quiser levar só o código. */}
               {entregavel.codigo && (
-                <button
-                  onClick={() => copiarTexto(entregavel.codigo, "Código")}
-                  title="Copiar o código"
-                  className="mb-1 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-primary transition-colors hover:bg-primary/20"
-                >
+                <span className="mb-1 inline-block select-all rounded-md border border-primary/30 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-primary">
                   {entregavel.codigo}
-                  <Copy className="h-3 w-3 opacity-50" />
-                </button>
+                </span>
               )}
               <Input
                 value={form.titulo}
