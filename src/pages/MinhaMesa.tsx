@@ -208,7 +208,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, codigo, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -807,6 +807,9 @@ export default function MinhaMesa() {
                 {vaiEntrar.map((t: any) => (
                   <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
                     <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
+                      {t.d?.codigo && (
+                        <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
+                      )}
                       {t.titulo}
                     </Link>
                     <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
@@ -921,6 +924,13 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
       }`} />
 
       <Link to={it.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={it.titulo}>
+        {/* O código na frente do título: é por ele que a peça é procurada no
+            Drive, no DaVinci e na conversa com o cliente. Fica em mono e
+            apagado — informação de busca, não de leitura. Só entregável tem
+            código; tarefa e demanda passam batido. */}
+        {it.d?.codigo && (
+          <span className="mr-2 font-mono text-[11px] text-muted-foreground">{it.d.codigo}</span>
+        )}
         {it.d?.etapa_atual && (
           <span className="mr-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
             {it.d.etapa_atual}

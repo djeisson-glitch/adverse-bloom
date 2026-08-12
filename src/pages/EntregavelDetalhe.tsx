@@ -365,9 +365,6 @@ export default function EntregavelDetalhe() {
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Film className="h-3 w-3" /> Entregável
                 </span>
-                {entregavel.codigo && (
-                  <span className="font-mono text-[10px] text-primary">{entregavel.codigo}</span>
-                )}
                 <IndicadorAutosave status={auto.status} />
                 <button
                   onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
@@ -377,6 +374,23 @@ export default function EntregavelDetalhe() {
                   <Copy className="h-3 w-3" /> Nome DaVinci
                 </button>
               </div>
+              {/* O código ganha linha própria e tamanho de verdade.
+                  Djêisson (12/08): "dentro do entregável, vamos deixar ele
+                  mais evidente também, pra ficar mais fácil localizar." Antes
+                  ele era um 10px espremido entre o rótulo "Entregável" e o
+                  autosave — sumia justamente quando servia pra achar a peça.
+                  Clicável porque o gesto seguinte quase sempre é colar o
+                  código em outro lugar (pasta, WhatsApp, e-mail). */}
+              {entregavel.codigo && (
+                <button
+                  onClick={() => copiarTexto(entregavel.codigo, "Código")}
+                  title="Copiar o código"
+                  className="mb-1 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-primary transition-colors hover:bg-primary/20"
+                >
+                  {entregavel.codigo}
+                  <Copy className="h-3 w-3 opacity-50" />
+                </button>
+              )}
               <Input
                 value={form.titulo}
                 onChange={(e) => set({ titulo: e.target.value })}
