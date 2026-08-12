@@ -172,17 +172,8 @@ export default function ProjetoDetalhe() {
     if (!nome) return toast.error("O projeto precisa de um nome");
     if (nome === (project?.name || "").replace(/^\[[0-9]{4}\][_ ]?/, "")) return setRenomeando(false);
 
-    // Fora da janela só chega admin — e aí o aviso é sobre o mundo real, não
-    // sobre o banco: o arquivo já pode estar no HD de alguém com o nome velho.
-    if (!janelaAberta) {
-      const ok = await confirmar({
-        title: "Renomear fora do prazo?",
-        description:
-          "Passaram mais de 30 minutos da criação. A pasta no Drive e os arquivos já baixados podem estar com o nome antigo — e vão continuar assim.",
-        confirmText: "Renomear mesmo assim",
-      });
-      if (!ok) return;
-    }
+    // Sem confirmação de "fora do prazo": o limite de 30 min não se aplica ao
+    // admin, e ele é o único que chega aqui com a janela fechada.
 
     // Mesmo aviso da criação: nome repetido pode, desde que seja escolha.
     const { data: iguais } = await (supabase as any).rpc("projetos_mesmo_nome", {
@@ -371,22 +362,25 @@ export default function ProjetoDetalhe() {
                     <Copy className="h-3 w-3" /> Nome DaVinci
                   </button>
 
-                  {/* A janela de 30 min é a regra; o admin é a válvula. Quem
-                      não pode renomear não vê botão morto — vê o porquê. */}
-                  {janelaAberta ? (
+                  {/* O limite de 30 min NÃO se aplica ao admin — pedido do
+                      Djêisson (12/08). Pra ele o botão é o de sempre, sem
+                      contador e sem "fora do prazo": prazo que não vale pra
+                      quem está lendo é ruído, não cuidado. Pros demais a
+                      janela vale, e quem não pode renomear vê o porquê em vez
+                      de um botão morto. */}
+                  {isAdmin ? (
+                    <button
+                      onClick={abrirRenomear}
+                      className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      <Pencil className="h-3 w-3" /> renomear
+                    </button>
+                  ) : janelaAberta ? (
                     <button
                       onClick={abrirRenomear}
                       className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                     >
                       <Pencil className="h-3 w-3" /> renomear · {minutosPraRenomear} min
-                    </button>
-                  ) : isAdmin ? (
-                    <button
-                      onClick={abrirRenomear}
-                      title="A janela de 30 min fechou. Como admin você ainda pode renomear — mas a pasta e os arquivos provavelmente já estão com o nome antigo."
-                      className="flex items-center gap-1 rounded-md border border-warning/40 px-2 py-0.5 text-[10px] text-warning transition-colors hover:bg-warning/10"
-                    >
-                      <Pencil className="h-3 w-3" /> renomear (fora do prazo)
                     </button>
                   ) : (
                     <span
