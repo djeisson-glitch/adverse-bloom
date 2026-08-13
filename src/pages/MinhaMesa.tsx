@@ -775,7 +775,7 @@ export default function MinhaMesa() {
             </Bloco>
 
             {/* Gravações: o que não dá pra remarcar de manhã. */}
-            <Bloco titulo="Gravações" n={gravacoes.length}>
+            <Bloco titulo="Gravações" n={gravacoes.length} tom="gravacoes">
               {gravacoes.map((g: any) => (
                 <div key={g.id} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
                   <span className="w-14 shrink-0 text-xs font-medium text-foreground">
@@ -794,7 +794,7 @@ export default function MinhaMesa() {
 
             {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
                 âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
-            <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length}>
+            <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length} tom="leads">
               {leadsPraTocar.map((l: any) => {
                 const dias = diasDeAtraso(l.proximo_toque, hoje);
                 const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
@@ -821,7 +821,7 @@ export default function MinhaMesa() {
               })}
             </Bloco>
 
-            <Bloco titulo="Com o cliente" n={comCliente.length}>
+            <Bloco titulo="Com o cliente" n={comCliente.length} tom="cliente">
               <ListaComMais itens={comCliente} render={(it: any) => (
                 <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
                   rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
@@ -830,7 +830,7 @@ export default function MinhaMesa() {
 
             {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
                 que está na mão de outra pessoa (etapa anterior ou revisão). */}
-            <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length}>
+            <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length} tom="cliente">
               <ListaComMais itens={vaiEntrar} render={(t: any) => (
                 <div key={t.key} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
                   <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={`${t.titulo} — ${t.quem} · ${t.falta}`}>
@@ -885,23 +885,43 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
  * Um bloco da mesa. Some quando está vazio — bloco vazio com título é uma
  * linha a mais pra ler dizendo que não há nada pra ler.
  */
+/**
+ * Cor por bloco — uma tarja lateral, e só.
+ *
+ * Djêisson (12/08): "deixar um pouco mais com cor (aquela tarjinha amarela no
+ * pra eu editar é muito boa, fica minimalista mas separa visualmente rápido
+ * cada coisa)".
+ *
+ * A tarja de 3px na borda esquerda é a MESMA linguagem que ele elogiou nas
+ * linhas, agora identificando a caixa. Uma cor por assunto, aplicada num
+ * lugar só: o olho acha o bloco antes de ler o título, e nada mais na caixa
+ * ganha cor por causa disso.
+ *
+ * Dentro de "Pra eu editar" a barra por LINHA continua sendo prazo (vermelho
+ * = vencido, âmbar = esta semana) — são dois eixos diferentes e não podem
+ * disputar o mesmo lugar.
+ */
+const TARJA: Record<string, string> = {
+  editar: "border-l-warning",       // âmbar — o trabalho longo
+  aprovar: "border-l-primary",      // laranja — destrava outra pessoa
+  gravacoes: "border-l-info",       // azul — data marcada, não remarca
+  leads: "border-l-success",        // verde — comercial
+  cliente: "border-l-roxo",         // roxo — está fora, é acompanhamento
+  tarefa: "border-l-border",        // neutro
+};
+
 function Bloco({ titulo, n, tom, children }: {
-  titulo: string; n: number; tom?: "editar" | "aprovar"; children: React.ReactNode;
+  titulo: string; n: number; tom?: keyof typeof TARJA; children: React.ReactNode;
 }) {
   if (!n) return null;
-  // Borda colorida só nos dois que exigem ação hoje. O resto é caixa neutra —
-  // cinco molduras coloridas seria a poluição que ele já barrou duas vezes.
-  const borda = tom === "aprovar" ? "border-primary/40"
-    : tom === "editar" ? "border-warning/30"
-    : "border-border/60";
-  const ponto = tom === "aprovar" ? "bg-primary" : tom === "editar" ? "bg-warning" : "";
+  const tarja = TARJA[tom || "tarefa"] || "border-l-border";
+  const borda = `border-border/60 border-l-[3px] ${tarja}`;
   return (
     // `min-w-0` é o conserto do bug: filho de grid tem min-width auto, não
     // encolhe abaixo do conteúdo, e o título longo vazava pra fora da tela em
     // vez de truncar. `overflow-hidden` segura o resto.
     <section className={`min-w-0 overflow-hidden rounded-xl border bg-card/40 ${borda}`}>
       <header className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
-        {ponto && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ponto}`} />}
         <h3 className="truncate text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
           {titulo}
         </h3>
