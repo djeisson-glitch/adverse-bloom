@@ -210,8 +210,10 @@ export default function SolicitarDemanda() {
   const preSelRef = useRef(false);
   // Pop-up de conferência antes de enviar (+ o que a IA achou faltando).
   const [confirmando, setConfirmando] = useState(false);
-  const [ia, setIa] = useState<{ carregando: boolean; faltas: Falta[]; resumo: string }>({
-    carregando: false, faltas: [], resumo: "",
+  /** `pecas` = a leitura da IA sobre QUANTOS vídeos o texto descreve. */
+  type Pecas = { cadastradas: number; no_briefing: number; divergente: boolean; observacao: string };
+  const [ia, setIa] = useState<{ carregando: boolean; faltas: Falta[]; resumo: string; pecas: Pecas | null }>({
+    carregando: false, faltas: [], resumo: "", pecas: null,
   });
 
   const { data: cfg, isLoading } = useQuery({
@@ -388,10 +390,10 @@ export default function SolicitarDemanda() {
     // Faltando obrigatório, não tem por que gastar a IA: o pop-up já abre
     // dizendo o que completar.
     if (faltasObrigatorias(entregasConferir).length) {
-      setIa({ carregando: false, faltas: [], resumo: "" });
+      setIa({ carregando: false, faltas: [], resumo: "", pecas: null });
       return;
     }
-    setIa({ carregando: true, faltas: [], resumo: "" });
+    setIa({ carregando: true, faltas: [], resumo: "", pecas: null });
     try {
       const chamada = supabase.functions.invoke("intake-revisao", {
         body: {
@@ -413,9 +415,9 @@ export default function SolicitarDemanda() {
           pergunta: String(f?.pergunta ?? "").slice(0, 240),
         }))
         .filter((f: Falta) => f.pergunta);
-      setIa({ carregando: false, faltas, resumo: String(data?.resumo ?? "") });
+      setIa({ carregando: false, faltas, resumo: String(data?.resumo ?? ""), pecas: data?.pecas ?? null });
     } catch {
-      setIa({ carregando: false, faltas: [], resumo: "" });
+      setIa({ carregando: false, faltas: [], resumo: "", pecas: null });
     }
   };
 
@@ -895,6 +897,10 @@ export default function SolicitarDemanda() {
           carregando={ia.carregando}
           faltas={juntarFaltas(faltasObrigatorias(entregasConferir), ia.faltas)}
           resumo={ia.resumo}
+          pecas={ia.pecas}
+          pedido={entregasConferir.map((e, i) => ({
+            titulo: rotuloEntrega(e, i), formato: formatoTexto(e), duracao: e.duracao,
+          }))}
           enviando={enviando}
           onVoltar={() => setConfirmando(false)}
           onEnviar={() => enviar.mutate()}
@@ -913,11 +919,13 @@ export default function SolicitarDemanda() {
  * sugestão da IA: mostra, avisa do custo, mas deixa enviar.
  */
 function ModalConferencia({
-  carregando, faltas, resumo, enviando, onVoltar, onEnviar,
+  carregando, faltas, resumo, pecas, pedido, enviando, onVoltar, onEnviar,
 }: {
   carregando: boolean;
   faltas: Falta[];
   resumo: string;
+  pecas: { cadastradas: number; no_briefing: number; divergente: boolean; observacao: string } | null;
+  pedido: { titulo: string; formato: string; duracao: string }[];
   enviando: boolean;
   onVoltar: () => void;
   onEnviar: () => void;
@@ -947,6 +955,49 @@ function ModalConferencia({
             </p>
           </div>
         </div>
+
+        {/* O QUE VOCÊ ESTÁ PEDINDO — pedido do Djêisson (12/08): "se ele
+            cadastrou apenas um vídeo, aparecer o pop-up e pedir pra confirmar
+            (01 vídeo tal no formato tal, está correto?) só pra termos certeza
+            do briefing. pq eles cadastraram esse, a gente entendeu q eram 3
+            peças mas no final era só 1".
+
+            Vem antes de tudo porque é a pergunta mais barata de responder e a
+            mais cara de errar: quantidade errada aqui vira prazo, orçamento e
+            fila errados lá dentro. */}
+        <div className="mt-4 rounded-lg border border-white/12 bg-white/[0.03] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9A968C]">
+            {pedido.length === 1 ? "Você está pedindo 1 vídeo" : `Você está pedindo ${pedido.length} vídeos`}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {pedido.map((p, i) => (
+              <li key={i} className="text-xs leading-snug text-[#CFC9BC]">
+                <span className="text-[#E8E1D0]">{p.titulo || "(sem título)"}</span>
+                {p.formato ? ` · ${p.formato}` : ""}
+                {p.duracao ? ` · ${p.duracao}` : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-[#9A968C]">
+            {pedido.length === 1
+              ? "É um vídeo só? Se forem mais, volte e adicione — cada vídeo tem prazo próprio."
+              : "Está certo? Se faltou algum, volte e adicione."}
+          </p>
+        </div>
+
+        {/* A IA leu o texto e contou outro número de peças. Não trava nada —
+            só pergunta, que é o que faltava neste formulário. */}
+        {pecas?.divergente && (
+          <div className="mt-3 rounded-lg border border-[#f59e0b]/35 bg-[#f59e0b]/[0.07] p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#f5c37a]">
+              O briefing parece descrever {pecas.no_briefing === 1 ? "1 vídeo" : `${pecas.no_briefing} vídeos`}
+            </p>
+            <p className="mt-1 text-xs leading-snug text-[#CFC9BC]">
+              {pecas.observacao
+                || `Você cadastrou ${pecas.cadastradas === 1 ? "1" : pecas.cadastradas}. Confira se é isso mesmo antes de enviar.`}
+            </p>
+          </div>
+        )}
 
         {travado && (
           <div className="mt-4 rounded-lg border border-[#E53500]/35 bg-[#E53500]/[0.07] p-3">
@@ -1012,7 +1063,12 @@ function ModalConferencia({
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#E53500] text-sm font-semibold text-white transition hover:bg-[#E53500]/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {sugestoes.length ? "Enviar assim mesmo" : "Enviar demanda"}
+              {/* O botão REPETE a quantidade: é a confirmação que o Djêisson
+                  pediu. "Enviar demanda" deixa passar sem ler; "Confirmar 1
+                  vídeo" obriga a bater o olho no número antes do clique. */}
+              {sugestoes.length
+                ? "Enviar assim mesmo"
+                : pedido.length === 1 ? "Confirmar 1 vídeo e enviar" : `Confirmar ${pedido.length} vídeos e enviar`}
             </button>
           )}
         </div>
