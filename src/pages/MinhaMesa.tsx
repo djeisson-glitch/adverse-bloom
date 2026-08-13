@@ -639,17 +639,6 @@ export default function MinhaMesa() {
    */
   const [filaAberta, setFilaAberta] = useState(false);
 
-  /**
-   * A segunda coluna só existe se tiver o que pôr nela.
-   *
-   * Um EDITOR não aprova, não vê leads e não fala com o cliente — a coluna da
-   * direita nasce vazia pra ele. Sem esta checagem a mesa dele encolheria pra
-   * 60% da tela com um buraco ao lado; aqui ela volta a ser uma coluna só,
-   * larga, que é o que ele precisa.
-   */
-  const temColunaDireita =
-    praAprovar.length + gravacoes.length + leadsPraTocar.length +
-    comCliente.length + vaiEntrar.length > 0;
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -707,24 +696,24 @@ export default function MinhaMesa() {
               Djêisson descreveu — o que é MEU em destaque, e o resto separado
               por quem está segurando. */}
 
-          {/* DUAS COLUNAS. Djêisson (12/08): "os vídeos pra aprovar ficam lá
-              em baixo, tenho que rolar tudo, inclusive dos que eu tenho pra
-              editar, pra conseguir visualizar, fica fora de mao..."
+          {/* BLOCOS. Djêisson (12/08), sobre a primeira tentativa: "ficou uma
+              merda hein? cortou as informações, ficou uma tira só do lado...
+              não era isso! crie literalmente blocos".
 
-              O problema não era só ordem, era proporção: 11 itens pra editar
-              (8 deles fila de setembro) empurravam pra baixo 2 aprovações que
-              custam minutos e destravam OUTRA pessoa. Agora o trabalho longo
-              fica à esquerda e o que é rápido — aprovar, gravação, cliente —
-              numa coluna que não sai da vista.
+              Ele tinha razão duas vezes. O erro técnico: filho de grid tem
+              `min-width: auto`, então a coluna não encolhia abaixo do conteúdo
+              e o título vazava pra fora da tela em vez de truncar — daí o
+              `min-w-0` em cada bloco. O erro de julgamento foi pior: validei o
+              desenho num mock com 3 itens curtos, e a tela real tinha 9 com
+              títulos longos.
 
-              A ordem inverte quando empilha: em tela estreita vira uma coluna
-              só e "Pra eu aprovar" vem PRIMEIRO, senão o problema voltaria
-              inteiro no celular. */}
-          <div className={`grid gap-4 lg:items-start ${temColunaDireita ? "lg:grid-cols-[1.45fr_1fr]" : ""}`}>
-            <div className="order-2 space-y-4 lg:order-1">
-            <Bloco titulo="Pra eu editar" destaque n={praEditar.length}>
-              {/* Subdividido por prazo, com cor. Dez itens numa lista só faziam
-                  os três atrasados sumirem entre os que vencem em setembro. */}
+              Agora cada seção é uma CAIXA fechada, de largura igual, com
+              cabeçalho e contagem próprios. Duas por linha; em tela estreita,
+              uma. A ordem é a da urgência: editar, aprovar, e o resto. */}
+          <div className="grid gap-4 md:grid-cols-2 md:items-start">
+            <Bloco titulo="Pra eu editar" n={praEditar.length} tom="editar">
+              {/* Subdividido por prazo: dez itens numa lista só faziam os três
+                  atrasados sumirem entre os que vencem em setembro. */}
               {FAIXAS.map((f) => {
                 const desta = praEditar.filter((it) => faixaDe(it, hoje) === f.id);
                 if (!desta.length) return null;
@@ -737,12 +726,12 @@ export default function MinhaMesa() {
                     <button
                       key={f.id}
                       onClick={() => setFilaAberta(true)}
-                      className="flex w-full items-center gap-2 rounded-lg border border-border/40 px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      <ChevronRight className="h-3.5 w-3.5" />
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                       Na fila · {desta.length}
                       {primeira && (
-                        <span className="text-muted-foreground/70">
+                        <span className="truncate text-muted-foreground/70">
                           — a partir de {new Date(primeira + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                         </span>
                       )}
@@ -751,159 +740,114 @@ export default function MinhaMesa() {
                 }
 
                 return (
-                  <div key={f.id} className="space-y-2">
-                    {/* Título NEUTRO com a bolinha colorida: a palavra "Vencido"
-                        já diz o que é, e pintá-la também somaria uma terceira
-                        mancha de cor por faixa (bolinha + barra + prazo). A cor
-                        aparece uma vez aqui, pequena, e o resto é a lista. */}
-                    {f.id === "fila" ? (
-                      <button
-                        onClick={() => setFilaAberta(false)}
-                        className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                      >
-                        <ChevronRight className="h-3 w-3 rotate-90" />
-                        {f.titulo} · {desta.length}
-                      </button>
-                    ) : (
-                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        <span className={`h-1.5 w-1.5 rounded-full ${f.barra}`} />
-                        {f.titulo} · {desta.length}
-                      </p>
-                    )}
-                    <Card className="glass-card overflow-hidden">
-                      <CardContent className="p-0">
-                        {desta.map((it) => (
-                          <ItemRow
-                            key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                            faixa={f.id}
-                            rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                          />
-                        ))}
-                      </CardContent>
-                    </Card>
+                  <div key={f.id}>
+                    <SubTitulo
+                      barra={f.barra}
+                      titulo={f.titulo}
+                      n={desta.length}
+                      aberto={f.id === "fila" ? true : undefined}
+                      onToggle={f.id === "fila" ? () => setFilaAberta(false) : undefined}
+                    />
+                    {desta.map((it) => (
+                      <ItemRow
+                        key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                        faixa={f.id}
+                        rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                      />
+                    ))}
                   </div>
                 );
               })}
             </Bloco>
-            <Bloco titulo="Outras tarefas" n={outras.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {outras.map((it) => (
-                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                  ))}
-                </CardContent>
-              </Card>
-            </Bloco>
-            </div>
 
-            <div className="order-1 space-y-4 lg:order-2">
-            <Bloco titulo="Pra eu aprovar" n={praAprovar.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {praAprovar.map((it) => (
-                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                  ))}
-                </CardContent>
-              </Card>
+            <Bloco titulo="Pra eu aprovar" n={praAprovar.length} tom="aprovar">
+              {praAprovar.map((it) => (
+                <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+              ))}
             </Bloco>
+
+            <Bloco titulo="Outras tarefas" n={outras.length}>
+              {outras.map((it) => (
+                <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+              ))}
+            </Bloco>
+
             {/* Gravações: o que não dá pra remarcar de manhã. */}
             <Bloco titulo="Gravações" n={gravacoes.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {gravacoes.map((g: any) => (
-                    <div key={g.id} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                      <span className="w-16 shrink-0 text-xs font-medium text-foreground">
-                        {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
-                        {g.titulo}
-                        {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
-                      </span>
-                      <span className="hidden w-44 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
-                        {g.project?.client_name || g.project?.name || ""}{g.local ? ` · ${g.local}` : ""}
-                      </span>
-                      <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
-                        ver <ChevronRight className="inline h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              {gravacoes.map((g: any) => (
+                <div key={g.id} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                  <span className="w-14 shrink-0 text-xs font-medium text-foreground">
+                    {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
+                    {g.titulo}
+                    {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
+                  </span>
+                  <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+                    ver <ChevronRight className="inline h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              ))}
             </Bloco>
+
             {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
                 âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
             <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {leadsPraTocar.map((l: any) => {
-                    const dias = diasDeAtraso(l.proximo_toque, hoje);
-                    const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
-                    return (
-                      <Link
-                        key={l.id} to={`/leads/${l.id}`}
-                        className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
-                      >
-                        <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
-                        <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={l.nome}>
-                          {l.nome}
-                          {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
-                        </span>
-                        {temp && (
-                          <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium sm:inline ${temp.chip}`}>
-                            {temp.l}
-                          </span>
-                        )}
-                        {/* O motivo é o que faz o toque acontecer — sem ele o aviso
-                            diz "volte no Fulano" e ninguém sabe pra quê. */}
-                        <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block" title={l.motivo_toque || ""}>
-                          {l.motivo_toque || ""}
-                        </span>
-                        <span className={`w-28 shrink-0 text-right text-xs ${dias > 0 ? "font-medium text-destructive" : "text-warning"}`}>
-                          {rotuloAtraso(l.proximo_toque, hoje)}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </CardContent>
-              </Card>
+              {leadsPraTocar.map((l: any) => {
+                const dias = diasDeAtraso(l.proximo_toque, hoje);
+                const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
+                return (
+                  <Link
+                    key={l.id} to={`/leads/${l.id}`}
+                    className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
+                  >
+                    <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={`${l.nome}${l.motivo_toque ? ` — ${l.motivo_toque}` : ""}`}>
+                      {l.nome}
+                      {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
+                    </span>
+                    {temp && (
+                      <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium lg:inline ${temp.chip}`}>
+                        {temp.l}
+                      </span>
+                    )}
+                    <span className={`shrink-0 text-right text-xs ${dias > 0 ? "font-medium text-destructive" : "text-warning"}`}>
+                      {rotuloAtraso(l.proximo_toque, hoje)}
+                    </span>
+                  </Link>
+                );
+              })}
             </Bloco>
+
             <Bloco titulo="Com o cliente" n={comCliente.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {comCliente.map((it) => (
-                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                  ))}
-                </CardContent>
-              </Card>
+              <ListaComMais itens={comCliente} render={(it: any) => (
+                <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+              )} />
             </Bloco>
+
             {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
                 que está na mão de outra pessoa (etapa anterior ou revisão). */}
             <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length}>
-              <Card className="glass-card overflow-hidden">
-                <CardContent className="p-0">
-                  {vaiEntrar.map((t: any) => (
-                    <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                      <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
-                        {t.d?.codigo && (
-                          <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
-                        )}
-                        {t.titulo}
-                      </Link>
-                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
-                        {t.quem} · {t.falta}
-                      </span>
-                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
-                        há {t.dias} {t.dias === 1 ? "dia" : "dias"}
-                      </span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <ListaComMais itens={vaiEntrar} render={(t: any) => (
+                <div key={t.key} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                  <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={`${t.titulo} — ${t.quem} · ${t.falta}`}>
+                    {t.d?.codigo && (
+                      <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
+                    )}
+                    {t.titulo}
+                  </Link>
+                  <span className="hidden shrink-0 truncate text-right text-xs text-muted-foreground lg:block">
+                    {t.quem}
+                  </span>
+                  <span className="shrink-0 text-right text-xs text-muted-foreground">
+                    há {t.dias}d
+                  </span>
+                </div>
+              )} />
             </Bloco>
-            </div>
           </div>
 
         </>
@@ -941,20 +885,77 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
  * Um bloco da mesa. Some quando está vazio — bloco vazio com título é uma
  * linha a mais pra ler dizendo que não há nada pra ler.
  */
-function Bloco({ titulo, n, destaque, children }: {
-  titulo: string; n: number; destaque?: boolean; children: React.ReactNode;
+function Bloco({ titulo, n, tom, children }: {
+  titulo: string; n: number; tom?: "editar" | "aprovar"; children: React.ReactNode;
 }) {
   if (!n) return null;
+  // Borda colorida só nos dois que exigem ação hoje. O resto é caixa neutra —
+  // cinco molduras coloridas seria a poluição que ele já barrou duas vezes.
+  const borda = tom === "aprovar" ? "border-primary/40"
+    : tom === "editar" ? "border-warning/30"
+    : "border-border/60";
+  const ponto = tom === "aprovar" ? "bg-primary" : tom === "editar" ? "bg-warning" : "";
   return (
-    <div className="space-y-2">
-      <p className={`text-[11px] font-medium uppercase tracking-wider ${
-        destaque ? "text-foreground" : "text-muted-foreground"
-      }`}>
-        {titulo} · {n}
-      </p>
+    // `min-w-0` é o conserto do bug: filho de grid tem min-width auto, não
+    // encolhe abaixo do conteúdo, e o título longo vazava pra fora da tela em
+    // vez de truncar. `overflow-hidden` segura o resto.
+    <section className={`min-w-0 overflow-hidden rounded-xl border bg-card/40 ${borda}`}>
+      <header className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
+        {ponto && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ponto}`} />}
+        <h3 className="truncate text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+          {titulo}
+        </h3>
+        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">{n}</span>
+      </header>
       {children}
-    </div>
+    </section>
   );
+}
+
+/**
+ * Lista que mostra os primeiros e esconde o resto atrás de "mais N".
+ *
+ * "Com o cliente" tem 9 itens na mesa do Djêisson. Nenhum deles pede ação
+ * dele agora — são acompanhamento. Deixar os 9 abertos faz o bloco crescer
+ * três vezes mais que os que exigem decisão, e a tela volta a ser uma rolagem.
+ */
+function ListaComMais({ itens, limite = 5, render }: {
+  itens: any[]; limite?: number; render: (x: any) => React.ReactNode;
+}) {
+  const [tudo, setTudo] = useState(false);
+  const visiveis = tudo ? itens : itens.slice(0, limite);
+  return (
+    <>
+      {visiveis.map(render)}
+      {itens.length > limite && (
+        <button
+          onClick={() => setTudo(!tudo)}
+          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ChevronRight className={`h-3.5 w-3.5 shrink-0 ${tudo ? "rotate-90" : ""}`} />
+          {tudo ? "mostrar menos" : `mais ${itens.length - limite}`}
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Cabeçalho de faixa DENTRO do bloco (Vencido / Hoje e esta semana / Na fila). */
+function SubTitulo({ barra, titulo, n, aberto, onToggle }: {
+  barra: string; titulo: string; n: number; aberto?: boolean; onToggle?: () => void;
+}) {
+  const conteudo = (
+    <>
+      {onToggle
+        ? <ChevronRight className={`h-3 w-3 shrink-0 ${aberto ? "rotate-90" : ""}`} />
+        : <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${barra}`} />}
+      {titulo} · {n}
+    </>
+  );
+  const cls = "flex items-center gap-2 px-4 pb-1 pt-2.5 text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground";
+  return onToggle
+    ? <button onClick={onToggle} className={`${cls} hover:text-foreground`}>{conteudo}</button>
+    : <p className={cls}>{conteudo}</p>;
 }
 
 /**
@@ -1011,7 +1012,10 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
         {it.nota && <span className="ml-2 text-xs text-muted-foreground">↻ {it.nota}</span>}
       </Link>
 
-      <span className="hidden w-40 shrink-0 truncate text-right text-xs text-muted-foreground sm:block" title={it.contexto}>
+      {/* O cliente some antes do título: num bloco de ~570px ele é o primeiro
+          a sobrar. O título fica (é o que identifica a peça) e o contexto
+          continua no `title` da linha. */}
+      <span className="hidden w-28 shrink-0 truncate text-right text-xs text-muted-foreground xl:block" title={it.contexto}>
         {it.contexto}
       </span>
 
@@ -1023,7 +1027,7 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
         {prazo}
       </span>
 
-      <div className="flex w-[190px] shrink-0 items-center justify-end gap-1">
+      <div className="flex shrink-0 items-center justify-end gap-1">
         {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
         {principal ? (
           <>
