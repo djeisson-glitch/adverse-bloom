@@ -83,7 +83,23 @@ Regras da resposta:
 - "entrega" = só o título da entrega, exatamente como está acima, sem o formato nem a duração junto.
 - "campo" = 1 a 3 palavras (ex.: "Objetivo", "Duração", "GC", "Referências").
 - "pergunta" = UMA pergunta curta e direta pro cliente, na segunda pessoa, que resolveria a lacuna. Sem jargão de produtora.
-- "resumo" = no máximo uma frase, tom leve, falando com o cliente. Se não houver lacuna, elogie brevemente e diga que pode enviar.`;
+- "resumo" = no máximo uma frase, tom leve, falando com o cliente. Se não houver lacuna, elogie brevemente e diga que pode enviar.
+
+QUANTAS PEÇAS SÃO — leia isto com cuidado, é o erro mais caro deste formulário.
+
+Uma PEÇA é um vídeo entregue e exportado separadamente. NÃO são peças
+separadas: cenas, blocos, capítulos, locuções, planos, GCs, letterings ou
+versões do mesmo vídeo. Um roteiro com "Cena 1, Cena 2, Cena 3, Cena 4" é UM
+vídeo com quatro cenas — não quatro vídeos.
+
+São peças separadas quando o briefing pede formatos diferentes do mesmo
+conteúdo (16x9 e 9x16), cortes de durações diferentes (versão de 30s e de
+60s), ou assuntos que não caberiam no mesmo vídeo.
+
+- "pecas_no_briefing" = quantos vídeos FINAIS o texto descreve. Na dúvida,
+  responda o mesmo número de entregas cadastradas — não invente divergência.
+- "pecas_observacao" = só se o número divergir do que foi cadastrado: uma
+  frase dizendo o que no texto sugere outro número. Vazio se bate.`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -102,6 +118,8 @@ Regras da resposta:
               type: "object",
               properties: {
                 resumo: { type: "string" },
+                pecas_no_briefing: { type: "integer" },
+                pecas_observacao: { type: "string" },
                 faltas: {
                   type: "array",
                   items: {
@@ -116,7 +134,7 @@ Regras da resposta:
                   },
                 },
               },
-              required: ["resumo", "faltas"],
+              required: ["resumo", "faltas", "pecas_no_briefing", "pecas_observacao"],
               additionalProperties: false,
             },
           },
@@ -160,7 +178,26 @@ Regras da resposta:
       }))
       .filter((f: any) => f.pergunta);
 
-    return json({ faltas, resumo: corta(parsed?.resumo, 240) });
+    // Quantas peças a IA leu no texto × quantas o cliente cadastrou.
+    //
+    // O caso que originou isto: um briefing com "Cena 1..4" veio como 1
+    // entrega, a Adverse entendeu 3 peças e no fim era 1 só. Divergência aqui
+    // não bloqueia nada — vira uma pergunta no pop-up, que é onde o cliente
+    // ainda pode responder.
+    const noBriefing = Number.isFinite(parsed?.pecas_no_briefing)
+      ? Math.max(0, Math.min(20, Math.round(parsed.pecas_no_briefing)))
+      : entregas.length;
+
+    return json({
+      faltas,
+      resumo: corta(parsed?.resumo, 240),
+      pecas: {
+        cadastradas: entregas.length,
+        no_briefing: noBriefing,
+        divergente: noBriefing > 0 && noBriefing !== entregas.length,
+        observacao: corta(parsed?.pecas_observacao, 240),
+      },
+    });
   } catch (e) {
     console.error("intake-revisao error:", e);
     return json({ faltas: [], resumo: "" });

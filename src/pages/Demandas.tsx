@@ -44,6 +44,42 @@ function fmtDateTime(s?: string | null) {
   return new Date(s).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * O briefing como o formulário foi preenchido, campo a campo.
+ *
+ * Djêisson (12/08): "precisamos ver como o formulário foi entregue (hoje tem
+ * só 1 entrega, mas ta tudo junto)".
+ *
+ * O formulário grava `Rótulo: valor` uma por linha e o downstream lê tudo
+ * junto como um parágrafo — foi assim que um roteiro de 4 cenas virou "3
+ * peças" na cabeça de quem leu. Aqui a gente desmonta de volta: cada rótulo
+ * vira um campo, e o que era um bloco de texto passa a mostrar a FORMA da
+ * resposta. Linha sem rótulo (texto colado direto) sai como parágrafo, sem
+ * inventar estrutura que não existe.
+ */
+function CamposDoFormulario({ briefing }: { briefing: string }) {
+  const linhas = String(briefing).split("\n").map((l) => l.trim()).filter(Boolean);
+  return (
+    <div className="mt-2 space-y-1.5">
+      {linhas.map((linha, i) => {
+        const corte = linha.indexOf(":");
+        const rotulo = corte > 0 && corte <= 28 ? linha.slice(0, corte) : null;
+        const valor = rotulo ? linha.slice(corte + 1).trim() : linha;
+        return (
+          <div key={i} className="text-xs leading-relaxed">
+            {rotulo && (
+              <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {rotulo}
+              </span>
+            )}
+            <span className="text-muted-foreground">{valor}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Demandas() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -338,7 +374,14 @@ export default function Demandas() {
 
                       {/* Entregas */}
                       <div>
-                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entregas</p>
+                        {/* O NÚMERO junto do título: Djêisson (12/08)
+                            "precisamos ver como o formulário foi entregue (hoje
+                            tem só 1 entrega, mas ta tudo junto)". Saber que o
+                            cliente cadastrou UMA entrega é o que evita ler um
+                            roteiro de 4 cenas como 4 vídeos. */}
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Entregas · {(Array.isArray(d.entregas) ? d.entregas : []).length} no formulário
+                        </p>
                         <div className="space-y-2">
                           {(Array.isArray(d.entregas) ? d.entregas : []).map((e: any, i: number) => (
                             <div key={i} className="rounded-md border border-border/40 bg-background/40 p-2.5 text-sm">
@@ -347,7 +390,7 @@ export default function Demandas() {
                                 {e.formato && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{e.formato}</span>}
                                 {e.duracao && <span className="text-[10px] text-muted-foreground">{e.duracao}</span>}
                               </div>
-                              {e.briefing && <p className="mt-1 text-xs text-muted-foreground">{e.briefing}</p>}
+                              {e.briefing && <CamposDoFormulario briefing={e.briefing} />}
                             </div>
                           ))}
                         </div>
