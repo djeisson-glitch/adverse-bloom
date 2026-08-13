@@ -629,12 +629,37 @@ export default function MinhaMesa() {
 
   const [aba, setAba] = useState<"minha" | "time">("minha");
 
+  /**
+   * A fila começa FECHADA.
+   *
+   * No print do Djêisson, "Pra eu editar · 11" tinha 3 itens da semana e 8 de
+   * setembro. Os 8 empurravam pra baixo o bloco "Pra eu aprovar" — que custa
+   * minutos e destrava OUTRA pessoa. Fila é o que ainda não é problema:
+   * aparece o número e a primeira data, e abre num clique.
+   */
+  const [filaAberta, setFilaAberta] = useState(false);
+
+  /**
+   * A segunda coluna só existe se tiver o que pôr nela.
+   *
+   * Um EDITOR não aprova, não vê leads e não fala com o cliente — a coluna da
+   * direita nasce vazia pra ele. Sem esta checagem a mesa dele encolheria pra
+   * 60% da tela com um buraco ao lado; aqui ela volta a ser uma coluna só,
+   * larga, que é o que ele precisa.
+   */
+  const temColunaDireita =
+    praAprovar.length + gravacoes.length + leadsPraTocar.length +
+    comCliente.length + vaiEntrar.length > 0;
+
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  // 6xl e não 4xl: duas colunas em 896px espremem as duas. A largura extra só
+  // vale a partir de lg — abaixo disso o grid empilha e a leitura continua
+  // sendo de coluna única.
   return (
-    <div className="mx-auto max-w-4xl space-y-4 py-6">
+    <div className="mx-auto max-w-6xl space-y-4 py-6">
       {/* Cabeçalho enxuto: o nome da tela e quanta coisa tem. O subtítulo
           explicativo saiu — quem abre a mesa já sabe pra que ela serve. */}
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -682,158 +707,204 @@ export default function MinhaMesa() {
               Djêisson descreveu — o que é MEU em destaque, e o resto separado
               por quem está segurando. */}
 
-          <Bloco titulo="Pra eu editar" destaque n={praEditar.length}>
-            {/* Subdividido por prazo, com cor. Dez itens numa lista só faziam
-                os três atrasados sumirem entre os que vencem em setembro. */}
-            {FAIXAS.map((f) => {
-              const desta = praEditar.filter((it) => faixaDe(it, hoje) === f.id);
-              if (!desta.length) return null;
-              return (
-                <div key={f.id} className="space-y-2">
-                  {/* Título NEUTRO com a bolinha colorida: a palavra "Vencido"
-                      já diz o que é, e pintá-la também somaria uma terceira
-                      mancha de cor por faixa (bolinha + barra + prazo). A cor
-                      aparece uma vez aqui, pequena, e o resto é a lista. */}
-                  <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    <span className={`h-1.5 w-1.5 rounded-full ${f.barra}`} />
-                    {f.titulo} · {desta.length}
-                  </p>
-                  <Card className="glass-card overflow-hidden">
-                    <CardContent className="p-0">
-                      {desta.map((it) => (
-                        <ItemRow
-                          key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                          faixa={f.id}
-                          rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                        />
-                      ))}
-                    </CardContent>
-                  </Card>
-                </div>
-              );
-            })}
-          </Bloco>
+          {/* DUAS COLUNAS. Djêisson (12/08): "os vídeos pra aprovar ficam lá
+              em baixo, tenho que rolar tudo, inclusive dos que eu tenho pra
+              editar, pra conseguir visualizar, fica fora de mao..."
 
-          <Bloco titulo="Pra eu aprovar" n={praAprovar.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {praAprovar.map((it) => (
-                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                ))}
-              </CardContent>
-            </Card>
-          </Bloco>
+              O problema não era só ordem, era proporção: 11 itens pra editar
+              (8 deles fila de setembro) empurravam pra baixo 2 aprovações que
+              custam minutos e destravam OUTRA pessoa. Agora o trabalho longo
+              fica à esquerda e o que é rápido — aprovar, gravação, cliente —
+              numa coluna que não sai da vista.
 
-          {/* Gravações: o que não dá pra remarcar de manhã. */}
-          <Bloco titulo="Gravações" n={gravacoes.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {gravacoes.map((g: any) => (
-                  <div key={g.id} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                    <span className="w-16 shrink-0 text-xs font-medium text-foreground">
-                      {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
-                      {g.titulo}
-                      {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
-                    </span>
-                    <span className="hidden w-44 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
-                      {g.project?.client_name || g.project?.name || ""}{g.local ? ` · ${g.local}` : ""}
-                    </span>
-                    <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
-                      ver <ChevronRight className="inline h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </Bloco>
+              A ordem inverte quando empilha: em tela estreita vira uma coluna
+              só e "Pra eu aprovar" vem PRIMEIRO, senão o problema voltaria
+              inteiro no celular. */}
+          <div className={`grid gap-4 lg:items-start ${temColunaDireita ? "lg:grid-cols-[1.45fr_1fr]" : ""}`}>
+            <div className="order-2 space-y-4 lg:order-1">
+            <Bloco titulo="Pra eu editar" destaque n={praEditar.length}>
+              {/* Subdividido por prazo, com cor. Dez itens numa lista só faziam
+                  os três atrasados sumirem entre os que vencem em setembro. */}
+              {FAIXAS.map((f) => {
+                const desta = praEditar.filter((it) => faixaDe(it, hoje) === f.id);
+                if (!desta.length) return null;
 
-          {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
-              âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
-          <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {leadsPraTocar.map((l: any) => {
-                  const dias = diasDeAtraso(l.proximo_toque, hoje);
-                  const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
+                // A fila fechada: só o número e a primeira data. É o que devolve
+                // a tela pro que precisa de decisão hoje.
+                if (f.id === "fila" && !filaAberta) {
+                  const primeira = desta.map((i) => i.due).filter(Boolean).sort()[0];
                   return (
-                    <Link
-                      key={l.id} to={`/leads/${l.id}`}
-                      className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
+                    <button
+                      key={f.id}
+                      onClick={() => setFilaAberta(true)}
+                      className="flex w-full items-center gap-2 rounded-lg border border-border/40 px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
                     >
-                      <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={l.nome}>
-                        {l.nome}
-                        {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
-                      </span>
-                      {temp && (
-                        <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium sm:inline ${temp.chip}`}>
-                          {temp.l}
+                      <ChevronRight className="h-3.5 w-3.5" />
+                      Na fila · {desta.length}
+                      {primeira && (
+                        <span className="text-muted-foreground/70">
+                          — a partir de {new Date(primeira + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                         </span>
                       )}
-                      {/* O motivo é o que faz o toque acontecer — sem ele o aviso
-                          diz "volte no Fulano" e ninguém sabe pra quê. */}
-                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block" title={l.motivo_toque || ""}>
-                        {l.motivo_toque || ""}
-                      </span>
-                      <span className={`w-28 shrink-0 text-right text-xs ${dias > 0 ? "font-medium text-destructive" : "text-warning"}`}>
-                        {rotuloAtraso(l.proximo_toque, hoje)}
-                      </span>
-                    </Link>
+                    </button>
                   );
-                })}
-              </CardContent>
-            </Card>
-          </Bloco>
+                }
 
-          <Bloco titulo="Com o cliente" n={comCliente.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {comCliente.map((it) => (
-                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                ))}
-              </CardContent>
-            </Card>
-          </Bloco>
-
-          {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
-              que está na mão de outra pessoa (etapa anterior ou revisão). */}
-          <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {vaiEntrar.map((t: any) => (
-                  <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                    <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
-                      {t.d?.codigo && (
-                        <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
-                      )}
-                      {t.titulo}
-                    </Link>
-                    <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
-                      {t.quem} · {t.falta}
-                    </span>
-                    <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
-                      há {t.dias} {t.dias === 1 ? "dia" : "dias"}
-                    </span>
+                return (
+                  <div key={f.id} className="space-y-2">
+                    {/* Título NEUTRO com a bolinha colorida: a palavra "Vencido"
+                        já diz o que é, e pintá-la também somaria uma terceira
+                        mancha de cor por faixa (bolinha + barra + prazo). A cor
+                        aparece uma vez aqui, pequena, e o resto é a lista. */}
+                    {f.id === "fila" ? (
+                      <button
+                        onClick={() => setFilaAberta(false)}
+                        className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronRight className="h-3 w-3 rotate-90" />
+                        {f.titulo} · {desta.length}
+                      </button>
+                    ) : (
+                      <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span className={`h-1.5 w-1.5 rounded-full ${f.barra}`} />
+                        {f.titulo} · {desta.length}
+                      </p>
+                    )}
+                    <Card className="glass-card overflow-hidden">
+                      <CardContent className="p-0">
+                        {desta.map((it) => (
+                          <ItemRow
+                            key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                            faixa={f.id}
+                            rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
+                          />
+                        ))}
+                      </CardContent>
+                    </Card>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </Bloco>
+                );
+              })}
+            </Bloco>
+            <Bloco titulo="Outras tarefas" n={outras.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {outras.map((it) => (
+                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                  ))}
+                </CardContent>
+              </Card>
+            </Bloco>
+            </div>
 
-          <Bloco titulo="Outras tarefas" n={outras.length}>
-            <Card className="glass-card overflow-hidden">
-              <CardContent className="p-0">
-                {outras.map((it) => (
-                  <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                    rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-                ))}
-              </CardContent>
-            </Card>
-          </Bloco>
+            <div className="order-1 space-y-4 lg:order-2">
+            <Bloco titulo="Pra eu aprovar" n={praAprovar.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {praAprovar.map((it) => (
+                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                  ))}
+                </CardContent>
+              </Card>
+            </Bloco>
+            {/* Gravações: o que não dá pra remarcar de manhã. */}
+            <Bloco titulo="Gravações" n={gravacoes.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {gravacoes.map((g: any) => (
+                    <div key={g.id} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                      <span className="w-16 shrink-0 text-xs font-medium text-foreground">
+                        {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
+                        {g.titulo}
+                        {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
+                      </span>
+                      <span className="hidden w-44 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
+                        {g.project?.client_name || g.project?.name || ""}{g.local ? ` · ${g.local}` : ""}
+                      </span>
+                      <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
+                        ver <ChevronRight className="inline h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </Bloco>
+            {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
+                âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
+            <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {leadsPraTocar.map((l: any) => {
+                    const dias = diasDeAtraso(l.proximo_toque, hoje);
+                    const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
+                    return (
+                      <Link
+                        key={l.id} to={`/leads/${l.id}`}
+                        className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
+                      >
+                        <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={l.nome}>
+                          {l.nome}
+                          {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
+                        </span>
+                        {temp && (
+                          <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium sm:inline ${temp.chip}`}>
+                            {temp.l}
+                          </span>
+                        )}
+                        {/* O motivo é o que faz o toque acontecer — sem ele o aviso
+                            diz "volte no Fulano" e ninguém sabe pra quê. */}
+                        <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block" title={l.motivo_toque || ""}>
+                          {l.motivo_toque || ""}
+                        </span>
+                        <span className={`w-28 shrink-0 text-right text-xs ${dias > 0 ? "font-medium text-destructive" : "text-warning"}`}>
+                          {rotuloAtraso(l.proximo_toque, hoje)}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </Bloco>
+            <Bloco titulo="Com o cliente" n={comCliente.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {comCliente.map((it) => (
+                    <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                      rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+                  ))}
+                </CardContent>
+              </Card>
+            </Bloco>
+            {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
+                que está na mão de outra pessoa (etapa anterior ou revisão). */}
+            <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length}>
+              <Card className="glass-card overflow-hidden">
+                <CardContent className="p-0">
+                  {vaiEntrar.map((t: any) => (
+                    <div key={t.key} className="flex items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                      <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={t.titulo}>
+                        {t.d?.codigo && (
+                          <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
+                        )}
+                        {t.titulo}
+                      </Link>
+                      <span className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground sm:block">
+                        {t.quem} · {t.falta}
+                      </span>
+                      <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">
+                        há {t.dias} {t.dias === 1 ? "dia" : "dias"}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </Bloco>
+            </div>
+          </div>
 
         </>
       )}
