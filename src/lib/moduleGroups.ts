@@ -31,6 +31,7 @@ export const ACCESS_GROUPS: AccessGroup[] = [
   { id: "horas",        section: "Tempo",      label: "Minhas horas",          dinheiro: false, hint: "Apontar horas e timesheet",              modules: ["horas", "timesheet"] },
   // Financeiro
   { id: "faturamento",  section: "Financeiro", label: "Faturamento & Fechamento", dinheiro: true, hint: "Faturas e fechamento de projeto",     modules: ["faturamento", "fechamento"] },
+  { id: "planos",       section: "Comercial",  label: "Planos recorrentes",    dinheiro: true,  hint: "Pacotes com escopo, contrato e margem", modules: ["planos"] },
   { id: "dre",          section: "Financeiro", label: "DRE & Relatórios",      dinheiro: true,  hint: "Financeiro profundo, contas/fees, relatórios", modules: ["financeiro", "relatorios", "contas_fees"] },
   // Gestão
   { id: "gestao",       section: "Gestão",     label: "Time & Fornecedores",   dinheiro: true,  hint: "Cadastro da equipe e fornecedores",       modules: ["time", "fornecedores"] },
@@ -51,5 +52,5 @@ export const MONEY_MODULES: ModuleId[] = [
   // então ver demanda não pode mais destravar o financeiro. Mantém em sincronia
   // com pode_ver_dinheiro no banco.
   "leads", "orcamentos", "clientes", "follow_ups", "propostas",
-  "faturamento", "fechamento", "contas_fees", "relatorios", "financeiro", "fornecedores",
+  "faturamento", "fechamento", "contas_fees", "relatorios", "financeiro", "fornecedores", "planos",
 ];
