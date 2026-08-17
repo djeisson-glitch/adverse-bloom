@@ -21,7 +21,7 @@ import {
   LineChart,
   ListChecks,
   LogOut,
-  PackageCheck,
+  PackageCheck, Package,
   Receipt,
   Scale,
   Send,
@@ -108,6 +108,7 @@ const GRUPOS: NavGrupo[] = [
     itens: [
       { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
       { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
+      { title: "Planos", url: "/planos", icon: Package, module: "planos" },
       { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
       { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
       { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },

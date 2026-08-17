@@ -33,6 +33,7 @@ export type ModuleId =
   | "fornecedores"
   | "follow_ups"
   | "faturamento"
+  | "planos"
   | "relatorios"
   | "time"
   | "admin"
@@ -76,6 +77,7 @@ export const MODULES: { id: ModuleId; label: string; description: string }[] = [
   { id: "fornecedores", label: "Fornecedores", description: "Diretório interno de fornecedores/freelas" },
   { id: "follow_ups", label: "Follow-ups", description: "Agenda automática pós-ganho/perda" },
   { id: "faturamento", label: "Faturamento", description: "Emissão e acompanhamento de faturas" },
+  { id: "planos", label: "Planos", description: "Pacotes recorrentes: escopo, contrato e margem" },
   { id: "relatorios", label: "Relatórios", description: "Funil, faturamento, rentabilidade" },
   { id: "agenda", label: "Agenda da Equipe", description: "Alocação de equipe e diárias de captação" },
   { id: "time", label: "Time", description: "Cadastro da equipe e apontamento da semana" },

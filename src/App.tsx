@@ -36,6 +36,7 @@ import OrcamentoEditor from "./pages/OrcamentoEditor";
 import CartaOrcamento from "./pages/CartaOrcamento";
 import CartaSimples from "./pages/CartaSimples";
 import Leads from "./pages/Leads";
+import Planos from "./pages/Planos";
 import LeadDetalhe from "./pages/LeadDetalhe";
 import CatalogoItens from "./pages/CatalogoItens";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
@@ -180,6 +181,7 @@ const App = () => (
               {/* Onda 0 — Produção */}
               <Route path="/demandas" element={<ProtectedRoute><ModuleGuard module="demandas"><Demandas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><ModuleGuard module="leads"><Leads /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/planos" element={<ProtectedRoute><ModuleGuard module="planos"><Planos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/leads/:id" element={<ProtectedRoute><ModuleGuard module="leads"><LeadDetalhe /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/novo" element={<ProtectedRoute><ModuleGuard module="orcamentos"><NovoOrcamento /></ModuleGuard></ProtectedRoute>} />
