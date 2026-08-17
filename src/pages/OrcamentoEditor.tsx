@@ -3,6 +3,7 @@ import { useVoltar } from "@/hooks/useVoltar";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TipoDoOrcamento } from "@/components/budgets/TipoDoOrcamento";
 import { STAGES, isWonStage } from "@/hooks/useDeals";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -301,6 +302,16 @@ export default function OrcamentoEditor() {
         titulo="💬 Discussão do orçamento"
         vazio="Nenhuma mensagem ainda. Tire dúvidas, alinhe valores e anexe documentos aqui."
       />
+
+      {/* Avulso ou plano — vem ANTES da planilha porque muda o que a planilha
+          significa: num plano, o total dela é a MENSALIDADE, não o preço do
+          job. Decidir isso depois de montar a planilha é decidir tarde. */}
+      {canSeeMoney && (
+        <TipoDoOrcamento
+          budget={budget}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })}
+        />
+      )}
 
       {/* Planilha de produção */}
       {canSeeMoney && (
