@@ -27,7 +27,7 @@ import { toast } from "sonner";
 /** Status em que alguém está de fato com a peça na bancada. Mesma régua da
  *  função `status_em_producao` no banco — se divergirem, a tela oferece mover
  *  uma peça que o banco já soltou. */
-const EM_PRODUCAO = ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"];
+const EM_PRODUCAO = ["pendente", "pronto_editar", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"];
 
 export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: boolean; status?: string }) {
   const qc = useQueryClient();

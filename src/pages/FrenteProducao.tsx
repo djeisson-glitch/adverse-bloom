@@ -16,7 +16,7 @@ import { CabecalhoFrente, Kpi, ListaFrente, diasDesde, type LinhaFrente } from "
  * que está saudável — só o que precisa de decisão: parado, atrasado, sem dono.
  */
 
-const ATIVO = ["pendente", "em_edicao", "em_pausa", "revisao", "revisao_n1", "revisao_n2", "pronto", "com_cliente", "ajuste_solicitado", "ajuste_interno"];
+const ATIVO = ["pendente", "pronto_editar", "em_edicao", "em_pausa", "revisao", "revisao_n1", "revisao_n2", "pronto", "com_cliente", "ajuste_solicitado", "ajuste_interno"];
 
 const fmtDia = (d?: string | null) =>
   d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "";

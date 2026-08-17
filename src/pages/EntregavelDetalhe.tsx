@@ -26,7 +26,7 @@ import {
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip, Pencil,
+  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip, Pencil, PlayCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -571,6 +571,7 @@ export default function EntregavelDetalhe() {
         isRevisor={isRevisor}
         souDono={souDono}
         podeForcar={podeRevisar}
+        podeLiberar={podeRevisar}
         canSeeMoney={canSeeMoney}
         clientId={proj?.client_id}
         horasMin={Math.round((horas.pura + horas.alt) * 60)}
@@ -703,7 +704,7 @@ export default function EntregavelDetalhe() {
 
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
-  isEditor, isN1, isN2, isRevisor, souDono, podeForcar, alteracaoAberta, onChanged,
+  isEditor, isN1, isN2, isRevisor, souDono, podeForcar, podeLiberar, alteracaoAberta, onChanged,
   canSeeMoney, clientId, horasMin,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
@@ -711,7 +712,10 @@ function FluxoCard({
   isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
   /** Quem fez a peça não aprova a própria peça. */
   souDono: boolean;
-  podeForcar: boolean; alteracaoAberta: any; onChanged: () => void;
+  podeForcar: boolean;
+  /** Coordenação/admin: quem confirma que o material do cliente chegou. */
+  podeLiberar: boolean;
+  alteracaoAberta: any; onChanged: () => void;
   canSeeMoney: boolean; clientId?: string | null; horasMin: number;
 }) {
   const { user } = useAuth();
@@ -826,9 +830,37 @@ function FluxoCard({
    */
   const botoes: React.ReactNode[] = [];
   const B = (key: string, node: React.ReactNode) => botoes.push(<span key={key}>{node}</span>);
-  const editorTrabalha = ["pendente", "em_pausa", "ajuste_interno", "ajuste_solicitado", "em_edicao"].includes(status);
+  // `pendente` SAIU daqui: peça esperando material do cliente não é trabalho
+  // do editor. Ele só a vê depois que a coordenação libera (`pronto_editar`).
+  const editorTrabalha = ["pronto_editar", "em_pausa", "ajuste_interno", "ajuste_solicitado", "em_edicao"].includes(status);
+
   // Encerrado: o trabalho acabou. Nada de mover etapa nem apontar hora nova.
   const encerrado = ["entregue", "aprovado", "faturado"].includes(status);
+
+  // COORDENAÇÃO: libera pra edição quando o material do cliente chegou.
+  //
+  // É o único caminho de `pendente` pra frente, e de propósito: enquanto
+  // ninguém confirma que o arquivo está lá, a peça não deve aparecer como
+  // trabalho de ninguém.
+  if (status === "pendente") {
+    if (podeLiberar) {
+      B("lib", (
+        <Button
+          size="sm"
+          onClick={async () => { await upd(Fluxo.PATCH_PRONTO_EDITAR, "Liberado pra edição"); }}
+          className="bg-sky-600 text-white hover:bg-sky-600/90"
+        >
+          <PlayCircle className="mr-1 h-3.5 w-3.5" /> Enviar para edição
+        </Button>
+      ));
+    } else {
+      B("agu", (
+        <span className="text-xs text-muted-foreground">
+          Aguardando a coordenação liberar pra edição.
+        </span>
+      ));
+    }
+  }
 
   // EDITOR: botão único Editar⇄Parar + Enviar para revisão
   if (editorTrabalha && isEditor) {

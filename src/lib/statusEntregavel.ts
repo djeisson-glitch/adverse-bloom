@@ -1,5 +1,5 @@
 import {
-  Clock, Film, Pause, UserCheck, ThumbsUp, ExternalLink, RefreshCw, CheckCircle2,
+  Clock, Film, Pause, UserCheck, ThumbsUp, ExternalLink, RefreshCw, CheckCircle2, PlayCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -13,6 +13,9 @@ import {
 
 export const STATUS_ENTREGAVEL = [
   { id: "pendente", label: "Pendente", tone: "muted" },
+  // Entre "chegou" e "rodando": a coordenação confirmou que o material do
+  // cliente está completo. É o que tira a peça sem arquivo da mesa do editor.
+  { id: "pronto_editar", label: "Pronto pra editar", tone: "info" },
   { id: "em_edicao", label: "Em edição", tone: "primary" },
   { id: "em_pausa", label: "Em pausa", tone: "muted" },
   { id: "revisao_n1", label: "Revisão 1", tone: "warning" },
@@ -27,7 +30,7 @@ export const STATUS_ENTREGAVEL = [
 ] as const;
 
 export const STATUS_ICON: Record<string, LucideIcon> = {
-  pendente: Clock, em_edicao: Film, em_pausa: Pause,
+  pendente: Clock, pronto_editar: PlayCircle, em_edicao: Film, em_pausa: Pause,
   revisao_n1: UserCheck, revisao_n2: UserCheck, revisao: UserCheck,
   pronto: ThumbsUp, com_cliente: ExternalLink,
   ajuste_interno: RefreshCw, ajuste_solicitado: RefreshCw,
