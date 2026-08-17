@@ -31,6 +31,13 @@ async function upd(id: string, patch: Record<string, unknown>) {
   if (error) throw error;
 }
 
+/**
+ * LIBERAR PRA EDIÇÃO — a coordenação diz que o material do cliente chegou.
+ * Enquanto isso não acontece a peça fica em `pendente` e NÃO aparece na mesa
+ * do editor: peça sem arquivo na lista de trabalho ensina a desconfiar da
+ * própria lista.
+ */
+export const PATCH_PRONTO_EDITAR = { status: "pronto_editar" };
 /** EDITAR — patch de status; quem chama liga o timer. */
 export const PATCH_EM_EDICAO = { status: "em_edicao" };
 /** PARAR — patch de status; quem chama para o timer. */

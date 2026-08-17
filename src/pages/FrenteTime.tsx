@@ -15,7 +15,7 @@ import { hojeISO } from "@/lib/dataLocal";
  * livre?". Serve pra decidir pra quem vai a próxima demanda.
  */
 
-const ATIVO = ["pendente", "em_edicao", "em_pausa", "revisao", "revisao_n1", "revisao_n2", "pronto", "ajuste_solicitado", "ajuste_interno"];
+const ATIVO = ["pendente", "pronto_editar", "em_edicao", "em_pausa", "revisao", "revisao_n1", "revisao_n2", "pronto", "ajuste_solicitado", "ajuste_interno"];
 
 export default function FrenteTime() {
   const hoje = hojeISO();

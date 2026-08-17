@@ -348,6 +348,20 @@ export default function MinhaMesa() {
   });
 
   /**
+   * Peças esperando o material do cliente — só pra quem libera.
+   *
+   * Djêisson (13/08): "nessa etapa de pendente, aparece o botao pra
+   * coordenação de projetos: enviar para edição e ai sim aparece pro editor."
+   *
+   * É o outro lado de tirar `pendente` da mesa do editor: alguém tem que ver
+   * essas peças, senão elas somem do sistema inteiro e ninguém libera nada.
+   */
+  const praLiberar = useMemo(
+    () => (podeCliente ? deliverables.filter((d: any) => d.status === "pendente") : []),
+    [deliverables, podeCliente],
+  );
+
+  /**
    * Leads cujo toque venceu ou vence hoje.
    *
    * Meus e os sem dono: lead sem responsável não é de ninguém, e é assim que
@@ -391,7 +405,10 @@ export default function MinhaMesa() {
     // EDITOR: os entregáveis que estão COMIGO agora. Alteração do cliente entra
     // DENTRO do item (não como linha separada) — some a duplicidade.
     deliverables
-      .filter((d) => quemEstaCom(d) === user.id && ["pendente", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
+      // `pendente` NÃO entra: é peça esperando material do cliente, e o editor
+      // que abre uma dessas não acha arquivo nenhum. Ela só chega aqui depois
+      // que a coordenação libera (`pronto_editar`).
+      .filter((d) => quemEstaCom(d) === user.id && ["pronto_editar", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
       .forEach((d) => {
         const alt = altAbertaDe(d.id);
         const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
@@ -407,7 +424,7 @@ export default function MinhaMesa() {
           acao: ajuste
             ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
             : porEtapa ? `Sua vez — ${porEtapa}`
-            : d.status === "pendente" ? "Começar edição"
+            : d.status === "pronto_editar" ? "Começar edição"
             : d.status === "em_pausa" ? "Retomar edição"
             : d.status === "em_edicao" ? "Editando" : "Continuar",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
@@ -767,6 +784,45 @@ export default function MinhaMesa() {
               ))}
             </Bloco>
 
+            {/* Liberar pra edição: a peça chegou, falta confirmar que o
+                material do cliente veio. Enquanto ninguém confirma, ela NÃO
+                aparece pro editor. */}
+            <Bloco titulo="Liberar pra edição" n={praLiberar.length} tom="liberar">
+              <ListaComMais itens={praLiberar} render={(d: any) => (
+                <div key={d.id} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
+                  <Link
+                    to={`/projetos/${d.project?.id}/entregaveis/${d.id}`}
+                    className="min-w-0 flex-1 truncate text-sm text-foreground"
+                    title={d.titulo}
+                  >
+                    {d.codigo && <span className="mr-2 font-mono text-[11px] text-muted-foreground">{d.codigo}</span>}
+                    {d.titulo}
+                  </Link>
+                  <span className="hidden shrink-0 truncate text-right text-xs text-muted-foreground lg:block">
+                    {d.project?.client_name || ""}
+                  </span>
+                  <Button
+                    size="sm" variant="outline" className="h-7 shrink-0 text-xs"
+                    disabled={busy === `lib-${d.id}`}
+                    onClick={async () => {
+                      setBusy(`lib-${d.id}`);
+                      try {
+                        await Fluxo.aplicarPatch(d.id, Fluxo.PATCH_PRONTO_EDITAR);
+                        await qc.invalidateQueries({ queryKey: ["minha-mesa-deliverables"] });
+                        toast.success("Liberado pra edição");
+                      } catch (e: any) {
+                        toast.error("Não liberou", { description: e.message });
+                      } finally {
+                        setBusy(null);
+                      }
+                    }}
+                  >
+                    Enviar para edição
+                  </Button>
+                </div>
+              )} />
+            </Bloco>
+
             <Bloco titulo="Outras tarefas" n={outras.length}>
               {outras.map((it) => (
                 <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
@@ -907,6 +963,7 @@ const TARJA: Record<string, string> = {
   gravacoes: "border-l-info",       // azul — data marcada, não remarca
   leads: "border-l-success",        // verde — comercial
   cliente: "border-l-roxo",         // roxo — está fora, é acompanhamento
+  liberar: "border-l-info",         // azul — falta o material do cliente
   tarefa: "border-l-border",        // neutro
 };
 
