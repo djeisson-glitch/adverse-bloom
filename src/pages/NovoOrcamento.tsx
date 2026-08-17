@@ -276,7 +276,10 @@ export default function NovoOrcamento() {
                 orçamento é: num plano, a planilha vira a MENSALIDADE e o
                 contrato tem prazo. */}
             <div>
-              <Label>Tipo de orçamento</Label>
+              {/* "Contratação" e não "Tipo de orçamento": esse rótulo JÁ existe
+                  logo abaixo pra geral/IA/só pós. Dois campos com o mesmo nome
+                  na mesma tela é como se responde o errado. */}
+              <Label>Contratação</Label>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <div className="flex overflow-hidden rounded-md border border-border/60">
                   {[false, true].map((v) => (
