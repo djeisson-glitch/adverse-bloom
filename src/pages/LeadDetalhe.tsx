@@ -111,7 +111,7 @@ export default function LeadDetalhe() {
 
   const addInteracao = useMutation({
     mutationFn: async () => {
-      if (!novaInt.descricao.trim()) throw new Error("Escreva a interação");
+      if (!novaInt.descricao.trim()) throw new Error("Preencha o passo 1: o que já aconteceu com esse lead.");
       // A data e o motivo vão NA INTERAÇÃO: o trigger empurra pro lead e o
       // histórico guarda o que foi combinado em cada toque.
       const { error } = await (supabase as any).from("lead_interacoes").insert({
@@ -238,13 +238,13 @@ export default function LeadDetalhe() {
               </Select>
             </Campo>
 
-            <Campo label="Próximo toque">
+            <Campo label="Agendado para">
               <Input type="date" value={form.proximo_toque || ""} onChange={(e) => salvar({ proximo_toque: e.target.value || null })} className="h-8" />
             </Campo>
             {/* Ao lado da data, e não numa aba: quando o aviso chegar daqui 30
                 dias, "voltar no Fulano" não faz ninguém voltar — o motivo faz. */}
             <div className="md:col-span-2">
-              <Campo label="Motivo do próximo toque">
+              <Campo label="Pra falar o quê">
                 <Input
                   value={form.motivo_toque}
                   onChange={(e) => setForm({ ...form, motivo_toque: e.target.value })}
@@ -271,54 +271,75 @@ export default function LeadDetalhe() {
       {/* Timeline de interações */}
       <Card className="glass-card">
         <CardContent className="space-y-4 p-6">
-          <p className="text-sm font-semibold text-foreground">Interações</p>
+          <p className="text-sm font-semibold text-foreground">Registrar um toque</p>
 
-          {/* Registrar o toque JÁ agenda o próximo: a data nasce calculada pela
-              temperatura e continua editável, porque tem lead que pede pra
-              voltar em novembro e nenhuma cadência cobre isso. */}
-          <div className="space-y-2 rounded-lg border border-border/50 bg-muted/20 p-3">
-            <div className="flex flex-wrap items-start gap-2">
-              <Select value={novaInt.tipo} onValueChange={(v) => setNovaInt({ ...novaInt, tipo: v })}>
-                <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-                <SelectContent>{TIPOS_INT.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
-              </Select>
-              <Input
-                value={novaInt.descricao}
-                onChange={(e) => setNovaInt({ ...novaInt, descricao: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
-                placeholder="O que rolou? (ex.: enviei proposta por e-mail)"
-                className="h-9 min-w-[200px] flex-1"
-              />
-            </div>
+          {/* DOIS TEMPOS, DOIS BLOCOS.
+              Djêisson (17/08): "essa parte da interação: é da atividade futura?
+              ou como comecei o contato? ficou confuso!"
 
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="w-40">
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Próximo toque</Label>
+              Estava confuso porque o formulário misturava PASSADO ("o que
+              rolou") e FUTURO ("próximo toque") numa caixa só, sem dizer qual
+              era qual — e a ficha lá em cima repete os mesmos dois campos, o
+              que dava a impressão de três lugares pra mesma coisa.
+
+              Agora os dois passos são numerados e rotulados no tempo verbal
+              certo. O gesto é um só (registro o que fiz e já digo quando
+              volto), mas a tela para de deixar isso implícito. */}
+          <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3">
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                1 · O que já aconteceu
+              </p>
+              <div className="flex flex-wrap items-start gap-2">
+                <Select value={novaInt.tipo} onValueChange={(v) => setNovaInt({ ...novaInt, tipo: v })}>
+                  <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>{TIPOS_INT.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
+                </Select>
                 <Input
-                  type="date" value={toqueSugerido}
-                  onChange={(e) => setNovaInt({ ...novaInt, proximo_toque: e.target.value })}
-                  className="h-9"
-                />
-              </div>
-              <div className="min-w-[180px] flex-1">
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Motivo</Label>
-                <Input
-                  value={motivoSugerido}
-                  onChange={(e) => setNovaInt({ ...novaInt, motivo_toque: e.target.value })}
+                  value={novaInt.descricao}
+                  onChange={(e) => setNovaInt({ ...novaInt, descricao: e.target.value })}
                   onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
-                  placeholder="por que voltar nele"
-                  className="h-9"
+                  placeholder="ex.: mandei a apresentação por e-mail · ele respondeu pedindo valores"
+                  className="h-9 min-w-[200px] flex-1"
                 />
               </div>
-              <Button size="sm" onClick={() => addInteracao.mutate()} disabled={addInteracao.isPending} className="h-9">
-                <Plus className="mr-1 h-4 w-4" /> Registrar
-              </Button>
             </div>
 
-            <p className="text-[10px] text-muted-foreground">
-              Sugerido pela temperatura ({cadenciaDias(form.temperatura)} dias). Mude a data se combinaram outra.
-            </p>
+            <div className="border-t border-border/40 pt-3">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                2 · Quando eu volto
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="w-40">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Data</Label>
+                  <Input
+                    type="date" value={toqueSugerido}
+                    onChange={(e) => setNovaInt({ ...novaInt, proximo_toque: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+                <div className="min-w-[180px] flex-1">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Pra falar o quê</Label>
+                  <Input
+                    value={motivoSugerido}
+                    onChange={(e) => setNovaInt({ ...novaInt, motivo_toque: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && addInteracao.mutate()}
+                    placeholder="ex.: perguntar sobre planejamento 2027"
+                    className="h-9"
+                  />
+                </div>
+                <Button size="sm" onClick={() => addInteracao.mutate()} disabled={addInteracao.isPending} className="h-9">
+                  <Plus className="mr-1 h-4 w-4" /> Registrar
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Já vem preenchido pela temperatura ({cadenciaDias(form.temperatura)} dias) — mude se combinaram outra data.
+                Ao registrar, isto vira a agenda do lead lá em cima.
+              </p>
+            </div>
           </div>
+
+          <p className="text-sm font-semibold text-foreground">Histórico</p>
 
           {interacoes.length === 0 ? (
             <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma interação ainda. Registre o primeiro toque.</p>
