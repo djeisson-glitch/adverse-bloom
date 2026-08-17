@@ -79,6 +79,8 @@ export default function Planos() {
         </div>
       </div>
 
+      <DegrausDeDesconto />
+
       <Card className="glass-card">
         <CardContent className="flex flex-wrap items-end gap-2 p-4">
           <div className="min-w-[180px] flex-1">
@@ -451,5 +453,89 @@ function AplicarAoCliente({ plano }: { plano: any }) {
         Valor e custo são congelados na aplicação — reajuste no rate card não mexe em contrato já assinado.
       </p>
     </div>
+  );
+}
+
+/**
+ * Os degraus de desconto por prazo — o PADRÃO da casa.
+ *
+ * Djêisson (14/08/2026): "quero q deixe um campo pra ele e que a gente possa
+ * editar quando quiser". Configuração que ninguém consegue mexer é constante
+ * com passo extra.
+ *
+ * Isto é a política; cada orçamento ainda pode ter o desconto dele (o campo
+ * no editor). As duas coisas são verdade ao mesmo tempo: existe uma regra da
+ * casa e existe a negociação específica.
+ */
+function DegrausDeDesconto() {
+  const qc = useQueryClient();
+  const [novo, setNovo] = useState({ meses: "", percent: "" });
+
+  const { data: degraus = [] } = useQuery({
+    queryKey: ["plano-descontos-admin"],
+    queryFn: async () => (await (supabase as any).from("plano_descontos").select("*").order("meses")).data || [],
+  });
+
+  const recarregar = () => {
+    qc.invalidateQueries({ queryKey: ["plano-descontos-admin"] });
+    qc.invalidateQueries({ queryKey: ["plano-descontos"] });
+  };
+
+  const salvar = async (meses: number, percent: number) => {
+    const { error } = await (supabase as any).from("plano_descontos").upsert({ meses, percent, ativo: true });
+    if (error) return toast.error("Não salvou", { description: error.message });
+    recarregar();
+  };
+
+  return (
+    <Card className="glass-card">
+      <CardContent className="p-4">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Desconto por prazo · padrão da casa
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          {degraus.map((d: any) => (
+            <div key={d.meses}>
+              <Label className="text-[10px] text-muted-foreground">{d.meses} meses</Label>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number" step="0.5" defaultValue={d.percent} className="h-8 w-20 text-sm"
+                  onBlur={(e) => Number(e.target.value) !== Number(d.percent) && salvar(d.meses, Number(e.target.value) || 0)}
+                />
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-end gap-1">
+            <div>
+              <Label className="text-[10px] text-muted-foreground">novo prazo</Label>
+              <Input type="number" value={novo.meses} onChange={(e) => setNovo({ ...novo, meses: e.target.value })}
+                placeholder="24" className="h-8 w-20 text-sm" />
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">%</Label>
+              <Input type="number" step="0.5" value={novo.percent} onChange={(e) => setNovo({ ...novo, percent: e.target.value })}
+                placeholder="15" className="h-8 w-20 text-sm" />
+            </div>
+            <Button
+              size="sm" variant="outline" className="h-8"
+              onClick={async () => {
+                const m = Number(novo.meses);
+                if (!m) return toast.error("Informe o prazo em meses");
+                await salvar(m, Number(novo.percent) || 0);
+                setNovo({ meses: "", percent: "" });
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Prazo sem degrau exato usa o maior que couber — 9 meses pega o de 6. Cada orçamento
+          ainda pode ter o desconto próprio dele.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
