@@ -154,7 +154,10 @@ function PlanoCard({ p, aberto, onToggle, confirmar }: {
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium text-foreground">{p.nome}</span>
             <span className="block text-xs text-muted-foreground">
-              {p.duracao_meses} meses · {p.entregas_mes || 0} entregas/mês · {Number(p.horas_mes || 0).toFixed(1)}h/mês
+              {p.duracao_meses} meses · {p.entregas_mes || 0} entregas/mês
+              {Number(p.diarias_mes || 0) > 0 ? ` · ${Number(p.diarias_mes)} diárias` : ""}
+              {" · "}{Number(p.horas_mes || 0).toFixed(1)}h/mês
+              {p.budget_id ? " · do orçamento" : ""}
             </span>
           </span>
           <span className="shrink-0 text-right">
