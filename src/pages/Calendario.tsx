@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 type Marker =
   | { tipo: "entregavel"; label: string; projectId: string; id: string; color: string }
   | { tipo: "tarefa"; label: string; projectId: string | null; id: string; color: string }
-  | { tipo: "prazo"; label: string; projectId: string; id: string; color: string };
+  | { tipo: "prazo"; label: string; projectId: string; id: string; color: string }
+  /** Toque de nutrição: `projectId` carrega o id do LEAD, pro clique abrir a ficha dele. */
+  | { tipo: "lead"; label: string; projectId: string; id: string; color: string };
 
 function iso(d: Date) {
   return dataISO(d);
@@ -48,6 +50,27 @@ export default function Calendario() {
         .lte("data_entrega", to);
       if (error) throw error;
       return data as any[];
+    },
+  });
+
+  /**
+   * Toques de lead — "já vai pra agenda" (Djêisson, 14/08).
+   *
+   * O lead nasce com data de próximo toque; aqui ela vira compromisso no
+   * calendário, do mesmo jeito que entrega e diária. Sem isso a data existia
+   * só na ficha do lead, e agenda que não mostra o compromisso não é agenda.
+   */
+  const { data: toques = [] } = useQuery({
+    queryKey: ["cal-leads", from, to],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("leads")
+        .select("id, nome, empresa, proximo_toque, motivo_toque, status")
+        .not("proximo_toque", "is", null)
+        .gte("proximo_toque", from)
+        .lte("proximo_toque", to);
+      if (error) throw error;
+      return ((data as any[]) || []).filter((l) => !["convertido", "descartado"].includes(l.status));
     },
   });
 
@@ -110,6 +133,17 @@ export default function Calendario() {
       map.set(key, [
         ...(map.get(key) || []),
         { tipo: "entregavel", label: e.titulo, projectId: e.project_id, id: e.id, color: "#22c55e" },
+      ]);
+    });
+    toques.forEach((l: any) => {
+      const key = String(l.proximo_toque).slice(0, 10);
+      map.set(key, [
+        ...(map.get(key) || []),
+        {
+          tipo: "lead",
+          label: `☎️ ${l.nome}${l.empresa ? ` · ${l.empresa}` : ""}${l.motivo_toque ? ` — ${l.motivo_toque}` : ""}`,
+          projectId: l.id, id: l.id, color: "#10b981",
+        },
       ]);
     });
     prazos.forEach((p) => {
@@ -212,7 +246,10 @@ export default function Calendario() {
                     {dayMarkers.slice(0, 3).map((mk) => (
                       <Link
                         key={mk.id}
-                        to={mk.projectId ? `/projetos/${mk.projectId}` : "#"}
+                        // Toque de lead abre a FICHA DO LEAD; o resto vai pro
+                        // projeto. Sem isto o clique levava a /projetos/<id do
+                        // lead> e caía numa tela que não existe.
+                        to={mk.tipo === "lead" ? `/leads/${mk.id}` : mk.projectId ? `/projetos/${mk.projectId}` : "#"}
                         className="block truncate rounded px-1 py-0.5 text-[9px]"
                         style={{ background: `${mk.color}22`, color: mk.color }}
                         title={mk.label}

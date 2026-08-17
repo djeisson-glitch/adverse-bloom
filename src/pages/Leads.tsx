@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
 import { hojeISO } from "@/lib/dataLocal";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Sprout, Plus, Flame, Snowflake, Thermometer, CalendarClock, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
+import { NovoLeadModal } from "@/components/leads/NovoLeadModal";
 
 export const TEMPERATURAS = [
   { v: "frio", l: "Frio", chip: "bg-sky-500/15 text-info" },
@@ -37,13 +35,11 @@ const label = (arr: { v: string; l: string }[], v: string) => arr.find((x) => x.
 
 export default function Leads() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  const { user } = useAuth();
   const hoje = hojeISO();
 
   const [fTemp, setFTemp] = useState("all");
   const [fStatus, setFStatus] = useState("all");
-  const [novo, setNovo] = useState({ nome: "", empresa: "", origem: "outbound", temperatura: "frio" });
+  const [modal, setModal] = useState(false);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["leads"],
@@ -55,35 +51,6 @@ export default function Leads() {
       if (error) throw error;
       return data as any[];
     },
-  });
-
-  const criar = useMutation({
-    mutationFn: async () => {
-      if (!novo.nome.trim()) throw new Error("Informe o nome do lead");
-      const { data, error } = await (supabase as any)
-        .from("leads")
-        .insert({
-          nome: novo.nome.trim(),
-          empresa: novo.empresa.trim() || null,
-          origem: novo.origem,
-          temperatura: novo.temperatura,
-          status: "novo",
-          responsavel_id: user?.id ?? null,
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data.id as string;
-    },
-    onSuccess: (id) => {
-      setNovo({ nome: "", empresa: "", origem: "outbound", temperatura: "frio" });
-      qc.invalidateQueries({ queryKey: ["leads"] });
-      navigate(`/leads/${id}`);
-    },
-    onError: (e: any) =>
-      toast.error("Não criou", {
-        description: /leads/i.test(e.message || "") ? "Rode 'supabase db push' pra habilitar os leads." : e.message,
-      }),
   });
 
   const filtrados = useMemo(
@@ -121,24 +88,14 @@ export default function Leads() {
         <Kpi label="Toque atrasado" value={kpis.atrasados} icon={CalendarClock} tone={kpis.atrasados > 0 ? "text-destructive" : "text-success"} />
       </div>
 
-      {/* Novo lead */}
-      <Card className="glass-card">
-        <CardContent className="flex flex-wrap items-center gap-2 p-4">
-          <Input value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} onKeyDown={(e) => e.key === "Enter" && criar.mutate()} placeholder="Nome do lead" className="h-9 min-w-[160px] flex-1" />
-          <Input value={novo.empresa} onChange={(e) => setNovo({ ...novo, empresa: e.target.value })} placeholder="Empresa" className="h-9 min-w-[140px] flex-1" />
-          <Select value={novo.origem} onValueChange={(v) => setNovo({ ...novo, origem: v })}>
-            <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>{ORIGENS.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={novo.temperatura} onValueChange={(v) => setNovo({ ...novo, temperatura: v })}>
-            <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
-            <SelectContent>{TEMPERATURAS.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}</SelectContent>
-          </Select>
-          <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending} className="bg-primary text-primary-foreground">
-            <Plus className="mr-1 h-4 w-4" /> Novo lead
-          </Button>
-        </CardContent>
-      </Card>
+      {/* O cadastro virou MODAL: a barra pedia só nome, empresa, origem e
+          temperatura, e e-mail/celular ficavam pra depois — que na prática é
+          nunca. Lead sem contato é um nome numa lista. */}
+      <div className="flex justify-end">
+        <Button onClick={() => setModal(true)} className="bg-primary text-primary-foreground">
+          <Plus className="mr-1 h-4 w-4" /> Novo lead
+        </Button>
+      </div>
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
@@ -168,7 +125,7 @@ export default function Leads() {
             <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : filtrados.length === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-              {leads.length === 0 ? "Nenhum lead ainda. Adicione o primeiro acima." : "Nenhum lead com esses filtros."}
+              {leads.length === 0 ? "Nenhum lead ainda. Clique em Novo lead pra cadastrar o primeiro." : "Nenhum lead com esses filtros."}
             </div>
           ) : (
             filtrados.map((l) => {
@@ -198,6 +155,11 @@ export default function Leads() {
           )}
         </CardContent>
       </Card>
+      <NovoLeadModal
+        aberto={modal}
+        onFechar={() => setModal(false)}
+        onCriado={(id) => { setModal(false); navigate(`/leads/${id}`); }}
+      />
     </div>
   );
 }

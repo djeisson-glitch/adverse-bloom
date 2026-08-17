@@ -14,14 +14,14 @@ import { emDiasISO } from "./dataLocal";
  * cadência num lado só, o teste é o que avisa.
  */
 export const CADENCIA_DIAS: Record<string, number> = {
-  quente: 7,
-  morno: 21,
-  frio: 30,
+  quente: 30,
+  morno: 60,
+  frio: 75,
 };
 
 /** Dias até o próximo toque. Temperatura desconhecida cai no mais frouxo. */
 export function cadenciaDias(temperatura: string | null | undefined): number {
-  return CADENCIA_DIAS[temperatura || ""] ?? 30;
+  return CADENCIA_DIAS[temperatura || ""] ?? 75;
 }
 
 /** A data que o formulário sugere: hoje + a cadência da temperatura. */
