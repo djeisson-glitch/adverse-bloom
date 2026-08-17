@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Repeat, Package, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -42,7 +43,11 @@ export function TipoDoOrcamento({ budget, onChanged }: { budget: any; onChanged:
 
   // Mesma régua do banco (`desconto_contrato`): o MAIOR degrau que cabe no
   // prazo — 9 meses pega o de 6, não zero.
-  const desconto = degraus.filter((d: any) => d.meses <= meses).map((d: any) => Number(d.percent)).pop() ?? 0;
+  const padrao = degraus.filter((d: any) => d.meses <= meses).map((d: any) => Number(d.percent)).pop() ?? 0;
+  // O desconto DESTA negociação vence o padrão da casa. `null` = usa o padrão;
+  // 0 é uma decisão (nenhum desconto), diferente de "não decidi".
+  const proprio = budget.desconto_plano;
+  const desconto = proprio === null || proprio === undefined ? padrao : Number(proprio);
   const cheio = Number(budget.total_value || 0);
   const mensal = Math.round(cheio * (1 - desconto / 100) * 100) / 100;
 
@@ -93,6 +98,28 @@ export function TipoDoOrcamento({ budget, onChanged }: { budget: any; onChanged:
               </SelectContent>
             </Select>
 
+            {/* Campo editável, pedido do Djêisson (14/08): "quero q deixe um
+                campo pra ele e que a gente possa editar quando quiser". O
+                padrão da casa preenche; a negociação sobrescreve. */}
+            <div className="flex items-center gap-1">
+              <Input
+                type="number" step="0.5" value={desconto}
+                onChange={(e) => salvar({ desconto_plano: e.target.value === "" ? null : Number(e.target.value) })}
+                className="h-8 w-20 text-xs"
+                title="Desconto deste orçamento"
+              />
+              <span className="text-xs text-muted-foreground">% off</span>
+              {proprio !== null && proprio !== undefined && Number(proprio) !== padrao && (
+                <button
+                  onClick={() => salvar({ desconto_plano: null })}
+                  className="text-[10px] text-muted-foreground underline hover:text-foreground"
+                  title={`Voltar ao padrão de ${meses} meses (${padrao}%)`}
+                >
+                  usar padrão ({padrao}%)
+                </button>
+              )}
+            </div>
+
             <Button size="sm" variant="outline" className="h-8" onClick={virarPlano} disabled={salvando}>
               {salvando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
               Salvar como plano
@@ -105,7 +132,8 @@ export function TipoDoOrcamento({ budget, onChanged }: { budget: any; onChanged:
         <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
           <Linha rot="Planilha (mensalidade cheia)" val={brl(cheio)} />
           <Linha
-            rot={`Desconto de ${meses} meses`}
+            rot={proprio !== null && proprio !== undefined && Number(proprio) !== padrao
+              ? `Desconto desta negociação` : `Desconto de ${meses} meses`}
             val={desconto > 0 ? `−${desconto}% · ${brl(cheio - mensal)}` : "sem desconto"}
             tom={desconto > 0 ? "text-warning" : "text-muted-foreground"}
           />

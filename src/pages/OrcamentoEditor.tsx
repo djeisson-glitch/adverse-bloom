@@ -108,6 +108,10 @@ export default function OrcamentoEditor() {
           imposto_percent: padrao?.imposto ?? 0,
           comissoes: padrao?.comissoes ?? [],
           comissao_base: padrao?.comissao_base ?? "subtotal2",
+          // Herda do deal: a escolha foi feita na criação e não pode se
+          // perder no caminho.
+          recorrente: !!deal.recorrente,
+          contrato_meses: deal.recorrente ? (deal.contrato_meses || 12) : null,
         })
         .select("*")
         .single();
