@@ -784,8 +784,14 @@ function FluxoCard({
   };
 
   // ---- APROVAÇÃO 1 (1ª vez): sempre segue pra Ap.2, com ou sem ajuste ----
-  const n1AprovaSegue = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
+  // R1 tem TRÊS saídas — Djêisson (19/08): "após a primeira aprovação que é da
+  // maiara, ela tenha três opções: aprovar e enviar pro cliente, pedir ajuste
+  // (volta direto pro editor), fiquei em duvida - pedir revisao djeisson...
+  // pra eu entrar só onde preciso mesmo."
+  const n1AprovaEnvia = () => run(() => Fluxo.aprovarEEnviarCliente(entregavel, user?.id));
+  const n1Aprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
   const n1AjusteSegue = pedirAjusteInterno;
+  const n1Duvida = () => run(() => Fluxo.pedirRevisaoN2(entregavel, user?.id));
 
   // ---- APROVAÇÃO 2: aprovarEtapa fecha a 1ª volta (respeita ajuste acumulado);
   //      pedirAjuste força a volta pro editor. ----
@@ -876,8 +882,15 @@ function FluxoCard({
 
   // REVISÃO 1 (1ª vez)
   if (status === "revisao_n1" && isN1 && !souDono) {
-    B("n1a", <Button size="sm" onClick={n1AprovaSegue} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar → Revisão 2</Button>);
-    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste → Revisão 2</Button>);
+    B("n1e", <Button size="sm" onClick={n1AprovaEnvia} className="bg-success text-white hover:bg-success/90"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Aprovar e enviar ao cliente</Button>);
+    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
+    // A escalada é a saída MENOS usada de propósito: ela existe pra dúvida,
+    // não pra rotina. Por isso é ghost, e não um terceiro botão sólido.
+    B("n1d", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={n1Duvida} title="Encaminha pra segunda revisão, com a dúvida registrada no chat"><UserCheck className="mr-1 h-3.5 w-3.5" /> Fiquei em dúvida — pedir revisão</Button>);
+    // Aprovar SEM enviar continua existindo: nem sempre quem aprova manda o
+    // link na hora, e marcar "com o cliente" sem ter enviado é o sistema
+    // mentindo.
+    B("n1a", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={n1Aprova} title="Aprova e deixa pronto — o envio fica pra depois"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Só aprovar</Button>);
   }
   // REVISÃO 2
   if (status === "revisao_n2" && isN2 && !souDono) {

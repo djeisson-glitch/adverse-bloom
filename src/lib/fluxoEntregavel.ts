@@ -78,8 +78,12 @@ async function anotarAjuste(deliverableId: string, userId: string | undefined, o
 export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<string> {
   const now = agora();
   if (d.status === "revisao_n1") {
-    await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: false, status: "revisao_n2" });
-    return "Aprovado → segue pra Revisão 2";
+    // Aprovar na R1 agora FECHA a revisão interna: vai pra "pronto".
+    // Djêisson (19/08): "após a primeira aprovação que é da maiara, ela tenha
+    // três opções... pra eu entrar só onde preciso mesmo." A R2 deixou de ser
+    // obrigatória e virou escalada, decidida por quem revisa primeiro.
+    await upd(d.id, { aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: false, status: "pronto" });
+    return "Aprovado — pronto pra enviar ao cliente";
   }
   if (d.status === "revisao_n2") {
     if (d.rev_ajuste_pendente) {
@@ -112,14 +116,17 @@ export async function aprovarEtapa(d: DelivFluxo, userId?: string): Promise<stri
 export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, _motivo?: string): Promise<string> {
   const now = agora();
   if (d.status === "revisao_n1") {
-    // R1 pediu ajuste: NÃO posta ainda — lembra (rev_ajuste_pendente) e segue
-    // pra R2, pra o editor receber tudo de uma vez numa mensagem só. Marca
-    // rev_n1_ajuste pra o badge da R1 mostrar "pediu ajuste" (âmbar).
+    // Volta DIRETO pro editor. Antes o ajuste da R1 passava pela R2 pra sair
+    // uma mensagem consolidada — mas isso obrigava o Djêisson a entrar num
+    // caso em que não há decisão nenhuma pra ele tomar, e atrasava o editor
+    // em um passo inteiro. A mensagem sai agora, citando a Revisão 1.
     await upd(d.id, {
       aprovado_n1_por: userId, aprovado_n1_em: now, rev_n1_ajuste: true,
-      status: "revisao_n2", rev_ajuste_pendente: true,
+      status: "ajuste_interno", retrabalho: true, rev_ajuste_pendente: false,
+      revisoes_internas: (d.revisoes_internas || 0) + 1,
     });
-    return "Ajuste anotado → segue pra Revisão 2";
+    await anotarAjuste(d.id, userId, ["Revisão 1"]);
+    return "Volta pro editor com os ajustes da Revisão 1";
   }
   if (d.status === "revisao_n2") {
     await upd(d.id, {
@@ -136,6 +143,43 @@ export async function pedirAjuste(d: DelivFluxo, userId: string | undefined, _mo
   await upd(d.id, { status: "ajuste_interno", revisoes_internas: (d.revisoes_internas || 0) + 1 });
   await anotarAjuste(d.id, userId, ["revisão"]);
   return "Volta pro editor com os ajustes";
+}
+
+/**
+ * APROVAR E ENVIAR AO CLIENTE — o caminho curto da R1.
+ *
+ * Um clique em vez de dois (aprovar → enviar), porque quem revisa na R1 é a
+ * mesma pessoa que manda o link. O clique é a declaração de que enviou: se
+ * ela ainda não mandou, o certo é "Aprovar" e enviar depois pelo botão do
+ * fluxo.
+ */
+export async function aprovarEEnviarCliente(d: DelivFluxo, userId?: string): Promise<string> {
+  await upd(d.id, {
+    aprovado_n1_por: userId, aprovado_n1_em: agora(), rev_n1_ajuste: false,
+    status: "com_cliente",
+  });
+  return "Aprovado e enviado ao cliente";
+}
+
+/**
+ * FIQUEI EM DÚVIDA — escala pra Revisão 2.
+ *
+ * `aprovado_n1_em` é preenchido porque o campo marca QUEM PASSOU pela etapa 1
+ * e quando, não "quem gostou" — e sem ele a peça sumiria da mesa do R2, que
+ * filtra por essa marca. A dúvida fica registrada no chat, que é onde a
+ * próxima pessoa vai procurar o motivo.
+ */
+export async function pedirRevisaoN2(d: DelivFluxo, userId?: string, duvida?: string): Promise<string> {
+  await upd(d.id, {
+    aprovado_n1_por: userId, aprovado_n1_em: agora(), rev_n1_ajuste: false,
+    status: "revisao_n2", rev_ajuste_pendente: false, rev_n2_ajuste: false,
+  });
+  await (supabase as any).from("comments").insert({
+    entity_type: "deliverable", entity_id: d.id, user_id: userId,
+    body: `🤔 Revisão 1 ficou em dúvida e pediu uma segunda opinião${duvida ? `: ${duvida}` : "."}`,
+    mentions: [],
+  });
+  return "Encaminhado pra Revisão 2";
 }
 
 /** Escalar a revisão única pra uma segunda revisão (opcional). */

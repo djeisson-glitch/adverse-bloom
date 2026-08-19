@@ -88,10 +88,20 @@ function botoesDoItem(it: Item): BtnCfg[] {
     if (s === "em_edicao") return [{ kind: "enviarRevisao", label: "Enviar p/ revisão", Icon: ThumbsUp, cls: CLS_PRIMARY }];
     return [{ kind: "editar", label: s === "em_pausa" ? "Retomar" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
   }
-  if (it.tipo === "aprovar") return [
-    { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_PRIMARY },
-    { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_SECUNDARIO, outline: true },
-  ];
+  if (it.tipo === "aprovar") {
+    // Na REVISÃO 1 a saída principal é aprovar E enviar — é o caminho que
+    // fecha a peça sem passar por mais ninguém. "Dúvida" fica como terceira
+    // opção, discreta: existe pra exceção, não pra rotina.
+    if (it.d?.status === "revisao_n1") return [
+      { kind: "aprovarEnviar", label: "Aprovar e enviar", Icon: ExternalLink, cls: CLS_PRIMARY },
+      { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_SECUNDARIO, outline: true },
+      { kind: "duvida", label: "Dúvida", Icon: Users, cls: CLS_SECUNDARIO, outline: true },
+    ];
+    return [
+      { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_PRIMARY },
+      { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_SECUNDARIO, outline: true },
+    ];
+  }
   if (it.tipo === "enviar") return [{ kind: "enviarCliente", label: "Enviar ao cliente", Icon: ExternalLink, cls: CLS_PRIMARY }];
   if (it.tipo === "cliente") return [
     { kind: "clienteAprovou", label: "Cliente aprovou", Icon: CheckCircle2, cls: CLS_PRIMARY },
@@ -286,6 +296,10 @@ export default function MinhaMesa() {
         toast.success(await Fluxo.enviarParaRevisao(d, it.alt?.id));
       } else if (kind === "aprovar") {
         toast.success(await Fluxo.aprovarEtapa(d, user?.id));
+      } else if (kind === "aprovarEnviar") {
+        toast.success(await Fluxo.aprovarEEnviarCliente(d, user?.id));
+      } else if (kind === "duvida") {
+        toast.success(await Fluxo.pedirRevisaoN2(d, user?.id));
       } else if (kind === "ajuste") {
         // Um clique só: a mensagem única sai quando volta pro editor, apontando o Frame.io.
         toast.success(await Fluxo.pedirAjuste(d, user?.id));
