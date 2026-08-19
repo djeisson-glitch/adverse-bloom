@@ -35,11 +35,6 @@ export default function NovoOrcamento() {
   const { clients, createClient, updateClient } = useClients();
 
   const [form, setForm] = useState({
-    // Avulso ou plano JÁ aqui: quem cria o orçamento sabe qual é, e escolher
-    // só depois faz o budget nascer avulso um clique após a pessoa ter dito
-    // que é plano.
-    recorrente: false,
-    contrato_meses: 12,
     title: "",
     client_id: "",
     novo_cliente: "",
@@ -111,8 +106,6 @@ export default function NovoOrcamento() {
           probability: 10,
           value: form.verba_estimada ? Number(form.verba_estimada) : 0,
           canal_entrada: form.canal_entrada || null,
-          recorrente: form.recorrente,
-          contrato_meses: form.recorrente ? form.contrato_meses : null,
           tipo_orcamento: form.tipo_orcamento || null,
           porte: form.porte,
           precisa_roteiro: form.precisa_roteiro || null,
@@ -271,48 +264,6 @@ export default function NovoOrcamento() {
                 </p>
               </div>
             )}
-
-            {/* Avulso ou plano. Vem antes do resto porque muda o que o
-                orçamento é: num plano, a planilha vira a MENSALIDADE e o
-                contrato tem prazo. */}
-            <div>
-              {/* "Contratação" e não "Tipo de orçamento": esse rótulo JÁ existe
-                  logo abaixo pra geral/IA/só pós. Dois campos com o mesmo nome
-                  na mesma tela é como se responde o errado. */}
-              <Label>Contratação</Label>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <div className="flex overflow-hidden rounded-md border border-border/60">
-                  {[false, true].map((v) => (
-                    <button
-                      key={String(v)}
-                      type="button"
-                      onClick={() => setForm({ ...form, recorrente: v })}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                        form.recorrente === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {v ? "Plano recorrente" : "Avulso"}
-                    </button>
-                  ))}
-                </div>
-                {form.recorrente && (
-                  <Select
-                    value={String(form.contrato_meses)}
-                    onValueChange={(v) => setForm({ ...form, contrato_meses: Number(v) })}
-                  >
-                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[3, 6, 12].map((m) => <SelectItem key={m} value={String(m)}>{m} meses</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              {form.recorrente && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  A planilha vira o escopo mensal, e o desconto do prazo entra na mensalidade.
-                </p>
-              )}
-            </div>
 
             <div>
               <Label>Canal de entrada</Label>
