@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, Loader2 } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { cru } from "@/lib/nomeCru";
 
 /**
@@ -41,7 +41,7 @@ export function CompararPlanos() {
   const { data: itens = [] } = useQuery({
     queryKey: ["plano-itens-todos"],
     queryFn: async () => (await (supabase as any)
-      .from("plano_itens").select("plano_id, descricao, quantidade, incluso, diarias, ordem").order("ordem")).data || [],
+      .from("plano_itens").select("plano_id, descricao, quantidade, incluso, diarias, unidade, ordem").order("ordem")).data || [],
   });
 
   // Linhas = itens únicos por descrição normalizada, na ordem em que aparecem.
@@ -90,10 +90,16 @@ export function CompararPlanos() {
                       {!it ? (
                         <span className="text-muted-foreground/40" title="Este plano não fala disso">—</span>
                       ) : it.incluso ? (
-                        <span className="inline-flex items-center gap-1 text-success">
-                          {Number(it.quantidade) > 1
-                            ? <b className="tabular-nums">{Number(it.quantidade)}</b>
-                            : <Check className="h-4 w-4" />}
+                        // A UNIDADE junto do número — pedido do Djêisson
+                        // (19/08): "video institucional 1 min - 2 (mas é por
+                        // mês ou por contrato?)". Sem isso a proposta sai
+                        // ambígua, e ambiguidade em escopo vira discussão
+                        // depois de assinado.
+                        <span className="inline-flex flex-col items-center leading-tight text-success">
+                          <b className="tabular-nums">{Number(it.quantidade)}</b>
+                          <span className="text-[9.5px] font-normal text-muted-foreground">
+                            {it.unidade === "contrato" ? "no contrato" : "por mês"}
+                          </span>
                         </span>
                       ) : (
                         <X className="mx-auto h-4 w-4 text-muted-foreground/50" />
@@ -129,7 +135,8 @@ export function CompararPlanos() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        <b className="text-success">✓ / número</b> = incluso · <b>✗</b> = o plano diz que não inclui ·
+        <b className="text-success">número + unidade</b> = incluso ("2 por mês" ≠ "2 no contrato") ·
+        <b> ✗</b> = o plano diz que não inclui ·
         <b> —</b> = o plano não fala disso. A diferença entre ✗ e — importa na venda: "não incluímos motion"
         é resposta; silêncio é mal-entendido.
       </p>

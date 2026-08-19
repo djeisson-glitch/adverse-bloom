@@ -212,7 +212,7 @@ function PlanoCard({ p, aberto, onToggle, confirmar }: {
             )}
 
             <Resumo p={p} />
-            <ItensDoPlano planoId={p.id} confirmar={confirmar} />
+            <ItensDoPlano planoId={p.id} meses={p.duracao_meses} confirmar={confirmar} />
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
@@ -291,9 +291,9 @@ function Resumo({ p }: { p: any }) {
 }
 
 /** O escopo mensal: o que o cliente compra (quantidade) e o que custa (horas). */
-function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any }) {
+function ItensDoPlano({ planoId, meses, confirmar }: { planoId: string; meses: number; confirmar: any }) {
   const qc = useQueryClient();
-  const [novo, setNovo] = useState({ descricao: "", quantidade: "1", horas_unidade: "", rate_card_id: "" });
+  const [novo, setNovo] = useState({ descricao: "", quantidade: "1", horas_unidade: "", rate_card_id: "", unidade: "mes" });
 
   const { data: itens = [] } = useQuery({
     queryKey: ["plano-itens", planoId],
@@ -319,11 +319,12 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
         quantidade: Number(novo.quantidade) || 0,
         horas_unidade: Number(novo.horas_unidade) || 0,
         rate_card_id: novo.rate_card_id || null,
+        unidade: novo.unidade,
         ordem: itens.length + 1,
       });
       if (error) throw error;
     },
-    onSuccess: () => { setNovo({ descricao: "", quantidade: "1", horas_unidade: "", rate_card_id: "" }); recarregar(); },
+    onSuccess: () => { setNovo({ descricao: "", quantidade: "1", horas_unidade: "", rate_card_id: "", unidade: "mes" }); recarregar(); },
     onError: (e: any) => toast.error("Não adicionou", { description: e.message }),
   });
 
@@ -336,20 +337,24 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
       </p>
 
       <div className="overflow-hidden rounded-lg border border-border/50">
-        <div className="grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[52px_1fr_60px_104px_70px_150px_100px_32px] gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Inclui</span>
           <span>Entrega (o cliente lê)</span><span className="text-right">Qtd</span>
+          <span>Unidade</span>
           <span className="text-right">h/un</span><span>Função</span>
           <span className="text-right">Custo/mês</span><span />
         </div>
 
         {itens.map((it: any) => {
           const f = fn(it.rate_card_id);
-          const custo = it.incluso === false
-            ? 0
-            : (it.quantidade || 0) * ((it.horas_unidade || 0) * (f?.custo_hora || 0) + Number(it.custo_direto || 0));
+          // Mesma régua da view: item "no contrato" entra diluído pelos meses,
+          // senão a coluna diria 12× o custo real de uma peça anual.
+          const bruto = (it.quantidade || 0) * ((it.horas_unidade || 0) * (f?.custo_hora || 0) + Number(it.custo_direto || 0));
+          const custo = it.incluso === false ? 0
+            : it.unidade === "contrato" ? bruto / Math.max(meses, 1)
+            : bruto;
           return (
-            <div key={it.id} className={`grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] items-center gap-2 border-b border-border/30 px-3 py-1.5 text-sm last:border-0 ${it.incluso === false ? "opacity-60" : ""}`}>
+            <div key={it.id} className={`grid grid-cols-[52px_1fr_60px_104px_70px_150px_100px_32px] items-center gap-2 border-b border-border/30 px-3 py-1.5 text-sm last:border-0 ${it.incluso === false ? "opacity-60" : ""}`}>
               {/* Clicar alterna incluso ⇄ não incluso. O "não inclui" é o que
                   faz o cliente enxergar o plano de cima — e some das somas. */}
               <button
@@ -364,6 +369,22 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
               </button>
               <span className="truncate text-foreground" title={it.descricao}>{it.descricao}</span>
               <span className="text-right text-muted-foreground">{Number(it.quantidade)}</span>
+              {/* Por mês × no contrato: "2" sozinho não diz se são 2 todo mês
+                  ou 2 no ano inteiro — e a diferença muda a proposta E a
+                  margem (item de contrato entra diluído pelos meses). */}
+              <Select
+                value={it.unidade || "mes"}
+                onValueChange={async (v) => {
+                  await (supabase as any).from("plano_itens").update({ unidade: v }).eq("id", it.id);
+                  recarregar();
+                }}
+              >
+                <SelectTrigger className="h-7 text-[11px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mes">por mês</SelectItem>
+                  <SelectItem value="contrato">no contrato</SelectItem>
+                </SelectContent>
+              </Select>
               <span className="text-right text-muted-foreground">{Number(it.horas_unidade)}</span>
               <span className={`truncate text-xs ${f ? "text-muted-foreground" : "text-warning"}`}>
                 {f?.funcao || "sem função"}
@@ -383,12 +404,19 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
           );
         })}
 
-        <div className="grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] items-center gap-2 px-3 py-2">
+        <div className="grid grid-cols-[52px_1fr_60px_104px_70px_150px_100px_32px] items-center gap-2 px-3 py-2">
           <span />
           <Input value={novo.descricao} onChange={(e) => setNovo({ ...novo, descricao: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && add.mutate()}
             placeholder="ex.: Vídeo institucional 1min" className="h-8 text-sm" />
           <Input type="number" value={novo.quantidade} onChange={(e) => setNovo({ ...novo, quantidade: e.target.value })} className="h-8 text-right text-sm" />
+          <Select value={novo.unidade} onValueChange={(v) => setNovo({ ...novo, unidade: v })}>
+            <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mes">por mês</SelectItem>
+              <SelectItem value="contrato">no contrato</SelectItem>
+            </SelectContent>
+          </Select>
           <Input type="number" value={novo.horas_unidade} onChange={(e) => setNovo({ ...novo, horas_unidade: e.target.value })} placeholder="5" className="h-8 text-right text-sm" />
           <Select value={novo.rate_card_id} onValueChange={(v) => setNovo({ ...novo, rate_card_id: v })}>
             <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="função" /></SelectTrigger>
