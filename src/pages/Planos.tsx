@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useConfirm } from "@/components/ui/confirm";
-import { Package, Plus, Trash2, Loader2, AlertTriangle, ChevronRight, UserPlus } from "lucide-react";
+import { Package, Plus, Trash2, Loader2, AlertTriangle, ChevronRight, UserPlus, Check, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useClientesPublico } from "@/hooks/useDeals";
 import { hojeISO } from "@/lib/dataLocal";
 import { toast } from "sonner";
+import { CompararPlanos } from "@/components/planos/CompararPlanos";
 
 /**
  * Planos recorrentes — o catálogo de pacotes.
@@ -37,6 +38,7 @@ export default function Planos() {
   const qc = useQueryClient();
   const confirmar = useConfirm();
   const [aberto, setAberto] = useState<string | null>(null);
+  const [aba, setAba] = useState<"montar" | "comparar">("montar");
   const [novo, setNovo] = useState({ nome: "", duracao_meses: 12, valor_mensal: "" });
 
   const { data: planos = [], isLoading } = useQuery({
@@ -79,6 +81,25 @@ export default function Planos() {
         </div>
       </div>
 
+      {/* Duas abas: montar (o trabalho) e comparar (a venda). A tela é
+          autônoma — plano é catálogo e existe ANTES de qualquer cliente, que
+          era o problema de montá-lo dentro do orçamento. */}
+      <div className="flex overflow-hidden rounded-md border border-border/60 self-start">
+        {([["montar", "Montar"], ["comparar", "Comparar"]] as const).map(([id, rot]) => (
+          <button
+            key={id}
+            onClick={() => setAba(id)}
+            className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+              aba === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {rot}
+          </button>
+        ))}
+      </div>
+
+      {aba === "comparar" ? <CompararPlanos /> : (
+      <>
       <DegrausDeDesconto />
 
       <Card className="glass-card">
@@ -131,6 +152,8 @@ export default function Planos() {
             />
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -313,7 +336,8 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
       </p>
 
       <div className="overflow-hidden rounded-lg border border-border/50">
-        <div className="grid grid-cols-[1fr_60px_70px_150px_100px_32px] gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] gap-2 border-b border-border/50 bg-muted/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span>Inclui</span>
           <span>Entrega (o cliente lê)</span><span className="text-right">Qtd</span>
           <span className="text-right">h/un</span><span>Função</span>
           <span className="text-right">Custo/mês</span><span />
@@ -321,9 +345,23 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
 
         {itens.map((it: any) => {
           const f = fn(it.rate_card_id);
-          const custo = (it.quantidade || 0) * (it.horas_unidade || 0) * (f?.custo_hora || 0);
+          const custo = it.incluso === false
+            ? 0
+            : (it.quantidade || 0) * ((it.horas_unidade || 0) * (f?.custo_hora || 0) + Number(it.custo_direto || 0));
           return (
-            <div key={it.id} className="grid grid-cols-[1fr_60px_70px_150px_100px_32px] items-center gap-2 border-b border-border/30 px-3 py-1.5 text-sm last:border-0">
+            <div key={it.id} className={`grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] items-center gap-2 border-b border-border/30 px-3 py-1.5 text-sm last:border-0 ${it.incluso === false ? "opacity-60" : ""}`}>
+              {/* Clicar alterna incluso ⇄ não incluso. O "não inclui" é o que
+                  faz o cliente enxergar o plano de cima — e some das somas. */}
+              <button
+                onClick={async () => {
+                  await (supabase as any).from("plano_itens").update({ incluso: it.incluso === false }).eq("id", it.id);
+                  recarregar();
+                }}
+                title={it.incluso === false ? "Não incluso — clique pra incluir" : "Incluso — clique pra marcar como fora"}
+                className={it.incluso === false ? "text-muted-foreground/60" : "text-success"}
+              >
+                {it.incluso === false ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+              </button>
               <span className="truncate text-foreground" title={it.descricao}>{it.descricao}</span>
               <span className="text-right text-muted-foreground">{Number(it.quantidade)}</span>
               <span className="text-right text-muted-foreground">{Number(it.horas_unidade)}</span>
@@ -345,7 +383,8 @@ function ItensDoPlano({ planoId, confirmar }: { planoId: string; confirmar: any 
           );
         })}
 
-        <div className="grid grid-cols-[1fr_60px_70px_150px_100px_32px] items-center gap-2 px-3 py-2">
+        <div className="grid grid-cols-[52px_1fr_60px_70px_150px_100px_32px] items-center gap-2 px-3 py-2">
+          <span />
           <Input value={novo.descricao} onChange={(e) => setNovo({ ...novo, descricao: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && add.mutate()}
             placeholder="ex.: Vídeo institucional 1min" className="h-8 text-sm" />
