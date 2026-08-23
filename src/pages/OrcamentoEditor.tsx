@@ -1278,7 +1278,11 @@ function PlanilhaSection({
         </div>
 
         {/* Cabeçalho percentuais + total */}
-        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr]">
+        {/* 5 colunas e não 4: a COMISSÃO entra no valor total e não aparecia
+            aqui — quem olhava o topo via subtotal + margem + imposto e não
+            fechava a conta com o total. Número que entra na soma tem que
+            aparecer na soma. */}
+        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Subtotal das linhas</p>
             <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
@@ -1298,6 +1302,15 @@ function PlanilhaSection({
             valorCalc={imposto}
             hint="sobre sub-total 2 + comissões"
           />
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Comissões</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(comissaoTotal)}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {comissoes.length === 0
+                ? "nenhuma cadastrada"
+                : comissoes.map((c) => `${c.nome || "—"} ${c.tipo === "%" ? `${c.valor}%` : formatCurrency(Number(c.valor))}`).join(" · ")}
+            </p>
+          </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
             <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</p>
@@ -1347,10 +1360,33 @@ function PlanilhaSection({
               placeholder="Valor"
               className="h-8 w-24"
             />
+            {/* Quanto dá, ANTES de adicionar. Djêisson (19/08): "o sistema
+                deveria apresentar quanto representa os 15% de comissão". A
+                margem e o imposto já mostram "= R$ X" na hora de digitar; a
+                comissão só mostrava depois de salva — e é justamente na hora
+                de escolher o percentual que o número decide alguma coisa. */}
+            {novaCom.valor !== "" && Number(novaCom.valor) > 0 && (
+              <span className="text-xs font-medium text-foreground">
+                = {formatCurrency(
+                  novaCom.tipo === "%"
+                    ? baseComissao * (Number(novaCom.valor) / 100)
+                    : Number(novaCom.valor),
+                )}
+              </span>
+            )}
             <Button size="sm" onClick={addComissao}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Sobre o QUÊ o percentual incide — a margem e o imposto dizem isso
+              logo abaixo do campo, e aqui faltava. Sem a base, "15%" é um
+              número sem referência. */}
+          <p className="text-[11px] text-muted-foreground">
+            {comissaoBase === "subtotal1" ? "Sub-Total 1 (custo)" : "Sub-Total 2 (custo + margem)"}
+            {" = "}<b className="text-foreground">{formatCurrency(baseComissao)}</b>
+            {" — é sobre este valor que o % da comissão incide."}
+          </p>
 
           {comissoes.length > 0 && (
             <div className="space-y-1">
