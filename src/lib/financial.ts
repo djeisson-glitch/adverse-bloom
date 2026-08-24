@@ -18,7 +18,42 @@ export interface CAItem {
 export const SALDO_INICIAL = 16307.73;
 export const SALDO_INICIAL_DATA = "2025-01-07";
 
-export const EXCLUDED_FROM_MARGIN = ["Empréstimos de Bancos", "Compra de equipamentos", "Juros pagos", "Empréstimos de Outras Instituições"];
+/**
+ * O que NÃO é receita, mesmo entrando na conta.
+ *
+ * Auditado em 23/08/2026 contra o export bruto do Conta Azul: em agosto, dos
+ * R$ 37.435,11 que a tela chamava de faturamento, R$ 6.280,64 eram ESTORNO —
+ * 16,8% inflando o número. Estorno é dinheiro voltando de uma despesa, não
+ * venda; captação de empréstimo é dívida; e "outras entradas não operacionais"
+ * inclui coisas como venda de lente usada e PIX do próprio sócio.
+ *
+ * Contar qualquer uma delas como receita não erra só o faturamento — erra a
+ * margem, o ticket médio e o ponto de equilíbrio, que dividem por ela.
+ */
+export const NAO_E_RECEITA = [
+  "Empréstimos de Bancos",
+  "Empréstimos de Outras Instituições",
+  "Estorno",
+  "Outras entradas não operacionais",
+];
+
+/**
+ * O que sai do banco mas NÃO é despesa do período.
+ *
+ * - Empréstimo e compra de equipamento: amortização quita dívida e compra de
+ *   equipamento vira ativo. Nenhum dos dois consome valor no mês.
+ * - Distribuição de lucros: é destinação do resultado, não custo de operar.
+ *   Estava dentro, e sozinha respondia por R$ 16.758 de "despesa" em agosto.
+ *
+ * "Juros pagos" SAIU desta lista: o juro é a única parte do empréstimo que É
+ * despesa — é o preço de usar dinheiro dos outros.
+ */
+export const EXCLUDED_FROM_MARGIN = [
+  "Empréstimos de Bancos",
+  "Empréstimos de Outras Instituições",
+  "Compra de equipamentos",
+  "Distribuição de Lucros",
+];
 
 export const FIXED_COSTS = [
   "Distribuição de Lucros",
@@ -126,7 +161,7 @@ export function isInRange(dateStr: string | undefined, range: PeriodRange): bool
 // 1. Receita Total (competência) - data_competencia in period, all statuses, field total
 // Excludes loans ("Empréstimos de Bancos")
 export function receitaTotalItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
-  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_competencia, period));
+  return recItems.filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && isInRange(r?.data_competencia, period));
 }
 export function calcReceitaTotal(recItems: CAItem[], period: PeriodRange): number {
   return receitaTotalItems(recItems, period).reduce((s, r) => s + (r?.total ?? 0), 0);
@@ -135,11 +170,11 @@ export function calcReceitaTotal(recItems: CAItem[], period: PeriodRange): numbe
 // 2. Receita Recebida (caixa) - data_vencimento in period, field pago
 // Excludes loans ("Empréstimos de Bancos")
 export function recebidoItems(recItems: CAItem[], period: PeriodRange): CAItem[] {
-  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period) && (r?.pago ?? 0) > 0);
+  return recItems.filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && isInRange(r?.data_vencimento, period) && (r?.pago ?? 0) > 0);
 }
 export function calcReceitaRecebida(recItems: CAItem[], period: PeriodRange): number {
   return recItems
-    .filter((r) => getCat(r) !== "Empréstimos de Bancos" && isInRange(r?.data_vencimento, period))
+    .filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && isInRange(r?.data_vencimento, period))
     .reduce((s, r) => s + (r?.pago ?? 0), 0);
 }
 
@@ -177,10 +212,10 @@ export interface TrailingResumo {
 export function calcTrailing(recItems: CAItem[], payItems: CAItem[], period: PeriodRange, n = 3): TrailingResumo {
   const keys = trailingMonthKeys(period, n);
   const inComp = (d?: string) => !!d && keys.some((k) => d.startsWith(k));
-  const receita = recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && inComp(r?.data_competencia)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  const receita = recItems.filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && inComp(r?.data_competencia)).reduce((s, r) => s + (r?.total ?? 0), 0);
   const despesasOp = payItems.filter((r) => !isExcluded(r) && inComp(r?.data_competencia)).reduce((s, r) => s + (r?.total ?? 0), 0);
   // Caixa OPERACIONAL (exclui empréstimos, juros e compra de equipamentos), pra ser comparável à margem líquida.
-  const recebido = recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && inComp(r?.data_vencimento)).reduce((s, r) => s + (r?.pago ?? 0), 0);
+  const recebido = recItems.filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && inComp(r?.data_vencimento)).reduce((s, r) => s + (r?.pago ?? 0), 0);
   const pago = payItems.filter((r) => !isExcluded(r) && inComp(r?.data_vencimento)).reduce((s, r) => s + (r?.pago ?? 0), 0);
   return {
     meses: keys,
@@ -204,7 +239,7 @@ export function aReceberItems(recItems: CAItem[]): CAItem[] {
     (r) =>
       (r?.nao_pago ?? 0) > 0 &&
       !STATUS_NAO_RECEBIVEL.includes(r?.status ?? "") &&
-      getCat(r) !== "Empréstimos de Bancos",
+      !NAO_E_RECEITA.includes(getCat(r)),
   );
 }
 export function calcAReceber(recItems: CAItem[]): number {
@@ -498,7 +533,7 @@ export function monthKey(year: number, month: number): string {
 // Monthly receita total (competência) for a given month key
 // Excludes loans
 export function monthlyReceitaTotal(recItems: CAItem[], key: string): number {
-  return recItems.filter((r) => getCat(r) !== "Empréstimos de Bancos" && r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
+  return recItems.filter((r) => !NAO_E_RECEITA.includes(getCat(r)) && r?.data_competencia?.startsWith(key)).reduce((s, r) => s + (r?.total ?? 0), 0);
 }
 
 // Monthly despesas operacionais for a given month key
