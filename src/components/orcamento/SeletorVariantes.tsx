@@ -62,9 +62,16 @@ export function SeletorVariantes({ dealId, atual, onTrocar }: {
     });
     setCriando(false);
     if (error) {
-      const dup = /duplicate key|budgets_variante_unica/.test(error.message ?? "");
-      return toast.error(dup ? "Já existe uma opção com esse nome" : "Não criou a opção", {
-        description: dup ? "Use outro nome — é assim que o cliente distingue as duas." : error.message,
+      // Dois erros de "duplicate key" MUITO diferentes chegavam aqui, e o
+      // teste genérico por /duplicate key/ dizia sempre "já existe uma opção
+      // com esse nome". Quando o que estourava era o índice de número+versão
+      // (bug corrigido em 20260820100000), a pessoa trocava o nome pra sempre
+      // sem nunca conseguir criar. Só o índice do NOME fala sobre o nome.
+      const nomeRepetido = /budgets_variante_unica/.test(error.message ?? "");
+      return toast.error(nomeRepetido ? "Já existe uma opção com esse nome" : "Não criou a opção", {
+        description: nomeRepetido
+          ? "Use outro nome — é assim que o cliente distingue as duas."
+          : error.message,
       });
     }
     await qc.invalidateQueries({ queryKey: ["orcamento-variantes", dealId] });
