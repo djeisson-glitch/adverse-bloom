@@ -68,6 +68,13 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   module?: ModuleId;   // sem módulo = qualquer pessoa logada
   soMoney?: boolean;   // só aparece pra quem vê dinheiro (visões de gestão)
+  /**
+   * Casa só a URL exata, nunca por prefixo. Necessário para item que é índice
+   * de uma área: "/financeiro" é prefixo de "/financeiro/dre", então sem isto
+   * ele ficaria aceso em toda sub-rota e o grupo dele roubaria a abertura
+   * automática dos outros grupos.
+   */
+  exact?: boolean;
 };
 
 type NavGrupo = {
@@ -137,23 +144,51 @@ const GRUPOS: NavGrupo[] = [
       { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao", soMoney: true },
     ],
   },
+  /**
+   * O financeiro era UM grupo com 13 itens numa lista reta — e as três coisas
+   * que se faz com dinheiro (decidir, cobrar, analisar) estavam embaralhadas.
+   * Abrir o grupo despejava tudo de uma vez, e o número mais importante, o do
+   * mês corrente, ficava no meio, sem destaque nenhum.
+   *
+   * Agora são três grupos com uma pergunta cada:
+   *   Financeiro  → vou fechar o mês? (decisão, 4 itens)
+   *   Faturamento → cobrar e fechar o mês (operação, 5 itens)
+   *   Análise     → a operação está saudável? (diagnóstico, 6 itens)
+   *
+   * Nada foi removido: o que era ruído virou terceiro grupo, não lixo.
+   */
   {
     id: "financeiro",
     label: "Financeiro",
+    itens: [
+      { title: "O mês", url: "/financeiro", icon: Target, module: "financeiro", exact: true },
+      { title: "Metas", url: "/financeiro/metas", icon: LineChart, module: "financeiro" },
+      { title: "Fluxo de caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
+      { title: "Contas a pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },
+    ],
+  },
+  {
+    id: "faturamento",
+    label: "Faturamento",
     itens: [
       { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
       { title: "Faturamento mensal", url: "/faturamento-mensal", icon: Receipt, module: "faturamento" },
       { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
       { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
       { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
-      { title: "DRE Gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
-      { title: "Fluxo de Caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
+    ],
+  },
+  {
+    id: "analise",
+    label: "Análise",
+    itens: [
+      { title: "DRE gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
       { title: "Custos", url: "/financeiro/custos", icon: Receipt, module: "financeiro" },
-      { title: "Contas a Pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },
-      { title: "Resultados", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
       { title: "Runway", url: "/financeiro/runway", icon: Vault, module: "financeiro" },
-      { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
       { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart, module: "financeiro" },
+      { title: "Resultados (legado)", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
+      { title: "Painel antigo", url: "/financeiro/painel", icon: BarChart3, module: "financeiro" },
+      { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
     ],
   },
   {
@@ -177,7 +212,7 @@ function SidebarLink({ item, collapsed, small = false }: { item: NavItem; collap
     <SidebarMenuButton asChild>
       <NavLink
         to={item.url}
-        end={item.url === "/"}
+        end={item.url === "/" || !!item.exact}
         className="hover:bg-sidebar-accent/50"
         activeClassName="bg-sidebar-accent text-primary font-medium"
       >
@@ -211,7 +246,7 @@ export function AppSidebar() {
   const grupoDaRota = useMemo(() => {
     const path = location.pathname;
     for (const g of grupos) {
-      if (g.itens.some((i) => (i.url === "/" ? path === "/" : path.startsWith(i.url)))) return g.id;
+      if (g.itens.some((i) => (i.url === "/" || i.exact ? path === i.url : path.startsWith(i.url)))) return g.id;
     }
     return null;
   }, [grupos, location.pathname]);
