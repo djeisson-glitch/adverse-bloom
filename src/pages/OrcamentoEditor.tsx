@@ -7,6 +7,7 @@ import { TipoDoOrcamento } from "@/components/budgets/TipoDoOrcamento";
 import { STAGES, isWonStage } from "@/hooks/useDeals";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { SeletorVariantes } from "@/components/orcamento/SeletorVariantes";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
@@ -59,6 +60,13 @@ export default function OrcamentoEditor() {
   const { user } = useAuth();
   const { canSeeMoney } = usePermissions();
 
+  /**
+   * Qual opção está aberta. Um orçamento pode ter alternativas vivas ao mesmo
+   * tempo ("Com drone", "Enxuta") — não versões que se sucedem. `null` = o
+   * principal, que é onde se cai por padrão.
+   */
+  const [varianteId, setVarianteId] = useState<string | null>(null);
+
   const { data: deal, isLoading } = useQuery({
     queryKey: ["orcamento-deal", id],
     enabled: !!id,
@@ -74,13 +82,24 @@ export default function OrcamentoEditor() {
   });
 
   const { data: budget } = useQuery({
-    queryKey: ["orcamento-budget", id],
+    queryKey: ["orcamento-budget", id, varianteId],
     enabled: !!deal,
     queryFn: async () => {
+      if (varianteId) {
+        const { data: v, error: ev } = await (supabase as any)
+          .from("budgets").select("*").eq("id", varianteId).maybeSingle();
+        if (ev) throw ev;
+        if (v) return v;
+      }
+      // Sem variante escolhida, abre o PRINCIPAL — o que não tem pai.
+      // Antes isto pegava o mais RECENTE, o que funcionava enquanto só existia
+      // um orçamento por deal. Com alternativas vivas, criar a "Opção B" faria
+      // ela roubar o lugar do principal na próxima abertura.
       const { data, error } = await (supabase as any)
         .from("budgets")
         .select("*")
         .eq("deal_id", deal.id)
+        .is("parent_budget_id", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -256,6 +275,13 @@ export default function OrcamentoEditor() {
           </button>
         )}
       </div>
+
+      {/* Opções do mesmo filme — a completa e a enxuta, pro cliente escolher. */}
+      {deal?.id && (
+        <div className="flex items-center justify-between gap-3">
+          <SeletorVariantes dealId={deal.id} atual={varianteId} onTrocar={setVarianteId} />
+        </div>
+      )}
 
       {/* Header + ações */}
       <Card className="glass-card">
