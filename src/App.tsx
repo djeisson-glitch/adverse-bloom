@@ -12,6 +12,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { usePermissions, type ModuleId } from "@/hooks/usePermissions";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import Inicio from "./pages/Inicio";
 import HomeEquipe from "./pages/HomeEquipe";
 import Notificacoes from "./pages/Notificacoes";
 import Atividades from "./pages/Atividades";
@@ -136,7 +137,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function HomeSwitch() {
   const { canSeeMoney, isLoading } = usePermissions();
   if (isLoading) return null;
-  return canSeeMoney ? <Home /> : <HomeEquipe />;
+  return canSeeMoney ? <Inicio /> : <HomeEquipe />;
 }
 
 function ModuleGuard({ module, children }: { module: ModuleId; children: React.ReactNode }) {
@@ -168,6 +169,7 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<ProtectedRoute><HomeSwitch /></ProtectedRoute>} />
+              <Route path="/inicio-completo" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/financeiro" element={<ProtectedRoute><ModuleGuard module="financeiro"><OMes /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/painel" element={<ProtectedRoute><ModuleGuard module="financeiro"><Index /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/fluxo" element={<ProtectedRoute><ModuleGuard module="financeiro"><FluxoDeCaixa /></ModuleGuard></ProtectedRoute>} />
