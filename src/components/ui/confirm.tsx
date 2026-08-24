@@ -90,17 +90,45 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     return new Promise<string | null>((resolve) => { pResolver.current = resolve; });
   }, []);
 
+  /**
+   * Resolve a promessa UMA vez, venha o fechamento de onde vier.
+   *
+   * `pResolver.current = null` logo depois é o que garante o "uma vez": o
+   * fechamento do Radix chega DEPOIS do clique em confirmar, e sem essa
+   * guarda a segunda chamada devolveria `null` por cima do texto.
+   */
+  const pResponder = (v: string | null) => {
+    pResolver.current?.(v);
+    pResolver.current = null;
+  };
+
   const pAoMudar = (aberto: boolean) => {
     setPOpen(aberto);
-    if (!aberto) {
-      // fechou confirmando → devolve o texto; qualquer outro fechamento → null
-      pResolver.current?.(pConfirmado.current ? pValor : null);
-      pResolver.current = null;
-    }
+    // Fechou sem ser pelo botão de confirmar (ESC, clique fora, Cancelar):
+    // é desistência, e desistência devolve null.
+    if (!aberto) pResponder(pConfirmado.current ? pValor : null);
   };
 
   const pObrigatorio = pOpts.obrigatorio !== false;
-  const pOk = () => { pConfirmado.current = true; setPOpen(false); };
+  /**
+   * Confirmar RESOLVE na hora — não espera o onOpenChange.
+   *
+   * Era exatamente aqui que o prompt quebrava (Djêisson, 20/08: "clico em
+   * outra opção, coloco o nome e nada acontece"): o botão fazia
+   * `e.preventDefault()` — que impede o Radix de fechar — e chamava
+   * `setPOpen(false)` na mão. Mudar o state manualmente NÃO dispara
+   * `onOpenChange`, então o resolver nunca era chamado e o `await
+   * perguntar(...)` ficava pendurado pra sempre. Sem erro, sem toast, sem
+   * nada — o pior tipo de falha.
+   *
+   * O `confirmar` (sim/não) nunca teve o problema porque lá o Action fecha
+   * sozinho, e o fechamento é que resolve.
+   */
+  const pOk = () => {
+    pConfirmado.current = true;
+    pResponder(pValor);
+    setPOpen(false);
+  };
 
   return (
     <ConfirmCtx.Provider value={confirmar}>
