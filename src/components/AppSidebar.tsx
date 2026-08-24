@@ -93,32 +93,8 @@ const GRUPOS: NavGrupo[] = [
   {
     id: "topo",
     itens: [
-      { title: "Início", url: "/", icon: Home, module: "inicio" },
-      { title: "Minha mesa", url: "/minha-mesa", icon: Clapperboard, module: "minha_mesa" },
-    ],
-  },
-  {
-    // Telas de ACOMPANHAMENTO — respondem "onde trava", não "o que existe".
-    // Ficam separadas das telas operacionais de propósito: são pra olhar
-    // quando você quer o panorama, não pra trabalhar dentro.
-    id: "frentes",
-    label: "Acompanhar",
-    itens: [
-      { title: "Produção", url: "/frentes/producao", icon: Clapperboard, module: "projetos" },
-      { title: "Comercial", url: "/frentes/comercial", icon: Sprout, module: "orcamentos" },
-      { title: "Time", url: "/frentes/time", icon: UsersRound, module: "time" },
-    ],
-  },
-  {
-    id: "comercial",
-    label: "Comercial",
-    itens: [
-      { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
-      { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
-      { title: "Planos", url: "/planos", icon: Package, module: "planos" },
-      { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
-      { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
-      { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },
+      { title: "Início", url: "/", icon: Home, exact: true },
+      { title: "Minha mesa", url: "/minha-mesa", icon: ClipboardList },
     ],
   },
   {
@@ -133,30 +109,23 @@ const GRUPOS: NavGrupo[] = [
     ],
   },
   {
+    id: "comercial",
+    label: "Comercial",
+    itens: [
+      { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
+      { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
+      { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
+      { title: "Follow-ups", url: "/follow-ups", icon: CalendarRange, module: "follow_ups" },
+    ],
+  },
+  {
     id: "tempo",
     label: "Tempo",
     itens: [
       { title: "Horas", url: "/horas", icon: Timer, module: "horas" },
-      { title: "Timesheet", url: "/timesheet", icon: CalendarCheck, module: "timesheet" },
-      // Gestão (só quem vê dinheiro) — as próprias páginas exigem canSeeMoney.
       { title: "Capacidade", url: "/capacidade", icon: Gauge, module: "capacidade", soMoney: true },
-      { title: "Planejamento", url: "/planejamento", icon: CalendarClock, module: "planejamento", soMoney: true },
-      { title: "Previsão", url: "/previsao", icon: TrendingUp, module: "previsao", soMoney: true },
     ],
   },
-  /**
-   * O financeiro era UM grupo com 13 itens numa lista reta — e as três coisas
-   * que se faz com dinheiro (decidir, cobrar, analisar) estavam embaralhadas.
-   * Abrir o grupo despejava tudo de uma vez, e o número mais importante, o do
-   * mês corrente, ficava no meio, sem destaque nenhum.
-   *
-   * Agora são três grupos com uma pergunta cada:
-   *   Financeiro  → vou fechar o mês? (decisão, 4 itens)
-   *   Faturamento → cobrar e fechar o mês (operação, 5 itens)
-   *   Análise     → a operação está saudável? (diagnóstico, 6 itens)
-   *
-   * Nada foi removido: o que era ruído virou terceiro grupo, não lixo.
-   */
   {
     id: "financeiro",
     label: "Financeiro",
@@ -171,11 +140,8 @@ const GRUPOS: NavGrupo[] = [
     id: "faturamento",
     label: "Faturamento",
     itens: [
-      { title: "Faturamento", url: "/faturamento", icon: FileText, module: "faturamento" },
-      { title: "Faturamento mensal", url: "/faturamento-mensal", icon: Receipt, module: "faturamento" },
+      { title: "Faturamento do mês", url: "/faturamento-mensal", icon: Receipt, module: "faturamento" },
       { title: "Fechamento", url: "/fechamento", icon: Scale, module: "fechamento" },
-      { title: "Contas / Fees", url: "/contas-fees", icon: Building2, module: "contas_fees" },
-      { title: "Relatórios", url: "/relatorios", icon: BarChart3, module: "relatorios" },
     ],
   },
   {
@@ -184,10 +150,6 @@ const GRUPOS: NavGrupo[] = [
     itens: [
       { title: "DRE gerencial", url: "/financeiro/dre", icon: FileText, module: "financeiro" },
       { title: "Custos", url: "/financeiro/custos", icon: Receipt, module: "financeiro" },
-      { title: "Runway", url: "/financeiro/runway", icon: Vault, module: "financeiro" },
-      { title: "Projeções", url: "/financeiro/projecoes", icon: LineChart, module: "financeiro" },
-      { title: "Resultados (legado)", url: "/financeiro/resultados", icon: Target, module: "financeiro" },
-      { title: "Painel antigo", url: "/financeiro/painel", icon: BarChart3, module: "financeiro" },
       { title: "Insights", url: "/financeiro/insights", icon: Lightbulb, module: "financeiro" },
     ],
   },
@@ -196,9 +158,6 @@ const GRUPOS: NavGrupo[] = [
     label: "Ajustes",
     itens: [
       { title: "Time", url: "/time", icon: UsersRound, module: "time" },
-      { title: "Fornecedores & Freelas", url: "/banco-talentos", icon: Truck },
-      { title: "Notificações", url: "/notificacoes", icon: Bell },
-      { title: "Log geral", url: "/atividades", icon: History, module: "admin" },
       { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
     ],
   },
