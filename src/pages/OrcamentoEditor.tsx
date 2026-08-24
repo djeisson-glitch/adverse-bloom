@@ -786,10 +786,18 @@ function AcaoBotoes({
   });
   const enviarViaLink = async () => {
     try {
+      // O link é SEMPRE do orçamento aberto na tela — é assim que cada opção
+      // ("com drone" × "sem drone") tem o seu próprio, e o cliente recebe
+      // exatamente a que você escolheu mandar.
       let budgetId = budget?.id;
       if (!budgetId) {
+        // Sem nada aberto, cai no PRINCIPAL (o que não tem pai), não no mais
+        // recente. "Mais recente" passou a significar "a última variante
+        // criada" desde que existem opções — e mandar a carta errada pro
+        // cliente é o tipo de erro que não dá pra desfazer depois de enviado.
         const { data } = await (supabase as any)
           .from("budgets").select("id").eq("deal_id", deal.id)
+          .is("parent_budget_id", null).eq("is_latest_version", true)
           .order("created_at", { ascending: false }).limit(1).maybeSingle();
         budgetId = data?.id;
       }
@@ -803,7 +811,11 @@ function AcaoBotoes({
       await navigator.clipboard?.writeText(url).catch(() => {});
       marcarProposta();
       toast.success("Link público copiado", {
-        description: "É a carta do cliente — ele abre sem login e pode aprovar por ali.",
+        // Diz QUAL opção foi: com duas na mesa, gerar o link sem saber de
+        // qual delas é um erro caro e silencioso.
+        description: budget?.variante_nome
+          ? `Carta da opção "${budget.variante_nome}" — o cliente abre sem login e aprova por ali.`
+          : "É a carta do cliente — ele abre sem login e pode aprovar por ali.",
       });
     } catch (e: any) {
       toast.error("Não gerou o link", {
