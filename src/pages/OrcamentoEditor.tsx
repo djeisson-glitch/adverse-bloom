@@ -827,7 +827,10 @@ function AcaoBotoes({
   };
   const gerarCarta = () => {
     marcarProposta();
-    navigate(`/orcamentos/${deal.id}/carta`);
+    // Leva a OPÇÃO aberta junto. Sem isso a carta buscava "o orçamento mais
+    // recente do deal" — que desde as variantes é a última opção criada, não a
+    // que está na tela.
+    navigate(`/orcamentos/${deal.id}/carta${budget?.id ? `?opcao=${budget.id}` : ""}`);
   };
 
   // A carta simples vale em QUALQUER estágio. Ganho, perdido ou em aberto, é o
@@ -835,7 +838,7 @@ function AcaoBotoes({
   // contrato, pra conferir o que foi orçado. Fechar o negócio não é motivo pra
   // esconder o papel.
   const botaoCartaSimples = (
-    <Button variant="outline" onClick={() => navigate(`/orcamentos/${deal.id}/carta-simples`)}>
+    <Button variant="outline" onClick={() => navigate(`/orcamentos/${deal.id}/carta-simples${budget?.id ? `?opcao=${budget.id}` : ""}`)}>
       <FileText className="mr-1.5 h-3.5 w-3.5" />
       Carta simples
     </Button>

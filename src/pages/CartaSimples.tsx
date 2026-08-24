@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,10 @@ const valorDaLinha = (i: Item) =>
 
 export default function CartaSimples() {
   const { id } = useParams<{ id: string }>();
+  // Qual OPÇÃO do orçamento esta carta representa. Vem do editor (`?opcao=`);
+  // sem ela, a busca cai no principal.
+  const [params] = useSearchParams();
+  const opcaoId = params.get("opcao");
   const voltar = useVoltar(`/orcamentos/${id}`);
   /**
    * O que aparece na folha.
@@ -80,7 +84,7 @@ export default function CartaSimples() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["carta-simples", id],
+    queryKey: ["carta-simples", id, opcaoId],
     enabled: !!id,
     queryFn: async () => {
       const [deal, cats] = await Promise.all([
@@ -89,9 +93,16 @@ export default function CartaSimples() {
           .eq("id", id).maybeSingle(),
         (supabase as any).from("budget_categorias").select("id, codigo, nome, ordem").order("ordem"),
       ]);
-      const budget = await (supabase as any).from("budgets")
-        .select("id, budget_number, total_value, condicoes, created_at")
-        .eq("deal_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      // Mesma regra da carta completa: a opção aberta manda; sem ela, o
+      // PRINCIPAL — nunca "o mais recente", que virou a última variante.
+      const budget = opcaoId
+        ? await (supabase as any).from("budgets")
+            .select("id, budget_number, total_value, condicoes, created_at, variante_nome")
+            .eq("id", opcaoId).maybeSingle()
+        : await (supabase as any).from("budgets")
+            .select("id, budget_number, total_value, condicoes, created_at, variante_nome")
+            .eq("deal_id", id).is("parent_budget_id", null).eq("is_latest_version", true)
+            .order("created_at", { ascending: false }).limit(1).maybeSingle();
       const itens = budget.data?.id
         ? await (supabase as any).from("budget_items")
             .select("id, item_name, descricao, quantity, diaria, client_unit_price, categoria_id, ordem")

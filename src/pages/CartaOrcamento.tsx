@@ -27,12 +27,15 @@ export default function CartaOrcamento() {
   const { id } = useParams<{ id: string }>();
   const [params] = useSearchParams();
   const manual = params.get("manual") === "1";
+  // Qual OPÇÃO do orçamento esta carta representa. Vem do editor (`?opcao=`);
+  // sem ela, a busca cai no principal.
+  const opcaoId = params.get("opcao");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [editando, setEditando] = useState(true);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["carta-orcamento", id],
+    queryKey: ["carta-orcamento", id, opcaoId],
     enabled: !!id,
     queryFn: async () => {
       const { data: deal, error } = await (supabase as any)
@@ -41,13 +44,26 @@ export default function CartaOrcamento() {
         .eq("id", id!)
         .single();
       if (error) throw error;
-      const { data: budget } = await (supabase as any)
-        .from("budgets")
-        .select("*")
-        .eq("deal_id", deal.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // A carta é SEMPRE de uma opção específica.
+      //
+      // Djêisson (20/08): "a separação das versões ainda não ta rolando na
+      // hora de montar a carta". Aqui estava `deal_id + mais recente` — que,
+      // desde que existem variantes, significa "a última opção criada", não a
+      // que a pessoa abriu. Montar a carta da Principal trazia os dados da
+      // opção B em silêncio, e isso vai pro CLIENTE.
+      //
+      // `?opcao=` vem do editor com a opção aberta. Sem ele (link direto,
+      // favorito antigo), cai no PRINCIPAL — nunca no mais recente.
+      const { data: budget } = opcaoId
+        ? await (supabase as any).from("budgets").select("*").eq("id", opcaoId).maybeSingle()
+        : await (supabase as any)
+            .from("budgets").select("*")
+            .eq("deal_id", deal.id)
+            .is("parent_budget_id", null)
+            .eq("is_latest_version", true)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
       // Elenco vem da planilha (categoria 006), sem valor: a carta mostra
       // quem aparece no filme, não quanto custa cada um.
       const { data: cats } = await (supabase as any)
