@@ -22,16 +22,25 @@ type Variante = {
   total_value: number | null; status: string; itens: number;
 };
 
-export function SeletorVariantes({ dealId, atual, onTrocar }: {
+export function SeletorVariantes({ dealId, atual, budgetAtualId, onTrocar }: {
   dealId: string;
   atual: string | null;
+  /**
+   * O orçamento que a tela está mostrando AGORA.
+   *
+   * Existe porque duplicar não pode depender da lista de variantes ter
+   * carregado: se a query falha ou ainda está em voo, `base` ficava
+   * indefinido e o clique morria em silêncio — o "não está criando" do
+   * Djêisson (20/08). O pai sempre sabe qual orçamento está aberto.
+   */
+  budgetAtualId?: string | null;
   onTrocar: (id: string | null) => void;
 }) {
   const qc = useQueryClient();
   const perguntar = usePrompt();
   const [criando, setCriando] = useState(false);
 
-  const { data: variantes = [] } = useQuery({
+  const { data: variantes = [], error: erroLista } = useQuery({
     queryKey: ["orcamento-variantes", dealId],
     enabled: !!dealId,
     queryFn: async () => {
@@ -45,8 +54,21 @@ export function SeletorVariantes({ dealId, atual, onTrocar }: {
   const selecionada = atual ?? principal?.id ?? null;
 
   async function duplicar() {
-    const base = variantes.find((v) => v.id === selecionada) ?? principal;
-    if (!base) return;
+    // A base é, em ordem: o que está aberto na tela · o selecionado na barra ·
+    // o principal. Antes só as duas últimas — e sem lista não havia base
+    // nenhuma, então o botão não fazia nada E não dizia nada.
+    const base =
+      budgetAtualId ??
+      variantes.find((v) => v.id === selecionada)?.id ??
+      principal?.id ??
+      null;
+    if (!base) {
+      return toast.error("Não achei o orçamento pra copiar", {
+        description: erroLista
+          ? `A lista de opções não carregou: ${(erroLista as any).message}`
+          : "Recarregue a página e tente de novo.",
+      });
+    }
     const nome = await perguntar({
       title: "Nova opção para este filme",
       description:
@@ -55,10 +77,15 @@ export function SeletorVariantes({ dealId, atual, onTrocar }: {
       placeholder: "Com drone",
       confirmText: "Criar opção",
     });
-    if (!nome?.trim()) return;
+    if (nome === null) return;              // cancelou, sem barulho
+    if (!nome.trim()) {
+      return toast.error("A opção precisa de um nome", {
+        description: "É por ele que o cliente distingue uma da outra.",
+      });
+    }
     setCriando(true);
     const { data, error } = await (supabase as any).rpc("orcamento_criar_variante", {
-      _budget_id: base.id, _nome: nome.trim(),
+      _budget_id: base, _nome: nome.trim(),
     });
     setCriando(false);
     if (error) {

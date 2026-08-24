@@ -297,7 +297,7 @@ export default function OrcamentoEditor() {
                   exatamente a pergunta que o seletor responde. */}
               {deal?.id && (
                 <div className="mt-2">
-                  <SeletorVariantes dealId={deal.id} atual={varianteId} onTrocar={setVarianteId} />
+                  <SeletorVariantes dealId={deal.id} atual={varianteId} budgetAtualId={budget?.id} onTrocar={setVarianteId} />
                 </div>
               )}
             </div>
