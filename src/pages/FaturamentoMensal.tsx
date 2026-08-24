@@ -517,6 +517,15 @@ export default function FaturamentoMensal() {
                         </p>
                       )}
                     </div>
+                    {/* Avulso fora do fechamento fica visível com o card
+                        FECHADO: é o dinheiro que escapa se ninguém abrir o
+                        cliente, e era justamente o que exigia abrir todos pra
+                        descobrir onde estava. */}
+                    {Number(f.detalhe?.avulsos?.length || 0) > 0 && (
+                      <Badge variant="outline" className="shrink-0 border-amber-500/40 text-[10px] text-amber-600">
+                        {f.detalhe.avulsos.length} à parte
+                      </Badge>
+                    )}
                     <Badge variant="outline" className={`text-[10px] ${st.cls}`}>{st.label}</Badge>
                     <span className="w-28 shrink-0 text-right">
                       <span className="block text-sm font-semibold text-primary">{formatCurrency(totalDoMes(f))}</span>
@@ -761,7 +770,7 @@ export default function FaturamentoMensal() {
 
                       {/* Horas por projeto */}
                       {Array.isArray(f.detalhe?.por_projeto) && f.detalhe.por_projeto.length > 0 && (
-                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo={`Jobs do mês (${f.detalhe.por_projeto.length}) — onde se decide a nota`}>
+                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo={`Jobs do mês (${f.detalhe.por_projeto.length}) — onde se decide a nota`} aberto>
                           <div className="space-y-2">
                             {f.detalhe.por_projeto.map((p: any, i: number) => (
                               <LinhaJob
@@ -863,6 +872,7 @@ export default function FaturamentoMensal() {
                         <Bloco
                           icon={<AlertTriangle className="h-3.5 w-3.5" />}
                           titulo={`Fora do fechamento — faturar à parte (${f.detalhe.avulsos.length})`}
+                          aberto
                         >
                           <div className="space-y-2 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
                             <p className="text-[11px] text-warning">
@@ -1230,11 +1240,35 @@ function Linha({ rot, v }: { rot: string; v: string }) {
   );
 }
 
-function Bloco({ icon, titulo, children }: { icon: React.ReactNode; titulo: string; children: React.ReactNode }) {
+/**
+ * Um bloco do detalhe do cliente — agora recolhível.
+ *
+ * Djêisson (23/08/2026): "o visual está péssimo, com muita informação na tela".
+ * Eram OITO destes abertos ao mesmo tempo por cliente, cada um com a sua lista:
+ * consumo, entregas, diárias, jobs, nota separada, fora do fechamento, demandas
+ * e alterações. Com três clientes, vinte e quatro listas de uma vez.
+ *
+ * Nem todos pesam igual. Faturar é decidir em qual nota cada job entra — esse
+ * bloco e o dos avulsos fora do fechamento abrem sozinhos, porque são onde a
+ * decisão acontece e onde o dinheiro escapa. Os outros seis são conferência:
+ * ficam a um clique, com a contagem no título, que é o que se olha na maior
+ * parte das vezes.
+ */
+function Bloco({ icon, titulo, children, aberto = false }: {
+  icon: React.ReactNode; titulo: string; children: React.ReactNode; aberto?: boolean;
+}) {
+  const [ver, setVer] = useState(aberto);
   return (
     <div className="space-y-1.5">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{icon} {titulo}</p>
-      {children}
+      <button
+        type="button"
+        onClick={() => setVer(!ver)}
+        className="flex w-full items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+      >
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${ver ? "" : "-rotate-90"}`} />
+        {icon} {titulo}
+      </button>
+      {ver && children}
     </div>
   );
 }
