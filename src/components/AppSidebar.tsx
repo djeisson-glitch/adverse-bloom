@@ -22,6 +22,7 @@ import {
   ListChecks,
   LogOut,
   PackageCheck, Package,
+  Plus,
   Receipt,
   Scale,
   Send,
@@ -131,6 +132,7 @@ const GRUPOS: NavGrupo[] = [
     label: "Financeiro",
     itens: [
       { title: "O mês", url: "/financeiro", icon: Target, module: "financeiro", exact: true },
+      { title: "Lançamentos", url: "/financeiro/lancamentos", icon: Plus, module: "financeiro" },
       { title: "Metas", url: "/financeiro/metas", icon: LineChart, module: "financeiro" },
       { title: "Fluxo de caixa", url: "/financeiro/fluxo", icon: TrendingUpFin, module: "financeiro" },
       { title: "Contas a pagar", url: "/financeiro/contas", icon: CreditCard, module: "financeiro" },

@@ -29,6 +29,7 @@ import Custos from "./pages/Custos";
 import ResultadosMetas from "./pages/ResultadosMetas";
 import MetasFinanceiras from "./pages/MetasFinanceiras";
 import OMes from "./pages/OMes";
+import Lancamentos from "./pages/Lancamentos";
 import CaixaRunway from "./pages/CaixaRunway";
 import Insights from "./pages/Insights";
 import Projecoes2026 from "./pages/Projecoes2026";
@@ -177,6 +178,7 @@ const App = () => (
               <Route path="/financeiro/custos" element={<ProtectedRoute><ModuleGuard module="financeiro"><Custos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/resultados" element={<ProtectedRoute><ModuleGuard module="financeiro"><ResultadosMetas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/metas" element={<ProtectedRoute><ModuleGuard module="financeiro"><MetasFinanceiras /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/financeiro/lancamentos" element={<ProtectedRoute><ModuleGuard module="financeiro"><Lancamentos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/runway" element={<ProtectedRoute><ModuleGuard module="financeiro"><CaixaRunway /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/insights" element={<ProtectedRoute><ModuleGuard module="financeiro"><Insights /></ModuleGuard></ProtectedRoute>} />
               <Route path="/financeiro/projecoes" element={<ProtectedRoute><ModuleGuard module="financeiro"><Projecoes2026 /></ModuleGuard></ProtectedRoute>} />
