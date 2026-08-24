@@ -276,13 +276,6 @@ export default function OrcamentoEditor() {
         )}
       </div>
 
-      {/* Opções do mesmo filme — a completa e a enxuta, pro cliente escolher. */}
-      {deal?.id && (
-        <div className="flex items-center justify-between gap-3">
-          <SeletorVariantes dealId={deal.id} atual={varianteId} onTrocar={setVarianteId} />
-        </div>
-      )}
-
       {/* Header + ações */}
       <Card className="glass-card">
         <CardContent className="space-y-4 p-6">
@@ -294,6 +287,19 @@ export default function OrcamentoEditor() {
                 {deal.client?.name || "Sem cliente"}
               </p>
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">{deal.title}</h1>
+
+              {/* As opções do mesmo filme moram AQUI, colado no nome.
+                  Djêisson (20/08): "eu preciso ter o botao, nao estou vendo
+                  ele". Estava numa linha solta acima do card — ou seja, no
+                  topo absoluto da página: quem rolou até a planilha nunca
+                  mais o via. Junto do título ele fica onde a pessoa já
+                  olha pra saber QUAL orçamento está aberto, que é
+                  exatamente a pergunta que o seletor responde. */}
+              {deal?.id && (
+                <div className="mt-2">
+                  <SeletorVariantes dealId={deal.id} atual={varianteId} onTrocar={setVarianteId} />
+                </div>
+              )}
             </div>
             <span
               className="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs"

@@ -79,13 +79,24 @@ export function SeletorVariantes({ dealId, atual, onTrocar }: {
     toast.success(`Opção "${nome.trim()}" criada`, { description: "Agora ajuste o que muda nela." });
   }
 
-  // Uma opção só: nada a escolher. O botão de criar vive no menu do orçamento.
+  // Uma opção só: mostra QUAL está aberta + o botão de criar a segunda.
+  //
+  // Antes aqui vinha só o botão, com o argumento de que a barra seria ruído
+  // enquanto ninguém usasse o conceito. O efeito real foi o oposto: sem
+  // nenhuma etiqueta, não dava pra saber que existia "opção" nenhuma — e o
+  // Djêisson foi procurar onde trocar sem achar. Uma etiqueta discreta custa
+  // menos que um recurso invisível.
   if (variantes.length <= 1) {
     return (
-      <Button size="sm" variant="outline" onClick={duplicar} disabled={criando}>
-        <Copy className="mr-1.5 h-3.5 w-3.5" />
-        {criando ? "Criando…" : "Criar outra opção"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs font-medium text-foreground">
+          Principal
+        </span>
+        <Button size="sm" variant="outline" onClick={duplicar} disabled={criando}>
+          <Copy className="mr-1.5 h-3.5 w-3.5" />
+          {criando ? "Criando…" : "Criar outra opção"}
+        </Button>
+      </div>
     );
   }
 
