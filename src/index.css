@@ -232,8 +232,19 @@
     print-color-adjust: exact;
   }
 
+  /* A margem do papel. O comentário abaixo sempre disse que "a margem quem dá
+     é o @page" — mas o @page global nunca existiu: só a carta injetava o dela.
+     Todo o resto saía com a margem padrão do navegador, que varia por
+     impressora e some com a última coluna de tabela larga. 14mm é margem de
+     documento comercial e cabe a tabela de orçamento inteira. */
+  @page { size: A4; margin: 14mm; }
+
   /* O <main> perde o respiro de tela: a margem quem dá é o @page. */
   main { padding: 0 !important; overflow: visible !important; }
+
+  /* Bloco de fechamento não parte: totais numa página e rentabilidade na
+     seguinte fazem quem lê procurar a conta que ficou pra trás. */
+  .print-junto { break-inside: avoid; }
 
   /* Linha órfã no fim/começo de página é o que mais estraga leitura de
      tabela — três linhas de convívio mínimo. */

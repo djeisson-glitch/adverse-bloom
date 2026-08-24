@@ -1,7 +1,8 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, Printer } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA } from "@/lib/produtora";
 import { porBloco, temConteudo, type Condicoes } from "@/lib/condicoes";
@@ -15,9 +16,20 @@ import { porBloco, temConteudo, type Condicoes } from "@/lib/condicoes";
  * pelo DevTools.
  *
  * Fundo claro e sem menu: é documento pra ler e imprimir, não tela do sistema.
+ *
+ * O PDF sai daqui mesmo, pelo diálogo de impressão do navegador — não por uma
+ * biblioteca. O layout já é o do papel, então gerar o PDF de novo em código
+ * seria manter dois desenhos do mesmo documento, e o segundo sempre atrasa em
+ * relação ao primeiro. O `document.title` vira o nome do arquivo no "Salvar
+ * como PDF" do Chrome, que é a única parte que o código precisa resolver.
+ *
+ * `?print=1` abre o diálogo sozinho: é o que faz o botão da tela de orçamento
+ * levar direto ao PDF, em vez de abrir o documento e esperar mais um clique.
  */
 export default function OrcamentoPublico() {
   const { token } = useParams<{ token: string }>();
+  const [params] = useSearchParams();
+  const jaImprimiu = useRef(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["orcamento-publico", token],
@@ -27,6 +39,33 @@ export default function OrcamentoPublico() {
     },
     retry: false,
   });
+
+  const nomeArquivo = data?.job
+    ? `${data.job.numero ? `[${data.job.numero}] ` : ""}${data.job.titulo ?? "Orçamento"} - Interno Adverse`
+        .replace(/[/\\:*?"<>|]+/g, "-")
+    : "Orçamento interno - Adverse";
+
+  const imprimir = () => {
+    const antes = document.title;
+    document.title = nomeArquivo;
+    const restaurar = () => {
+      document.title = antes;
+      window.removeEventListener("afterprint", restaurar);
+    };
+    window.addEventListener("afterprint", restaurar);
+    window.print();
+  };
+
+  // Abriu com ?print=1: imprime sozinho, uma vez só. O timeout deixa a fonte e
+  // o layout assentarem — sem ele o Chrome às vezes mede a página antes de a
+  // Web Font carregar e quebra as linhas no lugar errado.
+  useEffect(() => {
+    if (!data || jaImprimiu.current || params.get("print") !== "1") return;
+    jaImprimiu.current = true;
+    const t = setTimeout(imprimir, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, params]);
 
   if (isLoading) {
     return (
@@ -102,9 +141,18 @@ export default function OrcamentoPublico() {
               {data.job?.tipo && ` · ${String(data.job.tipo).replace(/_/g, " ")}`}
             </p>
           </div>
-          <div className="text-right text-xs text-neutral-400">
-            <p>compartilhado com</p>
-            <p className="text-sm font-medium text-neutral-700">{data.compartilhado_com}</p>
+          <div className="flex items-start gap-4">
+            <div className="text-right text-xs text-neutral-400">
+              <p>compartilhado com</p>
+              <p className="text-sm font-medium text-neutral-700">{data.compartilhado_com}</p>
+            </div>
+            <button
+              type="button"
+              onClick={imprimir}
+              className="no-print flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+            >
+              <Printer className="h-3.5 w-3.5" /> Gerar PDF
+            </button>
           </div>
         </header>
 
@@ -310,7 +358,7 @@ export default function OrcamentoPublico() {
             conferir a conta — parcela aparecendo do nada queima a confiança no
             documento inteiro. */}
         {m.valores && (
-          <section className="space-y-1.5 border-t border-neutral-200 pt-5 text-sm">
+          <section className="print-junto space-y-1.5 border-t border-neutral-200 pt-5 text-sm">
             <Linha label="Custo de produção" valor={Number(t.custo_producao || 0)} />
             {m.rentabilidade && t.margem_valor != null && (
               <Linha label={`Taxa da produtora (${Number(t.margem_percent)}%)`} valor={Number(t.margem_valor)} sutil />
@@ -343,7 +391,7 @@ export default function OrcamentoPublico() {
             um mentor. Sem os custos abertos são duas parcelas (taxa + sobra
             das linhas não entra), com eles é a conta inteira. */}
         {m.rentabilidade && (
-          <section className="mt-5 rounded-md bg-neutral-50 p-4">
+          <section className="print-junto mt-5 rounded-md bg-neutral-50 p-4">
             <h2 className="text-[11px] uppercase tracking-wider text-neutral-400">Rentabilidade</h2>
             <div className="mt-2 grid gap-4 sm:grid-cols-3">
               <Numero

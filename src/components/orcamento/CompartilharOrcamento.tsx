@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Share2, Copy, Check, Trash2, Eye, ExternalLink } from "lucide-react";
+import { Share2, Copy, Check, Trash2, Eye, ExternalLink, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm";
 import { formatDate } from "@/lib/format";
@@ -220,6 +220,14 @@ export function CompartilharOrcamento({ budgetId }: { budgetId: string }) {
                       : "ainda não aberto"}
                   </span>
                   <span className="ml-auto flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => window.open(`${urlDe(s.token)}?print=1`, "_blank", "noopener")}
+                      title="Abrir e gerar PDF"
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => copiar(s)} title="Copiar endereço">
                       {copiado === s.id ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                     </Button>
