@@ -36,8 +36,19 @@ const HOSTS_LIBERADOS = ["fonts.googleapis.com", "fonts.gstatic.com"];
  * sem ninguem descobrir que o que falta e' uma variavel de ambiente.
  */
 async function usuarioValido(token: string | undefined): Promise<"ok" | "sem-token" | "sem-config"> {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  // Por que ha um padrao no codigo: estas variaveis nunca foram cadastradas
+  // na Vercel -- o Vite as le do .env versionado, em tempo de BUILD, e funcao
+  // serverless nao carrega .env em execucao. A funcao subia cega e devolvia
+  // 401 pra todo mundo.
+  //
+  // Sao os valores PUBLICOS (publishable/anon): ja vao no bundle do cliente e
+  // ja estao no .env versionado deste repositorio publico. Nao ha exposicao
+  // nova. A chave de servico continua so no ambiente das Edge Functions.
+  //
+  // O process.env vem primeiro: no dia em que forem cadastradas no painel,
+  // passam a mandar sem tocar aqui.
+  const url = process.env.VITE_SUPABASE_URL || "https://ythmkxudzaoaayxxlgqy.supabase.co";
+  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0aG1reHVkemFvYWF5eHhsZ3F5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMTM0MjAsImV4cCI6MjA5NTg4OTQyMH0.Iww1k1QUKqD1EUqi1d8CLSl0Erd_6VHkk3KWKaMowNI";
   if (!url || !key) return "sem-config";
   if (!token) return "sem-token";
   try {
