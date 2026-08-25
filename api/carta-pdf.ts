@@ -28,19 +28,25 @@ export const config = { maxDuration: 60 };
 /** Só o que a carta precisa buscar. Todo o resto é abortado. */
 const HOSTS_LIBERADOS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
-/** Confere no Supabase se o token é de uma sessão viva. */
-async function usuarioValido(token: string | undefined) {
-  if (!token) return false;
+/**
+ * Confere no Supabase se o token e' de uma sessao viva.
+ *
+ * Separa "token ruim" de "servidor mal configurado" de proposito: os dois
+ * dariam 401, e quem clicasse no botao veria "sessao expirada" para sempre
+ * sem ninguem descobrir que o que falta e' uma variavel de ambiente.
+ */
+async function usuarioValido(token: string | undefined): Promise<"ok" | "sem-token" | "sem-config"> {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return false;
+  if (!url || !key) return "sem-config";
+  if (!token) return "sem-token";
   try {
     const r = await fetch(`${url}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: key },
     });
-    return r.ok;
+    return r.ok ? "ok" : "sem-token";
   } catch {
-    return false;
+    return "sem-token";
   }
 }
 
@@ -48,9 +54,13 @@ export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ erro: "use POST" });
 
   const token = String(req.headers.authorization || "").replace(/^Bearer /i, "");
-  if (!(await usuarioValido(token))) {
-    return res.status(401).json({ erro: "sessão inválida" });
+  const auth = await usuarioValido(token);
+  if (auth === "sem-config") {
+    // 500, nao 401: o problema e' do servidor, e dizer "sessao invalida" aqui
+    // mandaria todo mundo procurar no lugar errado.
+    return res.status(500).json({ erro: "servidor sem VITE_SUPABASE_URL/PUBLISHABLE_KEY" });
   }
+  if (auth !== "ok") return res.status(401).json({ erro: "sessão inválida" });
 
   const { corpo, css, style, extra, nome } = req.body ?? {};
   if (!corpo || typeof corpo !== "string") {
