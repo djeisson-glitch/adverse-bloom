@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { baixarCartaPdf } from "@/lib/cartaPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { nomeArquivoProposta } from "@/lib/produtora";
-import { ArrowLeft, Printer, Save, Loader2, Pencil, Eye } from "lucide-react";
+import { ArrowLeft, Printer, Save, Loader2, Pencil, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,6 +96,24 @@ export default function CartaOrcamento() {
     };
     window.addEventListener("afterprint", restaurar);
     window.print();
+  };
+
+  /**
+   * PDF escuro, igual à tela. Se o gerador falhar por qualquer motivo, cai no
+   * imprimir() — o cliente esperando a proposta não pode ficar sem PDF só
+   * porque o tema não saiu.
+   */
+  const [gerando, setGerando] = useState(false);
+  const baixarEscuro = async () => {
+    setGerando(true);
+    const r = await baixarCartaPdf(nomeArquivoProposta(data?.deal?.title, data?.deal?.numero));
+    setGerando(false);
+    if (!r.ok) {
+      toast.error("Não consegui gerar o PDF escuro — abrindo a impressão normal.", {
+        description: r.motivo,
+      });
+      imprimir();
+    }
   };
 
   const [p, setP] = useState<Proposta | null>(null);
@@ -193,8 +212,11 @@ export default function CartaOrcamento() {
               {editando ? <><Eye className="mr-1 h-3.5 w-3.5" /> Só a carta</> : <><Pencil className="mr-1 h-3.5 w-3.5" /> Editar</>}
             </Button>
             {!manual && <IndicadorAutosave status={auto.status} />}
-            <Button size="sm" className="bg-[#E53500] text-white hover:bg-[#E53500]/90" onClick={imprimir}>
-              <Printer className="mr-1 h-3.5 w-3.5" /> Imprimir / PDF
+            <Button size="sm" variant="outline" className="border-white/20 bg-transparent text-[#E8E1D0] hover:bg-white/10" onClick={imprimir}>
+              <Printer className="mr-1 h-3.5 w-3.5" /> Imprimir
+            </Button>
+            <Button size="sm" disabled={gerando} className="bg-[#E53500] text-white hover:bg-[#E53500]/90" onClick={baixarEscuro}>
+              <Download className="mr-1 h-3.5 w-3.5" /> {gerando ? "Gerando…" : "Baixar PDF"}
             </Button>
           </div>
         </div>

@@ -81,15 +81,18 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
        papel branco — a identidade fica na tipografia e no // laranja.
        As classes abaixo são as cores do tema, remapeadas mantendo a
        hierarquia: título quase preto, corpo cinza escuro, apoio cinza. */
-    html,body{background:#fff!important;height:auto!important}
-    .carta-doc{background:#fff!important;color:#333!important;padding:0!important}
-    .carta-doc .bg-\\[\\#0f0f10\\]{background:#fff!important}
-    .carta-doc .text-\\[\\#E8E1D0\\]{color:#111!important}
-    .carta-doc .text-\\[\\#CFC9BC\\]{color:#333!important}
-    .carta-doc .text-\\[\\#9A968C\\]{color:#666!important}
-    .carta-doc .border-white\\/10{border-color:#ddd!important}
-    .carta-doc .bg-\\[\\#ef4444\\]\\/\\[0\\.06\\]{background:#fef2f2!important}
-    .carta-doc .border-\\[\\#ef4444\\]\\/30{border-color:#fca5a5!important}
+    /* O remapeamento para papel branco vale para a impressao do NAVEGADOR.
+       O gerador de PDF do sistema marca <html class="pdf-escuro"> e escapa
+       de tudo isto -- ver o bloco .pdf-escuro no fim deste @media. */
+    html:not(.pdf-escuro),html:not(.pdf-escuro) body{background:#fff!important;height:auto!important}
+    html:not(.pdf-escuro) .carta-doc{background:#fff!important;color:#333!important;padding:0!important}
+    html:not(.pdf-escuro) .carta-doc .bg-\\[\\#0f0f10\\]{background:#fff!important}
+    html:not(.pdf-escuro) .carta-doc .text-\\[\\#E8E1D0\\]{color:#111!important}
+    html:not(.pdf-escuro) .carta-doc .text-\\[\\#CFC9BC\\]{color:#333!important}
+    html:not(.pdf-escuro) .carta-doc .text-\\[\\#9A968C\\]{color:#666!important}
+    html:not(.pdf-escuro) .carta-doc .border-white\\/10{border-color:#ddd!important}
+    html:not(.pdf-escuro) .carta-doc .bg-\\[\\#ef4444\\]\\/\\[0\\.06\\]{background:#fef2f2!important}
+    html:not(.pdf-escuro) .carta-doc .border-\\[\\#ef4444\\]\\/30{border-color:#fca5a5!important}
     /* O laranja da marca e os sinais de incluso/não incluso continuam em
        cor: são poucos e é o que dá leitura rápida no papel. */
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -98,7 +101,7 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
        grid vira UMA linha altíssima, e quando ela não cabe o navegador
        parte no meio, levando os dois lados junto. Em papel, coluna única —
        aí cada bloco pagina inteiro. */
-    .carta-grid{display:block!important}
+    html:not(.pdf-escuro) .carta-grid{display:block!important}
     .carta-grid > div{margin-bottom:0}
     .carta-grid > div > div{margin-bottom:1.25rem}
 
@@ -118,8 +121,61 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
        fecho com o valor. São as duas partes que alguém imprime sozinhas
        pra assinar ou levar pra reunião. */
     .carta-secao{break-before:page;page-break-before:always}
+
+    /* ---- PDF ESCURO (gerado pelo servidor) ----
+       So entra quando <html> tem .pdf-escuro, e quem poe essa classe e' o
+       /api/carta-pdf, que roda Chrome com printBackground forcado. Por isso
+       aqui o fundo e' garantido: nao depende de ninguem marcar "Graficos de
+       segundo plano". O Ctrl+P do navegador NAO passa por aqui e continua
+       saindo preto-no-branco -- se dependesse do checkbox, um esquecimento
+       mandaria uma proposta praticamente em branco pro cliente. */
+    html.pdf-escuro,html.pdf-escuro body{background:#0f0f10!important;height:auto!important}
+    html.pdf-escuro .carta-doc{background:#0f0f10!important;padding:0!important}
+    /* As duas colunas da tela cabem porque cada bloco e' indivisivel
+       (.carta-bloco) e a folha e' A4 com 12mm -- o corte no meio que motivou
+       a coluna unica vinha da margem de 16mm somada ao padding de tela. */
+    html.pdf-escuro .carta-grid{display:grid!important;grid-template-columns:1fr 1fr!important;column-gap:3rem!important}
+    html.pdf-escuro .carta-grid > div > div{break-inside:avoid;page-break-inside:avoid}
   }
   .carta-doc{-webkit-print-color-adjust:exact;print-color-adjust:exact}`;
+
+/**
+ * Folha de estilo EXTRA do PDF escuro — injetada só por /api/carta-pdf,
+ * depois de CARTA_STYLE, pra vencer o `@page` de lá.
+ *
+ * Por que existe separada: `@page` é regra de documento, não aceita seletor.
+ * Não dá pra escrever "quando html.pdf-escuro, margem 0" — a única forma de
+ * trocar a margem da folha é uma segunda regra `@page` que venha depois.
+ *
+ * E a margem TEM que ir a zero: margem de página não recebe fundo nenhum, de
+ * modo que 16mm de margem num documento escuro viram uma moldura branca com
+ * um retângulo preto no meio. O respiro passa a ser padding DENTRO da carta,
+ * que é pintado junto — assim o escuro sangra até a borda do papel.
+ */
+export const CARTA_PDF_ESCURO_STYLE = `
+  @page{size:A4;margin:0}
+  @media print{
+    /* O respiro que era do @page agora e' da carta, pra ser pintado junto. */
+    html.pdf-escuro .carta-doc{padding:14mm 15mm!important}
+
+    /* Sem as quebras forcadas o documento fecha em menos folhas. Elas faziam
+       sentido no papel branco (secoes que alguem imprime soltas pra assinar);
+       num PDF escuro, que se le na tela, so geravam paginas quase vazias. */
+    html.pdf-escuro .carta-secao{break-before:auto!important;page-break-before:auto!important}
+
+    /* A capa continua em folha propria: e' o que o cliente ve ao abrir o
+       anexo. 100vh sem margem de pagina = exatamente uma folha. */
+    html.pdf-escuro .carta-capa{min-height:calc(100vh - 28mm)!important}
+
+    /* O investimento tambem para de abrir folha propria. O !important aqui
+       vence o style inline do elemento (declaracao important de folha ganha
+       de inline sem important) -- e' de proposito: e' a unica forma de anular
+       um breakBefore escrito no JSX sem tirar ele da versao clara. */
+    html.pdf-escuro .carta-investimento{break-before:auto!important;page-break-before:auto!important}
+    /* Com o fecho na mesma folha, repetir o cabecalho ali vira ruido. */
+    html.pdf-escuro .carta-investimento > .print\\:block{display:none!important}
+    html.pdf-escuro .carta-investimento > div + div{margin-top:2rem!important}
+  }`;
 
 export function CartaDocumento({
   p, investimentoNum, cliente, dataStr, condicoes, elenco,
@@ -327,7 +383,7 @@ export function CartaDocumento({
       </div>
 
       {/* Investimento — página própria na impressão; sem repetir o cabeçalho na tela */}
-      <div className="mt-12 print:mt-16" style={{ breakBefore: "page" }}>
+      <div className="carta-investimento mt-12 print:mt-16" style={{ breakBefore: "page" }}>
         <div className="hidden print:block">
           <Header />
         </div>
