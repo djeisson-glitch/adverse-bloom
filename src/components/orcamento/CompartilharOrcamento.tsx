@@ -163,11 +163,13 @@ export function CompartilharOrcamento({ budgetId }: { budgetId: string }) {
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && criar()}
-              // Exemplo por PAPEL, nunca por pessoa. Antes dizia "Ex.: Robert
-              // (mentor)" e continuou sugerindo o nome de alguém que saiu da
-              // operação — texto fixo não é filtrado por profiles.ativo, então
-              // nome próprio no código volta a aparecer sempre.
-              placeholder="Ex.: mentor, contador, sócio"
+              // Exemplo por SERVIÇO, nunca por pessoa nem por vínculo.
+              // Já dizia "Ex.: Robert (mentor)" — nome de alguém que saiu da
+              // operação, e texto fixo não é filtrado por profiles.ativo. Ao
+              // trocar, "sócio" e "mentor" também saíram: descrevem uma
+              // relação entre pessoas, e exemplo de campo não é lugar pra
+              // isso. Serviço contratado envelhece bem; vínculo, não.
+              placeholder="Ex.: contabilidade, consultoria"
             />
           </div>
 
