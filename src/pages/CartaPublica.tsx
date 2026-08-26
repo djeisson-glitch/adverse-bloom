@@ -29,7 +29,12 @@ export default function CartaPublica() {
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("carta_publica", { _token: token });
       if (error) throw error;
-      return data as any;
+      // Quem é ESTA opção — número, letra e nome da variante. Chamada à
+      // parte de propósito: acrescentar campo em carta_publica exigiria
+      // reescrever a função inteira, e é assim que se apaga o que veio
+      // depois. Ver identidade_opcao na migração de 26/08.
+      const { data: ident } = await (supabase as any).rpc("identidade_opcao", { _token: token });
+      return { ...(data as any), ident } as any;
     },
   });
 
@@ -58,12 +63,18 @@ export default function CartaPublica() {
   // Título da aba = nome do arquivo. O cliente salva com Ctrl+P e o PDF
   // chegaria como "Adverse OS.pdf" na pasta de downloads dele.
   const tituloDoc = data?.deal?.title;
+  const ident = (data as any)?.ident;
   useEffect(() => {
     if (!tituloDoc) return;
     const antes = document.title;
-    document.title = nomeArquivoProposta(tituloDoc);
+    // Duas opções da mesma proposta saíam com nome IDÊNTICO no Ctrl+P do
+    // cliente — dois anexos que pareciam o mesmo arquivo.
+    document.title = nomeArquivoProposta(tituloDoc, ident?.numero, {
+      letra: ident?.letra,
+      nome: ident?.variante,
+    });
     return () => { document.title = antes; };
-  }, [tituloDoc]);
+  }, [tituloDoc, ident]);
 
   if (isLoading) {
     return (

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { nomeArquivoProposta } from "@/lib/produtora";
 
 interface Deliverable {
   name: string;
@@ -66,6 +67,31 @@ export default function PropostaPublica() {
   const [approving, setApproving] = useState(false);
   const [approved, setApproved] = useState(false);
   const [approvedName, setApprovedName] = useState("");
+
+  /**
+   * Título da aba = nome do arquivo quando o cliente salva com Ctrl+P.
+   *
+   * Esta página não definia título NENHUM: a proposta chegava na pasta de
+   * downloads dele como "Adverse OS.pdf". Pior que nome repetido — é nome
+   * nenhum, e some no meio dos outros anexos.
+   *
+   * A identidade vem do banco (identidade_opcao) porque só lá dá pra saber
+   * QUAL das opções do negócio é esta — a página tem um orçamento só em mãos.
+   */
+  useEffect(() => {
+    if (!token || isPreview) return;
+    let vivo = true;
+    const antes = document.title;
+    (async () => {
+      const { data: ident } = await (supabase as any).rpc("identidade_opcao", { _token: token });
+      if (!vivo || !ident) return;
+      document.title = nomeArquivoProposta(ident.titulo, ident.numero, {
+        letra: ident.letra,
+        nome: ident.variante,
+      });
+    })();
+    return () => { vivo = false; document.title = antes; };
+  }, [token, isPreview]);
 
   useEffect(() => {
     if (!token) return;

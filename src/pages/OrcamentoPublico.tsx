@@ -35,13 +35,18 @@ export default function OrcamentoPublico() {
     queryKey: ["orcamento-publico", token],
     queryFn: async () => {
       const { data } = await (supabase as any).rpc("orcamento_compartilhado", { _token: token });
-      return data as any;
+      // Identifica QUAL opção é esta (ver identidade_opcao). Sem isso, duas
+      // opções do mesmo negócio compartilhavam o mesmo nome de arquivo.
+      const { data: ident } = await (supabase as any).rpc("identidade_opcao", { _token: token });
+      return { ...(data as any), ident } as any;
     },
     retry: false,
   });
 
   const nomeArquivo = data?.job
-    ? `${data.job.numero ? `[${data.job.numero}] ` : ""}${data.job.titulo ?? "Orçamento"} - Interno Adverse`
+    ? `${data.job.numero ? `[${data.job.numero}${data.ident?.letra || ""}] ` : ""}${data.job.titulo ?? "Orçamento"}${
+        data.ident?.variante ? ` - ${data.ident.variante}` : ""
+      } - Interno Adverse`
         .replace(/[/\\:*?"<>|]+/g, "-")
     : "Orçamento interno - Adverse";
 
