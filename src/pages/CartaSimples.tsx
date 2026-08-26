@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA, nomeArquivoProposta } from "@/lib/produtora";
-import { orcamentoDaCarta, letraDaOpcao } from "@/lib/orcamentoDaCarta";
+import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
 import { useVoltar } from "@/hooks/useVoltar";
 import { porBloco, comPadroes } from "@/lib/condicoes";
 
@@ -153,6 +153,9 @@ export default function CartaSimples() {
   // Nome do arquivo no "Salvar como PDF".
   const titulo = data?.deal?.title;
   const numero = data?.budget?.budget_number;
+  // Qual das opções do negócio é esta. Vazio quando só existe uma.
+  const letraOpcao: string = (data as any)?.letraOpcao || "";
+  const rotuloOpcao = rotuloDaOpcao(letraOpcao, (data as any)?.budget?.variante_nome);
   useEffect(() => {
     if (!titulo) return;
     const antes = document.title;
@@ -364,9 +367,15 @@ export default function CartaSimples() {
             {/* O número em corpo grande, junto da palavra ORÇAMENTO: é por ele
                 que o documento é chamado no telefone e procurado na pasta. */}
             <p className="text-3xl font-extrabold uppercase leading-none tracking-tight">Orçamento</p>
+            {/* A letra entra COLADA no número, não numa linha à parte: é o
+                número que identifica o documento, e sem ela duas opções do
+                mesmo negócio se apresentam com o mesmo #0319. */}
             <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1a1a1a]">
-              {numero != null ? `#${String(numero).padStart(4, "0")}` : "—"}
+              {numero != null ? `#${String(numero).padStart(4, "0")}${letraOpcao}` : "—"}
             </p>
+            {rotuloOpcao && (
+              <p className="mt-1 text-xs font-semibold text-[#1a1a1a]">{rotuloOpcao}</p>
+            )}
             <table className="ml-auto mt-3 text-xs">
               <tbody className="text-[#555]">
                 {ver.criacao && criacao && (

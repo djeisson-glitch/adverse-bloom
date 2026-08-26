@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orcamentoDaCarta, letraDaOpcao } from "./orcamentoDaCarta";
+import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "./orcamentoDaCarta";
 
 /**
  * O caso do Djêisson (20/08): "a separação das versões ainda não ta rolando na
@@ -59,5 +59,25 @@ describe("letra que identifica a opção no arquivo", () => {
 
   it("id desconhecido não inventa letra", () => {
     expect(letraDaOpcao(todos, "apagada")).toBe("");
+  });
+});
+
+describe("rótulo da opção dentro do documento", () => {
+  it("não escreve nada quando só existe uma opção", () => {
+    // Sem letra = proposta única. "Opção A" ali seria enfeite.
+    expect(rotuloDaOpcao("", null)).toBe("");
+    expect(rotuloDaOpcao(undefined, "Com drone")).toBe("");
+  });
+
+  it("principal mostra só a letra — ela não tem nome próprio", () => {
+    expect(rotuloDaOpcao("A", null)).toBe("Opção A");
+  });
+
+  it("variante mostra letra e nome, que é o que o cliente reconhece", () => {
+    expect(rotuloDaOpcao("B", "Com pós-produção")).toBe("Opção B · Com pós-produção");
+  });
+
+  it("nome só com espaços não vira separador solto", () => {
+    expect(rotuloDaOpcao("C", "   ")).toBe("Opção C");
   });
 });

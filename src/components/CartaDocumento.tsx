@@ -188,7 +188,7 @@ export const CARTA_PDF_ESCURO_STYLE = `
   }`;
 
 export function CartaDocumento({
-  p, investimentoNum, cliente, dataStr, condicoes, elenco,
+  p, investimentoNum, cliente, dataStr, condicoes, elenco, opcao,
 }: {
   p: Proposta;
   investimentoNum: number;
@@ -196,6 +196,14 @@ export function CartaDocumento({
   dataStr?: string;
   condicoes?: Condicoes | null;
   elenco?: { nome?: string; qtd?: number; diarias?: number }[] | null;
+  /**
+   * Qual das opções do negócio é esta carta — vazio quando só existe uma.
+   *
+   * Não vem do `p`: `subtitulo` é o TIPO do filme (Geral, Institucional),
+   * editável à mão, e não tem relação com variante. Sem este campo, duas
+   * opções do mesmo negócio abriam idênticas na tela do cliente.
+   */
+  opcao?: string;
 }) {
   return (
     <div className="carta-doc mx-auto max-w-5xl bg-[#0f0f10] px-10 py-12 text-[#CFC9BC] md:px-16 md:py-16">
@@ -219,6 +227,14 @@ export function CartaDocumento({
             {p.titulo || "—"}
           </h1>
           {p.subtitulo && <p className="mt-2 text-lg text-[#9A968C]">{p.subtitulo}</p>}
+          {/* Na capa, com destaque: é a folha que o cliente vê ao abrir o
+              anexo e a que ele encaminha. Se ele recebeu duas propostas, é
+              aqui que precisa saber qual tem em mãos. */}
+          {opcao && (
+            <p className="mt-4 inline-block rounded border border-[#E53500]/40 bg-[#E53500]/[0.08] px-3 py-1 text-sm font-semibold text-[#E8E1D0]">
+              {opcao}
+            </p>
+          )}
 
           {/* O "para" completo mora aqui, na capa. Antes ele era repetido no
               topo do corpo, o que fazia o PDF abrir a segunda folha com todo o
@@ -250,7 +266,7 @@ export function CartaDocumento({
           {PRODUTORA.wordmark} <span className="text-[#E53500]">//</span>
         </span>
         <span className="text-xs text-[#9A968C]">
-          {p.titulo}{p.subtitulo ? ` · ${p.subtitulo}` : ""}
+          {p.titulo}{p.subtitulo ? ` · ${p.subtitulo}` : ""}{opcao ? ` · ${opcao}` : ""}
         </span>
       </div>
 

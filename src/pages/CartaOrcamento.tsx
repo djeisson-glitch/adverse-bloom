@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { baixarCartaPdf } from "@/lib/cartaPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { nomeArquivoProposta } from "@/lib/produtora";
-import { orcamentoDaCarta, letraDaOpcao } from "@/lib/orcamentoDaCarta";
+import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
 import { ArrowLeft, Printer, Save, Loader2, Pencil, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -256,7 +256,7 @@ export default function CartaOrcamento() {
         )}
 
         {/* ---------------- A CARTA (imprime) ---------------- */}
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} condicoes={data?.budget?.condicoes} elenco={data?.elenco} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={hoje} condicoes={data?.budget?.condicoes} elenco={data?.elenco} opcao={rotuloDaOpcao(data?.letra, (data?.budget as any)?.variante_nome)} />
       </div>
     </div>
   );

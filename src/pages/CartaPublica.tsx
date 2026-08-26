@@ -6,6 +6,7 @@ import { Loader2, CheckCircle2, ShieldCheck, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { roundUpTo50, formatCurrency } from "@/lib/format";
 import { nomeArquivoProposta } from "@/lib/produtora";
+import { rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
 import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
 import {
   CartaDocumento, CARTA_STYLE, DEFAULTS, TIPO_LABEL, parseValor,
@@ -157,7 +158,7 @@ export default function CartaPublica() {
     <div className="min-h-screen bg-[#0f0f10]">
       <style>{CARTA_STYLE}</style>
       <div className="carta-root pb-40">
-        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} condicoes={data.condicoes} elenco={data.elenco} />
+        <CartaDocumento p={p} investimentoNum={investimentoNum} cliente={cliente} dataStr={undefined} condicoes={data.condicoes} elenco={data.elenco} opcao={rotuloDaOpcao(ident?.letra, ident?.variante)} />
 
         <div className="mx-auto max-w-5xl px-6">
           <RodapeConfidencial tema="escuro" />

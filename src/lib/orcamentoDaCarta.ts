@@ -72,3 +72,22 @@ export function letraDaOpcao<T extends OpcaoOrcamento>(todos: T[], id?: string |
     ? String.fromCharCode(65 + i)
     : String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
 }
+
+/**
+ * Como a opção se apresenta DENTRO do documento, para o cliente ler.
+ *
+ * Djêisson (26/08): "na carta simples também deve aparecer qual é a proposta
+ * que estamos falando". O nome do arquivo já separava as opções, mas o
+ * documento aberto não dizia nada — duas propostas do mesmo negócio saíam
+ * visualmente idênticas, com o mesmo número no topo. Quem recebe as duas não
+ * tem como saber qual está lendo.
+ *
+ * Vazio quando existe uma opção só: aí o documento não é ambíguo e "Opção A"
+ * seria enfeite. Mesma regra do nome do arquivo (letraDaOpcao).
+ */
+export function rotuloDaOpcao(letra?: string | null, nome?: string | null): string {
+  if (!letra) return "";
+  const n = (nome || "").trim();
+  // A principal não tem nome próprio — fica só a letra, que já a distingue.
+  return n ? `Opção ${letra} · ${n}` : `Opção ${letra}`;
+}
