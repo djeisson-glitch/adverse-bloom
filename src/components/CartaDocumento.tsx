@@ -147,16 +147,26 @@ export const CARTA_STYLE = `@import url('https://fonts.googleapis.com/css2?famil
  * Não dá pra escrever "quando html.pdf-escuro, margem 0" — a única forma de
  * trocar a margem da folha é uma segunda regra `@page` que venha depois.
  *
- * E a margem TEM que ir a zero: margem de página não recebe fundo nenhum, de
- * modo que 16mm de margem num documento escuro viram uma moldura branca com
- * um retângulo preto no meio. O respiro passa a ser padding DENTRO da carta,
- * que é pintado junto — assim o escuro sangra até a borda do papel.
+ * E a margem TEM que ir a zero: medido em 26/08, o fundo do <html> NÃO se
+ * propaga para a área de margem do @page no PDF do Chrome — qualquer margem
+ * ali vira moldura branca com um retângulo preto no meio. Pintar a faixa por
+ * headerTemplate também não resolve: fundo em header/footer não é impresso.
+ * Então @page fica em 0 e o respiro vem de dentro: padding nas laterais e a
+ * linha do <thead> em cima e embaixo.
  */
 export const CARTA_PDF_ESCURO_STYLE = `
   @page{size:A4;margin:0}
   @media print{
-    /* O respiro que era do @page agora e' da carta, pra ser pintado junto. */
-    html.pdf-escuro .carta-doc{padding:14mm 15mm!important}
+    /* MARGEM HORIZONTAL: padding, que se repete em toda folha. */
+    html.pdf-escuro .carta-doc{padding:0 15mm!important}
+
+    /* MARGEM VERTICAL: a linha vazia do <thead> da .folha (ver carta-pdf.ts).
+       Padding NAO serve aqui: num elemento que atravessa paginas ele aparece
+       so no inicio da primeira e no fim da ultima -- as folhas do meio saiam
+       com o texto colado no topo. E' exatamente o que o Djeisson viu em
+       26/08. O <thead>, esse sim, o Chrome REPETE em cada folha impressa. */
+    .folha{width:100%;border-collapse:collapse}
+    .folha>thead>tr>td,.folha>tbody>tr>td,.folha>tfoot>tr>td{border:0;padding:0;margin:0}
 
     /* Sem as quebras forcadas o documento fecha em menos folhas. Elas faziam
        sentido no papel branco (secoes que alguem imprime soltas pra assinar);
@@ -165,7 +175,7 @@ export const CARTA_PDF_ESCURO_STYLE = `
 
     /* A capa continua em folha propria: e' o que o cliente ve ao abrir o
        anexo. 100vh sem margem de pagina = exatamente uma folha. */
-    html.pdf-escuro .carta-capa{min-height:calc(100vh - 28mm)!important}
+    html.pdf-escuro .carta-capa{min-height:calc(100vh - 28mm)!important}  /* 28mm = as duas faixas */
 
     /* O investimento tambem para de abrir folha propria. O !important aqui
        vence o style inline do elemento (declaracao important de folha ganha

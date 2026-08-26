@@ -80,9 +80,19 @@ export default async function handler(req: any, res: any) {
 
   // `pdf-escuro` no <html> é o que liga o tema escuro no @media print — ver
   // CARTA_PDF_ESCURO_STYLE em components/CartaDocumento.tsx.
+  // A tabela .folha existe por um motivo so: <thead> e <tfoot> sao REPETIDOS
+  // pelo Chrome em toda folha impressa, e essas duas linhas vazias viram a
+  // margem de cima e de baixo. Padding nao serve -- num elemento que atravessa
+  // paginas ele aparece so uma vez, e as folhas do meio saiam com o texto
+  // colado no topo. O @page precisa ficar em margem 0 porque area de margem
+  // nao recebe fundo: com margem, o escuro vira um retangulo com moldura
+  // branca em volta.
+  const FAIXA = '<tr><td><div style="height:14mm"></div></td></tr>';
   const pagina = `<!doctype html><html class="pdf-escuro"><head><meta charset="utf-8">
 <style>${css ?? ""}</style><style>${style ?? ""}</style><style>${extra ?? ""}</style>
-</head><body><div class="carta-root">${corpo}</div></body></html>`;
+</head><body><table class="folha"><thead>${FAIXA}</thead><tbody><tr><td>
+<div class="carta-root">${corpo}</div>
+</td></tr></tbody><tfoot>${FAIXA}</tfoot></table></body></html>`;
 
   let navegador;
   try {
