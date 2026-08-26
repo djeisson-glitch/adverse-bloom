@@ -22,7 +22,7 @@ interface Props {
 export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   const { clients, createClient } = useClients();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", trade_name: "", company: "", contact_name: "", email: "", phone: "", segment: "", origin: "", notes: "" });
   const [forceCreate, setForceCreate] = useState(false);
 
   const similar = useMemo(() => {
@@ -57,6 +57,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         name: form.name.trim(),
         trade_name: form.trade_name.trim() || null,
         company: form.company.trim() || null,
+        contact_name: form.contact_name.trim() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         segment: form.segment || null,
@@ -64,7 +65,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         notes: form.notes.trim() || null,
       } as any);
       toast({ title: "Cliente criado!" });
-      setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+      setForm({ name: "", trade_name: "", company: "", contact_name: "", email: "", phone: "", segment: "", origin: "", notes: "" });
       setForceCreate(false);
       onOpenChange(false);
       onCreated?.(result.id);
@@ -74,7 +75,7 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
   };
 
   const handleUseExisting = (id: string) => {
-    setForm({ name: "", trade_name: "", company: "", email: "", phone: "", segment: "", origin: "", notes: "" });
+    setForm({ name: "", trade_name: "", company: "", contact_name: "", email: "", phone: "", segment: "", origin: "", notes: "" });
     setForceCreate(false);
     onOpenChange(false);
     onCreated?.(id);
@@ -88,9 +89,12 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
+            {/* Esta coluna se chamava "Razão Social" aqui e "Nome" na tela de
+                detalhe — a MESMA coluna, com dois nomes. Agora é "Cliente" nos
+                dois lugares, que é como ela aparece no resto do sistema. */}
             <div className="space-y-1.5">
-              <Label>Razão Social *</Label>
-              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Razão Social" />
+              <Label>Cliente *</Label>
+              <Input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); setForceCreate(false); }} placeholder="Razão social ou como é conhecido" />
             </div>
             <div className="space-y-1.5">
               <Label>Nome Fantasia</Label>
@@ -100,9 +104,16 @@ export function NewClientModal({ open, onOpenChange, onCreated }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Empresa</Label>
-              <Input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); setForceCreate(false); }} placeholder="Nome da empresa" />
+              <Input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); setForceCreate(false); }} placeholder="Só se a razão social for diferente" />
             </div>
-            <div className="space-y-1.5" />
+            {/* A PESSOA não tinha campo em lugar nenhum, então acabava
+                digitada em "Cliente" — e o cliente passava a se chamar pelo
+                nome de quem atende. A carta já lia esta coluna (linha "A/C")
+                e vinha sempre vazia. */}
+            <div className="space-y-1.5">
+              <Label>Responsável</Label>
+              <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} placeholder="Quem assina e aprova" />
+            </div>
           </div>
 
           {similar.length > 0 && !forceCreate && (

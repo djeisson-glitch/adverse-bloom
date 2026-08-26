@@ -109,6 +109,7 @@ export default function ClienteDetalhe() {
       __id: client.id,
       name: client.name,
       company: client.company || "",
+      contact_name: client.contact_name || "",
       email: client.email || "",
       phone: client.phone || "",
       segment: client.segment || "",
@@ -266,13 +267,34 @@ export default function ClienteDetalhe() {
             </div>
 
             <div className="space-y-3">
+              {/* Os três campos de nome viviam se confundindo: sem um lugar
+                  pra PESSOA, ela acabava digitada em "Nome" — e aí o cliente
+                  passava a se chamar Emmerson em vez de A Raiz da Solução no
+                  sistema inteiro. Cada um agora diz para que serve. */}
               <div className="space-y-1.5">
-                <Label>Nome</Label>
+                <Label>Cliente</Label>
                 <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
+                <p className="text-[11px] text-muted-foreground">
+                  Razão social ou como o cliente é conhecido. Aparece assim em todo o sistema e nas propostas.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Responsável</Label>
+                <Input
+                  value={form.contact_name}
+                  onChange={(e) => set("contact_name", e.target.value)}
+                  placeholder="Quem assina e aprova"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  A pessoa de contato. Sai como “A/C” na carta que vai pro cliente.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>Empresa</Label>
                 <Input value={form.company} onChange={(e) => set("company", e.target.value)} />
+                <p className="text-[11px] text-muted-foreground">
+                  Só quando a razão social ou o grupo for diferente do nome acima.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
