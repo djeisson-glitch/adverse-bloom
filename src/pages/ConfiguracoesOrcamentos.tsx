@@ -167,11 +167,11 @@ export default function ConfiguracoesOrcamentos() {
       </Card>
 
       <Card className="bg-card border-border">
-        <CardHeader><CardTitle className="text-base">Comissão por sócio</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Comissões</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {commissions.map((c, idx) => (
             <div key={idx} className="flex items-center gap-3">
-              {/* O nome do sócio é fixo: a tabela tem coluna por sócio, não uma
+              {/* O nome é fixo: a tabela tem uma coluna por pessoa, não uma
                   lista — deixar editável só dava a impressão de que salvava. */}
               <span className="flex-1 text-sm text-foreground">{c.name}</span>
               <div className="flex items-center gap-2">

@@ -156,7 +156,7 @@ export default function ConfiguracoesContexto() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Estrutura</Label>
-            <Textarea rows={3} placeholder="Times fixos vs. freelas, sócios, terceirizados, áreas..." value={form.estrutura ?? ""} onChange={(e) => set("estrutura", e.target.value)} />
+            <Textarea rows={3} placeholder="Times fixos vs. freelas, terceirizados, áreas..." value={form.estrutura ?? ""} onChange={(e) => set("estrutura", e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label>Sazonalidade</Label>

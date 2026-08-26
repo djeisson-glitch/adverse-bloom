@@ -31,7 +31,7 @@ CLIENTES PRINCIPAIS: Sicredi, John Deere/SLC Máquinas, Brevant/Corteva, Unimed,
 
 META 2026: R$1,5–1,6MM de faturamento. Meta longo prazo: R$10MM até 2035.
 
-PRECIFICAÇÃO: baseada em diárias de set, horas de pós-produção, markup, impostos e comissão de sócios.
+PRECIFICAÇÃO: baseada em diárias de set, horas de pós-produção, markup, impostos e comissão.
 
 DESAFIOS ATUAIS: pipeline comercial previsível, Djêisson preso no operacional, poucos leads novos fora da base atual.
 
