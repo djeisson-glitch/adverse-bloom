@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orcamentoDaCarta } from "./orcamentoDaCarta";
+import { orcamentoDaCarta, letraDaOpcao } from "./orcamentoDaCarta";
 
 /**
  * O caso do Djêisson (20/08): "a separação das versões ainda não ta rolando na
@@ -36,5 +36,28 @@ describe("qual orçamento a carta representa", () => {
 
   it("sem nada, devolve null em vez de estourar", () => {
     expect(orcamentoDaCarta([], "x")).toBeNull();
+  });
+});
+
+describe("letra que identifica a opção no arquivo", () => {
+  it("não põe letra quando só existe uma opção", () => {
+    // [0329] sozinho já é único — letra aqui seria ruído.
+    expect(letraDaOpcao([principal], "p")).toBe("");
+  });
+
+  it("principal é A, variantes seguem a ordem de criação", () => {
+    expect(letraDaOpcao(todos, "p")).toBe("A");
+    expect(letraDaOpcao(todos, "a")).toBe("B");
+    expect(letraDaOpcao(todos, "b")).toBe("C");
+  });
+
+  it("versão antiga não ocupa letra", () => {
+    const v1 = { id: "v1", parent_budget_id: null, is_latest_version: false, created_at: "2026-07-01T10:00:00Z" };
+    // v1 é a mais antiga de todas: se contasse, empurraria todo mundo.
+    expect(letraDaOpcao([v1, ...todos], "p")).toBe("A");
+  });
+
+  it("id desconhecido não inventa letra", () => {
+    expect(letraDaOpcao(todos, "apagada")).toBe("");
   });
 });

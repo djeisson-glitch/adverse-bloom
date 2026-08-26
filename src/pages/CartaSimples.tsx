@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA, nomeArquivoProposta } from "@/lib/produtora";
+import { orcamentoDaCarta, letraDaOpcao } from "@/lib/orcamentoDaCarta";
 import { useVoltar } from "@/hooks/useVoltar";
 import { porBloco, comPadroes } from "@/lib/condicoes";
 
@@ -95,14 +96,16 @@ export default function CartaSimples() {
       ]);
       // Mesma regra da carta completa: a opção aberta manda; sem ela, o
       // PRINCIPAL — nunca "o mais recente", que virou a última variante.
-      const budget = opcaoId
-        ? await (supabase as any).from("budgets")
-            .select("id, budget_number, total_value, condicoes, created_at, variante_nome")
-            .eq("id", opcaoId).maybeSingle()
-        : await (supabase as any).from("budgets")
-            .select("id, budget_number, total_value, condicoes, created_at, variante_nome")
-            .eq("deal_id", id).is("parent_budget_id", null).eq("is_latest_version", true)
-            .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      // Todas as opções do negócio: a escolha sai da regra testada, e é da
+      // mesma lista que vem a letra que diferencia os arquivos exportados —
+      // sem ela as opções saíam com nome idêntico, porque budget_number é o
+      // MESMO nas variantes (só o variante_nome muda).
+      const { data: opcoes } = await (supabase as any).from("budgets")
+        .select("id, budget_number, total_value, condicoes, created_at, variante_nome, parent_budget_id, is_latest_version")
+        .eq("deal_id", id).order("created_at", { ascending: true });
+      const escolhido = orcamentoDaCarta<any>(opcoes || [], opcaoId);
+      const budget = { data: escolhido };
+      const letraOpcao = letraDaOpcao<any>(opcoes || [], escolhido?.id);
       const itens = budget.data?.id
         ? await (supabase as any).from("budget_items")
             .select("id, item_name, descricao, quantity, diaria, client_unit_price, categoria_id, ordem")
@@ -113,6 +116,7 @@ export default function CartaSimples() {
         budget: budget.data,
         categorias: new Map<string, any>((cats.data || []).map((c: any) => [c.id, c])),
         itens: (itens.data || []) as Item[],
+        letraOpcao,
       };
     },
   });
@@ -152,9 +156,12 @@ export default function CartaSimples() {
   useEffect(() => {
     if (!titulo) return;
     const antes = document.title;
-    document.title = nomeArquivoProposta(titulo, numero);
+    document.title = nomeArquivoProposta(titulo, numero, {
+      letra: (data as any)?.letraOpcao,
+      nome: (data as any)?.budget?.variante_nome,
+    });
     return () => { document.title = antes; };
-  }, [titulo, numero]);
+  }, [titulo, numero, data]);
 
   if (isLoading || !data || !calc) {
     return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;

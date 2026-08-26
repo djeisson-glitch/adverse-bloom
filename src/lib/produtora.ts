@@ -25,10 +25,26 @@ export const PRODUTORA = {
  * O título do deal já vem no padrão [XXXX]_NOME; quando não vier, o número
  * entra na frente.
  */
-export function nomeArquivoProposta(titulo?: string | null, numero?: string | number | null): string {
+export function nomeArquivoProposta(
+  titulo?: string | null,
+  numero?: string | number | null,
+  /**
+   * Identifica QUAL opção do negócio é esta. Duas opções da mesma proposta
+   * saíam com nome idêntico e, na mesa do cliente, viravam dois arquivos que
+   * pareciam o mesmo (Djêisson, 26/08).
+   *
+   * `letra` separa (A, B, C — ver letraDaOpcao); `nome` diz qual é. Os dois
+   * juntos porque a letra sozinha não informa nada ao cliente, e o nome
+   * sozinho some quando a opção é a principal, que não tem nome.
+   */
+  opcao?: { letra?: string; nome?: string | null },
+): string {
   const base = (titulo || "Proposta").trim();
   const num = numero != null && String(numero).trim() ? String(numero).trim() : "";
-  const comCodigo = num && !base.includes(num) ? `[${num}] ${base}` : base;
+  const codigo = num ? `${num}${opcao?.letra || ""}` : "";
+  const comCodigo = codigo && !base.includes(codigo) ? `[${codigo}] ${base}` : base;
+  const variante = (opcao?.nome || "").trim();
+  const comVariante = variante ? `${comCodigo} - ${variante}` : comCodigo;
   // Barra e dois-pontos viram nome de pasta ou quebram o download no Finder.
-  return `${comCodigo} - Proposta Adverse`.replace(/[/\\:*?"<>|]+/g, "-");
+  return `${comVariante} - Proposta Adverse`.replace(/[/\\:*?"<>|]+/g, "-");
 }

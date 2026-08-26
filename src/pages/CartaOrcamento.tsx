@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { baixarCartaPdf } from "@/lib/cartaPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { nomeArquivoProposta } from "@/lib/produtora";
+import { orcamentoDaCarta, letraDaOpcao } from "@/lib/orcamentoDaCarta";
 import { ArrowLeft, Printer, Save, Loader2, Pencil, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,16 +56,16 @@ export default function CartaOrcamento() {
       //
       // `?opcao=` vem do editor com a opção aberta. Sem ele (link direto,
       // favorito antigo), cai no PRINCIPAL — nunca no mais recente.
-      const { data: budget } = opcaoId
-        ? await (supabase as any).from("budgets").select("*").eq("id", opcaoId).maybeSingle()
-        : await (supabase as any)
-            .from("budgets").select("*")
-            .eq("deal_id", deal.id)
-            .is("parent_budget_id", null)
-            .eq("is_latest_version", true)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      // Busca TODAS as opções do negócio e escolhe aqui, com a regra que tem
+      // teste (orcamentoDaCarta). Buscar por id solto também funcionaria, mas
+      // aceitaria um id de OUTRO negócio vindo pela URL — e é da mesma lista
+      // que sai a letra que diferencia os arquivos exportados.
+      const { data: opcoes } = await (supabase as any)
+        .from("budgets").select("*")
+        .eq("deal_id", deal.id)
+        .order("created_at", { ascending: true });
+      const budget = orcamentoDaCarta<any>(opcoes || [], opcaoId);
+      const letra = letraDaOpcao<any>(opcoes || [], budget?.id);
       // Elenco vem da planilha (categoria 006), sem valor: a carta mostra
       // quem aparece no filme, não quanto custa cada um.
       const { data: cats } = await (supabase as any)
@@ -78,7 +79,7 @@ export default function CartaOrcamento() {
       const elenco = (itens || [])
         .filter((i: any) => Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0) > 0)
         .map((i: any) => ({ nome: i.descricao || i.item_name, qtd: i.quantity, diarias: i.diaria }));
-      return { deal, budget, elenco };
+      return { deal, budget, elenco, letra };
     },
   });
 
@@ -89,7 +90,7 @@ export default function CartaOrcamento() {
    */
   const imprimir = () => {
     const antes = document.title;
-    document.title = nomeArquivoProposta(data?.deal?.title, data?.deal?.numero);
+    document.title = nomeArquivoProposta(data?.deal?.title, data?.deal?.numero, { letra: data?.letra, nome: (data?.budget as any)?.variante_nome });
     const restaurar = () => {
       document.title = antes;
       window.removeEventListener("afterprint", restaurar);
@@ -106,7 +107,7 @@ export default function CartaOrcamento() {
   const [gerando, setGerando] = useState(false);
   const baixarEscuro = async () => {
     setGerando(true);
-    const r = await baixarCartaPdf(nomeArquivoProposta(data?.deal?.title, data?.deal?.numero));
+    const r = await baixarCartaPdf(nomeArquivoProposta(data?.deal?.title, data?.deal?.numero, { letra: data?.letra, nome: (data?.budget as any)?.variante_nome }));
     setGerando(false);
     if (!r.ok) {
       toast.error("Não consegui gerar o PDF escuro — abrindo a impressão normal.", {

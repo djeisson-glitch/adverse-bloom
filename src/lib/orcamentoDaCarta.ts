@@ -43,3 +43,32 @@ export function orcamentoDaCarta<T extends OpcaoOrcamento>(
 
   return principais[0] ?? null;
 }
+
+/**
+ * Qual LETRA identifica esta opção no nome do arquivo exportado.
+ *
+ * Djêisson (26/08): "ao exportar as propostas, elas venham com nome único, se
+ * não fica parecendo que é a mesma". Duas opções do mesmo negócio saíam com o
+ * mesmo `[0329] TITULO - Proposta Adverse`, e na mesa do cliente viravam dois
+ * arquivos indistinguíveis.
+ *
+ * A letra vem da ORDEM DE CRIAÇÃO: a principal nasce primeiro e é sempre A.
+ * Só aparece quando existe mais de uma opção — num negócio com uma proposta
+ * só, `[0329A]` seria ruído sem informação.
+ *
+ * Limite conhecido: apagar uma opção do meio desloca as letras das seguintes.
+ * Por isso o nome do arquivo carrega TAMBÉM o nome da variante, que não se
+ * desloca — a letra separa, o nome diz qual é.
+ */
+export function letraDaOpcao<T extends OpcaoOrcamento>(todos: T[], id?: string | null): string {
+  const vivos = (todos || [])
+    .filter((b) => b.is_latest_version !== false)
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
+  if (vivos.length < 2 || !id) return "";
+  const i = vivos.findIndex((b) => b.id === id);
+  if (i < 0) return "";
+  // 26 opções no mesmo negócio não acontece; se acontecer, AA, AB...
+  return i < 26
+    ? String.fromCharCode(65 + i)
+    : String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
+}

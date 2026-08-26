@@ -38,8 +38,8 @@ export function AssistenteFlutuante() {
     queryKey: ["flut-profiles"],
     enabled: aberto || conversas,
     queryFn: async () => {
-      const { data } = await (supabase as any).from("profiles").select("id, full_name, avatar_url");
-      return (data || []) as { id: string; full_name: string | null }[];
+      const { data } = await (supabase as any).from("profiles").select("id, full_name, avatar_url, ativo");
+      return (data || []) as { id: string; full_name: string | null; ativo?: boolean }[];
     },
   });
 
@@ -230,7 +230,7 @@ function ConversasLista({ onAbrir }: { onAbrir: (t: Thread) => void }) {
 }
 
 /* -------------------------------------------------- Aba Conversas: thread */
-function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: { id: string; full_name: string | null }[]; onVoltar: () => void }) {
+function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: { id: string; full_name: string | null; ativo?: boolean }[]; onVoltar: () => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [body, setBody] = useState("");
@@ -256,7 +256,10 @@ function ThreadView({ thread, profiles, onVoltar }: { thread: Thread; profiles: 
     const txt = body.trim();
     if (!txt || enviando) return;
     setEnviando(true);
-    const mentions = profiles.filter((p) => {
+    // Sugere so' quem esta na operacao. A lista completa continua servindo
+    // pra escrever o nome de quem comentou antes (mais abaixo) -- por isso o
+    // corte e' aqui e nao na consulta.
+    const mentions = profiles.filter((p) => p.ativo !== false).filter((p) => {
       const nome = (p.full_name || "").split(" ")[0].toLowerCase();
       return nome && txt.toLowerCase().includes(`@${nome}`);
     }).map((p) => p.id);

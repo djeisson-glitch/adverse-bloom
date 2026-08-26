@@ -72,11 +72,23 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
   const { data: editores = [] } = useQuery({
     queryKey: ["intake-editores"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("profiles").select("id, full_name, avatar_url").order("full_name");
+      const { data, error } = await (supabase as any).from("profiles").select("id, full_name, avatar_url, ativo").order("full_name");
       if (error) throw error;
-      return data as { id: string; full_name: string | null }[];
+      return data as { id: string; full_name: string | null; ativo?: boolean }[];
     },
   });
+
+  /**
+   * Só oferece quem está na operação — mas mantém quem JÁ está configurado,
+   * mesmo que tenha saído. Sem isso o campo apareceria vazio e o próximo
+   * salvar apagaria a escolha sem ninguém perceber.
+   */
+  const opcoesEditor = (atual?: string) => {
+    const naOperacao = editores.filter((e) => e.ativo !== false);
+    if (!atual || naOperacao.some((e) => e.id === atual)) return naOperacao;
+    const fora = editores.find((e) => e.id === atual);
+    return fora ? [...naOperacao, fora] : naOperacao;
+  };
 
   useEffect(() => {
     if (cli && !hidratado) {
@@ -228,7 +240,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">— nenhum —</SelectItem>
-                        {editores.map((e) => (
+                        {opcoesEditor((form as any)[campo]).map((e) => (
                           <SelectItem key={e.id} value={e.id}>{e.full_name || "—"}</SelectItem>
                         ))}
                       </SelectContent>

@@ -13,7 +13,7 @@ import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
  * Enter envia (quando onSubmit é passado); Shift+Enter quebra linha. Enquanto a
  * lista de menção está aberta, o Enter escolhe a pessoa (não envia).
  */
-export type PessoaMencionavel = { id: string; full_name?: string | null; email?: string | null };
+export type PessoaMencionavel = { id: string; full_name?: string | null; email?: string | null; ativo?: boolean };
 
 function primeiroNome(p: PessoaMencionavel) {
   return (p.full_name || p.email || "").split(" ")[0] || "";
@@ -52,6 +52,11 @@ export function MentionTextarea({
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
     return profiles
+      // Quem saiu da operacao nao e' SUGERIDO. A lista inteira continua
+      // chegando aqui de proposito: e' ela que resolve o nome de quem
+      // escreveu mensagem antiga. Filtrar na consulta apagaria o historico.
+      // `!== false` e nao `=== true`: quem nao manda o campo segue aparecendo.
+      .filter((p) => p.ativo !== false)
       .filter((p) => {
         const nome = rotulo(p)
           .toLowerCase()
