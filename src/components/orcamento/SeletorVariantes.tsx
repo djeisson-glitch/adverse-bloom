@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Plus } from "lucide-react";
+import { Copy, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { usePrompt } from "@/components/ui/confirm";
+import { usePrompt, useConfirm } from "@/components/ui/confirm";
 import { formatCurrency } from "@/lib/format";
 
 /**
@@ -38,6 +38,8 @@ export function SeletorVariantes({ dealId, atual, budgetAtualId, onTrocar }: {
 }) {
   const qc = useQueryClient();
   const perguntar = usePrompt();
+  const confirmar = useConfirm();
+  const [excluindo, setExcluindo] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
 
   const { data: variantes = [], error: erroLista } = useQuery({
@@ -106,6 +108,62 @@ export function SeletorVariantes({ dealId, atual, budgetAtualId, onTrocar }: {
     toast.success(`Opção "${nome.trim()}" criada`, { description: "Agora ajuste o que muda nela." });
   }
 
+  /**
+   * Exclui UMA opção. O banco é quem decide se pode — a tela só pergunta e
+   * mostra o motivo.
+   *
+   * Duas chamadas de propósito: a primeira traz o veredito e o que se perde
+   * junto, pra isso aparecer ANTES do clique de confirmação; a segunda repete
+   * as checagens ao executar, porque uma tela aberta há dez minutos pode estar
+   * olhando um mundo que mudou.
+   */
+  async function excluir(id: string, rotulo: string) {
+    setExcluindo(id);
+    const { data: veredito, error } = await (supabase as any).rpc("pode_excluir_opcao", { _id: id });
+    setExcluindo(null);
+    if (error) {
+      toast.error("Não consegui verificar a exclusão", { description: error.message });
+      return;
+    }
+    if (!veredito?.pode) {
+      // Bloqueio não é erro do usuário: é uma regra protegendo alguma coisa.
+      toast.warning(`"${rotulo}" não pode ser excluída`, { description: veredito?.motivo });
+      return;
+    }
+
+    const avisos: string[] = veredito.avisos ?? [];
+    const ok = await confirmar({
+      title: `Excluir a opção "${rotulo}"?`,
+      // Lista item a item o que vai junto: "76 linhas da planilha" e "o link
+      // do cliente para de funcionar" são coisas que ninguém quer descobrir
+      // depois de clicar.
+      description: (
+        <span className="block space-y-1.5">
+          <span className="block">Isto não tem desfazer.</span>
+          {avisos.map((a, i) => (
+            <span key={i} className="block text-xs">· {a}</span>
+          ))}
+        </span>
+      ),
+      confirmText: "Excluir opção",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setExcluindo(id);
+    const { error: erroEx } = await (supabase as any).rpc("excluir_opcao_orcamento", { _id: id });
+    setExcluindo(null);
+    if (erroEx) {
+      toast.error("Não excluiu", { description: erroEx.message });
+      return;
+    }
+    // Se a apagada era a que estava aberta, volta pra Principal — senão a tela
+    // fica exibindo um orçamento que não existe mais.
+    if (id === selecionada) onTrocar(null);
+    await qc.invalidateQueries({ queryKey: ["orcamento-variantes", dealId] });
+    toast.success(`Opção "${rotulo}" excluída`);
+  }
+
   // Uma opção só: mostra QUAL está aberta + o botão de criar a segunda.
   //
   // Antes aqui vinha só o botão, com o argumento de que a barra seria ruído
@@ -133,18 +191,30 @@ export function SeletorVariantes({ dealId, atual, budgetAtualId, onTrocar }: {
       {variantes.map((v) => {
         const ativa = v.id === selecionada;
         return (
-          <button
+          <div
             key={v.id}
-            onClick={() => onTrocar(v.principal ? null : v.id)}
-            className={`rounded-md border px-2.5 py-1 text-left text-xs transition-colors ${
+            className={`group relative rounded-md border pl-2.5 pr-6 py-1 text-left text-xs transition-colors ${
               ativa ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary/40"
             }`}
           >
-            <span className="block font-medium">{v.variante_nome ?? "Principal"}</span>
-            <span className="block tabular-nums text-[10px] opacity-70">
-              {formatCurrency(Number(v.total_value || 0))} · {v.itens} itens
-            </span>
-          </button>
+            <button onClick={() => onTrocar(v.principal ? null : v.id)} className="block w-full text-left">
+              <span className="block font-medium">{v.variante_nome ?? "Principal"}</span>
+              <span className="block tabular-nums text-[10px] opacity-70">
+                {formatCurrency(Number(v.total_value || 0))} · {v.itens} itens
+              </span>
+            </button>
+            {/* Só no hover: apagar orçamento não é ação que se oferece o tempo
+                todo ao lado de um clique de trocar de aba. */}
+            <button
+              onClick={() => excluir(v.id, v.variante_nome ?? "Principal")}
+              disabled={excluindo === v.id}
+              title="Excluir esta opção"
+              aria-label={`Excluir a opção ${v.variante_nome ?? "Principal"}`}
+              className="absolute right-1 top-1 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive focus:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
         );
       })}
       <Button size="sm" variant="ghost" onClick={duplicar} disabled={criando} title="Duplicar a opção aberta">
