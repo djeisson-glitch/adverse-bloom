@@ -215,6 +215,20 @@
   /* Marca explícita: qualquer componente pode se declarar fora do papel. */
   .no-print { display: none !important; }
 
+  /* SÓ IMPRIME O QUE É NOSSO.
+     Extensão de navegador injeta elemento solto como filho direto do <body>, e
+     o window.print() imprime o que estiver lá: o Apollo carimbou o logo dele no
+     rodapé de uma proposta que foi PRO CLIENTE (Djêisson, 02/09). Não dá pra
+     listar extensão por extensão — a regra é por exclusão.
+
+     Pega junto os portais do Radix (toast, popover, dropdown), que também
+     nascem soltos no body e não têm o que fazer no papel.
+
+     `.folha` fica de fora porque o gerador do PDF escuro (api/carta-pdf.ts)
+     monta a própria página, recebe este mesmo CSS e não tem #root: sem a
+     exceção, o PDF sairia EM BRANCO. */
+  body > *:not(#root):not(.folha) { display: none !important; }
+
   /* A moldura: menu lateral, cabeçalho fixo, botões flutuantes. Escondida
      por atributo porque são componentes de terceiros que não aceitam
      className em todos os nós. */
