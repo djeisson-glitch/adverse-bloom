@@ -48,6 +48,54 @@ type Item = {
 const valorDaLinha = (i: Item) =>
   Number(i.quantity || 0) * Number(i.diaria ?? 1) * Number(i.client_unit_price || 0);
 
+/**
+ * Lista editável (incluso / não incluso).
+ *
+ * MORA AQUI FORA de propósito. Definida dentro de CartaSimples, ela virava uma
+ * função NOVA a cada render — e o React trata função nova como componente
+ * diferente: desmontava o <Input> e montava outro. Na prática, o campo perdia
+ * o FOCO a cada tecla digitada (Djêisson, 26/08).
+ *
+ * O tsc não vê isso e teste com fireEvent também não: só aparece digitando.
+ * Por isso a regra react/no-unstable-nested-components entrou no build.
+ */
+function ListaEditavel({ itens, onChange }: { itens: string[]; onChange: (l: string[]) => void }) {
+  return (
+    <div className="space-y-1">
+      {itens.map((t, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <Input
+            value={t}
+            onChange={(e) => onChange(itens.map((x, j) => (j === i ? e.target.value : x)))}
+            className="h-7 text-xs"
+          />
+          <button onClick={() => onChange(itens.filter((_, j) => j !== i))}
+                  className="shrink-0 text-muted-foreground hover:text-destructive" title="Remover">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+      <button onClick={() => onChange([...itens, ""])}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+        <Plus className="h-3 w-3" /> adicionar
+      </button>
+    </div>
+  );
+}
+
+/** Uma chave do painel de exibição. Fora pelo mesmo motivo da lista acima. */
+function Chave<V extends Record<string, boolean>>({ k, rot, ver, setVer }: {
+  k: keyof V & string; rot: string;
+  ver: V; setVer: (f: (o: V) => V) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 py-1.5 text-xs">
+      <span>{rot}</span>
+      <Switch checked={ver[k]} onCheckedChange={(v) => setVer((o) => ({ ...o, [k]: v }))} />
+    </label>
+  );
+}
+
 export default function CartaSimples() {
   const { id } = useParams<{ id: string }>();
   // Qual OPÇÃO do orçamento esta carta representa. Vem do editor (`?opcao=`);
@@ -200,37 +248,6 @@ export default function CartaSimples() {
   const listaNaoIncl = txt.naoIncl ?? cond.naoInclusos.map((c) => c.rotulo + (c.obs ? ` — ${c.obs}` : ""));
   const criacao = data.budget?.created_at || data.deal?.created_at;
 
-  /** Uma chave do painel de exibição. */
-  const Chave = ({ k, rot }: { k: keyof typeof ver; rot: string }) => (
-    <label className="flex cursor-pointer items-center justify-between gap-4 py-1.5 text-xs">
-      <span>{rot}</span>
-      <Switch checked={ver[k]} onCheckedChange={(v) => setVer((o) => ({ ...o, [k]: v }))} />
-    </label>
-  );
-
-  /** Lista editável (incluso / não incluso). */
-  const ListaEditavel = ({ itens, onChange }: { itens: string[]; onChange: (l: string[]) => void }) => (
-    <div className="space-y-1">
-      {itens.map((t, i) => (
-        <div key={i} className="flex items-center gap-1">
-          <Input
-            value={t}
-            onChange={(e) => onChange(itens.map((x, j) => (j === i ? e.target.value : x)))}
-            className="h-7 text-xs"
-          />
-          <button onClick={() => onChange(itens.filter((_, j) => j !== i))}
-                  className="shrink-0 text-muted-foreground hover:text-destructive" title="Remover">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      ))}
-      <button onClick={() => onChange([...itens, ""])}
-              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
-        <Plus className="h-3 w-3" /> adicionar
-      </button>
-    </div>
-  );
-
   return (
     <>
       <style>{`
@@ -276,19 +293,19 @@ export default function CartaSimples() {
                 <span>Detalhar item a item</span>
                 <Switch checked={detalhada} onCheckedChange={setDetalhada} />
               </label>
-              <Chave k="itens" rot="Mostrar a tabela" />
-              <Chave k="quantidade" rot="Coluna de quantidade" />
-              <Chave k="valorLinha" rot="Valor por linha" />
-              {ver.valorLinha && detalhada && <Chave k="unitario" rot="Preço unitário" />}
+              <Chave k="itens" rot="Mostrar a tabela" ver={ver} setVer={setVer} />
+              <Chave k="quantidade" rot="Coluna de quantidade" ver={ver} setVer={setVer} />
+              <Chave k="valorLinha" rot="Valor por linha" ver={ver} setVer={setVer} />
+              {ver.valorLinha && detalhada && <Chave k="unitario" rot="Preço unitário" ver={ver} setVer={setVer} />}
 
               <p className="mb-1 mt-3 border-t border-border/50 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Cabeçalho</p>
-              <Chave k="criacao" rot="Data de criação do orçamento" />
-              <Chave k="emissao" rot="Data de emissão deste papel" />
-              <Chave k="validade" rot="Validade" />
+              <Chave k="criacao" rot="Data de criação do orçamento" ver={ver} setVer={setVer} />
+              <Chave k="emissao" rot="Data de emissão deste papel" ver={ver} setVer={setVer} />
+              <Chave k="validade" rot="Validade" ver={ver} setVer={setVer} />
 
               <p className="mb-1 mt-3 border-t border-border/50 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rodapé</p>
-              <Chave k="inclusos" rot="Incluso / não incluso" />
-              <Chave k="condicoes" rot="Condições" />
+              <Chave k="inclusos" rot="Incluso / não incluso" ver={ver} setVer={setVer} />
+              <Chave k="condicoes" rot="Condições" ver={ver} setVer={setVer} />
             </PopoverContent>
           </Popover>
 

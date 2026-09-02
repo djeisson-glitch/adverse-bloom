@@ -22,6 +22,19 @@ type Estado = { permissao: string; assinatura: boolean | null; ultimo: string | 
  *  • o REAL faz a volta inteira pelo servidor. Se o local aparece e o real
  *    não, o problema é assinatura/entrega.
  */
+// Fora do componente pai de propósito: definida dentro, ela nasceria de novo
+// a cada render e o React desmontaria a subárvore inteira. Ver a regra
+// react/no-unstable-nested-components em eslint.hooks.config.js.
+function Linha({ ok, label, detalhe }: { ok: boolean; label: string; detalhe?: string }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      {ok ? <Check className="h-4 w-4 shrink-0 text-success" /> : <X className="h-4 w-4 shrink-0 text-destructive" />}
+      <span className="text-foreground">{label}</span>
+      {detalhe && <span className="text-xs text-muted-foreground">· {detalhe}</span>}
+    </div>
+  );
+}
+
 export function DiagnosticoEntrega() {
   const [e, setE] = useState<Estado | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -77,14 +90,6 @@ export function DiagnosticoEntrega() {
       toast.error("Não deu", { description: err.message });
     } finally { setOcupado(null); }
   };
-
-  const Linha = ({ ok, label, detalhe }: { ok: boolean; label: string; detalhe?: string }) => (
-    <div className="flex items-center gap-2 text-sm">
-      {ok ? <Check className="h-4 w-4 shrink-0 text-success" /> : <X className="h-4 w-4 shrink-0 text-destructive" />}
-      <span className="text-foreground">{label}</span>
-      {detalhe && <span className="text-xs text-muted-foreground">· {detalhe}</span>}
-    </div>
-  );
 
   return (
     <Card className="glass-card">

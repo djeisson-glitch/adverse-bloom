@@ -49,6 +49,104 @@ type PortalData = {
 };
 
 /** Portal público sem auth. Só entra quem tem o token na URL. */
+type PecaCtx = {
+  nomeProjeto: (id: string) => string;
+  dataDe: (d: any) => string | null | undefined;
+  aprovador: string;
+  setAprovador: (v: string) => void;
+  ajusteDe: string | null;
+  setAjusteDe: (v: string | null) => void;
+  aprovar: { mutate: (id: string) => void; isPending: boolean };
+  ajusteTexto: string;
+  setAjusteTexto: (v: string) => void;
+  pedirAjuste: { mutate: (id: string) => void; isPending: boolean };
+};
+
+/**
+ * Um vídeo no portal do cliente.
+ *
+ * MORA AQUI FORA de propósito. Definida dentro de PortalPublico, ela nascia de
+ * novo a cada render e o React desmontava a subárvore — e esta peça tem um
+ * <Input> (o nome de quem aprova) e um <Textarea> (o pedido de ajuste). Ou
+ * seja: o CLIENTE perderia o foco a cada tecla, o mesmo defeito que o Djêisson
+ * viu no editor da carta (26/08).
+ *
+ * O que vem do pai vai num objeto só: são dez coisas, e a alternativa seriam
+ * dez propriedades repetidas em três chamadas. Recriar o objeto a cada render
+ * não faz mal — o React re-renderiza, mas não REMONTA, e é o remonte que
+ * matava o foco.
+ */
+function Peca({ d, acoes, ctx }: { d: any; acoes?: boolean; ctx: PecaCtx }) {
+  return (
+    <div className="rounded-md border border-border/40 bg-muted/20 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-tight text-foreground">{d.titulo}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {ctx.nomeProjeto(d.project_id)}
+            {ctx.dataDe(d) ? ` · ${formatDate(ctx.dataDe(d))}` : ""}
+            {d.horas ? ` · ${d.horas}h` : ""}
+          </p>
+        </div>
+        <span className={statusChip(d.status)}>{prettyStatus(d.status)}</span>
+      </div>
+
+      {d.arquivo_url && (
+        <a
+          href={d.arquivo_url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Assistir no Frame.io
+        </a>
+      )}
+
+      {acoes && (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              placeholder="Seu nome"
+              value={ctx.aprovador}
+              onChange={(e) => ctx.setAprovador(e.target.value)}
+              className="max-w-[180px]"
+            />
+            <Button size="sm" variant="outline" onClick={() => ctx.setAjusteDe(ctx.ajusteDe === d.id ? null : d.id)}>
+              <RefreshCw className="mr-1 h-3.5 w-3.5" />
+              Pedir ajuste
+            </Button>
+            <Button
+              size="sm"
+              className="bg-success text-white hover:bg-success/90"
+              onClick={() => ctx.aprovar.mutate(d.id)}
+              disabled={ctx.aprovar.isPending}
+            >
+              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+              Aprovar
+            </Button>
+          </div>
+          {ctx.ajusteDe === d.id && (
+            <div className="space-y-2 rounded-md border border-border/40 bg-background/50 p-2">
+              <Textarea
+                rows={2}
+                value={ctx.ajusteTexto}
+                onChange={(e) => ctx.setAjusteTexto(e.target.value)}
+                placeholder="O que precisa ajustar?"
+              />
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => ctx.pedirAjuste.mutate(d.id)} disabled={ctx.pedirAjuste.isPending}>
+                  Enviar ajuste
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PortalPublico() {
   const { token } = useParams<{ token: string }>();
   const qc = useQueryClient();
@@ -184,74 +282,11 @@ export default function PortalPublico() {
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   /** Uma peça. O nome dela em cima; projeto e prazo como legenda. */
-  const Peca = ({ d, acoes }: { d: any; acoes?: boolean }) => (
-    <div className="rounded-md border border-border/40 bg-muted/20 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium leading-tight text-foreground">{d.titulo}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {nomeProjeto(d.project_id)}
-            {dataDe(d) ? ` · ${formatDate(dataDe(d))}` : ""}
-            {d.horas ? ` · ${d.horas}h` : ""}
-          </p>
-        </div>
-        <span className={statusChip(d.status)}>{prettyStatus(d.status)}</span>
-      </div>
-
-      {d.arquivo_url && (
-        <a
-          href={d.arquivo_url}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Assistir no Frame.io
-        </a>
-      )}
-
-      {acoes && (
-        <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="Seu nome"
-              value={aprovador}
-              onChange={(e) => setAprovador(e.target.value)}
-              className="max-w-[180px]"
-            />
-            <Button size="sm" variant="outline" onClick={() => setAjusteDe(ajusteDe === d.id ? null : d.id)}>
-              <RefreshCw className="mr-1 h-3.5 w-3.5" />
-              Pedir ajuste
-            </Button>
-            <Button
-              size="sm"
-              className="bg-success text-white hover:bg-success/90"
-              onClick={() => aprovar.mutate(d.id)}
-              disabled={aprovar.isPending}
-            >
-              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-              Aprovar
-            </Button>
-          </div>
-          {ajusteDe === d.id && (
-            <div className="space-y-2 rounded-md border border-border/40 bg-background/50 p-2">
-              <Textarea
-                rows={2}
-                value={ajusteTexto}
-                onChange={(e) => setAjusteTexto(e.target.value)}
-                placeholder="O que precisa ajustar?"
-              />
-              <div className="flex justify-end">
-                <Button size="sm" onClick={() => pedirAjuste.mutate(d.id)} disabled={pedirAjuste.isPending}>
-                  Enviar ajuste
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  // Tudo o que a <Peca> precisa do pai, num objeto só — ver o comentário dela.
+  const pecaCtx: PecaCtx = {
+    nomeProjeto, dataDe, aprovador, setAprovador, ajusteDe, setAjusteDe,
+    aprovar, ajusteTexto, setAjusteTexto, pedirAjuste,
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -301,7 +336,7 @@ export default function PortalPublico() {
               Esperando você · {precisaDeVoce.length}
             </h2>
             <div className="space-y-2">
-              {precisaDeVoce.map((d) => <Peca key={d.id} d={d} acoes />)}
+              {precisaDeVoce.map((d) => <Peca key={d.id} d={d} acoes ctx={pecaCtx} />)}
             </div>
           </section>
         )}
@@ -312,7 +347,7 @@ export default function PortalPublico() {
               Em produção · {emProducao.length}
             </h2>
             <div className="space-y-2">
-              {emProducao.map((d) => <Peca key={d.id} d={d} />)}
+              {emProducao.map((d) => <Peca key={d.id} d={d} ctx={pecaCtx} />)}
             </div>
           </section>
         )}
@@ -325,7 +360,7 @@ export default function PortalPublico() {
             <div className="space-y-2">
               {lista
                 .sort((a, b) => (dataDe(b) || "").localeCompare(dataDe(a) || ""))
-                .map((d) => <Peca key={d.id} d={d} />)}
+                .map((d) => <Peca key={d.id} d={d} ctx={pecaCtx} />)}
             </div>
           </section>
         ))}

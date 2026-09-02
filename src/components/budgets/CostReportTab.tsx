@@ -18,6 +18,15 @@ interface Props {
   items: BudgetItem[];
 }
 
+// Fora do componente pai de propósito: definida dentro, ela nasceria de novo
+// a cada render e o React desmontaria a subárvore inteira. Ver a regra
+// react/no-unstable-nested-components em eslint.hooks.config.js.
+function DeltaIcon({ value }: { value: number }) {
+  if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-[hsl(var(--success))]" />;
+  if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-destructive" />;
+  return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
+}
+
 export function CostReportTab({ budget, items }: Props) {
   const { data: costs = [] } = useQuery({
     queryKey: ["project_costs", budget.id],
@@ -85,12 +94,6 @@ export function CostReportTab({ budget, items }: Props) {
       byCategory,
     };
   }, [budget, items, costs]);
-
-  const DeltaIcon = ({ value }: { value: number }) => {
-    if (value > 0) return <TrendingUp className="h-3.5 w-3.5 text-[hsl(var(--success))]" />;
-    if (value < 0) return <TrendingDown className="h-3.5 w-3.5 text-destructive" />;
-    return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
-  };
 
   const deltaColor = (v: number) => v > 0 ? "text-[hsl(var(--success))]" : v < 0 ? "text-destructive" : "text-muted-foreground";
   const deltaPrefix = (v: number) => v > 0 ? "-" : v < 0 ? "+" : "";

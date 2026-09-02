@@ -4,6 +4,7 @@
 // e o tsc não pega: hook chamado condicionalmente / depois de early return
 // (React #310). Mantém o build barato e o time protegido dessa classe de bug.
 import reactHooks from "eslint-plugin-react-hooks";
+import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 
 export default [
@@ -17,9 +18,16 @@ export default [
       parser: tseslint.parser,
       parserOptions: { ecmaFeatures: { jsx: true }, sourceType: "module" },
     },
-    plugins: { "react-hooks": reactHooks },
+    plugins: { "react-hooks": reactHooks, react },
     rules: {
       "react-hooks/rules-of-hooks": "error",
+
+      // Componente declarado DENTRO de outro componente: a cada render nasce
+      // uma função nova, o React entende "outro componente" e desmonta o que
+      // estava lá. Num <Input> isso significa perder o FOCO a cada tecla — foi
+      // o que aconteceu no editor de textos da carta simples (26/08).
+      // Invisível pro tsc e pros testes: só aparece digitando.
+      "react/no-unstable-nested-components": ["error", { allowAsProps: true }],
     },
   },
 ];

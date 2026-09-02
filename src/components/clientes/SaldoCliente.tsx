@@ -32,6 +32,22 @@ const VAZIO = { data: hojeISO(), descricao: "", valor: "", edicoes: "", diarias:
  *
  * Interno: não vai pro portal do cliente.
  */
+const qtd = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "").replace(".", ","));
+
+// Fora do componente pai de propósito: definida dentro, ela nasceria de novo
+// a cada render e o React desmontaria a subárvore inteira. Ver a regra
+// react/no-unstable-nested-components em eslint.hooks.config.js.
+function Numero({ label, v, moeda }: { label: string; v: number; moeda?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`text-lg font-semibold ${v < 0 ? "text-destructive" : v > 0 ? "text-success" : "text-muted-foreground"}`}>
+        {moeda ? formatCurrency(v) : qtd(v)}
+      </p>
+    </div>
+  );
+}
+
 export default function SaldoCliente({ clientId }: { clientId: string }) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -95,16 +111,6 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
   };
 
   /** 7 vira "7", 0.5 vira "0,5" — meia diária é rotina, meia vírgula-zero-zero não. */
-  const qtd = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, "").replace(".", ","));
-
-  const Numero = ({ label, v, moeda }: { label: string; v: number; moeda?: boolean }) => (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold ${v < 0 ? "text-destructive" : v > 0 ? "text-success" : "text-muted-foreground"}`}>
-        {moeda ? formatCurrency(v) : qtd(v)}
-      </p>
-    </div>
-  );
 
   return (
     <Card className="glass-card">

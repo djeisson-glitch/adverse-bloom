@@ -122,6 +122,25 @@ function getMarginColor(margin: number): string {
 const statusLabels: Record<string, string> = { draft: "Rascunho", approved: "Aprovado", rejected: "Rejeitado" };
 const statusVariants: Record<string, "default" | "secondary" | "destructive"> = { draft: "secondary", approved: "default", rejected: "destructive" };
 
+// Fora do componente pai de propósito: definidas dentro, nasceriam de novo a
+// cada render e o React desmontaria a subárvore. Ver a regra
+// react/no-unstable-nested-components em eslint.hooks.config.js.
+function SortIcon({ field, sort, sortDir }: { field: SortField; sort: string; sortDir: string }) {
+  if (sort !== field) return null;
+  return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 inline" /> : <ChevronDown className="h-3 w-3 ml-1 inline" />;
+}
+
+function SortableHead({ field, children, className, sort, sortDir, onSort }: {
+  field: SortField; children: React.ReactNode; className?: string;
+  sort: string; sortDir: string; onSort: (f: SortField) => void;
+}) {
+  return (
+    <TableHead className={`cursor-pointer select-none hover:text-foreground transition-colors ${className ?? ""}`} onClick={() => onSort(field)}>
+      <span className="inline-flex items-center">{children}<SortIcon field={field} sort={sort} sortDir={sortDir} /></span>
+    </TableHead>
+  );
+}
+
 export default function Orcamentos() {
   const { data: budgets = [], isLoading } = useBudgets();
   const deleteBudget = useDeleteBudget();
@@ -344,17 +363,6 @@ export default function Orcamentos() {
     );
   }
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (filters.sort !== field) return null;
-    return filters.sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 inline" /> : <ChevronDown className="h-3 w-3 ml-1 inline" />;
-  };
-
-  const SortableHead = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
-    <TableHead className={`cursor-pointer select-none hover:text-foreground transition-colors ${className ?? ""}`} onClick={() => toggleSort(field)}>
-      <span className="inline-flex items-center">{children}<SortIcon field={field} /></span>
-    </TableHead>
-  );
-
   // ── Filter bar ──
   const filterBar = (
     <div className="space-y-3">
@@ -495,11 +503,11 @@ export default function Orcamentos() {
       <Table>
         <TableHeader>
           <TableRow className="bg-card hover:bg-card">
-            <SortableHead field="number" className="w-[100px]">Número</SortableHead>
-            <SortableHead field="date">Projeto</SortableHead>
-            <SortableHead field="client">Cliente</SortableHead>
-            <SortableHead field="total" className="text-right">Total</SortableHead>
-            <SortableHead field="margin" className="text-right">Margem</SortableHead>
+            <SortableHead sort={filters.sort} sortDir={filters.sortDir} onSort={toggleSort} field="number" className="w-[100px]">Número</SortableHead>
+            <SortableHead sort={filters.sort} sortDir={filters.sortDir} onSort={toggleSort} field="date">Projeto</SortableHead>
+            <SortableHead sort={filters.sort} sortDir={filters.sortDir} onSort={toggleSort} field="client">Cliente</SortableHead>
+            <SortableHead sort={filters.sort} sortDir={filters.sortDir} onSort={toggleSort} field="total" className="text-right">Total</SortableHead>
+            <SortableHead sort={filters.sort} sortDir={filters.sortDir} onSort={toggleSort} field="margin" className="text-right">Margem</SortableHead>
             <TableHead className="w-[60px]">Ações</TableHead>
           </TableRow>
         </TableHeader>
