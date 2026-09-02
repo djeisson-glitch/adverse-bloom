@@ -12,6 +12,10 @@ import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/format";
 import { PRODUTORA, nomeArquivoProposta } from "@/lib/produtora";
 import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
+// Apelidado: este helper quebra um texto em itens, e o arquivo já tem um
+// const chamado "linhas" que são as linhas da TABELA. Sem o apelido, o local
+// sombreia o import e o build quebra num erro que não explica a causa.
+import { linhas as emItens } from "@/components/CartaDocumento";
 import { useVoltar } from "@/hooks/useVoltar";
 import { porBloco, comPadroes } from "@/lib/condicoes";
 
@@ -124,12 +128,13 @@ export default function CartaSimples() {
     validade: true,
     condicoes: true,
     inclusos: true,
+    entregas: true,       // o que o escopo contempla
   });
   const [detalhada, setDetalhada] = useState(false);
 
   /** Textos editáveis do documento — vivem só nesta tela até serem salvos. */
-  const [txt, setTxt] = useState<{ condicoes: string | null; incl: string[] | null; naoIncl: string[] | null }>({
-    condicoes: null, incl: null, naoIncl: null,
+  const [txt, setTxt] = useState<{ condicoes: string | null; incl: string[] | null; naoIncl: string[] | null; entregas: string[] | null }>({
+    condicoes: null, incl: null, naoIncl: null, entregas: null,
   });
 
   const { data, isLoading } = useQuery({
@@ -149,7 +154,7 @@ export default function CartaSimples() {
       // sem ela as opções saíam com nome idêntico, porque budget_number é o
       // MESMO nas variantes (só o variante_nome muda).
       const { data: opcoes } = await (supabase as any).from("budgets")
-        .select("id, budget_number, total_value, condicoes, created_at, variante_nome, parent_budget_id, is_latest_version")
+        .select("id, budget_number, total_value, condicoes, created_at, variante_nome, parent_budget_id, is_latest_version, proposta")
         .eq("deal_id", id).order("created_at", { ascending: true });
       const escolhido = orcamentoDaCarta<any>(opcoes || [], opcaoId);
       const budget = { data: escolhido };
@@ -246,6 +251,10 @@ export default function CartaSimples() {
   const condicoesTexto = txt.condicoes ?? condPadrao;
   const listaIncl = txt.incl ?? cond.inclusos.map((c) => c.rotulo + (c.obs ? ` — ${c.obs}` : ""));
   const listaNaoIncl = txt.naoIncl ?? cond.naoInclusos.map((c) => c.rotulo + (c.obs ? ` — ${c.obs}` : ""));
+  // Mesma fonte da carta completa (budgets.proposta.entregas_texto), pra as
+  // duas dizerem a MESMA coisa sobre o que o cliente está comprando. Editar
+  // aqui vale só para este documento, como os outros campos deste painel.
+  const listaEntregas = txt.entregas ?? emItens((data?.budget as any)?.proposta?.entregas_texto);
   const criacao = data.budget?.created_at || data.deal?.created_at;
 
   return (
@@ -304,6 +313,7 @@ export default function CartaSimples() {
               <Chave k="validade" rot="Validade" ver={ver} setVer={setVer} />
 
               <p className="mb-1 mt-3 border-t border-border/50 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Rodapé</p>
+              <Chave k="entregas" rot="Entregas do escopo" ver={ver} setVer={setVer} />
               <Chave k="inclusos" rot="Incluso / não incluso" ver={ver} setVer={setVer} />
               <Chave k="condicoes" rot="Condições" ver={ver} setVer={setVer} />
             </PopoverContent>
@@ -324,6 +334,17 @@ export default function CartaSimples() {
                 </div>
                 <Textarea rows={3} className="text-xs" value={condicoesTexto}
                           onChange={(e) => setTxt((t) => ({ ...t, condicoes: e.target.value }))} />
+              </div>
+
+              <div className="mb-3">
+                <div className="mb-1 flex items-center justify-between">
+                  <Label className="text-xs">Entregas</Label>
+                  <button onClick={() => setTxt((t) => ({ ...t, entregas: null }))}
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                    <RotateCcw className="h-3 w-3" /> do orçamento
+                  </button>
+                </div>
+                <ListaEditavel itens={listaEntregas} onChange={(l) => setTxt((t) => ({ ...t, entregas: l }))} />
               </div>
 
               <div className="mb-3">
@@ -417,6 +438,15 @@ export default function CartaSimples() {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a8a8a]">Projeto</p>
             <p className="mt-0.5 text-sm font-semibold">{data.deal.title}</p>
             {data.deal.objetivo && <p className="mt-1 text-xs leading-relaxed text-[#555]">{data.deal.objetivo}</p>}
+          </div>
+        )}
+
+        {ver.entregas && listaEntregas.filter(Boolean).length > 0 && (
+          <div className="bloco mb-6 border-t border-[#d8d8d8] pt-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a8a8a]">Entregas</p>
+            <ul className="mt-1 space-y-0.5 text-xs text-[#333]">
+              {listaEntregas.filter(Boolean).map((t, i) => <li key={i}>· {t}</li>)}
+            </ul>
           </div>
         )}
 
