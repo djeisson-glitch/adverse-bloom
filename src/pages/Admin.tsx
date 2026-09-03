@@ -1,4 +1,4 @@
-import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package, ShieldAlert, BellRing , Layers} from "lucide-react";
+import { Users, GitBranch, Coins, Settings2, ShieldCheck, Package, ShieldAlert, BellRing, Layers, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -44,6 +44,24 @@ export default function Admin() {
         .select("id", { count: "exact", head: true })
         .eq("ativo", true);
       return count ?? 0;
+    },
+  });
+
+  /**
+   * O painel de Fornecedores & Freelas (/banco-talentos) saiu do menu no
+   * corte de 44→24 itens (23/08), com a promessa de que passaria a "entrar
+   * por Admin" — mas o link pra cá nunca foi criado. A rota continuava viva
+   * e os dados intactos; só não havia mais NENHUM caminho até ela pela
+   * interface. É o que o Djêisson viu como "sumiu" (02/09).
+   */
+  const { data: talentos = 0 } = useQuery({
+    queryKey: ["admin-talentos-count"],
+    queryFn: async () => {
+      const [f, fr] = await Promise.all([
+        (supabase as any).from("fornecedores").select("id", { count: "exact", head: true }),
+        (supabase as any).from("freelancers").select("id", { count: "exact", head: true }),
+      ]);
+      return (f.count ?? 0) + (fr.count ?? 0);
     },
   });
 
@@ -101,6 +119,12 @@ export default function Admin() {
       title: "Catálogo de itens",
       icon: Package,
       count: () => "valor unitário padrão + itens do porte médio",
+    },
+    {
+      href: "/banco-talentos",
+      title: "Fornecedores & Freelas",
+      icon: Truck,
+      count: () => `${talentos} cadastrados · perfil + links públicos de cadastro`,
     },
   ];
 

@@ -160,6 +160,12 @@ const GRUPOS: NavGrupo[] = [
     label: "Ajustes",
     itens: [
       { title: "Time", url: "/time", icon: UsersRound, module: "time" },
+      // Saiu no corte de 44→24 (23/08) com a promessa de "entrar por Admin",
+      // mas esse link nunca foi criado — ficou sem NENHUM caminho pela
+      // interface (só a URL direta). A rota é aberta a todo mundo (sem
+      // `module`, sem checagem de admin), então ela pertence aqui, não só no
+      // atalho dentro de Admin (Djêisson, 02/09).
+      { title: "Fornecedores & Freelas", url: "/banco-talentos", icon: Truck },
       { title: "Admin", url: "/admin", icon: Settings2, module: "admin" },
     ],
   },
