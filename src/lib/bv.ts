@@ -1,34 +1,41 @@
 /**
- * BV da agência — a fatia que sai do que o cliente paga ANTES de sobrar
- * dinheiro pra imposto e custo de produção.
+ * Imposto e BV da agência — os dois são fração do valor FINAL da nota, não
+ * acréscimo simples sobre uma base menor.
  *
- * Djêisson (09/09): "esse BV precisa incluir os impostos que irei pagar, ou
- * seja, se o projeto tem 15% de BV, o cliente irá pagar 10k mas eu ficarei
- * com 8.5k pra cobrir os impostos de 10k + custos de produção."
+ * BUG REAL, achado por uma análise externa que o Djêisson trouxe (09/09) logo
+ * depois do BV entrar no ar: o campo "Imposto" desta tela sempre calculou
+ * `(subtotal2 + comissões) × imposto%` — ou seja, sobre uma base MENOR que a
+ * nota fiscal de verdade. Receita Federal/Prefeitura não tributa custo+margem:
+ * tributa o VALOR BRUTO da nota, que é o total que o cliente paga. Rodando
+ * imposto sobre uma base pequena demais, a produtora reserva menos dinheiro
+ * do que realmente vai dever — o rombo sai do próprio bolso, silenciosamente,
+ * em TODO orçamento com imposto > 0 (os 19 que existem hoje, todos).
  *
- * Ou seja: BV não é acréscimo simples sobre a base (como imposto e comissão
- * já funcionam nesta planilha) — é uma fração do TOTAL FINAL. Por isso
- * "embrulha" por fora de tudo que já existe: pega o valor que o orçamento já
- * calcularia sem BV (custo + margem + comissão + imposto, sem tocar em nada
- * disso) e faz o cliente pagar o suficiente a mais pra que, depois de tirado
- * o BV, sobre exatamente esse mesmo valor — intacto, cobrindo o mesmo
- * imposto e o mesmo custo de sempre.
+ * A correção resolve imposto e BV JUNTOS, no mesmo denominador — a mesma
+ * fórmula que o sistema legado (OrcamentosLegado/budgetCalc.ts) já usava e
+ * que eu, por engano, decidi não reaproveitar ao construir o BV (achei que o
+ * imposto atual já estava certo; não estava — ver commit anterior).
  *
- *   valorComBV = valorAntesBV / (1 - bv%)
- *   bvValue    = valorComBV - valorAntesBV   (= valorComBV × bv%, por construção)
+ *   baseProtegida = custo + margem + comissões  (precisa sair 100% intacta)
+ *   valorTotal    = baseProtegida / (1 - imposto% - bv%)
+ *   impostoValue  = imposto% × valorTotal
+ *   bvValue       = bv% × valorTotal
+ *
+ * Por construção: valorTotal − impostoValue − bvValue = baseProtegida.
  */
-export function calcularBV(
-  valorAntesBV: number,
+export function calcularImpostoEBV(
+  baseProtegida: number,
+  impostoPercent: number,
   bvPercent: number,
-): { bvValue: number; valorComBV: number } {
+): { impostoValue: number; bvValue: number; valorTotal: number } {
+  const imp = impostoPercent / 100;
   const bv = bvPercent / 100;
-  // 0% é o caso comum (a imensa maioria dos projetos não passa por agência).
-  // >=100% quebraria a divisão (a fatia de BV comeria o orçamento inteiro e
-  // sobraria zero pra imposto/custo) — nesse caso ignora o BV em vez de
-  // devolver Infinity/NaN pra tela.
-  if (bv <= 0 || bv >= 1) {
-    return { bvValue: 0, valorComBV: valorAntesBV };
+  const denom = 1 - imp - bv;
+  // imposto+BV somando 100% ou mais comeriam o orçamento inteiro (ou mais) —
+  // devolve sem os dois aplicados em vez de Infinity/valor negativo na tela.
+  if (denom <= 0) {
+    return { impostoValue: 0, bvValue: 0, valorTotal: baseProtegida };
   }
-  const valorComBV = valorAntesBV / (1 - bv);
-  return { bvValue: valorComBV - valorAntesBV, valorComBV };
+  const valorTotal = baseProtegida / denom;
+  return { impostoValue: imp * valorTotal, bvValue: bv * valorTotal, valorTotal };
 }

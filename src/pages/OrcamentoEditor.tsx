@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
-import { calcularBV } from "@/lib/bv";
+import { calcularImpostoEBV } from "@/lib/bv";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
@@ -1167,12 +1167,12 @@ function PlanilhaSection({
     (s, c) => s + (c.tipo === "%" ? baseComissao * (Number(c.valor) / 100) : Number(c.valor)),
     0,
   );
-  const imposto = (subTotal2 + comissaoTotal) * (Number(percentuais.imposto) / 100);
-  // BV da agência: uma fração do valor FINAL, não um acréscimo simples como
-  // imposto/comissão — ver src/lib/bv.ts. "Antes do BV" é tudo que já existia
-  // (custo + margem + comissão + imposto), sem tocar em nenhum desses.
-  const valorAntesBV = subTotal2 + comissaoTotal + imposto;
-  const { bvValue, valorComBV: valorTotal } = calcularBV(valorAntesBV, Number(percentuais.bv));
+  // Imposto e BV são fração do valor FINAL da nota, resolvidos JUNTOS — ver
+  // src/lib/bv.ts. baseProtegida (custo + margem + comissões) é tudo que
+  // precisa sair intacto; nem imposto nem BV podem comer um centavo dela.
+  const baseProtegida = subTotal2 + comissaoTotal;
+  const { impostoValue: imposto, bvValue, valorTotal } =
+    calcularImpostoEBV(baseProtegida, Number(percentuais.imposto), Number(percentuais.bv));
   // O valor cobrado é sempre arredondado pra cima de 50 em 50 (número "limpo"
   // pro cliente). O excedente do arredondamento entra como lucro.
   const valorTotalArredondado = roundUpTo50(valorTotal);
@@ -1358,7 +1358,7 @@ function PlanilhaSection({
             value={percentuais.imposto}
             onChange={(v) => setPercentuais({ ...percentuais, imposto: v })}
             valorCalc={imposto}
-            hint="sobre sub-total 2 + comissões"
+            hint="sobre o valor final da nota, junto com o BV"
           />
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Comissões</p>
@@ -1374,7 +1374,7 @@ function PlanilhaSection({
             value={percentuais.bv}
             onChange={(v) => setPercentuais({ ...percentuais, bv: v })}
             valorCalc={bvValue}
-            hint="% do valor final — não some do que sobra pra imposto/custo"
+            hint="sobre o valor final, junto com o imposto"
           />
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>

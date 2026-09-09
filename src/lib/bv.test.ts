@@ -1,36 +1,41 @@
 import { describe, it, expect } from "vitest";
-import { calcularBV } from "./bv";
+import { calcularImpostoEBV } from "./bv";
 
 /**
- * Djêisson (09/09): "se o projeto tem 15% de BV, o cliente irá pagar 10k mas
- * eu ficarei com 8.5k pra cobrir os impostos de 10k + custos de produção."
- * Este é o caso de referência — os outros testam as bordas dele.
+ * Caso de referência: a análise que o Djêisson trouxe (09/09) mostrando que
+ * "sobre sub-total 2 + comissões" tributava uma base menor que a nota fiscal
+ * de verdade. 12% de imposto + 15% de BV sobre uma base protegida de 5.750.
  */
-describe("calcularBV", () => {
-  it("reproduz o exemplo exato do Djêisson: 15% de BV sobre 8.5k vira 10k", () => {
-    const { bvValue, valorComBV } = calcularBV(8500, 15);
-    expect(valorComBV).toBeCloseTo(10000, 6);
-    expect(bvValue).toBeCloseTo(1500, 6);
+describe("calcularImpostoEBV", () => {
+  it("reproduz a conta corrigida: base 5.750, imposto 12%, BV 15% → total 7.876,71", () => {
+    const { impostoValue, bvValue, valorTotal } = calcularImpostoEBV(5750, 12, 15);
+    expect(valorTotal).toBeCloseTo(7876.71, 1);
+    expect(impostoValue).toBeCloseTo(945.21, 1);
+    expect(bvValue).toBeCloseTo(1181.51, 1);
   });
 
-  it("0% não muda nada — é o caso da imensa maioria dos projetos", () => {
-    expect(calcularBV(8500, 0)).toEqual({ bvValue: 0, valorComBV: 8500 });
+  it("o que sobra depois de imposto e BV é EXATAMENTE a base protegida", () => {
+    // A propriedade central: nem imposto nem BV podem comer a base.
+    const base = 12345.67;
+    const { impostoValue, bvValue, valorTotal } = calcularImpostoEBV(base, 11.5, 8);
+    expect(valorTotal - impostoValue - bvValue).toBeCloseTo(base, 6);
   });
 
-  it("o que sobra depois do BV é EXATAMENTE o valor de antes — nem mais, nem menos", () => {
-    // É o ponto central do pedido: o BV não pode comer nem um centavo do que
-    // já estava reservado pra imposto e custo de produção.
-    const antes = 12345.67;
-    const { bvValue, valorComBV } = calcularBV(antes, 22);
-    expect(valorComBV - bvValue).toBeCloseTo(antes, 6);
+  it("só imposto, sem BV — o caso de 19 dos 19 orçamentos hoje", () => {
+    // Antes: imposto = base × 12% (base pequena demais). Agora: imposto sai
+    // do valor FINAL, que é maior — por isso o total sobe em relação ao
+    // cálculo antigo. É a correção, não uma regressão.
+    const { impostoValue, valorTotal } = calcularImpostoEBV(5089.29, 12, 0);
+    expect(valorTotal).toBeCloseTo(5783.28, 1);
+    expect(impostoValue).toBeCloseTo(694.0, 0);
   });
 
-  it("BV >= 100% não estoura em Infinity/NaN — ignora o BV com segurança", () => {
-    expect(calcularBV(8500, 100)).toEqual({ bvValue: 0, valorComBV: 8500 });
-    expect(calcularBV(8500, 150)).toEqual({ bvValue: 0, valorComBV: 8500 });
+  it("0% e 0% não muda nada", () => {
+    expect(calcularImpostoEBV(8500, 0, 0)).toEqual({ impostoValue: 0, bvValue: 0, valorTotal: 8500 });
   });
 
-  it("BV negativo (não deveria acontecer na tela, mas não pode quebrar o cálculo)", () => {
-    expect(calcularBV(8500, -10)).toEqual({ bvValue: 0, valorComBV: 8500 });
+  it("imposto + BV somando 100% ou mais não estoura em Infinity/negativo", () => {
+    expect(calcularImpostoEBV(8500, 60, 45)).toEqual({ impostoValue: 0, bvValue: 0, valorTotal: 8500 });
+    expect(calcularImpostoEBV(8500, 100, 0)).toEqual({ impostoValue: 0, bvValue: 0, valorTotal: 8500 });
   });
 });
