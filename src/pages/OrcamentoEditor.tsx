@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
+import { calcularBV } from "@/lib/bv";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
@@ -125,6 +126,7 @@ export default function OrcamentoEditor() {
           is_latest_version: true,
           margem_produtora_percent: padrao?.margem ?? 0,
           imposto_percent: padrao?.imposto ?? 0,
+          bv_percent: padrao?.bv ?? 0,
           comissoes: padrao?.comissoes ?? [],
           comissao_base: padrao?.comissao_base ?? "subtotal2",
           // Herda do deal: a escolha foi feita na criação e não pode se
@@ -1037,6 +1039,7 @@ function PlanilhaSection({
   const [percentuais, setPercentuais] = useState({
     margem: budget.margem_produtora_percent || 0,
     imposto: budget.imposto_percent || 0,
+    bv: budget.bv_percent || 0,
   });
   const [comissoes, setComissoes] = useState<{ nome: string; tipo: "%" | "R$"; valor: number }[]>(
     Array.isArray(budget.comissoes) ? budget.comissoes : [],
@@ -1165,7 +1168,11 @@ function PlanilhaSection({
     0,
   );
   const imposto = (subTotal2 + comissaoTotal) * (Number(percentuais.imposto) / 100);
-  const valorTotal = subTotal2 + comissaoTotal + imposto;
+  // BV da agência: uma fração do valor FINAL, não um acréscimo simples como
+  // imposto/comissão — ver src/lib/bv.ts. "Antes do BV" é tudo que já existia
+  // (custo + margem + comissão + imposto), sem tocar em nenhum desses.
+  const valorAntesBV = subTotal2 + comissaoTotal + imposto;
+  const { bvValue, valorComBV: valorTotal } = calcularBV(valorAntesBV, Number(percentuais.bv));
   // O valor cobrado é sempre arredondado pra cima de 50 em 50 (número "limpo"
   // pro cliente). O excedente do arredondamento entra como lucro.
   const valorTotalArredondado = roundUpTo50(valorTotal);
@@ -1204,6 +1211,8 @@ function PlanilhaSection({
       const base = {
         margem_produtora_percent: percentuais.margem,
         imposto_percent: percentuais.imposto,
+        bv_percent: percentuais.bv,
+        bv_value: bvValue,
         total_value: valorTotalArredondado,
       };
       // Tenta salvar com as comissões; se a coluna ainda não existe (migration
@@ -1233,7 +1242,7 @@ function PlanilhaSection({
     const t = setTimeout(() => salvarPercentuais.mutate(), 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [percentuais.margem, percentuais.imposto, comissoes, comissaoBase, valorTotalArredondado]);
+  }, [percentuais.margem, percentuais.imposto, percentuais.bv, comissoes, comissaoBase, valorTotalArredondado]);
 
   // Planilha vazia → popular com os itens padrão de produtora
   const carregarPadrao = useMutation({
@@ -1257,7 +1266,9 @@ function PlanilhaSection({
   //  então se cancelam e não entram no lucro.)
   // Rentabilidade a partir do valor arredondado (inclui o excedente do
   // arredondamento como lucro), pra Total e Rentabilidade ficarem coerentes.
-  const rentabilidade = valorTotalArredondado - custoReal - imposto - comissaoTotal;
+  // BV é pass-through igual imposto/comissão: não é lucro da produtora, é a
+  // fatia que vai pra fora antes de sobrar dinheiro pra imposto e custo.
+  const rentabilidade = valorTotalArredondado - custoReal - imposto - comissaoTotal - bvValue;
   const margemPercent = valorTotalArredondado > 0 ? (rentabilidade / valorTotalArredondado) * 100 : 0;
 
   // "Salvar como padrão" — fixa margem/imposto/comissões pros próximos orçamentos
@@ -1267,6 +1278,7 @@ function PlanilhaSection({
         id: true,
         margem: percentuais.margem,
         imposto: percentuais.imposto,
+        bv: percentuais.bv,
         comissoes,
         comissao_base: comissaoBase,
         updated_at: new Date().toISOString(),
@@ -1325,11 +1337,10 @@ function PlanilhaSection({
         </div>
 
         {/* Cabeçalho percentuais + total */}
-        {/* 5 colunas e não 4: a COMISSÃO entra no valor total e não aparecia
-            aqui — quem olhava o topo via subtotal + margem + imposto e não
-            fechava a conta com o total. Número que entra na soma tem que
-            aparecer na soma. */}
-        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
+        {/* 6 colunas e não 5: o BV DA AGÊNCIA (09/09) é mais uma coisa que
+            entra no valor total. Mesma razão da comissão antes dela — número
+            que entra na soma tem que aparecer na soma. */}
+        <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr]">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Subtotal das linhas</p>
             <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
@@ -1358,6 +1369,13 @@ function PlanilhaSection({
                 : comissoes.map((c) => `${c.nome || "—"} ${c.tipo === "%" ? `${c.valor}%` : formatCurrency(Number(c.valor))}`).join(" · ")}
             </p>
           </div>
+          <PctInput
+            label="BV da agência"
+            value={percentuais.bv}
+            onChange={(v) => setPercentuais({ ...percentuais, bv: v })}
+            valorCalc={bvValue}
+            hint="% do valor final — não some do que sobra pra imposto/custo"
+          />
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
             <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</p>
