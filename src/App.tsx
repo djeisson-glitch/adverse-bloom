@@ -69,6 +69,7 @@ import CartaPublica from "./pages/CartaPublica";
 import OrcamentoPublico from "./pages/OrcamentoPublico";
 import Demandas from "./pages/Demandas";
 import DemandaBriefing from "./pages/DemandaBriefing";
+import OrcamentoBriefingPDF from "./pages/OrcamentoBriefingPDF";
 import SolicitarDemanda from "./pages/SolicitarDemanda";
 import BriefingPublico from "./pages/BriefingPublico";
 // Onda 0 — placeholders dos novos módulos do Adverse OS Produtora
@@ -198,6 +199,7 @@ const App = () => (
               <Route path="/orcamentos/:id" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentoEditor /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/:id/carta" element={<ProtectedRoute><ModuleGuard module="orcamentos"><CartaOrcamento /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/:id/carta-simples" element={<ProtectedRoute><ModuleGuard module="orcamentos"><CartaSimples /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos/:id/briefing" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentoBriefingPDF /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos-legado" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentosLegado /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos" element={<ProtectedRoute><ModuleGuard module="projetos"><Projetos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/projetos/:id" element={<ProtectedRoute><ModuleGuard module="projetos"><ProjetoDetalhe /></ModuleGuard></ProtectedRoute>} />

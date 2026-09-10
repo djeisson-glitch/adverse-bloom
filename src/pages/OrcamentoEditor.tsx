@@ -11,7 +11,7 @@ import { SeletorVariantes } from "@/components/orcamento/SeletorVariantes";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
   ChevronDown, Table, Info, Save, ExternalLink, CalendarRange, Upload,
-  FileText, Link2, Pencil, CheckCircle2, Eye, EyeOff, RotateCcw, Sparkles, AlertTriangle,
+  FileText, Link2, Pencil, CheckCircle2, Eye, EyeOff, RotateCcw, Sparkles, AlertTriangle, FileDown,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -425,6 +425,7 @@ export default function OrcamentoEditor() {
 }
 
 function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void }) {
+  const navigate = useNavigate();
   const [aberto, setAberto] = useState(false);
   const [dados, setDados] = useState<Record<string, any>>(
     deal.mergulho && typeof deal.mergulho === "object" ? deal.mergulho : {},
@@ -537,6 +538,12 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
             </Button>
             <Button size="sm" variant="outline" onClick={copiarLink}>
               <Link2 className="mr-1 h-3.5 w-3.5" /> Copiar link do cliente
+            </Button>
+            {/* Djêisson (10/09): "é dentro do orçamento, onde tem o briefing,
+                que é pra ter o botão de exportar pdf. serve apenas para o
+                time interno" — sem link público, atrás do mesmo login. */}
+            <Button size="sm" variant="outline" onClick={() => navigate(`/orcamentos/${deal.id}/briefing`)}>
+              <FileDown className="mr-1 h-3.5 w-3.5" /> Exportar PDF
             </Button>
           </div>
         </div>
