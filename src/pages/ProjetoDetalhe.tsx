@@ -16,6 +16,7 @@ import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
   FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw, Copy, Pencil,
+  ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1973,6 +1974,26 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
   const [fallback, setFallback] = useState<string>(project.custo_hora_padrao?.toString() || "");
   const [novoCusto, setNovoCusto] = useState({ tipo: "fornecedor", descricao: "", valor: "" });
 
+  /**
+   * Mesmo padrão de OrcamentoEditor (10/09): fecha por padrão, e quem abre
+   * uma vez fica com a preferência salva — é jeito de olhar a tela, não
+   * contexto de UM projeto específico, por isso a chave é global.
+   */
+  const [detalheAberto, setDetalheAberto] = useState(() => {
+    try {
+      return localStorage.getItem("projeto-detalhe-financeiro") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const salvarPrefDetalhe = (aberto: boolean) => {
+    try {
+      localStorage.setItem("projeto-detalhe-financeiro", aberto ? "1" : "0");
+    } catch {
+      // Idem OrcamentoEditor: Safari privado joga ao gravar — só não persiste.
+    }
+  };
+
   // Realizado — custo da equipe (view) + custos lançados
   const { data: custoEquipe = [] } = useQuery({
     queryKey: ["custo-equipe", project.id],
@@ -2142,6 +2163,36 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
   return (
     <Card className="glass-card">
       <CardContent className="space-y-5 p-6">
+        {/* Mesmo padrão de OrcamentoEditor (10/09): a receita e a margem
+            realizadas ficam sempre visíveis; o resto (orçado × realizado,
+            custo por pessoa, custos diretos) só abre quando pedido. */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/20 p-4">
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Receita realizada</p>
+              <p className="text-lg font-semibold text-primary">{formatCurrency(receita)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margem realizada</p>
+              <p className={`text-lg font-semibold ${margemRealizada >= 0 ? "text-success" : "text-destructive"}`}>
+                {formatCurrency(margemRealizada)}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({receita > 0 ? Math.round((margemRealizada / receita) * 100) : 0}%)
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setDetalheAberto((v) => { salvarPrefDetalhe(!v); return !v; })}
+            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {detalheAberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {detalheAberto ? "Ocultar detalhes financeiros" : "Ver detalhes financeiros"}
+          </button>
+        </div>
+
+        {detalheAberto && (
+          <>
         <p className="text-sm font-semibold text-foreground">⚖️ Fechamento — Orçado × Realizado</p>
 
         <div className="overflow-hidden rounded-md border border-border/40">
@@ -2274,6 +2325,9 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
             </Button>
           </div>
         </div>
+          </>
+        )}
+
       </CardContent>
     </Card>
   );
