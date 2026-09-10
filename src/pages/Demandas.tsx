@@ -5,12 +5,13 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useFiltro } from "@/hooks/useFiltro";
-import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock, Sparkles, AlertTriangle } from "lucide-react";
+import { Inbox, Loader2, ChevronDown, ChevronRight, Paperclip, CheckCircle2, XCircle, ArrowRight, Clock, Sparkles, AlertTriangle, FileDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
 import { toast } from "sonner";
+import { CamposDoFormulario } from "@/components/demandas/CamposDoFormulario";
 
 type Demanda = {
   id: string;
@@ -42,42 +43,6 @@ const STATUS_LABEL: Record<string, string> = {
 function fmtDateTime(s?: string | null) {
   if (!s) return "—";
   return new Date(s).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-
-/**
- * O briefing como o formulário foi preenchido, campo a campo.
- *
- * Djêisson (12/08): "precisamos ver como o formulário foi entregue (hoje tem
- * só 1 entrega, mas ta tudo junto)".
- *
- * O formulário grava `Rótulo: valor` uma por linha e o downstream lê tudo
- * junto como um parágrafo — foi assim que um roteiro de 4 cenas virou "3
- * peças" na cabeça de quem leu. Aqui a gente desmonta de volta: cada rótulo
- * vira um campo, e o que era um bloco de texto passa a mostrar a FORMA da
- * resposta. Linha sem rótulo (texto colado direto) sai como parágrafo, sem
- * inventar estrutura que não existe.
- */
-function CamposDoFormulario({ briefing }: { briefing: string }) {
-  const linhas = String(briefing).split("\n").map((l) => l.trim()).filter(Boolean);
-  return (
-    <div className="mt-2 space-y-1.5">
-      {linhas.map((linha, i) => {
-        const corte = linha.indexOf(":");
-        const rotulo = corte > 0 && corte <= 28 ? linha.slice(0, corte) : null;
-        const valor = rotulo ? linha.slice(corte + 1).trim() : linha;
-        return (
-          <div key={i} className="text-xs leading-relaxed">
-            {rotulo && (
-              <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                {rotulo}
-              </span>
-            )}
-            <span className="text-muted-foreground">{valor}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export default function Demandas() {
@@ -412,23 +377,32 @@ export default function Demandas() {
                       )}
 
                       {/* Ações */}
-                      {d.status === "virou_projeto" ? (
-                        <Button size="sm" variant="outline" onClick={() => d.projeto_id && navigate(`/projetos/${d.projeto_id}`)}>
-                          <ArrowRight className="mr-1 h-3.5 w-3.5" /> Abrir projeto
-                        </Button>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          <Button size="sm" onClick={() => virarProjeto.mutate(d)} disabled={virarProjeto.isPending} className="bg-primary text-primary-foreground">
-                            {virarProjeto.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
-                            Virar projeto
+                      <div className="flex flex-wrap items-center gap-2">
+                        {d.status === "virou_projeto" ? (
+                          <Button size="sm" variant="outline" onClick={() => d.projeto_id && navigate(`/projetos/${d.projeto_id}`)}>
+                            <ArrowRight className="mr-1 h-3.5 w-3.5" /> Abrir projeto
                           </Button>
-                          {d.status !== "recusada" && (
-                            <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: d.id, status: "recusada" })} className="text-muted-foreground hover:text-destructive">
-                              <XCircle className="mr-1 h-3.5 w-3.5" /> Recusar
+                        ) : (
+                          <>
+                            <Button size="sm" onClick={() => virarProjeto.mutate(d)} disabled={virarProjeto.isPending} className="bg-primary text-primary-foreground">
+                              {virarProjeto.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1 h-3.5 w-3.5" />}
+                              Virar projeto
                             </Button>
-                          )}
-                        </div>
-                      )}
+                            {d.status !== "recusada" && (
+                              <Button size="sm" variant="ghost" onClick={() => setStatus.mutate({ id: d.id, status: "recusada" })} className="text-muted-foreground hover:text-destructive">
+                                <XCircle className="mr-1 h-3.5 w-3.5" /> Recusar
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {/* Djêisson (10/09): "seria interessante ter uma opção
+                            pra gente exportar as informações em pdf, pra
+                            facilitar" — abre uma folha só com este briefing,
+                            pronta pra Ctrl+P. */}
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/demandas/${d.id}/briefing`)} className="text-muted-foreground hover:text-foreground">
+                          <FileDown className="mr-1 h-3.5 w-3.5" /> Exportar PDF
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
