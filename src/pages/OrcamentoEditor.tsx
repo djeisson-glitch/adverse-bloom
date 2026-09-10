@@ -1060,6 +1060,30 @@ function PlanilhaSection({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const hidratado = useRef(false);
 
+  /**
+   * Se o detalhamento financeiro (margem/imposto/BV/comissões/quebra de
+   * rentabilidade) começa aberto ou fechado. Djêisson (10/09): "tem muita
+   * informação, muito texto explicativo... o olho fica perdido". Fecha por
+   * padrão; quem abre uma vez fica com a preferência salva — não é hábito de
+   * trabalho de UM orçamento (como um filtro), é como a pessoa gosta de ver
+   * a tela, então guarda direto (sem escopo por sessão/orçamento).
+   */
+  const [detalheAberto, setDetalheAberto] = useState(() => {
+    try {
+      return localStorage.getItem("orcamento-detalhe-financeiro") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const salvarPrefDetalhe = (aberto: boolean) => {
+    try {
+      localStorage.setItem("orcamento-detalhe-financeiro", aberto ? "1" : "0");
+    } catch {
+      // Safari em aba privada joga ao gravar — a preferência só não persiste,
+      // não é motivo pra quebrar o clique.
+    }
+  };
+
   // Grupos (categorias) ocultos deste orçamento — some da planilha e sai do cálculo.
   const [ocultas, setOcultas] = useState<string[]>(
     Array.isArray(budget.categorias_ocultas) ? budget.categorias_ocultas : [],
@@ -1343,6 +1367,37 @@ function PlanilhaSection({
           </div>
         </div>
 
+        {/* Faixa compacta: os dois números que se olha toda hora, sempre à
+            vista. O detalhe (margem/imposto/BV/comissões/quebra de
+            rentabilidade) só abre quando pedido — Djêisson (10/09): "tem
+            muita informação, muito texto explicativo... o olho fica perdido
+            no meio de tanta informação". Nada foi removido, só deixou de
+            ficar sempre aberto. */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/20 p-4">
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
+              <p className="text-lg font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Rentabilidade</p>
+              <p className={`text-lg font-semibold ${rentabilidade >= 0 ? "text-success" : "text-destructive"}`}>
+                {formatCurrency(rentabilidade)}{" "}
+                <span className="text-xs font-normal text-muted-foreground">({margemPercent.toFixed(0)}%)</span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setDetalheAberto((v) => { salvarPrefDetalhe(!v); return !v; })}
+            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {detalheAberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {detalheAberto ? "Ocultar detalhes financeiros" : "Ver detalhes financeiros"}
+          </button>
+        </div>
+
+        {detalheAberto && (
+          <>
         {/* Cabeçalho percentuais + total */}
         {/* 6 colunas e não 5: o BV DA AGÊNCIA (09/09) é mais uma coisa que
             entra no valor total. Mesma razão da comissão antes dela — número
@@ -1523,6 +1578,9 @@ function PlanilhaSection({
             </div>
           </div>
         </div>
+          </>
+        )}
+
 
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (
