@@ -11,6 +11,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // parser nem lê campo de valor da resposta, mesmo que a IA insista em mandar
 // um. Cabe à pessoa decidir quanto cobrar; a IA só decide ESCOPO.
 //
+// Também sugere as ENTREGAS (as peças: "1 filme de 60s + 3 cortes") pra
+// seção Entregas / escopo — Djêisson (11/09): "acho bem importante ele já
+// inserir as entregas pra facilitar a digitação".
+//
 // Mesma chave de servidor (ANTHROPIC_API_KEY) e mesmo gate por
 // pode_ver_dinheiro que orcamento-resumo — a planilha é dado sensível mesmo
 // sem preço (ela expõe operação, fornecedor, tamanho de equipe).
@@ -195,8 +199,16 @@ REGRAS OBRIGATÓRIAS:
 - Não invente informação que não esteja acima. Se algo relevante (nº de diárias, por exemplo) não foi dito, estime de forma conservadora e deixe isso claro na justificativa.
 - Sugira entre 5 e 25 itens.
 
+ENTREGAS (as peças que o cliente recebe no fim — vão na seção "Entregas / escopo", não na planilha):
+- Liste só as peças que o material menciona ou deixa claras (ex.: "1 filme de 60 segundos e 3 cortes para Reels" = 2 entregas). Não invente peça que ninguém pediu; se o material não fala de entregas, devolva a lista vazia.
+- Não repita o que já está em ENTREGAS PREVISTAS acima.
+- "titulo": nome curto da peça (ex.: "Filme principal", "Corte para Reels").
+- "formato": proporção de tela quando der pra saber (16x9, 9x16, 1x1, 4x5); vazio se não souber.
+- "duracao": em segundos ou minutos, sem aspas (ex.: 60s, 30s, 3min); vazio se não souber.
+- "quantidade": quantas peças iguais (ex.: 3 cortes = 3).
+
 Responda APENAS com JSON válido, sem markdown, neste formato exato:
-{"itens":[{"categoria_codigo":"003","descricao":"...","quantity":1,"diaria":1,"justificativa":"..."}]}`;
+{"itens":[{"categoria_codigo":"003","descricao":"...","quantity":1,"diaria":1,"justificativa":"..."}],"entregas":[{"titulo":"...","formato":"16x9","duracao":"60s","quantidade":1}]}`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -270,9 +282,25 @@ Responda APENAS com JSON válido, sem markdown, neste formato exato:
       .filter(Boolean)
       .slice(0, 25);
 
-    if (!itens.length) return json({ error: "A IA não sugeriu nenhum item. Tente com mais detalhe no texto." }, 502);
+    const entregasSugeridas = (Array.isArray(parsed?.entregas) ? parsed.entregas : [])
+      .map((e: any) => {
+        const titulo = String(e?.titulo || "").trim().slice(0, 120);
+        if (!titulo) return null;
+        return {
+          titulo,
+          formato: String(e?.formato || "").trim().slice(0, 20),
+          duracao: String(e?.duracao || "").trim().slice(0, 20),
+          quantidade: Math.max(1, Math.round(Number(e?.quantidade) || 1)),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 20);
 
-    return json({ itens });
+    if (!itens.length && !entregasSugeridas.length) {
+      return json({ error: "A IA não sugeriu nada. Tente com mais detalhe no texto." }, 502);
+    }
+
+    return json({ itens, entregas: entregasSugeridas });
   } catch (e) {
     console.error("sugerir-itens-orcamento error:", e);
     return json({ error: e instanceof Error ? e.message : "Erro desconhecido" }, 500);

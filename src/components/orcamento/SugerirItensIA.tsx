@@ -10,6 +10,19 @@ import { toast } from "sonner";
 type Categoria = { id: string; codigo: string; nome: string; ordem: number };
 type BudgetItem = { categoria_id: string | null };
 
+/** Uma peça do escopo, no formato da seção Entregas / escopo (budgets.entregas). */
+type SugestaoEntrega = {
+  chave: string;
+  titulo: string;
+  formato: string;
+  duracao: string;
+  quantidade: number;
+  incluido: boolean;
+  jaExiste: boolean;
+};
+
+const normalizar = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 type Sugestao = {
   chave: string;
   categoriaId: string | null;
@@ -124,7 +137,8 @@ async function mensagemDeErro(error: any, data: any): Promise<string> {
 /**
  * Montar a planilha com IA — um campo como o de um chat: escreve, cola texto
  * ou print, arrasta PDF/Word/imagem. A IA lê isso junto com o briefing já
- * salvo no orçamento e sugere QUAIS LINHAS entrar.
+ * salvo no orçamento e sugere QUAIS LINHAS entrar na planilha e QUAIS PEÇAS
+ * entram em Entregas / escopo.
  *
  * Djêisson (10/09): "não sugira valores, os valores eu coloco depois". As
  * linhas nascem com client_unit_price 0 — o mesmo estado de uma linha criada
@@ -132,12 +146,15 @@ async function mensagemDeErro(error: any, data: any): Promise<string> {
  * gravado sem revisão e sem clicar em "Adicionar".
  */
 export function SugerirItensIA({
-  budgetId, categorias, itens, onChanged,
+  budgetId, categorias, itens, entregasAtuais, onChanged, onEntregasInseridas,
 }: {
   budgetId: string;
   categorias: Categoria[];
   itens: BudgetItem[];
+  entregasAtuais: { titulo?: string }[];
   onChanged: () => void;
+  /** A seção de Entregas guarda a lista em estado próprio — precisa recarregar. */
+  onEntregasInseridas: () => Promise<void>;
 }) {
   const qc = useQueryClient();
   const inputArquivo = useRef<HTMLInputElement>(null);
@@ -147,6 +164,7 @@ export function SugerirItensIA({
   const [arrastando, setArrastando] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [sugestoes, setSugestoes] = useState<Sugestao[] | null>(null);
+  const [entregasSug, setEntregasSug] = useState<SugestaoEntrega[]>([]);
   const [adicionando, setAdicionando] = useState(false);
 
   const categoriaDe = (id: string | null) => categorias.find((c) => c.id === id);
@@ -206,6 +224,7 @@ export function SugerirItensIA({
     }
     setGerando(true);
     setSugestoes(null);
+    setEntregasSug([]);
     const { data, error } = await (supabase as any).functions.invoke("sugerir-itens-orcamento", {
       body: {
         budget_id: budgetId,
@@ -231,7 +250,23 @@ export function SugerirItensIA({
         incluido: !!cat,
       };
     });
+    // Peça que já está no escopo nasce desmarcada — a IA foi instruída a não
+    // repetir, mas o nome pode vir igual mesmo assim.
+    const existentes = new Set(entregasAtuais.map((e) => normalizar(e.titulo || "")));
+    const entregas: SugestaoEntrega[] = (data?.entregas || []).map((e: any, i: number) => {
+      const jaExiste = existentes.has(normalizar(e.titulo || ""));
+      return {
+        chave: `e-${Date.now()}-${i}`,
+        titulo: e.titulo,
+        formato: e.formato || "",
+        duracao: e.duracao || "",
+        quantidade: e.quantidade || 1,
+        incluido: !jaExiste,
+        jaExiste,
+      };
+    });
     setSugestoes(lista);
+    setEntregasSug(entregas);
   };
 
   const atualizar = (chave: string, patch: Partial<Sugestao>) => {
@@ -240,12 +275,19 @@ export function SugerirItensIA({
   const remover = (chave: string) => {
     setSugestoes((lista) => (lista || []).filter((s) => s.chave !== chave));
   };
+  const atualizarEntrega = (chave: string, patch: Partial<SugestaoEntrega>) => {
+    setEntregasSug((lista) => lista.map((e) => (e.chave === chave ? { ...e, ...patch } : e)));
+  };
 
   const selecionadas = (sugestoes || []).filter((s) => s.incluido && s.categoriaId);
+  const entregasSelecionadas = entregasSug.filter((e) => e.incluido && e.titulo.trim());
 
-  const adicionar = async () => {
-    if (!selecionadas.length) return;
-    setAdicionando(true);
+  const descartar = () => {
+    setSugestoes(null);
+    setEntregasSug([]);
+  };
+
+  const inserirLinhas = async (): Promise<string | null> => {
     // Ordem por categoria: entra depois do que já existe, na ordem em que
     // aparece na lista — mesmo critério de CategoriaItens ao criar uma linha.
     const contagem = new Map<string, number>();
@@ -273,19 +315,88 @@ export function SugerirItensIA({
       };
     });
     const { error } = await (supabase as any).from("budget_items").insert(linhas);
+    return error ? error.message : null;
+  };
+
+  /**
+   * A lista de entregas mora inteira numa coluna jsonb: lê do banco NA HORA e
+   * acrescenta, em vez de usar a cópia da tela — a seção de Entregas pode ter
+   * gravado agora há pouco. `.select` porque o PostgREST devolve sucesso
+   * mesmo quando a RLS barra a gravação.
+   */
+  const inserirEntregas = async (): Promise<string | null> => {
+    const { data: atual, error: erroLer } = await (supabase as any)
+      .from("budgets").select("entregas").eq("id", budgetId).maybeSingle();
+    if (erroLer || !atual) return erroLer?.message || "orçamento não encontrado";
+    const novas = [
+      ...(Array.isArray(atual.entregas) ? atual.entregas : []),
+      ...entregasSelecionadas.map((e) => ({
+        titulo: e.titulo.trim(),
+        formato: e.formato.trim(),
+        duracao: e.duracao.trim(),
+        quantidade: e.quantidade,
+        diarias: 0,
+      })),
+    ];
+    const { data, error } = await (supabase as any)
+      .from("budgets").update({ entregas: novas }).eq("id", budgetId).select("id");
+    if (error) return error.message;
+    if (!data?.length) return "sem permissão pra gravar";
+    return null;
+  };
+
+  const adicionar = async () => {
+    const nLinhas = selecionadas.length;
+    const nEntregas = entregasSelecionadas.length;
+    if (!nLinhas && !nEntregas) return;
+    setAdicionando(true);
+
+    const erroLinhas = nLinhas ? await inserirLinhas() : null;
+    const erroEntregas = nEntregas ? await inserirEntregas() : null;
+    const entrouLinhas = nLinhas > 0 && !erroLinhas;
+    const entrouEntregas = nEntregas > 0 && !erroEntregas;
+
+    if (entrouLinhas) {
+      qc.invalidateQueries({ queryKey: ["orcamento-itens", budgetId] });
+      onChanged();
+    }
+    if (entrouEntregas) await onEntregasInseridas();
     setAdicionando(false);
-    if (error) return toast.error("Não adicionou", { description: error.message });
-    qc.invalidateQueries({ queryKey: ["orcamento-itens", budgetId] });
-    onChanged();
-    toast.success(`${linhas.length} ite${linhas.length === 1 ? "m" : "ns"} adicionado${linhas.length === 1 ? "" : "s"}`, {
-      description: "Sem valor ainda — preencha o preço linha a linha na planilha.",
-    });
-    setSugestoes(null);
-    setTexto("");
-    setAnexos([]);
+
+    const partes = [
+      entrouEntregas && `${nEntregas} entrega${nEntregas === 1 ? "" : "s"}`,
+      entrouLinhas && `${nLinhas} ite${nLinhas === 1 ? "m" : "ns"}`,
+    ].filter(Boolean);
+    if (partes.length) {
+      toast.success(`Adicionado: ${partes.join(" e ")}`, {
+        description: entrouLinhas ? "Sem valor ainda — preencha o preço na planilha." : undefined,
+      });
+    }
+    const falhas = [
+      erroEntregas && `entregas: ${erroEntregas}`,
+      erroLinhas && `planilha: ${erroLinhas}`,
+    ].filter(Boolean);
+    if (falhas.length) {
+      toast.error(partes.length ? "Uma parte não entrou" : "Não adicionou", { description: falhas.join(" · ") });
+    }
+
+    // O que entrou sai da lista — tentar de novo não pode duplicar.
+    if (entrouLinhas) setSugestoes((l) => (l || []).filter((s) => !(s.incluido && s.categoriaId)));
+    if (entrouEntregas) setEntregasSug((l) => l.filter((e) => !(e.incluido && e.titulo.trim())));
+    if (!falhas.length) {
+      descartar();
+      setTexto("");
+      setAnexos([]);
+    }
   };
 
   const podeGerar = !gerando && lendo === 0;
+  const temResultado = sugestoes !== null && (sugestoes.length > 0 || entregasSug.length > 0);
+  const rotuloAdicionar = [
+    entregasSelecionadas.length && `${entregasSelecionadas.length} entrega${entregasSelecionadas.length === 1 ? "" : "s"}`,
+    selecionadas.length && `${selecionadas.length} ite${selecionadas.length === 1 ? "m" : "ns"}`,
+  ].filter(Boolean).join(" e ");
+  const campo = "h-7 rounded-md border border-input bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40";
 
   return (
     <div className="space-y-3">
@@ -352,94 +463,136 @@ export function SugerirItensIA({
         </div>
       </div>
 
-      {sugestoes && sugestoes.length > 0 && (
-        <div className="space-y-2 rounded-lg border border-primary/30 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {sugestoes.length} {sugestoes.length === 1 ? "sugestão" : "sugestões"}
-            </p>
-            <button onClick={() => setSugestoes(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
+      {temResultado && (
+        <div className="space-y-4 rounded-lg border border-primary/30 p-3">
+          <div className="flex justify-end">
+            <button onClick={descartar} className="text-[11px] text-muted-foreground hover:text-foreground">
               Descartar
             </button>
           </div>
-          {sugestoes.map((s) => {
-            const cat = categoriaDe(s.categoriaId);
-            return (
-              <div key={s.chave} className="flex items-start gap-2 rounded-md border border-border/50 p-2.5">
-                <input
-                  type="checkbox"
-                  checked={s.incluido}
-                  disabled={!s.categoriaId}
-                  onChange={(e) => atualizar(s.chave, { incluido: e.target.checked })}
-                  title={!s.categoriaId ? "Escolha uma categoria pra poder incluir" : undefined}
-                  className="mt-2 h-3.5 w-3.5 accent-primary"
-                />
-                <div className="flex-1 space-y-1.5">
+
+          {entregasSug.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Entregas · {entregasSug.length}</p>
+              {entregasSug.map((e) => (
+                <div key={e.chave} className="flex items-center gap-2 rounded-md border border-border/50 px-2.5 py-2">
                   <input
-                    value={s.descricao}
-                    onChange={(e) => atualizar(s.chave, { descricao: e.target.value })}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    type="checkbox"
+                    checked={e.incluido}
+                    onChange={(ev) => atualizarEntrega(e.chave, { incluido: ev.target.checked })}
+                    className="h-3.5 w-3.5 shrink-0 accent-primary"
                   />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      value={s.categoriaId || undefined}
-                      onValueChange={(v) => atualizar(s.chave, { categoriaId: v, incluido: true })}
-                    >
-                      <SelectTrigger className={`h-7 w-[190px] text-xs ${!s.categoriaId ? "border-warning text-warning" : ""}`}>
-                        <SelectValue placeholder="Escolher categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categorias.map((c) => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs">
-                            {c.codigo} {c.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      qtd
-                      <input
-                        type="number"
-                        min={1}
-                        value={s.quantity}
-                        onChange={(e) => atualizar(s.chave, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                        className="h-7 w-14 rounded-md border border-input bg-background px-1.5 text-center text-xs text-foreground"
-                      />
-                    </label>
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      {porHora(cat) ? "horas" : "diária"}
-                      <input
-                        type="number"
-                        min={0}
-                        step={porHora(cat) ? 0.5 : 1}
-                        value={s.diaria}
-                        onChange={(e) => atualizar(s.chave, { diaria: Math.max(0, Number(e.target.value) || 0) })}
-                        className="h-7 w-14 rounded-md border border-input bg-background px-1.5 text-center text-xs text-foreground"
-                      />
-                    </label>
-                    <button
-                      onClick={() => remover(s.chave)}
-                      className="ml-auto text-muted-foreground hover:text-destructive"
-                      title="Remover esta sugestão"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  {s.justificativa && (
-                    <p className="text-[11px] italic text-muted-foreground">{s.justificativa}</p>
+                  <input
+                    value={e.titulo}
+                    onChange={(ev) => atualizarEntrega(e.chave, { titulo: ev.target.value })}
+                    className={`${campo} min-w-0 flex-1 text-sm`}
+                  />
+                  {e.jaExiste && (
+                    <span className="shrink-0 text-[10px] text-warning" title="Já tem uma entrega com esse nome no escopo">já existe</span>
                   )}
+                  <input value={e.formato} onChange={(ev) => atualizarEntrega(e.chave, { formato: ev.target.value })}
+                         placeholder="16x9" title="Formato" className={`${campo} w-16`} />
+                  <input value={e.duracao} onChange={(ev) => atualizarEntrega(e.chave, { duracao: ev.target.value })}
+                         placeholder="60s" title="Duração" className={`${campo} w-16`} />
+                  <input type="number" min={1} value={e.quantidade} title="Quantidade"
+                         onChange={(ev) => atualizarEntrega(e.chave, { quantidade: Math.max(1, Number(ev.target.value) || 1) })}
+                         className={`${campo} w-12 text-center`} />
+                  <button
+                    onClick={() => setEntregasSug((l) => l.filter((x) => x.chave !== e.chave))}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Remover esta sugestão"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )}
+
+          {sugestoes && sugestoes.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Planilha · {sugestoes.length}</p>
+              {sugestoes.map((s) => {
+                const cat = categoriaDe(s.categoriaId);
+                return (
+                  <div key={s.chave} className="flex items-start gap-2 rounded-md border border-border/50 p-2.5">
+                    <input
+                      type="checkbox"
+                      checked={s.incluido}
+                      disabled={!s.categoriaId}
+                      onChange={(e) => atualizar(s.chave, { incluido: e.target.checked })}
+                      title={!s.categoriaId ? "Escolha uma categoria pra poder incluir" : undefined}
+                      className="mt-2 h-3.5 w-3.5 accent-primary"
+                    />
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        value={s.descricao}
+                        onChange={(e) => atualizar(s.chave, { descricao: e.target.value })}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={s.categoriaId || undefined}
+                          onValueChange={(v) => atualizar(s.chave, { categoriaId: v, incluido: true })}
+                        >
+                          <SelectTrigger className={`h-7 w-[190px] text-xs ${!s.categoriaId ? "border-warning text-warning" : ""}`}>
+                            <SelectValue placeholder="Escolher categoria" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categorias.map((c) => (
+                              <SelectItem key={c.id} value={c.id} className="text-xs">
+                                {c.codigo} {c.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          qtd
+                          <input
+                            type="number"
+                            min={1}
+                            value={s.quantity}
+                            onChange={(e) => atualizar(s.chave, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                            className="h-7 w-14 rounded-md border border-input bg-background px-1.5 text-center text-xs text-foreground"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          {porHora(cat) ? "horas" : "diária"}
+                          <input
+                            type="number"
+                            min={0}
+                            step={porHora(cat) ? 0.5 : 1}
+                            value={s.diaria}
+                            onChange={(e) => atualizar(s.chave, { diaria: Math.max(0, Number(e.target.value) || 0) })}
+                            className="h-7 w-14 rounded-md border border-input bg-background px-1.5 text-center text-xs text-foreground"
+                          />
+                        </label>
+                        <button
+                          onClick={() => remover(s.chave)}
+                          className="ml-auto text-muted-foreground hover:text-destructive"
+                          title="Remover esta sugestão"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {s.justificativa && (
+                        <p className="text-[11px] italic text-muted-foreground">{s.justificativa}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <Button
             size="sm"
             onClick={adicionar}
-            disabled={adicionando || !selecionadas.length}
+            disabled={adicionando || !rotuloAdicionar}
             className="w-full bg-primary text-primary-foreground"
           >
             {adicionando ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
-            Adicionar {selecionadas.length} ite{selecionadas.length === 1 ? "m" : "ns"} à planilha
+            {rotuloAdicionar ? `Adicionar ${rotuloAdicionar}` : "Nada marcado"}
           </Button>
         </div>
       )}

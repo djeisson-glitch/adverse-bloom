@@ -70,6 +70,13 @@ export default function OrcamentoEditor() {
    */
   const [varianteId, setVarianteId] = useState<string | null>(null);
 
+  /**
+   * A seção de Entregas guarda a lista em estado próprio (pra salvar sozinha).
+   * Quando a IA grava entregas por fora, isto sobe e a seção remonta já com a
+   * lista nova — senão a próxima edição manual gravaria a lista velha por cima.
+   */
+  const [versaoEntregas, setVersaoEntregas] = useState(0);
+
   const { data: deal, isLoading } = useQuery({
     queryKey: ["orcamento-deal", id],
     enabled: !!id,
@@ -351,8 +358,13 @@ export default function OrcamentoEditor() {
       )}
 
       {/* Planilha de produção */}
+      {/* key: planilha e entregas guardam estado copiado do orçamento aberto.
+          Voltar pra uma opção já visitada (A→B→A) vem do cache, sem remontar —
+          e o salvamento automático gravava a margem/comissões/entregas da
+          opção anterior por cima desta. */}
       {canSeeMoney && (
         <PlanilhaSection
+          key={budget.id}
           budget={budget}
           categorias={categorias}
           tipoOrcamento={deal.tipo_orcamento}
@@ -362,11 +374,15 @@ export default function OrcamentoEditor() {
             qc.invalidateQueries({ queryKey: ["orcamento-itens"] });
             qc.invalidateQueries({ queryKey: ["orcamento-budget"] });
           }}
+          onEntregasInseridas={async () => {
+            await qc.refetchQueries({ queryKey: ["orcamento-budget"] });
+            setVersaoEntregas((v) => v + 1);
+          }}
         />
       )}
 
       {/* Entregas / escopo do job */}
-      <EntregasSection budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
+      <EntregasSection key={`${budget.id}:${versaoEntregas}`} budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
 
       {/* Condições logo depois do escopo: escopo é o que entra, condições é o
           que está e o que não está incluso — a mesma pergunta do cliente. */}
@@ -1021,7 +1037,7 @@ const custoDaLinha = (i: BudgetItem) =>
 const linhaZerada = (i: BudgetItem) => valorDaLinha(i) === 0 && custoDaLinha(i) === 0;
 
 function PlanilhaSection({
-  budget, categorias, itens, tipoOrcamento, porte, onChanged,
+  budget, categorias, itens, tipoOrcamento, porte, onChanged, onEntregasInseridas,
 }: {
   budget: any;
   categorias: Categoria[];
@@ -1029,6 +1045,7 @@ function PlanilhaSection({
   tipoOrcamento?: string;
   porte?: string;
   onChanged: () => void;
+  onEntregasInseridas: () => Promise<void>;
 }) {
   const qc = useQueryClient();
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
@@ -1572,7 +1589,15 @@ function PlanilhaSection({
 
         {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
             uma opção não pode ser gravada na outra por engano. */}
-        <SugerirItensIA key={budget.id} budgetId={budget.id} categorias={categorias} itens={itens} onChanged={onChanged} />
+        <SugerirItensIA
+          key={budget.id}
+          budgetId={budget.id}
+          categorias={categorias}
+          itens={itens}
+          entregasAtuais={Array.isArray(budget.entregas) ? budget.entregas : []}
+          onChanged={onChanged}
+          onEntregasInseridas={onEntregasInseridas}
+        />
 
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (
