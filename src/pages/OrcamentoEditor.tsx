@@ -33,6 +33,7 @@ import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcame
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
 import { CondicoesEntrega } from "@/components/orcamento/CondicoesEntrega";
 import { SugerirItensIA } from "@/components/orcamento/SugerirItensIA";
+import { QuadroResumo } from "@/components/orcamento/QuadroResumo";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -1582,6 +1583,13 @@ function PlanilhaSection({
           </>
         )}
 
+
+        <QuadroResumo
+          itens={itens}
+          categorias={categorias}
+          entregas={Array.isArray(budget.entregas) ? budget.entregas : []}
+          ocultas={ocultasSet}
+        />
 
         {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
             uma opção não pode ser gravada na outra por engano. */}

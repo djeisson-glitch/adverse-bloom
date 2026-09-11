@@ -189,6 +189,7 @@ REGRAS OBRIGATÓRIAS:
 - Na categoria 011 (PÓS-PRODUÇÃO), "diaria" representa HORAS de trabalho, não dias.
 - Nas demais categorias, "diaria" representa DIÁRIAS (dias de trabalho/uso).
 - "quantity" é o número de pessoas ou unidades daquela linha (ex.: 2 câmeras, 3 diaristas).
+- PESSOAS de set (direção, fotografia, câmera, produção de set, som, arte, maquiagem, assistentes) vão SEMPRE em 007 EQUIPE TÉCNICA; atores, modelos, figuração e locução em 006 ELENCO. 003 PRODUÇÃO é locação, estúdio, autorizações, estrutura e verbas — nunca gente.
 - Uma linha por função/item específico — não agrupe "equipe técnica" genérico; detalhe (ex.: "Diretor", "Diretor de fotografia", "Operador de câmera", "Assistente de produção", "Motorista + van").
 - "justificativa": uma frase curta (máx. 20 palavras) dizendo de onde veio essa necessidade no texto, ou avisando que é uma estimativa quando o texto não for explícito.
 - Não invente informação que não esteja acima. Se algo relevante (nº de diárias, por exemplo) não foi dito, estime de forma conservadora e deixe isso claro na justificativa.

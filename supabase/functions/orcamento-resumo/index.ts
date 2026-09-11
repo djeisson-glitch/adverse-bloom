@@ -10,8 +10,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // diárias é pior que resumo nenhum, porque vai junto pro cliente e pro
 // mentor com cara de verdade conferida.
 //
-// Pessoas saem das categorias PRODUÇÃO, EQUIPE TÉCNICA e ELENCO, somando a
-// quantidade de cada linha. As funções contadas voltam na resposta pra tela
+// Pessoas saem de EQUIPE TÉCNICA e ELENCO, somando a quantidade de cada
+// linha — mesma regra do quadro resumo da planilha (src/lib/resumoPlanilha.ts).
+// PRODUÇÃO (003) saiu em 11/09: no modelo padrão ela é locação, estúdio,
+// gerador, segurança — "Aluguel Locação" virava "1 pessoa" no texto do
+// cliente. Taxa e direito do elenco (agenciamento, direitos de uso) também
+// não são gente. As funções contadas voltam na resposta pra tela
 // poder mostrar de onde veio o número — conta que não dá pra conferir é
 // conta que ninguém usa.
 //
@@ -32,8 +36,10 @@ const json = (body: unknown, status = 200) =>
   });
 
 /** Categorias cujas linhas representam GENTE (o resto é carro, comida, câmera). */
-const CAT_EQUIPE = ["003", "007"];
+const CAT_EQUIPE = ["007"];
 const CAT_ELENCO = ["006"];
+/** Linhas de ELENCO que são taxa/direito/empresa — espelha ELENCO_NAO_PESSOA. */
+const NAO_PESSOA = /agenciamento|direitos?\s+de\s+(uso|imagem)|renova[çc][ãa]o|casting\s*\(produtora/i;
 const CAT_POS = ["011"];
 
 serve(async (req) => {
@@ -87,7 +93,8 @@ serve(async (req) => {
     );
 
     const contar = (codigos: string[]) => {
-      const alvo = linhas.filter((i: any) => codigos.includes(codigoDe.get(i.categoria_id) || ""));
+      const alvo = linhas.filter((i: any) =>
+        codigos.includes(codigoDe.get(i.categoria_id) || "") && !NAO_PESSOA.test(i.descricao || i.item_name || ""));
       return {
         pessoas: alvo.reduce((s: number, i: any) => s + Number(i.quantity || 0), 0),
         funcoes: alvo.map((i: any) => ({
