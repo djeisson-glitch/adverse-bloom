@@ -605,7 +605,7 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
 
 type Entrega = { titulo: string; formato: string; duracao: string; quantidade: number; diarias: number };
 
-function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => void }) {
+export function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => void }) {
   const [entregas, setEntregas] = useState<Entrega[]>(
     Array.isArray(budget.entregas) ? budget.entregas : [],
   );
@@ -635,11 +635,14 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
     { delay: 300 },
   );
 
-  // Incluir/remover é ação pontual — grava logo, sem esperar digitação.
+  // Toda mudança manda a lista inteira; o autosave junta a rajada de
+  // digitação e grava uma vez.
   const aplicar = (novas: Entrega[]) => {
     setEntregas(novas);
     auto.agendar({ entregas: novas });
   };
+  const editar = (i: number, patch: Partial<Entrega>) =>
+    aplicar(entregas.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
 
   const add = () => {
     if (!nova.titulo.trim()) return;
@@ -658,6 +661,10 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
   const remove = (i: number) => aplicar(entregas.filter((_, idx) => idx !== i));
 
   const cols = "grid grid-cols-[1.6fr_80px_90px_56px_64px_32px] items-center gap-2";
+  // Cara de texto até passar o mouse ou clicar — a lista continua limpa.
+  const celula =
+    "h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-foreground " +
+    "hover:border-border/60 focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40";
 
   return (
     <Card className="glass-card">
@@ -678,14 +685,25 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
               <span />
             </div>
             {entregas.map((e, i) => (
-              <div key={i} className={`${cols} px-1 text-xs`}>
-                <span className="truncate text-foreground">{e.titulo}</span>
-                <span className="text-muted-foreground">{e.formato || "—"}</span>
-                <span className="text-muted-foreground">{e.duracao || "—"}</span>
-                <span className="text-right">{e.quantidade}</span>
-                <span className="text-right">{e.diarias}</span>
+              <div key={i} className={`${cols} text-xs`}>
+                <input value={e.titulo} onChange={(ev) => editar(i, { titulo: ev.target.value })} className={celula} />
+                <input value={e.formato} onChange={(ev) => editar(i, { formato: ev.target.value })} placeholder="—" className={`${celula} text-muted-foreground`} />
+                <input value={e.duracao} onChange={(ev) => editar(i, { duracao: ev.target.value })} placeholder="—" className={`${celula} text-muted-foreground`} />
+                <NumCell
+                  value={Number(e.quantidade) || 0}
+                  onChange={(n) => editar(i, { quantidade: n })}
+                  onCommit={() => { if (!(Number(e.quantidade) >= 1)) editar(i, { quantidade: 1 }); }}
+                  className={`${celula} text-right`}
+                />
+                <NumCell
+                  value={Number(e.diarias) || 0}
+                  onChange={(n) => editar(i, { diarias: n })}
+                  onCommit={() => {}}
+                  className={`${celula} text-right`}
+                />
                 <button
                   onClick={() => remove(i)}
+                  title="Excluir entrega"
                   className="justify-self-end text-muted-foreground hover:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -710,7 +728,7 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
             className="h-8 text-xs"
           />
           <Input value={nova.formato} onChange={(e) => setNova({ ...nova, formato: e.target.value })} placeholder="16x9" className="h-8 text-xs" />
-          <Input value={nova.duracao} onChange={(e) => setNova({ ...nova, duracao: e.target.value })} placeholder={'60"'} className="h-8 text-xs" />
+          <Input value={nova.duracao} onChange={(e) => setNova({ ...nova, duracao: e.target.value })} placeholder="60s" className="h-8 text-xs" />
           <Input type="number" value={nova.quantidade} onChange={(e) => setNova({ ...nova, quantidade: e.target.value })} className="h-8 text-xs" />
           <Input type="number" value={nova.diarias} onChange={(e) => setNova({ ...nova, diarias: e.target.value })} className="h-8 text-xs" />
           <Button size="sm" onClick={add}>
@@ -1913,7 +1931,12 @@ function CategoriaItens({
 }
 
 // Campo numérico da planilha: text controlado (sem o "0" grudado do input number).
-function NumCell({ value, onChange, onCommit }: { value: number; onChange: (n: number) => void; onCommit: () => void }) {
+function NumCell({ value, onChange, onCommit, className }: {
+  value: number;
+  onChange: (n: number) => void;
+  onCommit: () => void;
+  className?: string;
+}) {
   const [buf, setBuf] = useState(String(value ?? 0));
   useEffect(() => {
     const bn = buf.trim() === "" ? 0 : Number(buf.replace(",", "."));
@@ -1931,7 +1954,7 @@ function NumCell({ value, onChange, onCommit }: { value: number; onChange: (n: n
         onChange(cleaned.trim() === "" ? 0 : Number(cleaned.replace(",", ".")) || 0);
       }}
       onBlur={onCommit}
-      className="h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+      className={className ?? "h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"}
     />
   );
 }
