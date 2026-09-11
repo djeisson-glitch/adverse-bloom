@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, ShieldCheck, X, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { roundUpTo50, formatCurrency } from "@/lib/format";
+import { entregasParaTexto } from "@/lib/entregasTexto";
 import { nomeArquivoProposta } from "@/lib/produtora";
 import { rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
 import { RodapeConfidencial } from "@/components/publico/CabecalhoPublico";
@@ -121,7 +122,9 @@ export default function CartaPublica() {
     titulo: salvo.titulo ?? (cli.nome || deal.title || ""),
     subtitulo: salvo.subtitulo ?? (TIPO_LABEL[deal.tipo_orcamento] || deal.title || ""),
     briefing: salvo.briefing ?? (deal.objetivo || ""),
-    entregas_texto: salvo.entregas_texto ?? "",
+    // Carta sem texto de entregas mostra as do orçamento — senão o cliente
+    // recebia a proposta sem dizer o que está comprando. Texto escrito vence.
+    entregas_texto: salvo.entregas_texto ?? entregasParaTexto(data.entregas),
     diarias: salvo.diarias ?? "",
     equipe: salvo.equipe ?? DEFAULTS.equipe,
     pos: salvo.pos ?? DEFAULTS.pos,

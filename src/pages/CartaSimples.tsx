@@ -16,6 +16,7 @@ import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "@/lib/orcamentoDa
 // const chamado "linhas" que são as linhas da TABELA. Sem o apelido, o local
 // sombreia o import e o build quebra num erro que não explica a causa.
 import { linhas as emItens } from "@/components/CartaDocumento";
+import { entregasParaTexto, entregasDesatualizadas } from "@/lib/entregasTexto";
 import { useVoltar } from "@/hooks/useVoltar";
 import { porBloco, comPadroes } from "@/lib/condicoes";
 
@@ -154,7 +155,7 @@ export default function CartaSimples() {
       // sem ela as opções saíam com nome idêntico, porque budget_number é o
       // MESMO nas variantes (só o variante_nome muda).
       const { data: opcoes } = await (supabase as any).from("budgets")
-        .select("id, budget_number, total_value, condicoes, created_at, variante_nome, parent_budget_id, is_latest_version, proposta")
+        .select("id, budget_number, total_value, condicoes, entregas, created_at, variante_nome, parent_budget_id, is_latest_version, proposta")
         .eq("deal_id", id).order("created_at", { ascending: true });
       const escolhido = orcamentoDaCarta<any>(opcoes || [], opcaoId);
       const budget = { data: escolhido };
@@ -252,9 +253,13 @@ export default function CartaSimples() {
   const listaIncl = txt.incl ?? cond.inclusos.map((c) => c.rotulo + (c.obs ? ` — ${c.obs}` : ""));
   const listaNaoIncl = txt.naoIncl ?? cond.naoInclusos.map((c) => c.rotulo + (c.obs ? ` — ${c.obs}` : ""));
   // Mesma fonte da carta completa (budgets.proposta.entregas_texto), pra as
-  // duas dizerem a MESMA coisa sobre o que o cliente está comprando. Editar
-  // aqui vale só para este documento, como os outros campos deste painel.
-  const listaEntregas = txt.entregas ?? emItens((data?.budget as any)?.proposta?.entregas_texto);
+  // duas dizerem a MESMA coisa sobre o que o cliente está comprando. Carta
+  // que nunca teve texto de entregas puxa as do orçamento — antes ficava sem
+  // seção nenhuma (ROOS, 11/09). Editar aqui vale só para este documento.
+  const entregasOrc = (data?.budget as any)?.entregas;
+  const textoCarta: string | undefined = (data?.budget as any)?.proposta?.entregas_texto;
+  const listaEntregas = txt.entregas ?? emItens(textoCarta ?? entregasParaTexto(entregasOrc));
+  const entregasPraTras = entregasDesatualizadas(listaEntregas.join("\n"), entregasOrc);
   const criacao = data.budget?.created_at || data.deal?.created_at;
 
   return (
@@ -337,12 +342,21 @@ export default function CartaSimples() {
               </div>
 
               <div className="mb-3">
-                <div className="mb-1 flex items-center justify-between">
+                <div className="mb-1 flex items-center justify-between gap-2">
                   <Label className="text-xs">Entregas</Label>
-                  <button onClick={() => setTxt((t) => ({ ...t, entregas: null }))}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
-                    <RotateCcw className="h-3 w-3" /> do orçamento
-                  </button>
+                  <span className="flex items-center gap-2">
+                    {entregasPraTras && (
+                      <button onClick={() => setTxt((t) => ({ ...t, entregas: emItens(entregasParaTexto(entregasOrc)) }))}
+                              title="A lista está diferente das entregas do orçamento"
+                              className="text-[10px] text-warning hover:underline">
+                        puxar do orçamento
+                      </button>
+                    )}
+                    <button onClick={() => setTxt((t) => ({ ...t, entregas: null }))}
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
+                      <RotateCcw className="h-3 w-3" /> padrão
+                    </button>
+                  </span>
                 </div>
                 <ListaEditavel itens={listaEntregas} onChange={(l) => setTxt((t) => ({ ...t, entregas: l }))} />
               </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { baixarCartaPdf } from "@/lib/cartaPdf";
+import { entregasParaTexto, entregasDesatualizadas } from "@/lib/entregasTexto";
 import { supabase } from "@/integrations/supabase/client";
 import { nomeArquivoProposta } from "@/lib/produtora";
 import { orcamentoDaCarta, letraDaOpcao, rotuloDaOpcao } from "@/lib/orcamentoDaCarta";
@@ -127,16 +128,7 @@ export default function CartaOrcamento() {
     if (manual) {
       setP({ ...DEFAULTS, validade_dias: 15, condicoes_pagamento: "à vista" });
     } else {
-      const entregasTexto =
-        salvo.entregas_texto ??
-        (Array.isArray(budget?.entregas)
-          ? budget.entregas
-              .map(
-                (e: any) =>
-                  `${String(e.quantidade || 1).padStart(2, "0")} ${e.titulo}${e.duracao ? ` ${e.duracao}` : ""}${e.formato ? ` | ${e.formato}` : ""}`,
-              )
-              .join("\n")
-          : "");
+      const entregasTexto = salvo.entregas_texto ?? entregasParaTexto(budget?.entregas);
       // Valor da carta = SEMPRE do orçamento (planilha → proposta → deal),
       // arredondado pra cima de 50 em 50. Não é mais editável na carta.
       const valorOrc = Number(budget?.total_value) || Number(deal.valor_proposta) || Number(deal.value) || 0;
@@ -231,7 +223,21 @@ export default function CartaOrcamento() {
             </div>
             <Campo label="Briefing"><Textarea rows={2} value={p.briefing || ""} onChange={(e) => set({ briefing: e.target.value })} className="bg-white/5" /></Campo>
             <div className="grid gap-3 md:grid-cols-2">
-              <Campo label="Entregas (uma por linha)"><Textarea rows={3} value={p.entregas_texto || ""} onChange={(e) => set({ entregas_texto: e.target.value })} className="bg-white/5" /></Campo>
+              <Campo label="Entregas (uma por linha)">
+                {/* O texto da carta vence (muitas vezes é redigido à mão), mas
+                    não pode ficar pra trás em silêncio quando as entregas do
+                    orçamento mudam depois — puxar é um clique, nunca automático. */}
+                {entregasDesatualizadas(p.entregas_texto, data?.budget?.entregas) && (
+                  <button
+                    onClick={() => set({ entregas_texto: entregasParaTexto(data?.budget?.entregas) })}
+                    title="O texto está diferente das entregas do orçamento. Puxar substitui o texto acima."
+                    className="mb-1 block text-[10px] text-warning hover:underline"
+                  >
+                    ↻ puxar entregas do orçamento
+                  </button>
+                )}
+                <Textarea rows={3} value={p.entregas_texto || ""} onChange={(e) => set({ entregas_texto: e.target.value })} className="bg-white/5" />
+              </Campo>
               <Campo label="Diárias (uma por linha)"><Textarea rows={3} value={p.diarias || ""} onChange={(e) => set({ diarias: e.target.value })} className="bg-white/5" placeholder={"3 diárias de captação\nLajeado + Bento"} /></Campo>
               <Campo label="Equipe"><Textarea rows={3} value={p.equipe || ""} onChange={(e) => set({ equipe: e.target.value })} className="bg-white/5" /></Campo>
               <Campo label="Pós-produção"><Textarea rows={3} value={p.pos || ""} onChange={(e) => set({ pos: e.target.value })} className="bg-white/5" /></Campo>
