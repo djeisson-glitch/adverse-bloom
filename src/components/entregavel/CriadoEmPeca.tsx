@@ -97,9 +97,8 @@ export function CriadoEmPeca({ deliverableId, criadoEm, createdAt, pisoProjeto, 
           </button>
         </div>
         {pisoProjeto && (
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            só a partir de {fmtCarimbo(pisoProjeto)} — é quando o projeto entrou.
-            O mês do fechamento segue a data do projeto.
+          <p className="mt-1 text-[10px] text-muted-foreground" title="É quando o projeto entrou. O mês do fechamento segue a data do projeto.">
+            só a partir de {fmtCarimbo(pisoProjeto)}
           </p>
         )}
         {createdAt && (

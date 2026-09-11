@@ -1165,7 +1165,6 @@ function TeamPanel({ itens, hoje }: { itens: SistItem[]; hoje: string }) {
         <Users className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">No sistema</h2>
         <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">{itens.length}</span>
-        <span className="hidden text-[11px] text-muted-foreground/70 sm:inline">· radar do time</span>
       </div>
       <Card className="glass-card overflow-hidden">
         <CardContent className="max-h-[72vh] space-y-0 overflow-y-auto p-0">

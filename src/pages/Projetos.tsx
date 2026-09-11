@@ -143,7 +143,7 @@ export default function Projetos() {
               {vista === "finalizados" ? "Projetos finalizados" : "Projetos em andamento"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {lista.length} projetos · Produção (PT)
+              {lista.length} projetos
             </p>
           </div>
         </div>
@@ -283,7 +283,7 @@ function ListaVista({
     return (
       <Card className="glass-card">
         <CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
-          Nenhum projeto ainda. Ganhe um orçamento e transforme-o em projeto.
+          Nenhum projeto.
         </CardContent>
       </Card>
     );
@@ -486,8 +486,11 @@ function GanttVista({ projects }: { projects: Project[] }) {
   if (withDates.length === 0) {
     return (
       <Card className="glass-card">
-        <CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">
-          Nenhum projeto com data de início e prazo definidos. Preencha na ficha do projeto.
+        <CardContent
+          className="px-6 py-12 text-center text-sm text-muted-foreground"
+          title="Preencha início e prazo na ficha do projeto"
+        >
+          Nenhum projeto com datas.
         </CardContent>
       </Card>
     );

@@ -41,7 +41,7 @@ export function donoDaVez(
     (slug ? etapas.find((e) => e.slug === slug)?.nome : null) || null;
 
   if (["entregue", "aprovado", "faturado"].includes(status)) {
-    return { pessoa: null, papel: "nada a fazer — a peça está encerrada", encerrado: true };
+    return { pessoa: null, papel: "peça encerrada", encerrado: true };
   }
   if (status === "com_cliente") {
     return { pessoa: null, papel: "com o cliente, aguardando retorno", encerrado: false };

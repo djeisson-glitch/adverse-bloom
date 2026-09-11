@@ -156,13 +156,11 @@ export function DiariasFechamento({ projectId, clientId }: { projectId: string; 
           </div>
         )}
 
-        <p className="text-[11px] text-muted-foreground">
-          Lance aqui as notas do dia: fechar o projeto é quando elas estão na mesa — na hora de
-          agendar ninguém sabe quanto vai custar o combustível. Salva sozinho.
-          {diarias.some((d) => compartilhado(d.data)) && (
-            <> Em dia compartilhado, lance o custo em <b>um projeto só</b>: a saída foi uma.</>
-          )}
-        </p>
+        {diarias.some((d) => compartilhado(d.data)) && (
+          <p className="text-[11px] text-muted-foreground">
+            Dia compartilhado: custo em <b>um projeto só</b>.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

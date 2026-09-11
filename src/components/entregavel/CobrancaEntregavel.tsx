@@ -55,7 +55,7 @@ export function CobrancaEntregavel({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3 text-xs">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cobrança</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" title="Em branco, o fechamento decide pelo nome ou pelas horas">Cobrança</span>
 
       <Select value={tipo || "auto"} onValueChange={(v) => gravar({ tipo_cobranca: v === "auto" ? null : v })}>
         <SelectTrigger className="h-7 w-[170px] text-xs"><SelectValue /></SelectTrigger>
@@ -88,12 +88,6 @@ export function CobrancaEntregavel({
       {estourou && (
         <span className="text-[11px] text-warning" title={`a tabela prevê ${linha.horas_ref}h para "${tipo}"`}>
           {fmtDuracao(horasMin)} · passou das {linha.horas_ref}h do tipo
-        </span>
-      )}
-
-      {!tipo && (
-        <span className="text-[11px] text-muted-foreground">
-          em branco, o fechamento decide pelo nome ou pelas horas
         </span>
       )}
     </div>

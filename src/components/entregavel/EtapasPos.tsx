@@ -140,8 +140,8 @@ export function EtapasPos({ did, podeMover, status }: { did: string; podeMover: 
             {!naBancada && <span className="text-muted-foreground">— parou aqui</span>}
           </span>
         ) : mover_ok ? (
-          <span className="text-muted-foreground">
-            nenhuma — só separe se a peça passar por mais de uma mão
+          <span className="text-muted-foreground" title="Só separe se a peça passar por mais de uma mão">
+            nenhuma
           </span>
         ) : (
           <span className="text-muted-foreground">não separada por etapas</span>

@@ -66,13 +66,15 @@ interface MetricCardProps {
   hero?: boolean;
   termo?: string; // termo técnico em cinza sob o rótulo amigável
   delta?: { texto: string; bom: boolean } | null; // variação vs período anterior
+  title?: string;
 }
 
-function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime, hero, termo, delta }: MetricCardProps) {
+function MetricCard({ label, value, sub, subColor, valueColor, icon: Icon, onClick, loading, insight, regime, hero, termo, delta, title }: MetricCardProps) {
   return (
     <Card
       className={`border-border/50 transition-colors ${hero ? "bg-card/80" : "bg-card"} ${onClick ? "cursor-pointer hover:border-primary/40" : ""}`}
       onClick={onClick}
+      title={title}
     >
       <CardContent className={hero ? "p-5" : "p-4"}>
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -673,7 +675,7 @@ export default function Home() {
             open={aberto.has("sinais")}
             onToggle={() => toggleSec("sinais")}
             dot="bg-warning"
-            title="Saúde do negócio & o que olhar agora"
+            title="Saúde do negócio"
             hint={statusSaude.label}
           />
           {aberto.has("sinais") && (
@@ -683,10 +685,10 @@ export default function Home() {
                   <statusSaude.icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`}>{statusSaude.label}</p>
+                  <p className={`font-heading text-lg font-bold leading-tight ${statusSaude.color}`} title={statusSaude.nota}>{statusSaude.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    {statusSaude.nota} · margem líquida do período {formatPercent(margemLiquida.pct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
-                    {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} de faturamento pra zerar` : ""}
+                    margem líquida {formatPercent(margemLiquida.pct)} · runway {runway === Infinity ? "∞" : `${runway.toFixed(1)} meses`}
+                    {statusSaude.key === "prejuizo" && faltaPraLucro > 0 ? ` · faltam ${formatCurrency(faltaPraLucro)} pra zerar` : ""}
                   </p>
                 </div>
               </div>
@@ -747,24 +749,25 @@ export default function Home() {
           <SecHeader open={aberto.has("resultado")} onToggle={() => toggleSec("resultado")} dot="bg-success" title="Resultado econômico · competência" hint={`margem líquida ${formatPercent(margemLiquida.pct)}`} />
           {aberto.has("resultado") && (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} sub="receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Receita líquida" value={formatCurrency(receitaLiquida)} title="Receita − impostos" icon={CircleDollarSign} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Impostos sobre venda" value={formatCurrency(impostosVenda)} sub={abertoImpostos > 0 ? `${formatCurrency(abertoImpostos)} em aberto` : "tudo pago"} subColor={abertoImpostos > 0 ? "text-warning" : "text-success"} icon={Receipt} onClick={() => setDetalhe({ title: "Impostos sobre venda", items: detItens.impostos, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Custos fixos" value={formatCurrency(custosFixos)} sub={abertoFixos > 0 ? `${formatCurrency(abertoFixos)} em aberto` : "tudo pago"} subColor={abertoFixos > 0 ? "text-warning" : "text-success"} icon={Receipt} onClick={() => setDetalhe({ title: "Custos fixos", items: detItens.custosFixos, valueField: "total" })} loading={financialLoading} insight={insightCustosFixos} />
           <MetricCard label="Custos variáveis" value={formatCurrency(custosVariaveis)} sub={abertoVariaveis > 0 ? `${formatCurrency(abertoVariaveis)} em aberto` : "tudo pago"} subColor={abertoVariaveis > 0 ? "text-warning" : "text-success"} icon={TrendingDown} onClick={() => setDetalhe({ title: "Custos variáveis", items: detItens.custosVariaveis, valueField: "total" })} loading={financialLoading} />
           <MetricCard label="Sobra após custos diretos" termo="margem bruta" value={formatPercent(margemBruta.pct)} sub={formatCurrency(margemBruta.valor)} valueColor={marginColor(margemBruta.pct)} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
-          <MetricCard label="Sobra após variáveis" termo="margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightContrib} />
+          <MetricCard label="Sobra após variáveis" termo="margem de contribuição" value={formatPercent(margemContrib.pct)} sub={formatCurrency(margemContrib.valor)} valueColor={marginColor(margemContrib.pct)} icon={Percent} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} title={insightContrib} />
           <MetricCard label="Sobra no fim" termo="margem líquida" value={formatPercent(margemLiquida.pct)} sub={formatCurrency(margemLiquida.valor)} valueColor={marginColor(margemLiquida.pct)} icon={Target} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} insight={insightMargemLiq} />
           <MetricCard label="Faturamento pra empatar" termo="ponto de equilíbrio" value={formatCurrency(pontoEquilibrio)} sub={faltaPraLucro > 0 ? `faltam ${formatCurrency(faltaPraLucro)} pra zerar` : `no lucro (+${formatCurrency(-faltaPraLucro)})`} subColor={faltaPraLucro > 0 ? "text-warning" : "text-success"} icon={Scale} loading={financialLoading} />
           <MetricCard
             label="Custo da sua hora"
             termo="custo hora · estrutura"
             value={custoHora != null ? `${formatCurrency(custoHora)}/h` : "—"}
-            sub={custoHora != null ? `${formatCurrency(custosFixos / nMesesPeriodo)}/mês ÷ ${horasMes}h produtivas` : "defina as horas produtivas no Contexto"}
+            sub={custoHora != null ? undefined : "defina horas no Contexto"}
             subColor={custoHora != null ? undefined : "text-warning"}
+            title={custoHora != null ? `${formatCurrency(custosFixos / nMesesPeriodo)}/mês ÷ ${horasMes}h produtivas · cheio = todas as despesas op. ÷ horas` : undefined}
             icon={Clock}
             onClick={custoHora == null ? () => navigate("/configuracoes/contexto") : undefined}
             loading={financialLoading}
-            insight={custoHoraCheio != null ? `cheio (todas as despesas op.): ${formatCurrency(custoHoraCheio)}/h` : undefined}
+            insight={custoHoraCheio != null ? `cheio: ${formatCurrency(custoHoraCheio)}/h` : undefined}
           />
           </div>
           )}
@@ -776,18 +779,18 @@ export default function Home() {
           {aberto.has("caixa") && (
           <div className="space-y-3 mt-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <MetricCard label="A receber" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer no período"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no período", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
-          <MetricCard label="Total a pagar" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} ainda em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-warning" : "text-success"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no período", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
-          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} sub="recebido no período" subColor="text-success" icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no período (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
+          <MetricCard label="A receber" value={formatCurrency(aReceberMes)} sub={aReceberMesVencido > 0 ? `${formatCurrency(aReceberMesVencido)} vencido` : "a vencer"} subColor={aReceberMesVencido > 0 ? "text-destructive" : undefined} icon={Wallet} onClick={() => setDetalhe({ title: "A receber no período", items: detItens.aReceber, valueField: "nao_pago" })} loading={financialLoading} />
+          <MetricCard label="Total a pagar" value={formatCurrency(aPagarMes)} sub={aPagarMesAberto > 0 ? `${formatCurrency(aPagarMesAberto)} em aberto` : "tudo pago"} subColor={aPagarMesAberto > 0 ? "text-warning" : "text-success"} icon={CreditCard} onClick={() => setDetalhe({ title: "Total a pagar no período", items: detItens.aPagar, valueField: "total" })} loading={financialLoading} />
+          <MetricCard label="Recebido (realizado)" value={formatCurrency(recebidoMes)} icon={CircleDollarSign} onClick={() => setDetalhe({ title: "Recebido no período (realizado)", items: detItens.recebido, valueField: "pago" })} loading={financialLoading} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <MetricCard label="Geração de caixa (realizado)" value={formatCurrency(geracaoCaixa)} valueColor={geracaoCaixa >= 0 ? "text-success" : "text-destructive"} sub={`entrou ${formatCurrency(recebidoTotalMes)} · saiu ${formatCurrency(pagoMes)}`} subColor={geracaoCaixa >= 0 ? "text-success" : "text-destructive"} icon={Banknote} loading={financialLoading} />
-          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} sub={`período completo · ainda a entrar ${formatCurrency(aindaEntrar)} · ainda a sair ${formatCurrency(aindaSair)}`} subColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
+          <MetricCard label="Geração de caixa (projetado)" value={formatCurrency(geracaoProjetada)} valueColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} sub={`a entrar ${formatCurrency(aindaEntrar)} · a sair ${formatCurrency(aindaSair)}`} title="Período completo, se tudo que vence se concretizar" subColor={geracaoProjetada >= 0 ? "text-success" : "text-destructive"} icon={TrendingUp} loading={financialLoading} />
         </div>
         <Card className="bg-card border-border/50">
           <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
-              <Banknote className="h-3.5 w-3.5" /> Geração de caixa — últimos 6 meses fechados (fixo, não segue o seletor)
+            <CardTitle className="text-xs text-muted-foreground font-normal flex items-center gap-1.5" title="Meses fechados; não segue o seletor de período">
+              <Banknote className="h-3.5 w-3.5" /> Geração de caixa — últimos 6 meses
             </CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-3">
@@ -819,9 +822,9 @@ export default function Home() {
           {aberto.has("comercial") && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           <MetricCard label="MRR (receita recorrente)" value={formatCurrency(mrr)} sub={`${nContratos} contratos ativos`} icon={Wallet} onClick={() => navigate("/configuracoes/contratos")} loading={false} />
-          <MetricCard label="Projetos realizados" value={String(projetosRealizados)} sub="no período (ClickUp)" icon={Briefcase} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
+          <MetricCard label="Projetos realizados" value={String(projetosRealizados)} title="No período (ClickUp)" icon={Briefcase} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
           <MetricCard label="Ticket médio" value={formatCurrency(ticketMedioValor)} sub={projetosRealizados > 0 ? `${projetosRealizados} projetos` : `${ticketMedio.qtde} faturas`} icon={TrendingUp} onClick={() => navigate("/financeiro/resultados")} loading={financialLoading} />
-          <MetricCard label="Nº de clientes" value={String(topClientes.qtde)} sub="faturando no período" icon={Handshake} onClick={() => navigate("/clientes")} loading={financialLoading} insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined} />
+          <MetricCard label="Nº de clientes" value={String(topClientes.qtde)} icon={Handshake} onClick={() => navigate("/clientes")} loading={financialLoading} insight={topClientes.concentracao > 50 ? `concentrado: top 3 = ${topClientes.concentracao.toFixed(0)}%` : undefined} />
           </div>
           )}
         </div>
@@ -847,7 +850,7 @@ export default function Home() {
 
         {/* Clientes: projetos × faturamento × ticket */}
         <div>
-          <SecHeader open={aberto.has("clientes")} onToggle={() => toggleSec("clientes")} dot="bg-primary" title="Clientes — projetos × faturamento × ticket" hint={topClientes.qtde > 0 ? `${topClientes.qtde} clientes` : ""} />
+          <SecHeader open={aberto.has("clientes")} onToggle={() => toggleSec("clientes")} dot="bg-primary" title="Clientes" hint={topClientes.qtde > 0 ? `${topClientes.qtde} clientes` : ""} />
           {aberto.has("clientes") && (
           <div className="mt-2 px-1">
             {topClientes.lista.length === 0 ? (
@@ -883,11 +886,7 @@ export default function Home() {
         <SecHeader open={aberto.has("tendencia")} onToggle={() => toggleSec("tendencia")} dot="bg-roxo" title={`Tendência — 3 meses fechados${trailingLabel ? ` (${trailingLabel})` : ""}`} hint={`líquida ${formatPercent(trailing.margemLiquidaPct)}`} />
         {aberto.has("tendencia") && (
           <div className="mt-2">
-            <p className="text-xs text-muted-foreground mb-3">
-              Médias dos 3 meses completos antes do mês selecionado — sem o ruído do mês parcial. Ambas <strong>operacionais</strong>
-              (excluem empréstimos e compra de equipamentos), então a diferença entre elas é só o <strong>timing</strong> (competência × caixa).
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" title="Médias dos 3 meses completos antes do mês selecionado. Ambas operacionais (sem empréstimos e equipamentos): a diferença é só o timing (competência × caixa).">
               <div className="rounded-lg border border-border/40 bg-secondary/30 p-3">
                 <p className="text-xs text-muted-foreground">Margem líquida (3m) <span className="text-[9px] uppercase text-success">comp.</span></p>
                 <p className={`text-lg font-heading font-bold ${marginColor(trailing.margemLiquidaPct)}`}>{formatPercent(trailing.margemLiquidaPct)}</p>
@@ -906,17 +905,13 @@ export default function Home() {
       </section>
 
       <section>
-        <SecHeader open={aberto.has("portal")} onToggle={() => toggleSec("portal")} dot="bg-primary" title="Portal do período" hint="6 campos pra copiar" />
+        <SecHeader open={aberto.has("portal")} onToggle={() => toggleSec("portal")} dot="bg-primary" title="Portal do período" />
         {aberto.has("portal") && (
           <div className="mt-2">
             <div className="mb-2 flex justify-end">
               <Button size="sm" variant="outline" onClick={copiarPortal}>Copiar tudo</Button>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Números prontos pra alimentar o portal externo (período selecionado no topo). Pró-labore = retirada total dos sócios
-              (pró-labore + distribuição); custo fixo = só operacional (sem a retirada).
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" title="Pró-labore = retirada total dos sócios (pró-labore + distribuição). Custo fixo = só operacional, sem a retirada.">
               {portalCampos.map((c) => (
                 <div key={c.label} className="rounded-lg border border-border/40 bg-secondary/30 p-3">
                   <p className="text-xs text-muted-foreground truncate">{c.label}</p>

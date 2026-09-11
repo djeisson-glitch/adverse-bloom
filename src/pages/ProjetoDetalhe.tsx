@@ -1192,8 +1192,7 @@ function MergulhoProjetoCard({ dealId }: { dealId: string | null }) {
   return (
     <Card className="glass-card">
       <CardContent className="p-6">
-        <h2 className="mb-1 text-base font-semibold text-foreground">Mergulho / Briefing estratégico</h2>
-        <p className="mb-4 text-xs text-muted-foreground">Respondido na fase do orçamento — carregado pra cá pra não se perder.</p>
+        <h2 className="mb-4 text-base font-semibold text-foreground" title="Respondido na fase do orçamento">Mergulho / Briefing estratégico</h2>
         <MergulhoForm value={dados} readOnly />
       </CardContent>
     </Card>
@@ -1206,13 +1205,13 @@ const BRIEFING_CAMPOS = [
   {
     key: "briefing_consolidado",
     label: "Briefing consolidado",
-    placeholder: "Contexto do job, referências e direcionamento geral",
+    placeholder: "Contexto e referências…",
     full: true,
   },
   {
     key: "escopo_vendido",
     label: "Escopo vendido",
-    placeholder: "Entregáveis contratados, formatos e quantidades",
+    placeholder: "Entregáveis, formatos, quantidades…",
     full: true,
   },
   {
@@ -1224,13 +1223,13 @@ const BRIEFING_CAMPOS = [
   {
     key: "restricoes",
     label: "Restrições",
-    placeholder: "Restrições de execução, compliance, prazo ou formato",
+    placeholder: "Compliance, prazo, formato…",
     full: false,
   },
   {
     key: "observacoes_cliente",
     label: "Observações do cliente",
-    placeholder: "Observações relevantes trazidas pelo atendimento",
+    placeholder: "Vindas do atendimento…",
     full: true,
   },
 ] as const;
@@ -1259,12 +1258,7 @@ function BriefingProjetoSection({ project, onChanged }: { project: any; onChange
     <Card className="glass-card">
       <CardContent className="space-y-4 p-6">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Briefing</p>
-            <p className="text-xs text-muted-foreground">
-              Consolide o contexto, escopo e direcionamento geral do projeto
-            </p>
-          </div>
+          <p className="text-sm font-semibold text-foreground">Briefing</p>
           <IndicadorAutosave status={auto.status} />
         </div>
         <div className="grid gap-3 md:grid-cols-2">
@@ -1330,13 +1324,12 @@ function AprovacaoProjetoCard({
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Aprovação deste projeto</p>
-          <p className="text-xs text-muted-foreground">
-            Sobrescreve os aprovadores padrão só neste projeto. "Herdar do global" usa o que está em
-            Admin → Aprovações.
-          </p>
-        </div>
+        <p
+          className="text-sm font-semibold text-foreground"
+          title={'Sobrescreve os aprovadores padrão só neste projeto. "Herdar do global" usa Admin → Aprovações.'}
+        >
+          Aprovação deste projeto
+        </p>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <Label>Nível 1</Label>
@@ -1462,12 +1455,7 @@ function DocumentosSection({ projectId }: { projectId: string }) {
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Documentos</p>
-          <p className="text-xs text-muted-foreground">
-            Links de Docs, Drive, Notion e referências do projeto
-          </p>
-        </div>
+        <p className="text-sm font-semibold text-foreground">Documentos</p>
 
         {docs.map((d) => (
           <div
@@ -1499,13 +1487,13 @@ function DocumentosSection({ projectId }: { projectId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Título (ex.: Roteiro no Docs)"
+            placeholder="Título"
             value={novo.titulo}
             onChange={(e) => setNovo({ ...novo, titulo: e.target.value })}
             className="h-9 w-56"
           />
           <Input
-            placeholder="https://docs.google.com/…"
+            placeholder="https://…"
             value={novo.url}
             onChange={(e) => setNovo({ ...novo, url: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && criar.mutate()}
@@ -1952,9 +1940,6 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
               onChange={(e) => setNovo({ ...novo, data_entrega: e.target.value })}
             />
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            O link do Frame.io fica <b>dentro do entregável</b> — abra-o pelo botão <ExternalLink className="inline h-3 w-3" /> da linha pra adicionar ou editar.
-          </p>
           <Button
             onClick={() => criar.mutate()}
             className="w-full bg-primary text-primary-foreground"
@@ -2195,7 +2180,10 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
           <>
         <p className="text-sm font-semibold text-foreground">⚖️ Fechamento — Orçado × Realizado</p>
 
-        <div className="overflow-hidden rounded-md border border-border/40">
+        <div
+          className="overflow-hidden rounded-md border border-border/40"
+          title="Realizado = valor do projeto − (horas × custo/hora de cada pessoa) − custos diretos. Orçado vem da composição do orçamento de origem."
+        >
           <div className="grid grid-cols-[120px_1fr_1fr] gap-2 border-b border-border/40 bg-muted/20 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span />
             <span className="text-right">Orçado</span>
@@ -2211,10 +2199,6 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
             destaque
           />
         </div>
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Realizado = valor do projeto − (custo de cada pessoa: horas × o custo/hora dela) − custos
-          diretos. Orçado vem da composição do orçamento de origem.
-        </p>
 
         {/* Custo da equipe */}
         <div className="space-y-2">
@@ -2228,10 +2212,7 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
             <span className="text-right">Custo</span>
           </div>
           {linhasEquipe.length === 0 ? (
-            <p className="px-1 py-3 text-xs text-muted-foreground">
-              Adicione pessoas à equipe no topo — elas aparecem aqui (mesmo sem horas) pra você definir
-              o custo/hora.
-            </p>
+            <p className="px-1 py-3 text-xs text-muted-foreground">Nenhuma pessoa na equipe.</p>
           ) : (
             linhasEquipe.map((r) => (
               <div key={r.user_id} className="grid grid-cols-[1fr_80px_160px_120px] items-center gap-2">
@@ -2245,18 +2226,21 @@ function FechamentoSection({ project, onChanged }: { project: any; onChanged: ()
                     onBlur={(e) => salvarCustoHoraPessoa(r.user_id, e.target.value)}
                     className="h-7 text-xs"
                   />
-                  <span className="text-[10px] text-muted-foreground">ok</span>
                 </div>
                 <span className="text-right text-sm">{formatCurrency(r.custo)}</span>
               </div>
             ))
           )}
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Cada pessoa usa o seu custo/hora (por senioridade) — vale em todos os projetos dela. Quem
-            não tiver valor próprio cai no padrão do projeto abaixo.
+            Custo/hora vale em todos os projetos.
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Custo/hora padrão do projeto — fallback (BRL)</span>
+            <span
+              className="text-xs text-muted-foreground"
+              title="Vale pra quem não tem custo/hora próprio"
+            >
+              Custo/hora padrão do projeto (BRL)
+            </span>
             <Input
               type="number"
               value={fallback}
@@ -2609,7 +2593,7 @@ export function ComentariosSection({
     <>
       {comments.length === 0 ? (
         <p className={`text-xs text-muted-foreground ${fill ? "flex-1" : ""}`}>
-          {vazio || "Nenhum comentário ainda. Use @nome para mencionar alguém."}
+          {vazio || "Nenhum comentário ainda."}
         </p>
       ) : (
         <div ref={listaRef} className={corpoCls}>
@@ -2661,7 +2645,7 @@ export function ComentariosSection({
           value={body}
           onChange={setBody}
           profiles={profiles}
-          placeholder="Escreva uma mensagem…  digite @ para mencionar"
+          placeholder="Mensagem… (@ menciona)"
           onSubmit={() => enviar.mutate()}
         />
         <Button
@@ -2736,8 +2720,6 @@ function ComentariosPainel({
   const isProjeto = contexto === "project";
   const isEntregavel = contexto.startsWith("deliverable:");
   const entregavelId = isEntregavel ? contexto.slice("deliverable:".length) : null;
-  const tarefaSel = tasks.find((t) => t.id === contexto);
-  const entregavelSel = entregaveis.find((e) => e.id === entregavelId);
 
   const entityType: CommentEntity = isProjeto ? "project" : isEntregavel ? "deliverable" : "task";
   const entityId = isProjeto ? projectId : isEntregavel ? entregavelId! : contexto;
@@ -2770,14 +2752,6 @@ function ComentariosPainel({
           </SelectContent>
         </Select>
 
-        <p className="text-[10px] text-muted-foreground">
-          {isProjeto
-            ? "Conversa geral do projeto."
-            : isEntregavel
-              ? `Conversa do entregável "${entregavelSel?.titulo || "—"}".`
-              : `Comentários da tarefa "${tarefaSel?.title || "—"}".`}
-        </p>
-
         {/* Uma instância por contexto — key força remount ao trocar */}
         <ComentariosSection
           key={contexto}
@@ -2785,13 +2759,7 @@ function ComentariosPainel({
           entityId={entityId}
           profiles={profiles}
           compact
-          vazio={
-            isProjeto
-              ? "Sem mensagens no projeto ainda. Use @nome para mencionar."
-              : isEntregavel
-                ? "Sem mensagens neste entregável ainda. Use @nome para mencionar."
-                : "Sem mensagens nesta tarefa ainda."
-          }
+          vazio="Nenhuma mensagem ainda."
         />
       </CardContent>
     </Card>

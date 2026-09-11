@@ -388,15 +388,13 @@ export default function FaturamentoMensal() {
           <Receipt className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">Faturamento mensal</h1>
-            <p className="text-sm text-muted-foreground">
-              Rascunhos por cliente — gerados no dia 01, revisáveis antes de enviar.
-            </p>
             {/* O critério do mês precisa estar escrito: ele muda o valor, e a
                 consequência (o mês crescer depois) surpreende quem já mandou. */}
-            <p className="mt-1 text-xs text-muted-foreground/80">
-              O mês é cortado pela <strong className="text-foreground">data de criação</strong> do job —
-              a mesma de <em>Entregas do mês</em>. Hora lançada depois, num job deste mês,
-              entra aqui: <strong className="text-foreground">regere antes de faturar</strong>.
+            <p
+              className="mt-1 text-xs text-muted-foreground/80"
+              title="O mês é cortado pela data de criação do job — a mesma de Entregas do mês. Hora lançada depois, num job deste mês, entra aqui."
+            >
+              <strong className="text-foreground">Regere antes de faturar.</strong>
             </p>
           </div>
         </div>
@@ -426,8 +424,8 @@ export default function FaturamentoMensal() {
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm">
           <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="text-muted-foreground">
-            Nenhuma hora apontada em <span className="capitalize text-foreground">{mesLabel}</span>.
-            {" "}As horas estão em:
+            Sem horas em <span className="capitalize text-foreground">{mesLabel}</span>.
+            {" "}Estão em:
           </span>
           {outrosMeses.slice(0, 3).map(([m, min]) => {
             const [y, mm] = m.split("-").map(Number);
@@ -451,13 +449,12 @@ export default function FaturamentoMensal() {
           — é dinheiro que evapora em silêncio. */}
       {(panorama?.semConfig?.length || 0) > 0 && (
         <div className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-3">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <p
+            className="flex items-center gap-1.5 text-sm font-medium text-foreground"
+            title={`Clientes com hora apontada em ${mesLabel} sem modelo de cobrança na ficha — não entram no rascunho.`}
+          >
             <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
             Horas que não vão virar fatura
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Estes clientes têm hora apontada em <span className="capitalize">{mesLabel}</span> mas nenhum modelo de
-            cobrança na ficha — não entram no rascunho:
           </p>
           <ul className="mt-1.5 space-y-0.5">
             {panorama!.semConfig.map((c) => (
@@ -468,7 +465,7 @@ export default function FaturamentoMensal() {
             ))}
           </ul>
           <Link to="/clientes" className="mt-1.5 inline-block text-[11px] text-primary hover:underline">
-            configurar na ficha do cliente →
+            configurar na ficha →
           </Link>
         </div>
       )}
@@ -480,10 +477,15 @@ export default function FaturamentoMensal() {
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <Receipt className="h-8 w-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">Nada gerado para {mesLabel}.</p>
-            <Button variant="outline" size="sm" onClick={() => gerar.mutate()} disabled={gerar.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => gerar.mutate()}
+              disabled={gerar.isPending}
+              title="Só entram clientes com modelo de cobrança configurado na ficha."
+            >
               <RefreshCw className="mr-1.5 h-4 w-4" /> Gerar agora
             </Button>
-            <p className="text-[11px] text-muted-foreground">Só entram clientes com modelo de cobrança configurado na ficha.</p>
           </CardContent>
         </Card>
       ) : (
@@ -579,8 +581,8 @@ export default function FaturamentoMensal() {
                       {saude && (
                         <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${dif >= 0 ? "border-emerald-500/30 bg-emerald-500/5 text-success" : "border-destructive/30 bg-destructive/5 text-destructive"}`}>
                           {dif >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                          <span>
-                            Cobrando <b>{formatCurrency(saude.valor_cobrado)}</b> · por horas ao nosso valor-tabela ({formatCurrency(saude.valor_hora_referencia)}/h × {fmtHoras(saude.horas_total)}) daria <b>{formatCurrency(saude.valor_equivalente_horas)}</b> → {dif >= 0 ? "acima" : "abaixo"} em <b>{formatCurrency(Math.abs(dif))}</b>
+                          <span title={`Por horas ao nosso valor-tabela: ${formatCurrency(saude.valor_hora_referencia)}/h × ${fmtHoras(saude.horas_total)}`}>
+                            Cobrando <b>{formatCurrency(saude.valor_cobrado)}</b> · por hora daria <b>{formatCurrency(saude.valor_equivalente_horas)}</b> → {dif >= 0 ? "acima" : "abaixo"} em <b>{formatCurrency(Math.abs(dif))}</b>
                           </span>
                         </div>
                       )}
@@ -667,22 +669,19 @@ export default function FaturamentoMensal() {
                           </div>
                           <details className="pt-1">
                             <summary className="cursor-pointer list-none text-[10px] text-muted-foreground hover:text-foreground">
-                              ⌄ como decidir o tipo de cada entrega
+                              ⌄ como decidir o tipo
                             </summary>
                             <ol className="mt-1 space-y-0.5 pl-4 text-[11px] text-muted-foreground">
                               <li className="list-decimal">A Adverse foi a campo? → <b>Captação</b></li>
                               <li className="list-decimal">Furou a fila por urgência? → <b>Edição urgente</b></li>
-                              <li className="list-decimal">É recorte/versão de material já editado (story, corte, vertical)? → o tipo da peça de origem, <b>meia</b> — teve trabalho, só não o trabalho inteiro</li>
+                              <li className="list-decimal">É recorte/versão de material já editado (story, corte, vertical)? → o tipo da peça de origem, <b>meia</b></li>
                               <li className="list-decimal">Vídeo longo, com decupagem e motion? → <b>Vídeo principal</b></li>
                               <li className="list-decimal">Tem decupagem, transições e letterings? → <b>Pílula +</b></li>
                               <li className="list-decimal">Resto (legenda, trilha, cortes, lettering básico) → <b>Pílula</b></li>
                             </ol>
                             <p className="mt-1 pl-4 text-[10px] text-muted-foreground">
-                              A ordem importa: pare na primeira que responder "sim". Borda acesa = confirmado
-                              por você; as outras vieram do nome ou das horas. Horas em âmbar passaram do
-                              previsto pelo tipo — sinal de que o preço ficou barato pro trabalho que deu.
-                              A segunda caixa é quanto se cobra: <b>cheia</b>, <b>meia</b> (metade do preço do tipo)
-                              ou <b>cortesia</b>.
+                              Pare no primeiro "sim". Borda acesa: confirmado por você. Horas em âmbar:
+                              passou do previsto. <b>Meia</b> = metade do preço do tipo.
                             </p>
                           </details>
                         </Bloco>
@@ -732,7 +731,7 @@ export default function FaturamentoMensal() {
                                   />
                                 ) : (
                                   <p className="text-[11px] text-muted-foreground">
-                                    Regere o mês pra liberar o lançamento de custos deste dia.
+                                    Regere o mês para lançar custos.
                                   </p>
                                 )}
                               </div>
@@ -752,9 +751,11 @@ export default function FaturamentoMensal() {
                                 <b className="text-foreground">{formatCurrency(Number(f.detalhe.diarias_valor || 0))}</b>
                               </p>
                             ) : (
-                              <p className="text-warning">
-                                Nenhuma linha da tabela está marcada como diária — o dia está saindo de graça.
-                                Marque na ficha do cliente, em Faturamento.
+                              <p
+                                className="text-warning"
+                                title="Nenhuma linha da tabela está marcada como diária. Marque na ficha do cliente, em Faturamento."
+                              >
+                                Diária sem preço — saindo de graça.
                               </p>
                             )}
                             {Number(f.detalhe?.diarias_repasse || 0) > 0 && (
@@ -763,14 +764,14 @@ export default function FaturamentoMensal() {
                                 <b className="text-foreground">{formatCurrency(Number(f.detalhe.diarias_repasse))}</b>
                               </p>
                             )}
-                            <p className="text-[10px] text-muted-foreground/70">Tudo isto já está somado no subtotal.</p>
+                            <p className="text-[10px] text-muted-foreground/70">Já somado no subtotal.</p>
                           </div>
                         </Bloco>
                       )}
 
                       {/* Horas por projeto */}
                       {Array.isArray(f.detalhe?.por_projeto) && f.detalhe.por_projeto.length > 0 && (
-                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo={`Jobs do mês (${f.detalhe.por_projeto.length}) — onde se decide a nota`} aberto>
+                        <Bloco icon={<Clock className="h-3.5 w-3.5" />} titulo={`Jobs do mês (${f.detalhe.por_projeto.length})`} aberto>
                           <div className="space-y-2">
                             {f.detalhe.por_projeto.map((p: any, i: number) => (
                               <LinhaJob
@@ -804,9 +805,8 @@ export default function FaturamentoMensal() {
                           titulo="No mês, em nota separada"
                         >
                           <div className="space-y-2 rounded-md border border-primary/25 bg-primary/[0.05] p-2">
-                            <p className="text-[11px] text-muted-foreground">
-                              Preço do mês, nota própria. <b className="text-foreground">Não</b> está somado no total
-                              deste rascunho.
+                            <p className="text-[11px] text-muted-foreground" title="Preço do mês, nota própria.">
+                              <b className="text-foreground">Não</b> somado no total deste rascunho.
                             </p>
 
                             {(f.detalhe.nota_mes.projetos || []).map((pr: any, i: number) => (
@@ -876,7 +876,7 @@ export default function FaturamentoMensal() {
                         >
                           <div className="space-y-2 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2">
                             <p className="text-[11px] text-warning">
-                              Nada disto está somado no total deste rascunho.
+                              Fora do total deste rascunho.
                             </p>
                             {f.detalhe.avulsos.map((a: any, i: number) => (
                               <div key={i} className="space-y-0.5">
@@ -925,8 +925,8 @@ export default function FaturamentoMensal() {
                               {f.detalhe?.avulsos_valor_hora_origem === "cliente"
                                 ? `Horas × ${formatCurrency(Number(f.detalhe?.avulsos_valor_hora || 0))} — valor-hora deste cliente.`
                                 : f.detalhe?.avulsos_valor_hora_origem === "rate_card"
-                                  ? `Horas × ${formatCurrency(Number(f.detalhe?.avulsos_valor_hora || 0))} — nosso valor de tabela (Edição). Este cliente não tem valor-hora combinado; confira antes de emitir.`
-                                  : "Sem valor-hora cadastrado nem no cliente nem no rate card — o valor sai zerado."}
+                                  ? `Horas × ${formatCurrency(Number(f.detalhe?.avulsos_valor_hora || 0))} — nossa tabela (Edição). Cliente sem valor-hora: confira.`
+                                  : "Sem valor-hora cadastrado — sai zerado."}
                             </p>
                           </div>
                         </Bloco>
@@ -981,8 +981,7 @@ export default function FaturamentoMensal() {
                               projeto, por outra régua, às vezes de outro mês. */}
                           {Number(f.detalhe?.avulsos_valor || 0) > 0 && (
                             <p className="mt-1.5 text-[10px] text-muted-foreground">
-                              Fora daqui: {formatCurrency(Number(f.detalhe.avulsos_valor))} a faturar à parte
-                              (outros projetos — ver o bloco acima).
+                              Fora daqui: {formatCurrency(Number(f.detalhe.avulsos_valor))} a faturar à parte.
                             </p>
                           )}
                         </div>
@@ -1168,14 +1167,14 @@ function LinhaJob({ p, modelo, refMes, ocupado, onBalde, onValor, onBaldePeca }:
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[10px] text-muted-foreground">
         {combinado != null ? (
-          <span>
+          <span title="As horas deste job saem da conta por hora.">
             Vale <b className="text-foreground">{formatCurrency(combinado)}</b>{" "}
-            {p.valor_origem === "orcamento" ? "pelo orçamento" : "por acordo"} — as horas deste job saem da conta por hora.
+            {p.valor_origem === "orcamento" ? "pelo orçamento" : "por acordo"}
           </span>
         ) : modelo === "horas" ? (
           <span>{fmtHoras(p.horas)} × valor-hora = {formatCurrency(valorHoras)}</span>
         ) : (
-          <span>Cobrado pelas peças (ver Entregas do mês)</span>
+          <span title="Ver Entregas do mês">Cobrado pelas peças</span>
         )}
 
         {/* O atalho do pedido: job que já tem orçamento entra pelo valor
@@ -1205,9 +1204,8 @@ function LinhaJob({ p, modelo, refMes, ocupado, onBalde, onValor, onBaldePeca }:
       {/* Peça que não segue o job. É o sinal que explicava a nota em zero. */}
       {divergem.length > 0 && (
         <div className="mt-1.5 space-y-1 rounded border border-destructive/30 bg-destructive/[0.05] p-1.5">
-          <p className="text-[10px] text-destructive">
-            {divergem.length} {divergem.length === 1 ? "peça está" : "peças estão"} em nota diferente da do job —
-            a marcação da peça vence a do job.
+          <p className="text-[10px] text-destructive" title="A marcação da peça vence a do job.">
+            {divergem.length} {divergem.length === 1 ? "peça" : "peças"} em nota diferente do job
           </p>
           {divergem.map((pc: any) => (
             <div key={pc.deliverable_id} className="flex items-center justify-between gap-2 text-[10px]">

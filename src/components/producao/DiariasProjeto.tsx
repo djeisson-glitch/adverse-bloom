@@ -164,7 +164,7 @@ export function DiariasProjeto({
             </span>
           </div>
           {!abrindo && (
-            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-warning hover:text-warning" onClick={() => setAbrindo(true)}>
+            <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-warning hover:text-warning" title="Bloqueia o dia da equipe escalada, aparece no Calendário e nas Saídas e publica no Google Agenda" onClick={() => setAbrindo(true)}>
               <Plus className="h-3.5 w-3.5" /> Agendar diária
             </Button>
           )}
@@ -190,8 +190,8 @@ export function DiariasProjeto({
               </div>
             </div>
             <div>
-              <label className="mb-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Users className="h-3 w-3" /> Equipe escalada (bloqueia o dia de cada um)
+              <label className="mb-1.5 flex items-center gap-1 text-[11px] text-muted-foreground" title="Bloqueia o dia de cada um">
+                <Users className="h-3 w-3" /> Equipe escalada
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {membros.length === 0 && <span className="text-xs text-muted-foreground">Cadastre a equipe em Time.</span>}
@@ -237,10 +237,12 @@ export function DiariasProjeto({
 
             {/* Já agendado nesse dia pra este cliente? Avisa antes. */}
             {data && diaCompartilhado(data) && (
-              <p className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-warning">
+              <p
+                className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-warning"
+                title="Em outro projeto. Conta como uma diária só na cobrança — lance o custo em um projeto só."
+              >
                 <Link2 className="h-3.5 w-3.5 shrink-0" />
-                Este cliente já tem diária neste dia, em outro projeto. Conta como
-                <b> uma</b> diária só na cobrança — mas lance o custo em um projeto só.
+                Cliente já tem diária neste dia.
               </p>
             )}
 
@@ -259,11 +261,7 @@ export function DiariasProjeto({
         {isLoading ? (
           <p className="py-4 text-center text-sm text-muted-foreground">Carregando…</p>
         ) : diarias.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            {contratadas > 0
-              ? `${contratadas} diária(s) contratada(s) no orçamento. Agende as datas.`
-              : "Nenhuma diária ainda. Agende os dias de gravação."}
-          </p>
+          <p className="py-4 text-center text-sm text-muted-foreground">Nenhuma diária agendada.</p>
         ) : (
           <ul className="divide-y divide-border/40">
             {diarias.map((d) => {
@@ -311,10 +309,6 @@ export function DiariasProjeto({
             })}
           </ul>
         )}
-
-        <p className="mt-3 text-[11px] text-muted-foreground/70">
-          Cada diária bloqueia o dia da equipe escalada — aparece no Calendário e nas Saídas, publica no Google Agenda e desconta a capacidade da semana.
-        </p>
       </CardContent>
     </Card>
   );

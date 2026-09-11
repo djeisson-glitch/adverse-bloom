@@ -53,12 +53,15 @@ export function AvisoPushDesligado() {
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3">
       <BellOff className="h-4 w-4 shrink-0 text-warning" />
       <div className="min-w-0 flex-1 text-sm">
-        <p className="font-medium text-foreground">Você não está recebendo aviso nenhum</p>
-        <p className="text-xs text-muted-foreground">
-          {bloqueado
-            ? "As notificações estão bloqueadas neste navegador. Abra o cadeado na barra de endereço, libere \"Notificações\" e recarregue."
-            : "Nenhum aviso deste sistema chega na sua área de trabalho até você ligar aqui."}
-        </p>
+        <p className="font-medium text-foreground">Avisos desligados</p>
+        {bloqueado && (
+          <p
+            className="text-xs text-muted-foreground"
+            title={"Abra o cadeado na barra de endereço, libere \"Notificações\" e recarregue."}
+          >
+            Bloqueado: libere no cadeado do navegador.
+          </p>
+        )}
       </div>
       {!bloqueado && (
         <Button size="sm" onClick={ligar} disabled={ocupado}>

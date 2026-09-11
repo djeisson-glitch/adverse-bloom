@@ -143,11 +143,6 @@ export function SolicitadoPor({ clientId, valor, onChange }: {
           </SelectItem>
         </SelectContent>
       </Select>
-      {!contatos.length && (
-        <p className="text-[10px] text-muted-foreground">
-          Este cliente ainda não tem contatos — cadastre pelo seletor.
-        </p>
-      )}
 
       {/* Gerenciar fica escondido atrás de um clique: é manutenção rara, e
           lixeira à vista em lista de gente convida ao acidente. */}

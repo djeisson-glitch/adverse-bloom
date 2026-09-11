@@ -76,13 +76,13 @@ export function VisualizarAnexo({ anexo, onClose }: { anexo: Anexo | null; onClo
             // colapsa pra zero e o PDF "não abre".
             <object data={anexo.url} type="application/pdf" className="h-[78vh] w-full">
               <p className="p-6 text-center text-sm text-muted-foreground">
-                Seu navegador não mostra PDF aqui dentro — use "abrir" acima.
+                PDF não abre aqui — use "abrir".
               </p>
             </object>
           )}
           {tipo === "outro" && (
             <p className="p-10 text-center text-sm text-muted-foreground">
-              Este tipo de arquivo não abre aqui dentro. Use "abrir" ou "baixar" acima.
+              Não abre aqui — use "abrir" ou "baixar".
             </p>
           )}
         </div>

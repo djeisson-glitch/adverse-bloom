@@ -74,10 +74,7 @@ export function PainelSinais({ sinais, onAcao, loading }: { sinais: Sinal[]; onA
       ) : sinais.length === 0 ? (
         <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-          <div>
-            <p className="text-sm font-semibold text-success">Está tudo em ordem</p>
-            <p className="text-xs text-muted-foreground">Nenhum ponto exige sua atenção agora no período selecionado.</p>
-          </div>
+          <p className="text-sm font-semibold text-success">Está tudo em ordem</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">

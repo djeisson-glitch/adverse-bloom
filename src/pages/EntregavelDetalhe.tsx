@@ -669,10 +669,7 @@ export default function EntregavelDetalhe() {
       {chatAberto && (
         <aside className="fixed right-0 top-14 bottom-0 z-50 flex w-full flex-col border-l border-border bg-card shadow-2xl lg:w-[440px]">
           <div className="flex items-start justify-between gap-2 border-b border-border/60 p-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Canal da peça</p>
-              <p className="text-[10px] text-muted-foreground">Conversa operacional só deste entregável. Use @nome pra mencionar.</p>
-            </div>
+            <p className="text-sm font-semibold text-foreground" title="Use @nome pra mencionar">Canal da peça</p>
             <button
               onClick={() => setChatAberto(false)}
               title="Recolher a conversa"
@@ -682,7 +679,7 @@ export default function EntregavelDetalhe() {
             </button>
           </div>
           <div className="min-h-0 flex-1 p-4">
-            <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda. A conversa do entregável começa aqui." />
+            <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda." />
           </div>
         </aside>
       )}
@@ -862,7 +859,7 @@ function FluxoCard({
     } else {
       B("agu", (
         <span className="text-xs text-muted-foreground">
-          Aguardando a coordenação liberar pra edição.
+          Aguardando liberação da coordenação.
         </span>
       ));
     }
@@ -938,21 +935,21 @@ function FluxoCard({
             {/* Sem esta linha, quem fez a peça vê a revisão parada e nenhum
                 botão, sem entender que a bola está com outra pessoa. */}
             {souDono && ["revisao_n1", "revisao_n2", "revisao"].includes(status)
-              ? `Você é o responsável por esta peça — a aprovação é de ${
+              ? `Você fez a peça — aprovação é de ${
                   nomeDe(profiles, status === "revisao_n2" ? n2 : n1) || "outra pessoa"
-                }. Quem faz não aprova o próprio trabalho; se precisar destravar, use “Corrigir status”.`
-              : ["entregue", "aprovado"].includes(status) ? "Entregue ✓ — nada a fazer aqui."
-              : status === "com_cliente" ? "Está com o cliente — fora do seu controle por enquanto."
+                }.`
+              : ["entregue", "aprovado"].includes(status) ? "Entregue ✓"
+              : status === "com_cliente" ? "Com o cliente."
               // Sem responsável, os botões de edição não aparecem pra ninguém —
               // avisa pra definir um (o campo Responsável, acima).
               : !entregavel.responsavel_id && ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status)
-                ? "Defina o responsável (campo acima) para o fluxo começar."
-              : status === "revisao_n1" ? `Revisão 1 é com ${nomeDe(profiles, n1) || "o revisor"} — só quem revisa aprova esta etapa.`
-              : status === "revisao_n2" ? `Revisão 2 é com ${nomeDe(profiles, n2) || "o revisor"} — só quem revisa aprova esta etapa.`
-              : status.startsWith("revisao") ? "Aguardando o revisor deste entregável."
-              : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor (responsável)."
-              : status === "pronto" ? "Aguardando alguém enviar ao cliente."
-              : "Sem ação sua nesta etapa."}
+                ? "Defina o responsável pra começar."
+              : status === "revisao_n1" ? `Revisão 1 com ${nomeDe(profiles, n1) || "o revisor"}.`
+              : status === "revisao_n2" ? `Revisão 2 com ${nomeDe(profiles, n2) || "o revisor"}.`
+              : status.startsWith("revisao") ? "Aguardando o revisor."
+              : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor."
+              : status === "pronto" ? "Aguardando envio ao cliente."
+              : "Sem ação sua."}
           </p>
         )}
 
@@ -984,7 +981,7 @@ function FluxoCard({
             acima — dois nomes iguais pra coisas diferentes. */}
         {podeForcar && (
           <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Pula o fluxo — use só pra destravar">
               <Wrench className="h-3 w-3" /> Corrigir status (admin/coord.)
             </span>
             <Select value={status} onValueChange={forcarEtapa}>
@@ -995,7 +992,6 @@ function FluxoCard({
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-[10px] text-muted-foreground/70">pula o fluxo — use só pra destravar</span>
           </div>
         )}
       </CardContent>
@@ -1093,12 +1089,7 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Roteiro & documentos</p>
-          <p className="text-xs text-muted-foreground">
-            Roteiro, referências ou PDF do cliente — anexados a este entregável
-          </p>
-        </div>
+        <p className="text-sm font-semibold text-foreground">Roteiro & documentos</p>
 
         {/* BLOCOS, não linhas. Uma linha por documento gastava a largura toda
             pra mostrar a URL — que ninguém lê — e escondia o que importa (o
@@ -1138,7 +1129,7 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
           </div>
         )}
         {docs.length === 0 && (
-          <p className="py-1 text-xs text-muted-foreground">Nenhum documento anexado ainda.</p>
+          <p className="py-1 text-xs text-muted-foreground">Nenhum documento ainda.</p>
         )}
 
         <VisualizarAnexo anexo={verDoc} onClose={() => setVerDoc(null)} />
@@ -1152,8 +1143,8 @@ function DocumentosEntregavel({ did, projectId }: { did: string; projectId: stri
               ))}
             </SelectContent>
           </Select>
-          <Input value={novo.titulo} onChange={(e) => setNovo({ ...novo, titulo: e.target.value })} placeholder="Título (ex.: Roteiro v2)" className="h-8 w-44" />
-          <Input value={novo.url} onChange={(e) => setNovo({ ...novo, url: e.target.value })} placeholder="Link (Docs, Drive, Frame…)" className="h-8 flex-1" />
+          <Input value={novo.titulo} onChange={(e) => setNovo({ ...novo, titulo: e.target.value })} placeholder="Título" className="h-8 w-44" />
+          <Input value={novo.url} onChange={(e) => setNovo({ ...novo, url: e.target.value })} placeholder="Link" className="h-8 flex-1" />
           <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>
             <Plus className="mr-1 h-3.5 w-3.5" /> Anexar
           </Button>
@@ -1254,10 +1245,7 @@ function AnexosEntregavel({
         onDrop={(e) => { e.preventDefault(); setArrastando(false); enviarArquivos(e.dataTransfer.files); }}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-foreground">{titulo}</p>
-            <p className="text-xs text-muted-foreground">{subtitulo}</p>
-          </div>
+          <p className="text-sm font-semibold text-foreground" title={subtitulo}>{titulo}</p>
           <Button size="sm" onClick={() => inputRef.current?.click()} disabled={enviando}>
             {enviando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1 h-3.5 w-3.5" />}
             {enviando ? "Enviando…" : categoria === "capa" ? "Enviar capa" : "Enviar arquivo"}
@@ -1277,7 +1265,7 @@ function AnexosEntregavel({
             }`}
           >
             <Paperclip className="h-5 w-5" />
-            {categoria === "capa" ? "Arraste a capa aqui ou clique para enviar" : "Arraste arquivos aqui ou clique para enviar"}
+            {categoria === "capa" ? "Arraste a capa ou clique" : "Arraste arquivos ou clique"}
           </button>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1397,10 +1385,10 @@ function TimesheetEntregavel({
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground">Timesheet do entregável <span className="font-normal text-muted-foreground">· edição pura</span></p>
+            <p className="text-sm font-semibold text-foreground" title="Lançamento manual já conta como trabalhada. Pra cronometrar ao vivo, use Editar no fluxo acima.">Timesheet do entregável <span className="font-normal text-muted-foreground">· edição pura</span></p>
             <p className="text-xs text-muted-foreground">Total rastreado: <strong>{horasTotal.toFixed(1)}h</strong></p>
           </div>
-          {rodando ? (
+          {rodando && (
             <Button
               size="sm"
               onClick={handlePause}
@@ -1409,10 +1397,6 @@ function TimesheetEntregavel({
             >
               <Pause className="mr-1 h-3.5 w-3.5 fill-current" /> Pausar · {formatElapsed(elapsedSec)}
             </Button>
-          ) : (
-            <span className="text-[11px] text-muted-foreground">
-              Lançamento manual — já conta como trabalhada. Pra cronometrar ao vivo, use <b className="text-foreground">Editar</b> no fluxo acima.
-            </span>
           )}
         </div>
 
@@ -1420,12 +1404,13 @@ function TimesheetEntregavel({
             deve apontar aqui (isso é edição pura) — deve apontar na alteração,
             senão a hora de alteração fica invisível e o custo se perde. */}
         {temAlteracaoAberta && (
-          <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          <div
+            className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
+            title="O tempo que você rodar agora entra como hora de alteração, automaticamente. Quando mandar pra revisão, a alteração fecha e o cronômetro volta a contar como edição normal."
+          >
             <MessageSquarePlus className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Tem <strong>alteração do cliente aberta</strong>: o tempo que você rodar agora entra
-              como <strong>hora de alteração</strong>, automaticamente. Quando mandar pra revisão, a
-              alteração fecha e o cronômetro volta a contar como edição normal.
+              <strong>Alteração do cliente aberta</strong> — cronômetro conta como <strong>hora de alteração</strong>.
             </span>
           </div>
         )}
@@ -1650,10 +1635,7 @@ function AlteracoesSection({
     <Card className={`glass-card ${abertas.length ? "border-warning/50 bg-warning/[0.04]" : ""}`}>
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Alterações do cliente</p>
-            <p className="text-xs text-muted-foreground">Cada alteração é uma versão da peça (V1, V2…). Horas próprias: o cronômetro joga aqui sozinho enquanto ela está aberta, e dá pra lançar na mão a qualquer momento.</p>
-          </div>
+          <p className="text-sm font-semibold text-foreground" title="Cada alteração é uma versão da peça (V1, V2…). Horas próprias: o cronômetro joga aqui sozinho enquanto ela está aberta, e dá pra lançar na mão a qualquer momento.">Alterações do cliente</p>
           <Button size="sm" onClick={() => setAberto((v) => !v)} className="bg-primary text-primary-foreground">
             <MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente
           </Button>
@@ -1661,12 +1643,14 @@ function AlteracoesSection({
 
         {/* Banner gritante enquanto houver alteração aberta. */}
         {abertas.length > 0 && (
-          <div className="flex items-start gap-2 rounded-md border border-warning/50 bg-warning/15 px-3 py-2 text-xs font-medium text-warning">
+          <div
+            className="flex items-start gap-2 rounded-md border border-warning/50 bg-warning/15 px-3 py-2 text-xs font-medium text-warning"
+            title="O tempo que você rodar agora entra como hora de alteração, automaticamente. Quando mandar pra revisão, ela fecha e o cronômetro volta a contar edição normal."
+          >
             <MessageSquarePlus className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               {abertas.length === 1 ? "1 alteração do cliente aberta" : `${abertas.length} alterações do cliente abertas`} —
-              o tempo que você rodar agora entra como <strong>hora de alteração</strong>, automaticamente.
-              Quando mandar pra revisão, ela fecha e o cronômetro volta a contar edição normal.
+              cronômetro conta como <strong>hora de alteração</strong>.
             </span>
           </div>
         )}
@@ -1674,9 +1658,9 @@ function AlteracoesSection({
         {aberto && (
           <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
             <p className="text-[11px] text-muted-foreground">
-              Vai nascer como <strong className="text-warning">V{(alteracoes.at(-1)?.numero ?? 0) + 1}</strong> — dá pra renomear depois no rótulo.
+              Vai nascer como <strong className="text-warning">V{(alteracoes.at(-1)?.numero ?? 0) + 1}</strong>.
             </p>
-            <Input value={nova.titulo} onChange={(e) => setNova({ ...nova, titulo: e.target.value })} placeholder="Título (ex.: Trocar trilha, cortar cena 3)" />
+            <Input value={nova.titulo} onChange={(e) => setNova({ ...nova, titulo: e.target.value })} placeholder="Título" />
             <Textarea rows={2} value={nova.descricao} onChange={(e) => setNova({ ...nova, descricao: e.target.value })} placeholder="O que o cliente pediu…" />
             <div className="flex justify-end">
               <Button size="sm" onClick={() => criar.mutate()} disabled={criar.isPending}>Registrar alteração</Button>
@@ -1685,7 +1669,7 @@ function AlteracoesSection({
         )}
 
         {alteracoes.length === 0 ? (
-          <p className="py-2 text-xs text-muted-foreground">Nenhuma alteração do cliente ainda.</p>
+          <p className="py-2 text-xs text-muted-foreground">Nenhuma alteração ainda.</p>
         ) : (
           alteracoes.map((a) => (
             <div key={a.id} className={`rounded-md border p-3 ${a.status === "aberta" ? "border-warning/50 bg-warning/[0.06]" : "border-border/40 bg-muted/10"}`}>
@@ -1828,7 +1812,7 @@ function BriefingComVerMais({ valor, onChange }: { valor: string; onChange: (v: 
         value={valor}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => setEditando(false)}
-        placeholder="Direcionamento, referências, o que precisa entregar…"
+        placeholder="Direcionamento, referências…"
       />
     );
   }
