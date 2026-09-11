@@ -308,7 +308,7 @@ export function SugerirItensIA({
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && podeGerar) { e.preventDefault(); gerar(); }
           }}
-          placeholder="Descreva o job, cole o roteiro ou tratamento, ou arraste arquivos (PDF, Word, imagem). O briefing deste orçamento já entra junto."
+          placeholder="Descreva o job, cole o roteiro ou arraste arquivos…"
           className="min-h-[88px] resize-y border-border/50 bg-background text-sm"
         />
 
@@ -345,7 +345,7 @@ export function SugerirItensIA({
               <Loader2 className="h-3 w-3 animate-spin" /> lendo arquivo…
             </span>
           )}
-          <Button size="sm" className="ml-auto" onClick={gerar} disabled={!podeGerar} title="⌘ + Enter">
+          <Button size="sm" className="ml-auto" onClick={gerar} disabled={!podeGerar} title="Lê também o briefing deste orçamento · ⌘ + Enter">
             {gerando ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
             {gerando ? "Lendo…" : sugestoes ? "Sugerir de novo" : "Sugerir itens"}
           </Button>
@@ -356,7 +356,7 @@ export function SugerirItensIA({
         <div className="space-y-2 rounded-lg border border-primary/30 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {sugestoes.length} {sugestoes.length === 1 ? "sugestão" : "sugestões"} — revise e desmarque o que não serve
+              {sugestoes.length} {sugestoes.length === 1 ? "sugestão" : "sugestões"}
             </p>
             <button onClick={() => setSugestoes(null)} className="text-[11px] text-muted-foreground hover:text-foreground">
               Descartar

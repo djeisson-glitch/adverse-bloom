@@ -26,10 +26,11 @@ describe("QuadroResumo", () => {
       />,
     );
     expect(screen.getByText("2,5")).toBeInTheDocument();          // diárias (maior, formato BR)
-    expect(screen.getByText("40h")).toBeInTheDocument();          // horas de pós
-    expect(screen.getByText("2× Operador(a) de Câmera · 2d")).toBeInTheDocument();
-    expect(screen.getByText("Aluguel Locação · 2d")).toBeInTheDocument();
-    expect(screen.getByText("1 linha em uso ainda sem valor")).toBeInTheDocument();
+    expect(screen.getAllByText("40h")).toHaveLength(2);           // total de pós + a linha "Edição"
+    expect(screen.getByText("Operador(a) de Câmera")).toBeInTheDocument();
+    expect(screen.getByText("Aluguel Locação")).toBeInTheDocument();
+    expect(screen.getByText("produção")).toBeInTheDocument();     // grupo dos outros custos
+    expect(screen.getByText("1 sem valor")).toBeInTheDocument();
   });
 
   it("não aparece com a planilha só no modelo padrão", () => {
@@ -39,11 +40,12 @@ describe("QuadroResumo", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("corta em 8 pílulas por linha e o +N mostra o resto", () => {
+  it("corta a coluna em 6 linhas e o +N mostra o resto", () => {
     const muitos = Array.from({ length: 11 }, (_, i) => l("c003", `Item ${i + 1}`, 1, 1));
     render(<QuadroResumo itens={muitos} categorias={cats} entregas={[]} ocultas={new Set()} />);
-    expect(screen.queryByText("Item 9 · 1d")).toBeNull();
-    fireEvent.click(screen.getByText("+3"));
-    expect(screen.getByText("Item 11 · 1d")).toBeInTheDocument();
+    expect(screen.getByText("Item 5")).toBeInTheDocument();   // 1 cabeçalho de grupo + 5 itens
+    expect(screen.queryByText("Item 6")).toBeNull();
+    fireEvent.click(screen.getByText("+6"));
+    expect(screen.getByText("Item 11")).toBeInTheDocument();
   });
 });

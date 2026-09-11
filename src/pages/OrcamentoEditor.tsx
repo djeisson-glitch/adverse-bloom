@@ -328,9 +328,6 @@ export default function OrcamentoEditor() {
           )}
 
           <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
-          <p className="text-xs text-muted-foreground">
-            Ganhar/Perder geram automaticamente um <strong>follow-up para +60 dias</strong> na agenda.
-          </p>
         </CardContent>
       </Card>
 
@@ -340,7 +337,7 @@ export default function OrcamentoEditor() {
         entityId={deal.id}
         profiles={profiles}
         titulo="💬 Discussão do orçamento"
-        vazio="Nenhuma mensagem ainda. Tire dúvidas, alinhe valores e anexe documentos aqui."
+        vazio="Nenhuma mensagem ainda."
       />
 
       {/* Avulso ou plano — vem ANTES da planilha porque muda o que a planilha
@@ -549,11 +546,7 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
             </Button>
           </div>
         </div>
-        {!aberto ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Cair de cabeça na marca antes de orçar. Mande o link pro cliente responder, ou preencha na reunião. Vai junto pro projeto quando ganhar.
-          </p>
-        ) : (
+        {aberto && (
           <div className="mt-5">
             {iaResultado && (iaResultado.pontos_atencao.length > 0 || iaResultado.perguntas.length > 0) && (
               <div className="mb-5 rounded-lg border border-primary/25 bg-primary/[0.04] p-4">
@@ -582,7 +575,6 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
                     </ul>
                   </div>
                 )}
-                <p className="mt-3 text-[11px] text-muted-foreground">A consolidação foi escrita na seção interna abaixo. Edite à vontade.</p>
               </div>
             )}
             <MergulhoForm value={dados} onChange={onChange} />
@@ -655,12 +647,7 @@ function EntregasSection({ budget, onChanged }: { budget: any; onChanged: () => 
     <Card className="glass-card">
       <CardContent className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-foreground">Entregas / escopo</h2>
-            <p className="text-[10px] text-muted-foreground">
-              O que está incluso — pra produção executiva, produtor e direção saberem.
-            </p>
-          </div>
+          <h2 className="text-base font-semibold text-foreground">Entregas / escopo</h2>
           <IndicadorAutosave status={auto.status} />
         </div>
 
@@ -1355,9 +1342,7 @@ function PlanilhaSection({
                 <><Loader2 className="h-3 w-3 animate-spin" /> salvando…</>
               ) : saveStatus === "saved" ? (
                 <><CheckCircle2 className="h-3 w-3 text-success" /> salvo</>
-              ) : (
-                <>salva automático</>
-              )}
+              ) : null}
             </span>
             <Button size="sm" variant="outline" onClick={() => usarComoProposta.mutate()} disabled={usarComoProposta.isPending}>
               <Upload className="mr-1 h-3.5 w-3.5" />
@@ -1449,10 +1434,7 @@ function PlanilhaSection({
         {/* Comissões por pessoa (entram no valor total) */}
         <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Comissões por pessoa</p>
-              <p className="text-[10px] text-muted-foreground">Entram automaticamente no valor total.</p>
-            </div>
+            <p className="text-sm font-semibold text-foreground">Comissões por pessoa</p>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Comissão sobre</span>
               <select
@@ -1512,9 +1494,7 @@ function PlanilhaSection({
               logo abaixo do campo, e aqui faltava. Sem a base, "15%" é um
               número sem referência. */}
           <p className="text-[11px] text-muted-foreground">
-            {comissaoBase === "subtotal1" ? "Sub-Total 1 (custo)" : "Sub-Total 2 (custo + margem)"}
-            {" = "}<b className="text-foreground">{formatCurrency(baseComissao)}</b>
-            {" — é sobre este valor que o % da comissão incide."}
+            Base <b className="text-foreground">{formatCurrency(baseComissao)}</b>
           </p>
 
           {comissoes.length > 0 && (
@@ -1552,10 +1532,9 @@ function PlanilhaSection({
             <p className="text-sm font-medium text-foreground">{formatCurrency(margemValor)}</p>
             <p className="text-[10px] text-muted-foreground">margem {percentuais.margem || 0}%</p>
           </div>
-          <div>
+          <div title="Valor cobrado − custo real">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">+ Sobra das linhas</p>
             <p className={`text-sm font-medium ${sobraLinhas >= 0 ? "text-foreground" : "text-destructive"}`}>{formatCurrency(sobraLinhas)}</p>
-            <p className="text-[10px] text-muted-foreground">valor cobrado − custo real</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo real das linhas</p>
@@ -1598,10 +1577,7 @@ function PlanilhaSection({
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-4">
-            <p className="text-xs text-muted-foreground">
-              Planilha vazia — carregue os itens padrão de produtora (Pré-Produção, Produção,
-              Transporte, Elenco, Equipe Técnica…) e preencha só o que o job usa.
-            </p>
+            <p className="text-xs text-muted-foreground">Planilha vazia.</p>
             <Button
               size="sm"
               onClick={() => carregarPadrao.mutate()}
@@ -1616,11 +1592,7 @@ function PlanilhaSection({
 
         {/* Diz de que total é o percentual — senão "18%" não quer dizer nada */}
         {itens.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <p className="text-[11px] text-muted-foreground">
-              O <span className="text-foreground">%</span> é o peso do grupo na soma das linhas
-              ({formatCurrency(custoProducao)}). Margem, comissão e imposto entram por cima, iguais pra todos.
-            </p>
+          <div className="flex justify-end px-1">
             {(zeradas > 0 || soPreenchidos) && (
               <button
                 onClick={() => setSoPreenchidos((v) => !v)}
@@ -1635,8 +1607,8 @@ function PlanilhaSection({
               >
                 {soPreenchidos ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                 {soPreenchidos
-                  ? `Mostrar tudo (${zeradas} zerada${zeradas === 1 ? "" : "s"} oculta${zeradas === 1 ? "" : "s"})`
-                  : `Recolher ${zeradas} linha${zeradas === 1 ? "" : "s"} zerada${zeradas === 1 ? "" : "s"}`}
+                  ? `Mostrar ${zeradas} zerada${zeradas === 1 ? "" : "s"}`
+                  : `Ocultar ${zeradas} zerada${zeradas === 1 ? "" : "s"}`}
               </button>
             )}
           </div>
@@ -1737,8 +1709,7 @@ function PlanilhaSection({
             parece que o orçamento perdeu categoria. */}
         {soPreenchidos && gruposEscondidos > 0 && (
           <p className="px-1 text-[11px] text-muted-foreground">
-            {gruposEscondidos} grupo{gruposEscondidos === 1 ? "" : "s"} sem nenhuma linha preenchida
-            {gruposEscondidos === 1 ? " está recolhido" : " estão recolhidos"} — nada foi apagado.
+            {gruposEscondidos} grupo{gruposEscondidos === 1 ? "" : "s"} vazio{gruposEscondidos === 1 ? "" : "s"} oculto{gruposEscondidos === 1 ? "" : "s"}
           </p>
         )}
 
@@ -1803,7 +1774,7 @@ function PctInput({
     if (!Number.isNaN(n)) onChange(n);
   };
   return (
-    <div>
+    <div title={hint}>
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="flex items-center gap-1">
         <input
@@ -1818,7 +1789,6 @@ function PctInput({
         <span className="text-xs">%</span>
         <span className="text-xs">= {formatCurrency(valorCalc)}</span>
       </div>
-      <p className="text-[10px] text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -1897,7 +1867,7 @@ function CategoriaItens({
       )}
       {ocultas > 0 && (
         <p className="border-b border-border/30 px-4 py-1.5 text-[11px] text-muted-foreground">
-          {ocultas} linha{ocultas === 1 ? "" : "s"} zerada{ocultas === 1 ? "" : "s"} recolhida{ocultas === 1 ? "" : "s"} neste grupo
+          {ocultas} zerada{ocultas === 1 ? "" : "s"} oculta{ocultas === 1 ? "" : "s"}
         </p>
       )}
       <div className="flex items-center gap-2 px-4 py-2">

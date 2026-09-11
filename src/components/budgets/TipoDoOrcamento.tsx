@@ -140,8 +140,7 @@ export function TipoDoOrcamento({ budget, onChanged }: { budget: any; onChanged:
           <Linha rot="Mensalidade" val={brl(mensal)} forte />
           <div className="sm:col-span-3">
             <p className="text-xs text-muted-foreground">
-              Contrato de {meses} meses = <b className="text-foreground">{brl(mensal * meses)}</b>.
-              O total da planilha vira a mensalidade, não o preço do job.
+              {meses} meses = <b className="text-foreground">{brl(mensal * meses)}</b>
             </p>
           </div>
         </div>

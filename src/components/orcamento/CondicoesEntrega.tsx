@@ -84,18 +84,16 @@ export function CondicoesEntrega({ budgetId, condicoes, onChanged }: {
   return (
     <Card className="glass-card">
       <CardContent className="space-y-4 p-5">
-        <div>
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            Condições e direitos
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            O que está e o que não está incluso. Vai impresso na carta do cliente — é aqui que se
-            evita a discussão de "eu achei que tinha Libras". Na carta, o que{" "}
-            <span className="text-foreground">não está incluso</span> sai em bloco destacado;{" "}
-            <span className="text-foreground">"não se aplica" não aparece</span> — é decisão interna.
-          </p>
-        </div>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          Condições e direitos
+          <span
+            title={'Vai impresso na carta do cliente. "Não incluso" sai em destaque; "não se aplica" não aparece.'}
+            className="rounded bg-muted/50 px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground"
+          >
+            vai na carta
+          </span>
+        </h2>
 
         {/* Período e praça primeiro: é o que define se ANCINE e direitos de
             elenco fazem sentido, e é o que mais falta na proposta. */}
