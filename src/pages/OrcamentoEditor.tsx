@@ -1368,10 +1368,6 @@ function PlanilhaSection({
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <SugerirItensIA budgetId={budget.id} categorias={categorias} itens={itens} onChanged={onChanged} />
-        </div>
-
         {/* Faixa compacta: os dois números que se olha toda hora, sempre à
             vista. O detalhe (margem/imposto/BV/comissões/quebra de
             rentabilidade) só abre quando pedido — Djêisson (10/09): "tem
@@ -1586,6 +1582,10 @@ function PlanilhaSection({
           </>
         )}
 
+
+        {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
+            uma opção não pode ser gravada na outra por engano. */}
+        <SugerirItensIA key={budget.id} budgetId={budget.id} categorias={categorias} itens={itens} onChanged={onChanged} />
 
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (

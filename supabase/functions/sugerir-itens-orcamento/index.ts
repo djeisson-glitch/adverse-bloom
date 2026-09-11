@@ -72,12 +72,39 @@ function dumpMergulho(m: Record<string, any>): string {
   return linhas.length ? linhas.join("\n") : "(briefing aprofundado não preenchido)";
 }
 
+/** O que a API da Anthropic lê nativamente. Word e texto puro chegam já
+ * convertidos em texto pelo navegador (dentro de `texto`). */
+const TIPOS_ANEXO: Record<string, "document" | "image"> = {
+  "application/pdf": "document",
+  "image/jpeg": "image",
+  "image/png": "image",
+  "image/webp": "image",
+  "image/gif": "image",
+};
+const MAX_ANEXOS = 10;
+// Base64 somado. A API aceita até 32 MB por requisição; a folga cobre o texto.
+const MAX_BASE64 = 24 * 1024 * 1024;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { budget_id, texto } = await req.json().catch(() => ({}));
+    const { budget_id, texto, anexos: anexosBrutos } = await req.json().catch(() => ({}));
     if (!budget_id) return json({ error: "Informe budget_id" }, 400);
+
+    const anexos: { nome: string; media_type: string; base64: string }[] =
+      Array.isArray(anexosBrutos) ? anexosBrutos : [];
+    if (anexos.length > MAX_ANEXOS) {
+      return json({ error: `No máximo ${MAX_ANEXOS} arquivos por vez.` }, 400);
+    }
+    for (const a of anexos) {
+      if (!TIPOS_ANEXO[a?.media_type] || typeof a?.base64 !== "string" || !a.base64) {
+        return json({ error: `Formato não suportado: ${a?.nome || "arquivo"}. Use PDF, imagem, Word ou texto.` }, 400);
+      }
+    }
+    if (anexos.reduce((s, a) => s + a.base64.length, 0) > MAX_BASE64) {
+      return json({ error: "Os arquivos juntos passam de ~18 MB. Mande menos de uma vez ou só as páginas que importam." }, 400);
+    }
 
     const authHeader = req.headers.get("Authorization") || "";
     const supabase = createClient(
@@ -106,13 +133,16 @@ serve(async (req) => {
       .maybeSingle();
 
     const textoExtra = (texto || "").toString().trim();
+    if (textoExtra.length > 400_000) {
+      return json({ error: "Texto longo demais (passa de ~400 mil caracteres). Mande só as partes que definem o escopo." }, 400);
+    }
     const objetivo = (deal?.objetivo || "").toString().trim();
     const mergulho = (deal?.mergulho && typeof deal.mergulho === "object" ? deal.mergulho : {}) as Record<string, any>;
     const temMergulho = Object.keys(mergulho).length > 0;
 
-    if (!textoExtra && !objetivo && !temMergulho) {
+    if (!textoExtra && !anexos.length && !objetivo && !temMergulho) {
       return json({
-        error: "Sem informação pra trabalhar — preencha o briefing deste orçamento ou cole um texto (roteiro, tratamento, escopo etc.).",
+        error: "Sem informação pra trabalhar — escreva, cole um texto ou anexe um arquivo (roteiro, tratamento, briefing).",
       }, 400);
     }
 
@@ -144,7 +174,10 @@ ${dumpMergulho(mergulho)}
 ENTREGAS PREVISTAS:
 ${listaEntregas}
 
-TEXTO ADICIONAL FORNECIDO AGORA (roteiro, tratamento, escopo detalhado ou qualquer outra informação do usuário — pode ser a fonte mais importante, leia com atenção):
+ARQUIVOS ANEXADOS AGORA (estão acima desta mensagem — roteiro, tratamento, briefing, decupagem, prints; leia com atenção, costumam ser a fonte mais completa):
+${anexos.length ? anexos.map((a, i) => `${i + 1}. ${a.nome || "arquivo"}`).join("\n") : "(nenhum)"}
+
+TEXTO ESCRITO/COLADO AGORA PELO USUÁRIO (inclui o conteúdo de arquivos Word e de texto, já convertidos; pode ser a fonte mais importante, leia com atenção):
 ${textoExtra || "(nenhum)"}
 
 CATEGORIAS DISPONÍVEIS NO SISTEMA (use SOMENTE um destes 11 códigos, exatamente como escrito):
@@ -171,17 +204,37 @@ Responda APENAS com JSON válido, sem markdown, neste formato exato:
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
+      // Arquivos antes da pergunta: a API responde melhor com o material
+      // primeiro e a instrução no fim.
       body: JSON.stringify({
         model,
         max_tokens: 3000,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{
+          role: "user",
+          content: [
+            ...anexos.map((a) => ({
+              type: TIPOS_ANEXO[a.media_type],
+              source: { type: "base64", media_type: a.media_type, data: a.base64 },
+            })),
+            { type: "text", text: prompt },
+          ],
+        }],
       }),
     });
 
     if (!resp.ok) {
       const erro = await resp.text();
-      const msg = resp.status === 401 ? "Chave de IA inválida." : "IA recusou a sugestão.";
-      return json({ error: msg, detail: erro.slice(0, 300) }, 502);
+      console.error("Anthropic error:", resp.status, erro.slice(0, 500));
+      if (resp.status === 401) return json({ error: "Chave de IA inválida." }, 502);
+      // 400 da API costuma ser culpa do arquivo (PDF protegido, >100
+      // páginas, imagem corrompida) — a mensagem dela diz qual, repassa.
+      let detalhe = "";
+      try { detalhe = JSON.parse(erro)?.error?.message || ""; } catch { /* texto cru */ }
+      return json({
+        error: resp.status === 400 && detalhe
+          ? `A IA não conseguiu ler o material: ${detalhe}`
+          : "A IA não respondeu agora. Tente de novo em instantes.",
+      }, 502);
     }
 
     const data = await resp.json();
