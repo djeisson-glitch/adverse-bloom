@@ -32,6 +32,7 @@ import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
 import { CondicoesEntrega } from "@/components/orcamento/CondicoesEntrega";
+import { SugerirItensIA } from "@/components/orcamento/SugerirItensIA";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
   MOEDAS, FORMATOS, MEIOS_VEICULACAO,
@@ -1365,6 +1366,10 @@ function PlanilhaSection({
               Salvar como padrão
             </Button>
           </div>
+        </div>
+
+        <div className="flex justify-end">
+          <SugerirItensIA budgetId={budget.id} categorias={categorias} itens={itens} onChanged={onChanged} />
         </div>
 
         {/* Faixa compacta: os dois números que se olha toda hora, sempre à
