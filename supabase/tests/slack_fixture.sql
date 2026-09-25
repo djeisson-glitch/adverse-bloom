@@ -1,0 +1,13 @@
+CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+CREATE SCHEMA auth; CREATE SCHEMA cron;
+CREATE FUNCTION cron.schedule(text,text,text) RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
+CREATE TABLE auth.users(id uuid PRIMARY KEY);
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('test.uid',true),'')::uuid $$;
+CREATE TABLE profiles(id uuid PRIMARY KEY,ativo boolean DEFAULT true);
+CREATE FUNCTION pode_admin_notif(uuid) RETURNS boolean LANGUAGE sql AS $$ SELECT $1='00000000-0000-0000-0000-000000000001'::uuid $$;
+CREATE TABLE notificacao_tipos(tipo text PRIMARY KEY,grupo text);
+CREATE TABLE notificacao_prefs(user_id uuid,tipo text,modo text);
+CREATE FUNCTION pode_push(uuid,text,int) RETURNS boolean LANGUAGE sql AS $$ SELECT $3<>3 AND coalesce((SELECT modo FROM notificacao_prefs WHERE user_id=$1 AND tipo=$2),'push')='push' $$;
+CREATE FUNCTION notif_horas_resumo() RETURNS int[] LANGUAGE sql AS $$ SELECT '{}'::int[] $$;
+CREATE TABLE notificacoes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid REFERENCES auth.users(id),tipo text,titulo text,corpo text,link text,nivel int,group_key text,dedupe_key text,lida_em timestamptz,created_at timestamptz DEFAULT now());
+GRANT USAGE ON SCHEMA public,auth TO authenticated,anon,service_role;

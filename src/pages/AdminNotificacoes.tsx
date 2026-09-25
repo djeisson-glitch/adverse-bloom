@@ -8,6 +8,7 @@ import {
   useTiposNotif, useMatrizNotif, useHorasResumo, useSalvarHorasResumo,
   ROTULO_GRUPO, ROTULO_NIVEL, type Modo,
 } from "@/hooks/useNotifPrefs";
+import { SlackNotificacoes } from "@/components/notificacoes/SlackNotificacoes";
 import { SeletorModo } from "@/components/notificacoes/SeletorModo";
 
 /** Horas oferecidas pro resumo — hora cheia, dentro do expediente. */
@@ -103,6 +104,8 @@ export default function AdminNotificacoes() {
         </CardContent>
       </Card>
 
+      <SlackNotificacoes pessoas={pessoas} />
+
       {/* O aviso mais importante da tela: de nada adianta configurar o que
           cada um recebe se o navegador da pessoa nunca foi registrado. */}
       {semPush.length > 0 && (
@@ -110,15 +113,15 @@ export default function AdminNotificacoes() {
           <CardContent className="p-4">
             <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
-              {semPush.length} pessoa(s) não recebem nenhuma notificação
+              {semPush.length} pessoa(s) sem avisos pelo navegador
               {presasTotal > 0 && ` · ${presasTotal} aviso(s) parados`}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               <strong className="text-foreground">{semPush.map((c) => c.nome).join(", ")}</strong> não têm
               navegador registrado — nem o que é &quot;na hora&quot; chega nelas. A permissão é do navegador
-              de cada um, então não dá pra ligar por aqui: cada pessoa precisa abrir{" "}
+              de cada um. Para receber por esse meio, cada pessoa precisa abrir{" "}
               <strong className="text-foreground">Notificações</strong> no próprio computador e clicar em{" "}
-              <strong className="text-foreground">Ligar</strong>. Enquanto isso, tudo abaixo só vale pra quem já ligou.
+              <strong className="text-foreground">Ligar</strong>. O Slack é configurado separadamente no painel acima.
             </p>
           </CardContent>
         </Card>
@@ -197,7 +200,7 @@ export default function AdminNotificacoes() {
                         <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           {navegadoresDe(p.user_id) === 0 ? (
                             <span className="flex items-center gap-1 text-destructive">
-                              <BellOff className="h-3 w-3" /> não recebe
+                              <BellOff className="h-3 w-3" /> sem navegador
                             </span>
                           ) : (
                             <>{push} com push{off > 0 ? ` · ${off} desligada${off > 1 ? "s" : ""}` : ""}</>
@@ -253,9 +256,8 @@ export default function AdminNotificacoes() {
       )}
 
       <p className="text-[11px] text-muted-foreground/70">
-        Cada pessoa também pode ajustar isso na própria tela de notificações, além de escolher os horários
-        do resumo e ligar o &quot;não perturbe&quot;. O que é <strong>na hora</strong> fura o não perturbe — é
-        justamente o que não pode esperar.
+        Cada pessoa também pode ajustar os tipos de aviso na própria tela de notificações.
+        Os horários do resumo são definidos pela gestão e valem para o time inteiro.
       </p>
     </div>
   );

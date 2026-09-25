@@ -26,3 +26,7 @@ verify_jwt = false
 # O portão é o slug do cliente (mesmo do intake_submit), validado na função.
 [functions.intake-revisao]
 verify_jwt = false
+
+# JWT is validated inside the function for admin actions; cron uses its own secret.
+[functions.slack-notificacoes]
+verify_jwt = false
