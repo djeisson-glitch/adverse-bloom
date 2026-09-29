@@ -5,7 +5,16 @@
     "background_color": "#242427"
   },
   "features": {
-    "bot_user": { "display_name": "Adverse OS", "always_online": false }
+    "bot_user": { "display_name": "Adverse OS", "always_online": false },
+    "slash_commands": [
+      {
+        "command": "/advr",
+        "url": "https://ythmkxudzaoaayxxlgqy.supabase.co/functions/v1/slack-notificacoes",
+        "description": "Chama um vídeo ou projeto do Adverse OS na conversa",
+        "usage_hint": "4448 (vídeo) ou 0355 (projeto)",
+        "should_escape": false
+      }
+    ]
   },
   "oauth_config": {
     "scopes": {

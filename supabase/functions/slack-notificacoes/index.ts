@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { groupItems, message, slackCall, SlackError, type Item } from './core.ts';
+import { cartaoItem, groupItems, message, slackCall, SlackError, type Item } from './core.ts';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +10,21 @@ const headers = {
 const json = (value: unknown, status=200) => new Response(JSON.stringify(value),{status,headers});
 const checked = <T>(result: {data:T;error:unknown}) => { if(result.error) throw new Error('banco_indisponivel'); return result.data; };
 
+/** Comando `/advr`: o Slack assina o corpo cru com o signing secret. Sem isso
+ * qualquer um que descobrisse a URL postaria cartões no canal. */
+async function assinaturaValida(cru: string, headers: Headers, segredo: string) {
+  const ts = headers.get('x-slack-request-timestamp') || '';
+  const assinatura = headers.get('x-slack-signature') || '';
+  if(!/^\d+$/.test(ts) || Math.abs(Date.now()/1000 - Number(ts)) > 300) return false;
+  const chave = await crypto.subtle.importKey('raw',new TextEncoder().encode(segredo),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const mac = await crypto.subtle.sign('HMAC',chave,new TextEncoder().encode(`v0:${ts}:${cru}`));
+  const esperado = 'v0=' + [...new Uint8Array(mac)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(esperado.length !== assinatura.length) return false;
+  let diferenca = 0;
+  for(let i=0;i<esperado.length;i++) diferenca |= esperado.charCodeAt(i) ^ assinatura.charCodeAt(i);
+  return diferenca === 0;
+}
+
 Deno.serve(async req => {
   if(req.method==='OPTIONS') return new Response(null,{headers});
   if(req.method!=='POST') return json({error:'Método inválido'},405);
@@ -18,7 +33,19 @@ Deno.serve(async req => {
   const workerSecret = Deno.env.get('SLACK_WORKER_SECRET');
   const origin = Deno.env.get('APP_URL') || 'https://adverse-bloom.vercel.app';
   try {
-    const body = await req.json();
+    const cru = await req.text();
+    // O Slack manda formulário; o painel manda JSON.
+    if((req.headers.get('content-type')||'').includes('application/x-www-form-urlencoded')) {
+      const segredo = Deno.env.get('SLACK_SIGNING_SECRET');
+      if(!segredo) return json({response_type:'ephemeral',text:'O comando ainda não foi configurado no servidor.'});
+      if(!await assinaturaValida(cru,req.headers,segredo)) return json({error:'Não autorizado'},401);
+      const termo = (new URLSearchParams(cru).get('text')||'').trim().slice(0,40);
+      const item = checked(await admin.rpc('slack_item',{_texto:termo})) as Parameters<typeof cartaoItem>[0] | null;
+      if(!item) return json({response_type:'ephemeral',
+        text:'Não achei esse item. Use o código do vídeo (ADVR-4448) ou o número do projeto (0355).'});
+      return json(cartaoItem(item,origin));
+    }
+    const body = JSON.parse(cru);
     if(body.action==='dispatch') {
       if(!workerSecret || req.headers.get('x-slack-worker-secret')!==workerSecret) return json({error:'Não autorizado'},401);
       if(!bot) return json({error:'Slack ainda não configurado'},503);

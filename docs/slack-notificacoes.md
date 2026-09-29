@@ -5,7 +5,8 @@ Workspace solicitado: **djeisson.slack.com**. Destinos: mensagens diretas e **#a
 ## Comportamento
 
 - Usa os destinatários e as preferências existentes do sistema. `sino`, `off` e nível 3 não enviam pelo Slack. Não altera Web Push nem marca avisos como lidos.
-- Nível 1: cron de um minuto, sujeito à fila / disponibilidade. Nível 2: resumos agrupados por destino nos horários globais de São Paulo; novas tentativas podem sair fora dessa janela.
+- Tudo em tempo real desde 29/09: o cron de um minuto envia qualquer nível, sem esperar horário de resumo. O volume é controlado por agrupamento, não por espera.
+- Prazos e nível 2 viram UMA mensagem por destino, com uma linha clicável por item (até 15, depois "+N"). Produção, conversas e comercial continuam uma mensagem por evento, porque pedem ação individual. Medição que motivou isso: 90 das 118 entregas dos primeiros dias eram `prazo_atrasado`, os mesmos itens reanunciados às 8h.
 - DM: todos os tipos elegíveis para a pessoa vinculada. Canal: apenas grupos `producao`, `prazos`, `conversas`. Comercial e resumo pessoal de IA ficam nas DMs.
 - Vários destinatários do mesmo evento (mesma chave, conteúdo e timestamp da transação) geram uma única entrada de canal. Eventos de transações distintas continuam distintos.
 - Registro individual por destino. Confirmação significa aceite pelo Slack, não leitura nem entrega de notificação pelo aplicativo no celular.
@@ -13,6 +14,19 @@ Workspace solicitado: **djeisson.slack.com**. Destinos: mensagens diretas e **#a
 - Um worker por workspace com reserva de cinco minutos; execução interrompida é retomada. Se o Slack aceitar e a confirmação no banco falhar, uma repetição é possível após recuperação: a API não oferece uma transação conjunta com o Postgres. Não há promessa de entrega exatamente uma vez.
 - Antes do envio, cancela itens lidos/resolvidos, pessoas inativas, tipos silenciados e destinos trocados. Pausar globalmente retém a fila; novos eventos durante a pausa não são incluídos. Um envio já em andamento pode terminar.
 - Lotes de dez entradas para limitar duração; cada grupo respeita intervalo de 1,1s. Volume alto pode criar mais de uma mensagem de resumo.
+
+## Comando `/advr`
+
+`/advr 4448` (vídeo) ou `/advr 0355` (projeto) responde **no canal**, visível a todos: código, título, projeto, status, responsável, prazo e botão "Abrir no Adverse OS". Aceita `ADVR-4448`, `advr 4448` ou só os dígitos; o entregável vence o projeto quando os dois batem. Devolve só escopo — nenhum valor, custo ou margem, porque a resposta é pública no canal. Item inexistente responde só pra quem digitou.
+
+O `@` do Slack não serve pra item do sistema: o autocompletar dele só conhece pessoas, grupos e canais. Fazer `ADVR-4448` escrito solto virar link exigiria dar ao app permissão de ler todas as mensagens dos canais — evitado de propósito.
+
+Para ligar o comando (uma vez, em https://api.slack.com/apps):
+1. **Slash Commands → Create New Command**: `/advr`, Request URL `https://ythmkxudzaoaayxxlgqy.supabase.co/functions/v1/slack-notificacoes`, descrição e dica de uso do manifesto.
+2. **Basic Information → Signing Secret**: copiar e guardar como `SLACK_SIGNING_SECRET` nos Edge Function Secrets do Supabase. Sem ele o comando responde "ainda não configurado" e nada é exposto.
+3. Reinstalar o app no workspace quando o Slack pedir.
+
+A função valida a assinatura do Slack (HMAC do corpo cru, com tolerância de 5 minutos) e compara em tempo constante; requisição sem assinatura válida recebe 401.
 
 ## Instalação e manutenção
 
