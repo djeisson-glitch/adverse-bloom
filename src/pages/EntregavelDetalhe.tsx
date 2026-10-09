@@ -101,6 +101,7 @@ export default function EntregavelDetalhe() {
   const { data: entregavel, isLoading, isError, error } = useQuery({
     queryKey: ["entregavel", did],
     enabled: !!did,
+    refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
@@ -179,6 +180,7 @@ export default function EntregavelDetalhe() {
   const { data: entries = [] } = useQuery({
     queryKey: ["entregavel-horas", did],
     enabled: !!did,
+    refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("time_entries")
