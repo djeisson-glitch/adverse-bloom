@@ -89,13 +89,10 @@ function botoesDoItem(it: Item): BtnCfg[] {
     return [{ kind: "editar", label: s === "em_pausa" ? "Retomar" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
   }
   if (it.tipo === "aprovar") {
-    // Na REVISÃO 1 a saída principal é aprovar E enviar — é o caminho que
-    // fecha a peça sem passar por mais ninguém. "Dúvida" fica como terceira
-    // opção, discreta: existe pra exceção, não pra rotina.
+    // Uma revisão interna; envio ao cliente segue disponível após o primeiro ok.
     if (it.d?.status === "revisao_n1") return [
       { kind: "aprovarEnviar", label: "Aprovar e enviar", Icon: ExternalLink, cls: CLS_PRIMARY },
       { kind: "ajuste", label: "Ajuste", Icon: RefreshCw, cls: CLS_SECUNDARIO, outline: true },
-      { kind: "duvida", label: "Dúvida", Icon: Users, cls: CLS_SECUNDARIO, outline: true },
     ];
     return [
       { kind: "aprovar", label: "Aprovar", Icon: CheckCircle2, cls: CLS_PRIMARY },
@@ -298,8 +295,7 @@ export default function MinhaMesa() {
         toast.success(await Fluxo.aprovarEtapa(d, user?.id));
       } else if (kind === "aprovarEnviar") {
         toast.success(await Fluxo.aprovarEEnviarCliente(d, user?.id));
-      } else if (kind === "duvida") {
-        toast.success(await Fluxo.pedirRevisaoN2(d, user?.id));
+
       } else if (kind === "ajuste") {
         // Um clique só: a mensagem única sai quando volta pro editor, apontando o Frame.io.
         toast.success(await Fluxo.pedirAjuste(d, user?.id));
@@ -447,17 +443,17 @@ export default function MinhaMesa() {
         });
       });
 
-    // APROVAÇÃO: sou o aprovador designado (N1 ou N2).
+    // APROVAÇÃO: sou o único aprovador interno designado.
     deliverables.forEach((d) => {
       const effN1 = d.project?.aprovador_n1_id ?? settings?.nivel1_user_id ?? null;
-      const effN2 = d.project?.aprovador_n2_id ?? settings?.nivel2_user_id ?? null;
-      const souN1 = effN1 === user.id && d.status === "revisao_n1" && !d.aprovado_n1_em;
-      const souN2 = effN2 === user.id && d.status === "revisao_n2" && d.aprovado_n1_em && !d.aprovado_n2_em;
-      if (souN1 || souN2) {
+      const souRevisor = effN1 === user.id && d.responsavel_id !== user.id
+        && ["revisao_n1", "revisao_n2", "revisao"].includes(d.status);
+      // Carimbos anteriores são históricos; o status define a rodada atual.
+      if (souRevisor) {
         out.push({
           key: `aprov-${d.id}`, tipo: "aprovar", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
-          acao: souN1 ? "Aprovar (Revisão 1)" : "Aprovar (Revisão 2)",
+          acao: "Aprovar (revisão interna)",
           link: `/projetos/${d.project?.id}/entregaveis/${d.id}`,
           due: prazoDe(d), atrasado: estaAtrasado(d, hoje), bloqueante: true, d,
         });
@@ -636,9 +632,7 @@ export default function MinhaMesa() {
         out.push({ ...base, quem: `com ${d.project?.client_name || "o cliente"}`, falta: "sem resposta",
           item: itens.find((i) => i.d?.id === d.id && i.tipo === "cliente") });
       } else if (["revisao", "revisao_n1", "revisao_n2"].includes(d.status) && d.responsavel_id === eu) {
-        const aprovador = d.status === "revisao_n2"
-          ? (d.project?.aprovador_n2_id ?? settings?.nivel2_user_id)
-          : (d.project?.aprovador_n1_id ?? settings?.nivel1_user_id);
+        const aprovador = d.project?.aprovador_n1_id ?? settings?.nivel1_user_id;
         out.push({ ...base, quem: `esperando ${nomeDe(aprovador)}`, falta: "aprovação" });
       }
     });

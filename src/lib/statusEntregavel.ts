@@ -18,9 +18,8 @@ export const STATUS_ENTREGAVEL = [
   { id: "pronto_editar", label: "Pronto pra editar", tone: "info" },
   { id: "em_edicao", label: "Em edição", tone: "primary" },
   { id: "em_pausa", label: "Em pausa", tone: "muted" },
-  { id: "revisao_n1", label: "Revisão 1", tone: "warning" },
-  { id: "revisao_n2", label: "Revisão 2", tone: "warning" },
-  { id: "revisao", label: "Revisão", tone: "warning" },
+  { id: "revisao_n1", label: "Revisão interna", tone: "warning" },
+  { id: "revisao", label: "Revisão interna", tone: "warning" },
   { id: "pronto", label: "Pronto pra enviar", tone: "success" },
   { id: "com_cliente", label: "Com o cliente", tone: "info" },
   { id: "ajuste_solicitado", label: "Ajuste do cliente", tone: "destructive" },
@@ -42,12 +41,12 @@ export function iconeStatus(id: string): LucideIcon {
 }
 
 export function statusTom(id: string): string {
-  return STATUS_ENTREGAVEL.find((x) => x.id === id)?.tone || "muted";
+  return STATUS_ENTREGAVEL.find((x) => x.id === (id === "revisao_n2" ? "revisao_n1" : id))?.tone || "muted";
 }
 
 /** Rótulo cru da etapa (sem nome de aprovador). */
 export function statusLabel(id: string): string {
-  return STATUS_ENTREGAVEL.find((s) => s.id === id)?.label || id;
+  return STATUS_ENTREGAVEL.find((s) => s.id === (id === "revisao_n2" ? "revisao_n1" : id))?.label || id;
 }
 
 /** Chip discreto (fundo /15) — pra listas densas. */

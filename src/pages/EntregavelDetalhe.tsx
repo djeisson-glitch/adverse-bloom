@@ -26,8 +26,9 @@ import {
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
   Play, Pause, Plus, Trash2, MessageSquarePlus, ThumbsUp, RefreshCw, Clock, Scissors, UserCheck,
-  PanelRightClose, MessageSquare, Copy, Wrench, Upload, FileText, Paperclip, Pencil, PlayCircle,
+  MessageSquare, Copy, Wrench, Upload, FileText, Paperclip, Pencil, PlayCircle,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -242,16 +243,6 @@ export default function EntregavelDetalhe() {
     return { total: total / 60, pura: pura / 60, alt: alt / 60, porAlteracao };
   }, [entries]);
 
-  // Canal da peça como painel lateral recolhível (lembra a preferência).
-  // IMPORTANTE: hooks ANTES dos early returns abaixo — senão o nº de hooks
-  // varia entre renders (loading × carregado) e o React quebra (#310).
-  const [chatAberto, setChatAberto] = useState(() =>
-    typeof localStorage !== "undefined" ? localStorage.getItem("adverse.canal") !== "0" : true,
-  );
-  useEffect(() => {
-    localStorage.setItem("adverse.canal", chatAberto ? "1" : "0");
-  }, [chatAberto]);
-
   // Erro na query (ex.: coluna/relação faltando, RLS, id inválido) → mostra o
   // motivo em vez de girar pra sempre.
   if (isError || (!isLoading && !entregavel)) {
@@ -299,7 +290,7 @@ export default function EntregavelDetalhe() {
 
   // Config efetiva de aprovação (override por projeto > global)
   const n1 = proj?.aprovador_n1_id ?? config?.nivel1_user_id ?? null;
-  const n2 = proj?.aprovador_n2_id ?? config?.nivel2_user_id ?? null;
+  const n2 = n1; // Compatibilidade com peças antigas da R2.
   const clienteAprova = proj?.cliente_aprova ?? config?.cliente_aprova ?? true;
 
   // Papéis pra máquina de estados. A coordenadora revisa e envia por PAPEL —
@@ -315,7 +306,7 @@ export default function EntregavelDetalhe() {
   // Quem precisa mesmo passar por cima usa o "Corrigir status", que é
   // declaradamente um atalho e fica registrado como tal.
   const isN1 = !!eu && (n1 ? eu === n1 : podeRevisar);
-  const isN2 = !!eu && (n2 ? eu === n2 : podeRevisar);
+
   // Coordenação (mandar pro cliente, registrar retorno) continua por papel —
   // é função, não aprovação.
   const isRevisor = !!eu && (eu === n1 || eu === n2 || podeRevisar);
@@ -336,7 +327,7 @@ export default function EntregavelDetalhe() {
   const alteracaoAberta = (alteracoes as any[]).find((a: any) => a.status === "aberta") || null;
 
   return (
-    <div className={`space-y-5 py-6 ${chatAberto ? "lg:pr-[440px]" : "mx-auto max-w-[1400px]"}`}>
+    <div className="mx-auto max-w-[1400px] space-y-4 py-5">
       {/* Dois caminhos, e cada um faz o que promete: a SETA desfaz o último
           passo (quem veio das Entregas do mês volta pra lá), e o nome do
           projeto continua sendo o atalho pro projeto. */}
@@ -351,24 +342,12 @@ export default function EntregavelDetalhe() {
         </button>
       </div>
 
-      {/* Onde a peça está — primeira coisa da página, sozinha na faixa. O
-          status vivia espremido entre botão verde, botão vermelho e selo de
-          retrabalho; achar em que pé estava a peça dava trabalho. */}
-      <FaixaStatus
-        status={form.status}
-        entregavel={entregavel}
-        n1={n1}
-        n2={n2}
-        profiles={profiles}
-        etapas={etapas}
-      />
-
-      {/* Header */}
-      <Card className="glass-card">
-        <CardContent className="space-y-4 p-6">
+      <header className="space-y-2 border-b border-border/60 pb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex-1">
-              <div className="mb-1 flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                {entregavel.codigo && <span className="select-all rounded-md border border-primary/30 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-primary">{entregavel.codigo}</span>}
+
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Film className="h-3 w-3" /> Entregável
                 </span>
@@ -376,89 +355,30 @@ export default function EntregavelDetalhe() {
                 <button
                   onClick={() => copiarTexto(nomeDaVinci(entregavel.codigo, form.titulo, form.formato), "Nome DaVinci")}
                   title={`Copiar nome padrão: ${nomeDaVinci(entregavel.codigo, form.titulo, form.formato)}`}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Copy className="h-3.5 w-3.5" /> Nome DaVinci
                 </button>
               </div>
-              {/* O código ganha linha própria e tamanho de verdade.
-                  Djêisson (12/08): "dentro do entregável, vamos deixar ele
-                  mais evidente também, pra ficar mais fácil localizar." Antes
-                  ele era um 10px espremido entre o rótulo "Entregável" e o
-                  autosave — sumia justamente quando servia pra achar a peça.
-                  Clicável porque o gesto seguinte quase sempre é colar o
-                  código em outro lugar (pasta, WhatsApp, e-mail). */}
-              {/* O código NÃO copia — pedido do Djêisson (12/08): "o ID nao
-                  precisa ser copiavel (vai só confundir na hora de copiar pro
-                  davinci)". Dois botões de copiar lado a lado é convite a
-                  copiar o errado, e o que vai pra pasta é o nome DaVinci.
-                  Aqui é identidade, não ação: etiqueta sem fundo, sem ícone e
-                  sem hover. `select-all` deixa marcar o texto num clique
-                  duplo, pra quem quiser levar só o código. */}
-              {entregavel.codigo && (
-                <span className="mb-1 inline-block select-all rounded-md border border-primary/30 px-2 py-0.5 font-mono text-sm font-semibold tracking-wide text-primary">
-                  {entregavel.codigo}
-                </span>
-              )}
               <Input
+                aria-label="Nome do entregável"
                 value={form.titulo}
                 onChange={(e) => set({ titulo: e.target.value })}
-                className="border-transparent bg-transparent px-0 text-2xl font-semibold tracking-tight hover:border-border focus:border-border"
+                className="border-transparent bg-transparent px-0 !text-2xl font-semibold tracking-tight hover:border-border focus:border-border"
               />
             </div>
-            {/* O status NÃO é mais escolhido à mão aqui — quem muda é o fluxo
-                (botões logo abaixo). O selo do status fica no topo à esquerda. */}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                title="Excluir entregável"
-                onClick={async () => {
-                  if (!(await confirmar({
-                    title: "Excluir entregável?",
-                    description: "Remove o timesheet e as alterações ligadas a ele. Não dá pra desfazer.",
-                    confirmText: "Excluir", destructive: true,
-                  }))) return;
-                  const { error } = await (supabase as any).from("deliverables").delete().eq("id", did);
-                  if (error) return toast.error("Não excluiu", { description: error.message });
-                  toast.success("Entregável excluído");
-                  navigate(`/projetos/${projectId}`);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            <div className="w-full shrink-0 sm:w-auto sm:max-w-xs">
+              <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
             </div>
           </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{form.formato || "Formato não definido"}</span><span>·</span>
+          <span>{form.duracao || "Duração não definida"}</span>
+          {proj?.client_name && <><span>·</span><span>{proj.client_name}</span></>}
+        </div>
 
-          {/* DENSIDADE, no formato do ClickUp: rótulo à esquerda, valor à
-              direita, uma linha por campo, duas colunas quando cabe. Os
-              cartões de grupo empilhavam altura — cada um gastava borda,
-              padding e um título — e o Djêisson tem razão: dá pra mostrar a
-              mesma coisa em metade da tela sem virar amontoado. O agrupamento
-              não some, vira separador: as linhas continuam na ordem "de quem
-              é → com quem → quando → onde está". */}
-          <div className="grid gap-x-10 gap-y-0.5 text-sm sm:grid-cols-2">
-            {proj?.client_name && (
-              <L label="Cliente">
-                <span className="block truncate text-foreground" title={proj.client_name}>{proj.client_name}</span>
-              </L>
-            )}
-            <L label="Projeto">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
-                  {proj?.numero} · {proj?.name}
-                </Link>
-                <button
-                  onClick={() => copiarTexto(nomeProjetoPadrao(proj?.numero, proj?.name), "Nome do projeto")}
-                  title={`Copiar: ${nomeProjetoPadrao(proj?.numero, proj?.name)}`}
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </L>
-
-            <L label="Responsável">
+        <div aria-label="Informações principais" className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4 lg:grid-cols-4">
+            <Campo label="Responsável">
               <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
                 <SelectTrigger className="h-7 border-0 bg-transparent px-0 text-sm hover:bg-muted/40 focus:ring-0"><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
@@ -466,97 +386,33 @@ export default function EntregavelDetalhe() {
                   {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </L>
-            {/* Quem pediu. Vem preenchido quando a peça nasceu de uma demanda
-                do formulário; digitado à mão quando o pedido chegou por
-                WhatsApp — que é a maioria, e é a primeira pergunta quando uma
-                entrega é questionada no fechamento. */}
-            <L label="Solicitado por">
-              <SolicitadoPor
-                clientId={proj?.client_id}
-                valor={form.solicitado_por}
-                onChange={(v) => setJa({ solicitado_por: v })}
-              />
-            </L>
-
-            <L label="Formato">
-              <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9"
-                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
-            </L>
-            <L label="Duração">
-              <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"'
-                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
-            </L>
-
-            <L label="Prazo interno">
+            </Campo>
+          {canSeeHours && <Campo label="Horas registradas">
+            <a href="#horas-entregavel" className="inline-flex items-baseline gap-2 rounded text-xl font-semibold hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+              {fmtDuracao(Math.round(horas.total * 60))}<span className="text-xs font-normal text-muted-foreground">Lançar horas ↓</span>
+            </a>
+          </Campo>}
+            <Campo label="Prazo interno" className="col-span-2 sm:col-span-1">
               <SeletorPrazo
                 data={form.prazo_interno}
                 hora={form.prazo_interno_hora}
                 onChange={(v) => setJa({ prazo_interno: v.data, prazo_interno_hora: v.hora || null })}
               />
-            </L>
-            <L label="Prazo do cliente">
+            </Campo>
+            <Campo label="Prazo do cliente" className="col-span-2 sm:col-span-1">
               <SeletorPrazo
                 data={form.data_entrega}
                 hora={form.data_entrega_hora}
                 onChange={(v) => setJa({ data_entrega: v.data, data_entrega_hora: v.hora || null })}
               />
-            </L>
+            </Campo>
 
-            <L label="Criado em">
-              <CriadoEmPeca
-                deliverableId={did!}
-                criadoEm={entregavel?.criado_em}
-                createdAt={entregavel?.created_at}
-                // Piso: a peça anda pra frente do job, nunca pra trás dele.
-                pisoProjeto={entregavel?.project?.criado_em}
-                podeEditar={podeRevisar}
-                onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
-                discreto
-              />
-            </L>
-            {/* Só pra quem vê dinheiro. Um editor não decide nota de cliente
-                e não precisa saber que existe uma — a regra de sempre. */}
-            {canSeeMoney && (
-              <L label="Faturamento">
-                <FaturamentoPeca
-                  did={did!}
-                  valor={entregavel.faturamento || null}
-                  doProjeto={proj?.faturamento || "mensal"}
-                  onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
-                />
-              </L>
-            )}
+        </div>
+      </header>
 
-            {/* O link ocupa as duas colunas: é o botão mais clicado da tela. */}
-            <div className="mt-2 sm:col-span-2">
-              <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alterações do cliente logo depois do cabeçalho, antes do fluxo: é o
-          que muda o rumo do entregável e onde as horas de alteração são
-          apontadas — tem que estar na cara. */}
-      <AlteracoesSection
-        did={did!}
-        projectId={projectId!}
-        projectName={proj?.name || ""}
-        alteracoes={alteracoes}
-        podeHoras={canSeeHours}
-        horasPorAlteracao={horas.porAlteracao}
-        onChanged={() => {
-          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
-          qc.invalidateQueries({ queryKey: ["entregavel", did] });
-          recarregarHoras();
-        }}
-      />
-
-      {/* Fluxo do entregável — os BOTÕES que tocam o processo (editar,
-          enviar pra revisão, aprovar, enviar ao cliente). Logo no topo
-          porque é a ação principal da tela. */}
       <FluxoCard
+        resumoStatus={<FaixaStatus compact status={form.status} entregavel={entregavel}
+          n1={n1} n2={n2} profiles={profiles} etapas={etapas} />}
         entregavel={entregavel}
         did={did!}
         projectId={projectId!}
@@ -567,7 +423,6 @@ export default function EntregavelDetalhe() {
         profiles={profiles}
         isEditor={isEditor}
         isN1={isN1}
-        isN2={isN2}
         isRevisor={isRevisor}
         souDono={souDono}
         podeForcar={podeRevisar}
@@ -583,9 +438,9 @@ export default function EntregavelDetalhe() {
         }}
       />
 
-      {/* Horas logo abaixo dos botões: é o que mais se mexe na peça, e estava
-          no fim da página — quem ia apontar hora rolava a tela inteira. */}
+
       {canSeeHours && (
+        <section id="horas-entregavel" aria-label="Horas do entregável" className="scroll-mt-24 space-y-2">
         <TimesheetEntregavel
           did={did!}
           projectId={projectId!}
@@ -597,51 +452,57 @@ export default function EntregavelDetalhe() {
           statusAtual={status}
           onChanged={recarregarHoras}
         />
+          <details className="px-1 text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Estimativa e composição das horas · edição {horas.pura.toFixed(1)}h · alterações {horas.alt.toFixed(1)}h</summary>
+            <div className="mt-2">        <EstimativaEntregavel
+          id={entregavel.id}
+          estimadas={entregavel.horas_estimadas}
+          realizadas={horas.pura + horas.alt}
+          onSalvo={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+        /></div>
+          </details>
+        </section>
       )}
 
-      {/* Briefing logo no topo, depois do cabeçalho: é o direcionamento da
-          peça — quem abre o entregável quer isso primeiro, não no fim. */}
+      <div>
+        <main className="min-w-0 space-y-4">
       <Card className="glass-card">
-        <CardContent className="space-y-2 p-6">
+        <CardContent className="space-y-3 p-5">
           <div className="flex items-center justify-between">
-            <Label>Briefing / observações deste entregável</Label>
+            <Label>Briefing e orientações</Label>
             <IndicadorAutosave status={auto.status} />
           </div>
           <BriefingComVerMais valor={form.descricao} onChange={(v) => set({ descricao: v })} />
         </CardContent>
       </Card>
 
-      {/* Indicadores. Revisões e alterações ficam pra todo mundo (a
-          coordenadora acompanha quantos ajustes rolaram); as horas só pra quem
-          pode ver tempo. */}
-      <div className={`grid gap-4 ${canSeeHours ? "md:grid-cols-4" : "md:grid-cols-2"}`}>
-        <IndicadorCard label="Revisões internas" value={String(entregavel.revisoes_internas || 0)} icon={RefreshCw} hint="R1/R2 pediram ajuste" />
-        <IndicadorCard label="Alterações do cliente" value={String(alteracoes.length)} icon={MessageSquarePlus} hint={`${alteracoes.filter((a) => a.status === "aberta").length} abertas`} tone="destructive" />
-        {canSeeHours && (
-          <>
-            <IndicadorCard label="Horas — edição pura" value={`${horas.pura.toFixed(1)}h`} icon={Scissors} />
-            <IndicadorCard label="Horas — alteração cliente" value={`${horas.alt.toFixed(1)}h`} icon={MessageSquarePlus} tone="warning" />
-          </>
-        )}
-      </div>
-
-      {/* Estimativa × realizado. A estimativa é o que reserva o tempo da
-          pessoa; o realizado ao lado é o que mostra o quanto a gente erra —
-          e é esse histórico que vai permitir corrigir a estimativa depois. */}
-      {canSeeHours && (
-        <EstimativaEntregavel
-          id={entregavel.id}
-          estimadas={entregavel.horas_estimadas}
-          realizadas={horas.pura + horas.alt}
-          onSalvo={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
-        />
-      )}
+      <AlteracoesSection
+        did={did!}
+        projectId={projectId!}
+        projectName={proj?.name || ""}
+        alteracoes={alteracoes}
+        podeHoras={canSeeHours}
+        horasPorAlteracao={horas.porAlteracao}
+        onChanged={() => {
+          qc.invalidateQueries({ queryKey: ["entregavel-alteracoes", did] });
+          qc.invalidateQueries({ queryKey: ["entregavel", did] });
+          recarregarHoras();
+        }}
+      />
 
 
-      <div>
-        <div className="min-w-0 space-y-5">
-          {/* Links: roteiro, referências, PDF do cliente. Aberto a todo mundo
-              que abre o entregável — a coordenadora precisa do roteiro à mão. */}
+          <Tabs key={did} defaultValue="atividade" className="min-w-0">
+            <TabsList aria-label="Informações do entregável" className="h-auto w-full justify-start gap-2 rounded-none border-b border-border bg-transparent px-0 pb-2">
+              <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="atividade"><MessageSquare className="mr-2 h-4 w-4" />Atividade</TabsTrigger>
+              <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="arquivos"><Paperclip className="mr-2 h-4 w-4" />Arquivos</TabsTrigger>
+              <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="detalhes">Mais detalhes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="atividade" forceMount className="pt-3 data-[state=inactive]:hidden">
+              <Card className="glass-card"><CardContent className="p-5">
+                <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} vazio="Sem mensagens ainda. Use este espaço para alinhar a peça com o time." />
+              </CardContent></Card>
+            </TabsContent>
+            <TabsContent value="arquivos" forceMount className="space-y-4 pt-3 data-[state=inactive]:hidden">
           <DocumentosEntregavel did={did!} projectId={projectId!} />
 
           {/* Capas: só aparece pro cliente configurado (clients.usa_capas). É
@@ -661,38 +522,105 @@ export default function EntregavelDetalhe() {
           {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
           <AnexosEntregavel did={did!} projectId={projectId!} />
 
+
+            </TabsContent>
+
+            <TabsContent value="detalhes" forceMount className="pt-3 data-[state=inactive]:hidden">
+        <div aria-label="Detalhes do entregável" className="min-w-0 rounded-xl border border-border/60 bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold">Detalhes</h2>
+            <L label="Projeto">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Link to={`/projetos/${projectId}`} className="min-w-0 truncate text-primary hover:underline">
+                  {proj?.numero} · {proj?.name}
+                </Link>
+                <button
+                  onClick={() => copiarTexto(nomeProjetoPadrao(proj?.numero, proj?.name), "Nome do projeto")}
+                  title={`Copiar: ${nomeProjetoPadrao(proj?.numero, proj?.name)}`}
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </L>
+
+
+
+          <div className="mt-3 border-t border-border/60 pt-3">
+
+            <div className="mt-3 space-y-1">
+            <L label="Formato">
+              <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9"
+                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
+            </L>
+            <L label="Duração">
+              <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"'
+                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
+            </L>
+            <L label="Solicitado por">
+              <SolicitadoPor
+                clientId={proj?.client_id}
+                valor={form.solicitado_por}
+                onChange={(v) => setJa({ solicitado_por: v })}
+              />
+            </L>
+            <L label="Criado em">
+              <CriadoEmPeca
+                deliverableId={did!}
+                criadoEm={entregavel?.criado_em}
+                createdAt={entregavel?.created_at}
+                // Piso: a peça anda pra frente do job, nunca pra trás dele.
+                pisoProjeto={entregavel?.project?.criado_em}
+                podeEditar={podeRevisar}
+                onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+                discreto
+              />
+            </L>
+{canSeeMoney && (
+            <L label="Faturamento">
+                <FaturamentoPeca
+                  did={did!}
+                  valor={entregavel.faturamento || null}
+                  doProjeto={proj?.faturamento || "mensal"}
+                  onChanged={() => qc.invalidateQueries({ queryKey: ["entregavel", did] })}
+                />
+              </L>
+)}
+              <div className="flex items-center justify-between gap-2 pt-3">
+                <span className="text-xs text-muted-foreground">Excluir este entregável</span>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                title="Excluir entregável"
+                onClick={async () => {
+                  if (!(await confirmar({
+                    title: "Excluir entregável?",
+                    description: "Remove o timesheet e as alterações ligadas a ele. Não dá pra desfazer.",
+                    confirmText: "Excluir", destructive: true,
+                  }))) return;
+                  const { error } = await (supabase as any).from("deliverables").delete().eq("id", did);
+                  if (error) return toast.error("Não excluiu", { description: error.message });
+                  toast.success("Entregável excluído");
+                  navigate(`/projetos/${projectId}`);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              </div>
+
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+            <span><strong className="text-foreground">{entregavel.revisoes_internas || 0}</strong> revisões internas</span>
+            <span><strong className="text-foreground">{alteracoes.length}</strong> alterações do cliente</span>
+          </div>
         </div>
+            </TabsContent>
+          </Tabs>
+        </main>
+
 
       </div>
 
-      {/* Canal da peça — painel fixo ocupando a lateral inteira da tela, recolhível */}
-      {chatAberto && (
-        <aside className="fixed right-0 top-14 bottom-0 z-50 flex w-full flex-col border-l border-border bg-card shadow-2xl lg:w-[440px]">
-          <div className="flex items-start justify-between gap-2 border-b border-border/60 p-4">
-            <p className="text-sm font-semibold text-foreground" title="Use @nome pra mencionar">Canal da peça</p>
-            <button
-              onClick={() => setChatAberto(false)}
-              title="Recolher a conversa"
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-            >
-              <PanelRightClose className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 p-4">
-            <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens ainda." />
-          </div>
-        </aside>
-      )}
-
-      {/* Aba pra reabrir quando recolhido */}
-      {!chatAberto && (
-        <button
-          onClick={() => setChatAberto(true)}
-          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-1.5 rounded-l-lg bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-lg hover:brightness-110"
-        >
-          <MessageSquare className="h-4 w-4" /> Conversa
-        </button>
-      )}
     </div>
   );
 }
@@ -701,12 +629,12 @@ export default function EntregavelDetalhe() {
 
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
-  isEditor, isN1, isN2, isRevisor, souDono, podeForcar, podeLiberar, alteracaoAberta, onChanged,
-  canSeeMoney, clientId, horasMin,
+  isEditor, isN1, isRevisor, souDono, podeForcar, podeLiberar, alteracaoAberta, onChanged,
+  canSeeMoney, clientId, horasMin, resumoStatus,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
   n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
-  isEditor: boolean; isN1: boolean; isN2: boolean; isRevisor: boolean;
+  isEditor: boolean; isN1: boolean; isRevisor: boolean;
   /** Quem fez a peça não aprova a própria peça. */
   souDono: boolean;
   podeForcar: boolean;
@@ -714,6 +642,7 @@ function FluxoCard({
   podeLiberar: boolean;
   alteracaoAberta: any; onChanged: () => void;
   canSeeMoney: boolean; clientId?: string | null; horasMin: number;
+  resumoStatus: React.ReactNode;
 }) {
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
@@ -780,25 +709,10 @@ function FluxoCard({
     await run(() => Fluxo.enviarParaRevisao(entregavel, alteracaoAberta?.id));
   };
 
-  // ---- APROVAÇÃO 1 (1ª vez): sempre segue pra Ap.2, com ou sem ajuste ----
-  // R1 tem TRÊS saídas — Djêisson (19/08): "após a primeira aprovação que é da
-  // maiara, ela tenha três opções: aprovar e enviar pro cliente, pedir ajuste
-  // (volta direto pro editor), fiquei em duvida - pedir revisao djeisson...
-  // pra eu entrar só onde preciso mesmo."
+  // Revisão interna única, incluindo os estados legados.
   const n1AprovaEnvia = () => run(() => Fluxo.aprovarEEnviarCliente(entregavel, user?.id));
   const n1Aprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
   const n1AjusteSegue = pedirAjusteInterno;
-  const n1Duvida = () => run(() => Fluxo.pedirRevisaoN2(entregavel, user?.id));
-
-  // ---- APROVAÇÃO 2: aprovarEtapa fecha a 1ª volta (respeita ajuste acumulado);
-  //      pedirAjuste força a volta pro editor. ----
-  const n2Aprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
-  const n2Ajuste = pedirAjusteInterno;
-
-  // ---- REVISÃO ÚNICA (retrabalho, só N1) ----
-  const revUnicaAprova = () => run(() => Fluxo.aprovarEtapa(entregavel, user?.id));
-  const revUnicaAjuste = pedirAjusteInterno;
-  const revUnicaEscala = () => run(() => Fluxo.escalarAprovacao2(entregavel));
 
   // ---- ENVIO E CLIENTE ----
   const enviarCliente = () => run(() => Fluxo.enviarAoCliente(entregavel));
@@ -877,28 +791,11 @@ function FluxoCard({
     }
   }
 
-  // REVISÃO 1 (1ª vez)
-  if (status === "revisao_n1" && isN1 && !souDono) {
-    B("n1e", <Button size="sm" onClick={n1AprovaEnvia} className="bg-success text-white hover:bg-success/90"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Aprovar e enviar ao cliente</Button>);
-    B("n1j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
-    // A escalada é a saída MENOS usada de propósito: ela existe pra dúvida,
-    // não pra rotina. Por isso é ghost, e não um terceiro botão sólido.
-    B("n1d", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={n1Duvida} title="Encaminha pra segunda revisão, com a dúvida registrada no chat"><UserCheck className="mr-1 h-3.5 w-3.5" /> Fiquei em dúvida — pedir revisão</Button>);
-    // Aprovar SEM enviar continua existindo: nem sempre quem aprova manda o
-    // link na hora, e marcar "com o cliente" sem ter enviado é o sistema
-    // mentindo.
-    B("n1a", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={n1Aprova} title="Aprova e deixa pronto — o envio fica pra depois"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Só aprovar</Button>);
-  }
-  // REVISÃO 2
-  if (status === "revisao_n2" && isN2 && !souDono) {
-    B("n2a", <Button size="sm" onClick={n2Aprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
-    B("n2j", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n2Ajuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
-  }
-  // REVISÃO ÚNICA (retrabalho, só N1) — com escalar pra N2 opcional
-  if (status === "revisao" && isN1 && !souDono) {
-    B("rua", <Button size="sm" onClick={revUnicaAprova} className="bg-success text-white hover:bg-success/90"><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Aprovar</Button>);
-    B("ruj", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={revUnicaAjuste}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
-    B("rue", <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={revUnicaEscala} title="Opcional: mandar pra uma segunda revisão"><UserCheck className="mr-1 h-3.5 w-3.5" /> Pedir Revisão 2</Button>);
+  // O mesmo aprovador revisa a primeira entrega e as rodadas de ajuste.
+  if (["revisao_n1", "revisao_n2", "revisao"].includes(status) && isN1 && !souDono) {
+    B("aprovar-enviar", <Button size="sm" onClick={n1AprovaEnvia} className="bg-success text-white hover:bg-success/90"><ExternalLink className="mr-1 h-3.5 w-3.5" /> Aprovar e enviar ao cliente</Button>);
+    B("ajuste", <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={n1AjusteSegue}><RefreshCw className="mr-1 h-3.5 w-3.5" /> Pedir ajuste</Button>);
+    B("aprovar", <Button size="sm" variant="ghost" onClick={n1Aprova}><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Só aprovar</Button>);
   }
   // ENVIAR AO CLIENTE
   if (status === "pronto" && isRevisor) {
@@ -911,23 +808,11 @@ function FluxoCard({
   }
 
   return (
-    <Card className={`glass-card border-l-4 ${statusBorda(status)}`}>
-      <CardContent className="space-y-3 p-5">
-        {/* O status saiu daqui: agora mora na faixa do topo da página, sozinho.
-            Este card responde outra pergunta — "o que eu faço agora" — e é o
-            que os botões são. O que fica é a TRILHA de aprovação, que é
-            histórico (quem já carimbou), não etapa atual. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            O que fazer agora
-          </span>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Nivel ok={!!entregavel.aprovado_n1_em} pediuAjuste={!!entregavel.rev_n1_ajuste} label="R1" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
-            <Nivel ok={!!entregavel.aprovado_n2_em} pediuAjuste={!!entregavel.rev_n2_ajuste} label="R2" quem={nomeDe(profiles, entregavel.aprovado_n2_por)} />
-            {clienteAprova && <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />}
-          </div>
-        </div>
-
+    <Card className="glass-card">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="min-w-0 w-full sm:w-auto sm:flex-1">{resumoStatus}</div>
+          <div className="min-w-0 max-w-full">
         {botoes.length > 0 ? (
           <div className="flex flex-wrap gap-2">{botoes}</div>
         ) : (
@@ -944,8 +829,8 @@ function FluxoCard({
               // avisa pra definir um (o campo Responsável, acima).
               : !entregavel.responsavel_id && ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status)
                 ? "Defina o responsável pra começar."
-              : status === "revisao_n1" ? `Revisão 1 com ${nomeDe(profiles, n1) || "o revisor"}.`
-              : status === "revisao_n2" ? `Revisão 2 com ${nomeDe(profiles, n2) || "o revisor"}.`
+              : status === "revisao_n1" ? `Revisão interna com ${nomeDe(profiles, n1) || "o revisor"}.`
+              : status === "revisao_n2" ? `Revisão interna com ${nomeDe(profiles, n1) || "o revisor"}.`
               : status.startsWith("revisao") ? "Aguardando o revisor."
               : ["em_edicao", "em_pausa", "pendente", "ajuste_interno", "ajuste_solicitado"].includes(status) ? "Aguardando o editor."
               : status === "pronto" ? "Aguardando envio ao cliente."
@@ -953,6 +838,14 @@ function FluxoCard({
           </p>
         )}
 
+          </div>
+        </div>
+        <div className="flex flex-wrap items-start gap-x-6 gap-y-3 border-t border-border/50 pt-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="mr-1 text-muted-foreground">Aprovações</span>
+          <Nivel ok={!!entregavel.aprovado_n1_em} pediuAjuste={!!entregavel.rev_n1_ajuste} label="Interna" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
+          {clienteAprova && <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />}
+        </div>
         {/* Etapa de pós na MESMA caixa do status: dois lugares dizendo onde a
             peça está viravam dois campos pra manter. Aqui é uma linha só.
 
@@ -960,7 +853,14 @@ function FluxoCard({
             (a etapa em que parou e por quem passou). O único controle que
             continua é o "corrigir status", que existe justamente pra
             destravar quem foi encerrado por engano. */}
-        <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} status={status} />
+        {["pendente", "pronto_editar", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(status) ? (
+          <EtapasPos did={did} podeMover={!encerrado && (isRevisor || isEditor)} status={status} />
+        ) : (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Histórico de etapas</summary>
+            <EtapasPos did={did} podeMover={false} status={status} />
+          </details>
+        )}
 
         {/* Como a peça é cobrada. Só pra quem vê dinheiro — o editor não tem
             que pensar em preço enquanto edita, e continua sem ver nada. */}
@@ -980,7 +880,9 @@ function FluxoCard({
             Chamava-se "corrigir etapa" e colidia com a etapa de pós logo
             acima — dois nomes iguais pra coisas diferentes. */}
         {podeForcar && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+          <details>
+            <summary className="cursor-pointer text-xs text-muted-foreground">Ajustes administrativos</summary>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Pula o fluxo — use só pra destravar">
               <Wrench className="h-3 w-3" /> Corrigir status (admin/coord.)
             </span>
@@ -992,8 +894,10 @@ function FluxoCard({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+            </div>
+          </details>
         )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -1385,8 +1289,8 @@ function TimesheetEntregavel({
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-foreground" title="Lançamento manual já conta como trabalhada. Pra cronometrar ao vivo, use Editar no fluxo acima.">Timesheet do entregável <span className="font-normal text-muted-foreground">· edição pura</span></p>
-            <p className="text-xs text-muted-foreground">Total rastreado: <strong>{horasTotal.toFixed(1)}h</strong></p>
+            <p className="text-sm font-semibold text-foreground" title="Lançamento manual já conta como trabalhada. Pra cronometrar ao vivo, use Editar no fluxo acima.">Lançar horas <span className="font-normal text-muted-foreground">· edição pura</span></p>
+            <p className="text-xs text-muted-foreground">Total registrado: <strong>{fmtDuracao(Math.round(horasTotal * 60))}</strong></p>
           </div>
           {rodando && (
             <Button
@@ -1417,7 +1321,7 @@ function TimesheetEntregavel({
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-32">
-            <Input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="1.5, 2h10, 90min" className="h-8" />
+            <Input value={dur} onChange={(e) => setDur(e.target.value)} aria-label="Duração do trabalho" placeholder="1.5, 2h10, 90min" className="h-8" />
             {dur.trim() && (
               durMin
                 ? <p className="mt-0.5 text-[10px] text-success">{fmtDuracao(durMin)}</p>
@@ -1440,13 +1344,15 @@ function TimesheetEntregavel({
         </div>
 
         {entries.length > 0 && (
-          <div className="space-y-1">
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Ver lançamentos ({entries.length})</summary>
+            <div className="mt-3 space-y-2">
             {entries.map((e) => {
               // Com etapa preenchida ("Edição") a linha de alteração ficava
               // idêntica à de edição pura. A versão na frente resolve na lida.
               const alt = e.alteracao_id ? alteracoes.find((a: any) => a.id === e.alteracao_id) : null;
               return (
-              <div key={e.id} className="grid grid-cols-[90px_1fr_120px_60px_30px] items-center gap-2 text-xs">
+              <div key={e.id} className="grid grid-cols-[60px_minmax(0,1fr)_55px_20px] sm:grid-cols-[90px_minmax(0,1fr)_120px_60px_30px] items-center gap-2 text-xs">
                 <span className="text-muted-foreground">{new Date(e.start_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>
                 <span className="flex min-w-0 items-center gap-1.5">
                   {e.alteracao_id && (
@@ -1456,7 +1362,7 @@ function TimesheetEntregavel({
                   )}
                   <span className="truncate text-foreground">{e.description || (e.alteracao_id ? "alteração cliente" : "edição")}</span>
                 </span>
-                <span className="truncate text-muted-foreground">{nomeDe(profiles, e.user_id) || "—"}</span>
+                <span className="hidden truncate text-muted-foreground sm:block">{nomeDe(profiles, e.user_id) || "—"}</span>
                 <span className="text-right">{fmtDuracao(e.duration_min)}</span>
                 <button onClick={() => excluir.mutate(e.id)} className="text-muted-foreground hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
@@ -1464,7 +1370,8 @@ function TimesheetEntregavel({
               </div>
               );
             })}
-          </div>
+            </div>
+          </details>
         )}
       </CardContent>
     </Card>
@@ -1590,6 +1497,7 @@ function AlteracoesSection({
   const { user } = useAuth();
   const { sessao, stop, elapsedSec } = useTimer();
   const [nova, setNova] = useState({ titulo: "", descricao: "" });
+  const [verResolvidas, setVerResolvidas] = useState(false);
   const [aberto, setAberto] = useState(false);
   const abertas = (alteracoes || []).filter((a: any) => a.status === "aberta");
 
@@ -1634,10 +1542,10 @@ function AlteracoesSection({
     // que este entregável está em ajuste do cliente.
     <Card className={`glass-card ${abertas.length ? "border-warning/50 bg-warning/[0.04]" : ""}`}>
       <CardContent className="space-y-3 p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold text-foreground" title="Cada alteração é uma versão da peça (V1, V2…). Horas próprias: o cronômetro joga aqui sozinho enquanto ela está aberta, e dá pra lançar na mão a qualquer momento.">Alterações do cliente</p>
-          <Button size="sm" onClick={() => setAberto((v) => !v)} className="bg-primary text-primary-foreground">
-            <MessageSquarePlus className="mr-1 h-3.5 w-3.5" /> Alteração do cliente
+          <Button size="sm" variant="outline" onClick={() => setAberto((v) => !v)}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Registrar alteração
           </Button>
         </div>
 
@@ -1669,9 +1577,9 @@ function AlteracoesSection({
         )}
 
         {alteracoes.length === 0 ? (
-          <p className="py-2 text-xs text-muted-foreground">Nenhuma alteração ainda.</p>
+          <p className="text-xs text-muted-foreground">Nenhuma alteração registrada.</p>
         ) : (
-          alteracoes.map((a) => (
+          alteracoes.filter((a) => a.status !== "resolvida" || verResolvidas).map((a) => (
             <div key={a.id} className={`rounded-md border p-3 ${a.status === "aberta" ? "border-warning/50 bg-warning/[0.06]" : "border-border/40 bg-muted/10"}`}>
               <div className="flex items-center gap-2">
                 <VersaoAlteracao a={a} onChanged={onChanged} />
@@ -1719,6 +1627,11 @@ function AlteracoesSection({
               )}
             </div>
           ))
+        )}
+        {alteracoes.some((a) => a.status === "resolvida") && (
+          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" aria-expanded={verResolvidas} onClick={() => setVerResolvidas((v) => !v)}>
+            {verResolvidas ? "Ocultar" : "Ver"} alterações resolvidas ({alteracoes.filter((a) => a.status === "resolvida").length})
+          </button>
         )}
       </CardContent>
     </Card>
@@ -1892,10 +1805,10 @@ function LinkDoArquivo({ valor, onChange }: { valor: string; onChange: (v: strin
         target="_blank"
         rel="noreferrer"
         title={valor}
-        className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+        className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
       >
         <ExternalLink className="h-4 w-4 shrink-0" />
-        <span className="truncate">{valor.replace(/^https?:\/\//, "")}</span>
+        <span className="truncate">{/(^https?:\/\/)?(f\.io|([\w-]+\.)?frame\.io)(\/|$)/i.test(valor) ? "Abrir no Frame.io" : "Abrir arquivo"}</span>
       </a>
       <button
         onClick={() => setEditando(true)}
@@ -2003,25 +1916,6 @@ function EstimativaEntregavel({
             {fator > 1 ? `${((fator - 1) * 100).toFixed(0)}% acima` : fator < 1 ? `${((1 - fator) * 100).toFixed(0)}% abaixo` : "no ponto"}
           </span>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function IndicadorCard({
-  label, value, icon: Icon, hint, tone,
-}: {
-  label: string; value: string; icon: React.ComponentType<{ className?: string }>; hint?: string;
-  tone?: "warning" | "destructive";
-}) {
-  const cls = tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-warning" : "text-foreground";
-  return (
-    <Card className="glass-card">
-      <CardContent className="space-y-1 p-4">
-        <Icon className="h-4 w-4 text-primary" />
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className={`text-lg font-semibold ${cls}`}>{value}</p>
-        {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );

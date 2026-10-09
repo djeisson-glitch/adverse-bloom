@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 /**
  * Onda 6D — settings globais de aprovação de entregável.
- * N1 e N2 padrão + se o cliente aprova por padrão. Cada projeto pode
+ * Aprovador interno + se o cliente aprova por padrão. Cada projeto pode
  * sobrescrever esses valores na própria ficha (aba Briefing).
  */
 export default function AdminAprovacoes() {
@@ -52,7 +52,6 @@ export default function AdminAprovacoes() {
     setForm({
       __loaded: true,
       nivel1_user_id: settings.nivel1_user_id || "",
-      nivel2_user_id: settings.nivel2_user_id || "",
       envio_cliente_user_id: settings.envio_cliente_user_id || "",
       cliente_aprova: settings.cliente_aprova ?? true,
     });
@@ -99,25 +98,16 @@ export default function AdminAprovacoes() {
           <CardContent className="space-y-4 p-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label>Revisão 1 (revisão interna)</Label>
+                <Label>Aprovador interno</Label>
                 <Select value={form.nivel1_user_id || "__none__"} onValueChange={(v) => set({ nivel1_user_id: v === "__none__" ? null : v })}>
                   <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— sem R1 —</SelectItem>
+                    <SelectItem value="__none__">— definir aprovador —</SelectItem>
                     {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Revisão 2 (aprovação final interna)</Label>
-                <Select value={form.nivel2_user_id || "__none__"} onValueChange={(v) => set({ nivel2_user_id: v === "__none__" ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder="— definir —" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— sem R2 —</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+
             </div>
 
             <div className="md:w-1/2 md:pr-2">
@@ -145,7 +135,7 @@ export default function AdminAprovacoes() {
                 onChange={(e) => set({ cliente_aprova: e.target.checked })}
                 className="h-4 w-4 accent-primary"
               />
-              Cliente aprova por padrão (depois da Revisão 2, no portal)
+              Cliente aprova por padrão (depois da revisão interna, no portal)
             </label>
 
             <div className="flex justify-end">
@@ -156,8 +146,7 @@ export default function AdminAprovacoes() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        O fluxo: editor termina → <strong>Revisão 1</strong> aprova ou pede ajuste → <strong>Revisão 2</strong> aprova
-        ou pede ajuste → <strong>Cliente</strong> (se ligado) aprova ou pede ajuste no portal → Entregue.
+        O fluxo: editor termina → <strong>Revisão interna</strong> aprova ou devolve ao editor → <strong>Cliente</strong> (se ligado) aprova ou pede ajuste no portal → Entregue.
         "Pedir ajuste" interno é revisão (conta no indicador). Ajuste do cliente vira uma alteração
         rastreável.
       </p>

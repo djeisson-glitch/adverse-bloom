@@ -50,10 +50,10 @@ export function donoDaVez(
     return { pessoa: null, papel: "com a coordenação, pra enviar ao cliente", encerrado: false };
   }
   if (status === "revisao_n2") {
-    return { pessoa: acha(n2), papel: "revisão 2", encerrado: false };
+    return { pessoa: acha(n1), papel: "revisão interna", encerrado: false };
   }
   if (status === "revisao_n1" || status === "revisao") {
-    return { pessoa: acha(n1), papel: "revisão", encerrado: false };
+    return { pessoa: acha(n1), papel: "revisão interna", encerrado: false };
   }
   // O papel é SUBSTANTIVO ("edição", "revisão", "color") e não verbo
   // ("edita"): a frase é "a bola está com Djêisson · edição", que se lê como
@@ -83,17 +83,40 @@ function desdeQuando(iso?: string | null): string | null {
 }
 
 export function FaixaStatus({
-  status, entregavel, n1, n2, profiles, etapas = [],
+  status, entregavel, n1, n2, profiles, etapas = [], compact = false,
 }: {
   status: string; entregavel: any;
   n1: string | null; n2: string | null; profiles: any[];
   etapas?: { slug: string; nome: string }[];
+  compact?: boolean;
 }) {
   const Icone = iconeStatus(status);
   const c = CORES[statusTom(status)] || CORES.muted;
   const { pessoa, papel, encerrado } = donoDaVez(status, entregavel, n1, n2, profiles, etapas);
   const desde = desdeQuando(entregavel.updated_at);
   const retrab = !!entregavel.retrabalho;
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="space-y-1">
+          <div className={`flex items-center gap-2 ${c.texto}`}>
+            <Icone className="h-4 w-4" />
+            <span className="text-base font-semibold">{statusLabel(status)}</span>
+            {retrab && <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] text-warning">Retrabalho · revisão única</span>}
+          </div>
+          {desde && <p className="text-xs text-muted-foreground">Atualizado {desde}</p>}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          {pessoa && <PessoaAvatar nome={pessoa.full_name || pessoa.email} foto={pessoa.avatar_url} seed={pessoa.id} tamanho={28} />}
+          <div>
+            <p className="text-[10px] text-muted-foreground">{encerrado ? "Concluído" : "Próxima ação com"}</p>
+            <p className="text-xs text-foreground">{pessoa ? primeiroNome(pessoa.full_name || pessoa.email) : papel}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Gruda no topo ao rolar. A peça é longa (briefing, alterações, timesheet,

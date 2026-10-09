@@ -1293,7 +1293,6 @@ function AprovacaoProjetoCard({
   onChanged: () => void;
 }) {
   const [n1, setN1] = useState<string>(project.aprovador_n1_id || "__herdar__");
-  const [n2, setN2] = useState<string>(project.aprovador_n2_id || "__herdar__");
   const [envio, setEnvio] = useState<string>(project.envio_cliente_id || "__herdar__");
   const [cli, setCli] = useState<string>(
     project.cliente_aprova === null || project.cliente_aprova === undefined
@@ -1332,7 +1331,7 @@ function AprovacaoProjetoCard({
         </p>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Label>Nível 1</Label>
+            <Label>Aprovador interno</Label>
             <Select
               value={n1}
               onValueChange={(v) => {
@@ -1363,22 +1362,7 @@ function AprovacaoProjetoCard({
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Nível 2</Label>
-            <Select
-              value={n2}
-              onValueChange={(v) => {
-                setN2(v);
-                auto.agendar({ aprovador_n2_id: herdar(v) });
-              }}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__herdar__">Herdar do global</SelectItem>
-                {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+
           <div>
             <Label>Cliente aprova?</Label>
             <Select
@@ -1678,8 +1662,8 @@ const STATUS_ENTREGAVEL_LABEL: Record<string, string> = {
   pendente: "Pendente",
   em_edicao: "Em edição",
   em_pausa: "Em pausa",
-  revisao_n1: "Revisão N1",
-  revisao_n2: "Revisão N2",
+  revisao_n1: "Revisão interna",
+  revisao_n2: "Revisão interna",
   revisao: "Revisão",
   pronto: "Pronto",
   com_cliente: "Com o cliente",
