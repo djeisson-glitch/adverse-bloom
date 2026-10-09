@@ -367,9 +367,6 @@ export default function EntregavelDetalhe() {
                 className="border-transparent bg-transparent px-0 !text-2xl font-semibold tracking-tight hover:border-border focus:border-border"
               />
             </div>
-            <div className="w-full shrink-0 sm:w-auto sm:max-w-xs">
-              <LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />
-            </div>
           </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{form.formato || "Formato não definido"}</span><span>·</span>
@@ -411,6 +408,7 @@ export default function EntregavelDetalhe() {
       </header>
 
       <FluxoCard
+        linkArquivo={<LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />}
         resumoStatus={<FaixaStatus compact status={form.status} entregavel={entregavel}
           n1={n1} n2={n2} profiles={profiles} etapas={etapas} />}
         entregavel={entregavel}
@@ -630,7 +628,7 @@ export default function EntregavelDetalhe() {
 function FluxoCard({
   entregavel, did, projectId, projName, n1, n2, clienteAprova, profiles,
   isEditor, isN1, isRevisor, souDono, podeForcar, podeLiberar, alteracaoAberta, onChanged,
-  canSeeMoney, clientId, horasMin, resumoStatus,
+  canSeeMoney, clientId, horasMin, resumoStatus, linkArquivo,
 }: {
   entregavel: any; did: string; projectId: string; projName: string;
   n1: string | null; n2: string | null; clienteAprova: boolean; profiles: any[];
@@ -643,6 +641,7 @@ function FluxoCard({
   alteracaoAberta: any; onChanged: () => void;
   canSeeMoney: boolean; clientId?: string | null; horasMin: number;
   resumoStatus: React.ReactNode;
+  linkArquivo: React.ReactNode;
 }) {
   const { user } = useAuth();
   const { start, stop, sessao } = useTimer();
@@ -812,7 +811,8 @@ function FluxoCard({
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="min-w-0 w-full sm:w-auto sm:flex-1">{resumoStatus}</div>
-          <div className="min-w-0 max-w-full">
+          <div className="flex w-full min-w-0 flex-col items-start gap-3 sm:w-auto sm:max-w-full sm:items-end">
+            <div className="w-full sm:w-auto sm:max-w-xs">{linkArquivo}</div>
         {botoes.length > 0 ? (
           <div className="flex flex-wrap gap-2">{botoes}</div>
         ) : (
