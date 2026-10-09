@@ -1,3 +1,4 @@
+import { minutosEstimados } from "@/lib/horasEstimadas";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { TextoComLinks } from "@/lib/autolink";
 import { useVoltar } from "@/hooks/useVoltar";
@@ -188,7 +189,7 @@ export default function EntregavelDetalhe() {
         // (o user_id aponta pra auth.users), então o embed dava PGRST200 e a
         // query INTEIRA falhava com 400: os cards e a lista ficavam vazios
         // (0.0h) pra sempre. O nome sai do lookup local `nomeDe(profiles, ...)`.
-        .select("id, user_id, duration_min, alteracao_id, start_at, description")
+        .select("id, user_id, duration_min, alteracao_id, start_at, description, source, time_multiplier")
         .eq("deliverable_id", did!)
         .order("start_at", { ascending: false });
       if (error) throw error;
@@ -242,7 +243,7 @@ export default function EntregavelDetalhe() {
     entries.forEach((e) => {
       if (e.alteracao_id) porAlteracao[e.alteracao_id] = (porAlteracao[e.alteracao_id] || 0) + e.duration_min;
     });
-    return { total: total / 60, pura: pura / 60, alt: alt / 60, porAlteracao };
+    return { estimado: minutosEstimados(entries), total: total / 60, pura: pura / 60, alt: alt / 60, porAlteracao };
   }, [entries]);
 
   // Erro na query (ex.: coluna/relação faltando, RLS, id inválido) → mostra o
@@ -386,10 +387,11 @@ export default function EntregavelDetalhe() {
                 </SelectContent>
               </Select>
             </Campo>
-          {canSeeHours && <Campo label="Horas registradas">
+          {canSeeHours && <Campo label="Horas estimadas">
             <a href="#horas-entregavel" className="inline-flex items-baseline gap-2 rounded text-xl font-semibold hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-              {fmtDuracao(Math.round(horas.total * 60))}<span className="text-xs font-normal text-muted-foreground">Lançar horas ↓</span>
+              {fmtDuracao(horas.estimado)}<span className="text-xs font-normal text-muted-foreground">Lançar horas ↓</span>
             </a>
+            <p className="mt-1 text-xs text-muted-foreground">{fmtDuracao(Math.round(horas.total * 60))} registrados · DaVinci × 1,25</p>
           </Campo>}
             <Campo label="Prazo interno" className="col-span-2 sm:col-span-1">
               <SeletorPrazo
@@ -1297,7 +1299,7 @@ function TimesheetEntregavel({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground" title="Lançamento manual já conta como trabalhada. Pra cronometrar ao vivo, use Editar no fluxo acima.">Lançar horas <span className="font-normal text-muted-foreground">· edição pura</span></p>
-            <p className="text-xs text-muted-foreground">Total registrado: <strong>{fmtDuracao(Math.round(horasTotal * 60))}</strong></p>
+            <p className="text-xs text-muted-foreground">Registrado: <strong>{fmtDuracao(Math.round(horasTotal * 60))}</strong> · Estimado: <strong>{fmtDuracao(minutosEstimados(entries))}</strong></p>
           </div>
           {rodando && (
             <Button
@@ -1310,6 +1312,8 @@ function TimesheetEntregavel({
             </Button>
           )}
         </div>
+
+        <p className="text-xs text-muted-foreground">DaVinci × 1,25 inclui uma estimativa de pesquisa, revisão e outras tarefas. Lançamentos manuais e cronômetro permanecem sem acréscimo.</p>
 
         {/* Tem alteração aberta: quem está mexendo por causa do cliente NÃO
             deve apontar aqui (isso é edição pura) — deve apontar na alteração,
