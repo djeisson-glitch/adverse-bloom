@@ -407,6 +407,8 @@ export default function EntregavelDetalhe() {
         </div>
       </header>
 
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
+        <main className="min-w-0 space-y-4">
       <FluxoCard
         linkArquivo={<LinkDoArquivo valor={form.arquivo_url} onChange={(v) => setJa({ arquivo_url: v })} />}
         resumoStatus={<FaixaStatus compact status={form.status} entregavel={entregavel}
@@ -462,8 +464,6 @@ export default function EntregavelDetalhe() {
         </section>
       )}
 
-      <div>
-        <main className="min-w-0 space-y-4">
       <Card className="glass-card">
         <CardContent className="space-y-3 p-5">
           <div className="flex items-center justify-between">
@@ -489,17 +489,13 @@ export default function EntregavelDetalhe() {
       />
 
 
-          <Tabs key={did} defaultValue="atividade" className="min-w-0">
+          <Tabs key={did} defaultValue="arquivos" className="min-w-0">
             <TabsList aria-label="Informações do entregável" className="h-auto w-full justify-start gap-2 rounded-none border-b border-border bg-transparent px-0 pb-2">
-              <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="atividade"><MessageSquare className="mr-2 h-4 w-4" />Atividade</TabsTrigger>
+
               <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="arquivos"><Paperclip className="mr-2 h-4 w-4" />Arquivos</TabsTrigger>
               <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="detalhes">Mais detalhes</TabsTrigger>
             </TabsList>
-            <TabsContent value="atividade" forceMount className="pt-3 data-[state=inactive]:hidden">
-              <Card className="glass-card"><CardContent className="p-5">
-                <ComentariosSection entityType="deliverable" entityId={did!} profiles={profiles} vazio="Sem mensagens ainda. Use este espaço para alinhar a peça com o time." />
-              </CardContent></Card>
-            </TabsContent>
+
             <TabsContent value="arquivos" forceMount className="space-y-4 pt-3 data-[state=inactive]:hidden">
           <DocumentosEntregavel did={did!} projectId={projectId!} />
 
@@ -615,6 +611,15 @@ export default function EntregavelDetalhe() {
             </TabsContent>
           </Tabs>
         </main>
+        <aside aria-label="Conversa da peça" className="min-w-0 rounded-xl border border-border/60 bg-card lg:sticky lg:top-[calc(var(--topo-fixo,3.5rem)+1rem)]">
+          <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold">Conversa da peça</h2>
+          </div>
+          <div className="h-[440px] p-4 lg:h-[min(640px,calc(100dvh-10rem))] lg:min-h-[320px]">
+            <ComentariosSection key={did} entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Converse com o time sobre esta peça. Use @nome para mencionar alguém." />
+          </div>
+        </aside>
 
 
       </div>
