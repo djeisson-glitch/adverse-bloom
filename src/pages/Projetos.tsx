@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { dataISO, hojeISO } from "@/lib/dataLocal";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { rotuloCurto, foraDoFechamento } from "@/lib/faturamentoBalde";
@@ -12,6 +12,8 @@ import {
   type Project,
 } from "@/hooks/useProjects";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useClientesPublico } from "@/hooks/useDeals";
+import { linkProjeto } from "@/lib/projetoNavegacao";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { LayoutGrid, Plus, Loader2, ArrowUpDown, Rows3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +29,7 @@ import { ProductionKanban } from "@/components/producao/ProductionKanban";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { NewProjectModal } from "@/components/producao/NewProjectModal";
 
-type Vista = "lista" | "board" | "calendario" | "gantt" | "finalizados";
+type Vista = "lista" | "board" | "calendario" | "gantt" | "finalizados" | "todos";
 type Ordem = "recentes" | "nome" | "prazo";
 type Agrupar = "etapa" | "cliente" | "nenhum";
 
@@ -37,6 +39,7 @@ const VISTAS: { id: Vista; label: string }[] = [
   { id: "calendario", label: "Calendário" },
   { id: "gantt", label: "Gantt" },
   { id: "finalizados", label: "Finalizados" },
+  { id: "todos", label: "Todos" },
 ];
 
 const VISTA_IDS = VISTAS.map((v) => v.id);
@@ -52,9 +55,21 @@ const AGRUPAMENTOS: { id: Agrupar; label: string }[] = [
 ];
 
 export default function Projetos() {
-  const { data: projects = [], isLoading } = useProjects();
+  const { data: projects = [], isLoading, isError, refetch } = useProjects();
   const { canSeeMoney } = usePermissions();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const { clientes } = useClientesPublico();
+  const clienteId = params.get("cliente") || "todos";
+  const clientesDisponiveis = useMemo(() => {
+    const mapa = new Map(clientes.map(c => [c.id, c.name]));
+    projects.forEach(p => { if (p.client_id && !mapa.has(p.client_id)) mapa.set(p.client_id, p.client_name || "Cliente sem nome"); });
+    if (clienteId !== "todos" && !mapa.has(clienteId)) mapa.set(clienteId, "Cliente selecionado");
+    return [...mapa].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [clientes, projects, clienteId]);
+  const projetosCliente = useMemo(() => clienteId === "todos" ? projects : projects.filter(p => p.client_id === clienteId), [projects, clienteId]);
+  const abrirProjeto = (id: string) => navigate(linkProjeto(id, location.pathname + location.search));
 
   /**
    * Horas rastreadas por projeto. Vem da view v_horas_projeto_total, que já
@@ -76,7 +91,13 @@ export default function Projetos() {
   // Board é a visão padrão — é ela que mostra o andamento da produção de
   // relance. A última escolha sobrescreve e fica salva: quem prefere lista
   // volta pra lista.
-  const [vista, setVista] = useLocalPref<Vista>("projetos:vista", "board", VISTA_IDS);
+  const [vistaSalva, salvarVista] = useLocalPref<Vista>("projetos:vista", "board", VISTA_IDS);
+  const vistaParam = params.get("vista") as Vista;
+  const vista = VISTA_IDS.includes(vistaParam) ? vistaParam : vistaSalva;
+  const setVista = (valor: Vista) => {
+    salvarVista(valor);
+    setParams(prev => { const next = new URLSearchParams(prev); next.set("vista", valor); return next; }, { replace: true });
+  };
   const [ordem, setOrdem] = useLocalPref<Ordem>("projetos:ordem", "recentes", [
     "recentes",
     "nome",
@@ -94,15 +115,15 @@ export default function Projetos() {
   // tudo que já tinha sido entregue (ficavam ~190 itens e o que estava rodando
   // de verdade se perdia no meio).
   const emAndamento = useMemo(
-    () => projects.filter((p) => !STATUS_FINALIZADO.includes(p.status || "")),
-    [projects],
+    () => projetosCliente.filter((p) => !STATUS_FINALIZADO.includes(p.status || "")),
+    [projetosCliente],
   );
   const finalizados = useMemo(
-    () => projects.filter((p) => STATUS_FINALIZADO.includes(p.status || "")),
-    [projects],
+    () => projetosCliente.filter((p) => STATUS_FINALIZADO.includes(p.status || "")),
+    [projetosCliente],
   );
 
-  const base = vista === "finalizados" ? finalizados : emAndamento;
+  const base = vista === "todos" ? projetosCliente : vista === "finalizados" ? finalizados : emAndamento;
 
   const lista = useMemo(() => {
     const arr = [...base];
@@ -123,7 +144,7 @@ export default function Projetos() {
   }, [base, ordem]);
 
   // Agrupar só faz sentido na tabela — o board já agrupa por coluna.
-  const mostraLista = vista === "lista" || vista === "finalizados";
+  const mostraLista = vista === "lista" || vista === "finalizados" || vista === "todos";
 
   if (isLoading) {
     return (
@@ -133,6 +154,8 @@ export default function Projetos() {
     );
   }
 
+  if (isError) return <div className="py-12 text-center"><p>Não foi possível carregar os projetos.</p><Button variant="outline" className="mt-3" onClick={() => refetch()}>Tentar novamente</Button></div>;
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -140,7 +163,7 @@ export default function Projetos() {
           <LayoutGrid className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              {vista === "finalizados" ? "Projetos finalizados" : "Projetos em andamento"}
+              {vista === "todos" ? "Todos os projetos" : vista === "finalizados" ? "Projetos finalizados" : "Projetos em andamento"}
             </h1>
             <p className="text-sm text-muted-foreground">
               {lista.length} projetos
@@ -148,7 +171,7 @@ export default function Projetos() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
+          <div className="flex flex-wrap rounded-lg border border-border bg-muted/40 p-0.5">
             {VISTAS.map((v) => (
               <button
                 key={v.id}
@@ -206,8 +229,21 @@ export default function Projetos() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <label htmlFor="filtro-cliente" className="text-sm text-muted-foreground">Cliente</label>
+        <Select value={clienteId} onValueChange={valor => setParams(prev => {
+          const next = new URLSearchParams(prev);
+          if (valor === "todos") next.delete("cliente"); else { next.set("cliente", valor); next.set("vista", "todos"); }
+          return next;
+        }, { replace: true })}>
+          <SelectTrigger id="filtro-cliente" className="w-full sm:w-[280px]"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="todos">Todos os clientes</SelectItem>{clientesDisponiveis.map(([id, nome]) => <SelectItem key={id} value={id}>{nome}</SelectItem>)}</SelectContent>
+        </Select>
+        {clienteId !== "todos" && <span className="text-xs text-muted-foreground">{projetosCliente.length} projetos · {emAndamento.length} em andamento · {finalizados.length} finalizados</span>}
+      </div>
+
       {vista === "board" && (
-        <BoardVista projects={lista} horas={horasPorProjeto} onOpen={(id) => navigate(`/projetos/${id}`)} />
+        <BoardVista projects={lista} horas={horasPorProjeto} onOpen={abrirProjeto} />
       )}
       {mostraLista && (
         <ListaVista
@@ -215,11 +251,11 @@ export default function Projetos() {
           canSeeMoney={canSeeMoney}
           agrupar={agrupar}
           horas={horasPorProjeto}
-          onOpen={(id) => navigate(`/projetos/${id}`)}
+          onOpen={abrirProjeto}
         />
       )}
-      {vista === "calendario" && <CalendarioVista projects={lista} />}
-      {vista === "gantt" && <GanttVista projects={lista} />}
+      {vista === "calendario" && <CalendarioVista projects={lista} onOpen={abrirProjeto} />}
+      {vista === "gantt" && <GanttVista projects={lista} onOpen={abrirProjeto} />}
 
       <NewProjectModal open={openNew} onOpenChange={setOpenNew} />
     </div>
@@ -382,7 +418,7 @@ function ListaVista({
 /* ------------------------------------------------------- Board (Kanban) */
 
 function BoardVista({
-  projects, horas,
+  projects, horas, onOpen,
 }: { projects: Project[]; horas: Record<string, number>; onOpen?: (id: string) => void }) {
   const updateProject = useUpdateProject();
   // O card do Kanban navega sozinho pra ficha no clique (e arrasta pra mover).
@@ -391,6 +427,7 @@ function BoardVista({
     <ProductionKanban
       projects={projects as any}
       horas={horas}
+      onEditProject={p => onOpen?.(p.id)}
       onMoveProject={(id, status) => updateProject.mutate({ id, status })}
     />
   );
@@ -398,7 +435,7 @@ function BoardVista({
 
 /* ------------------------------------------------------- Calendário simples */
 
-function CalendarioVista({ projects }: { projects: Project[] }) {
+function CalendarioVista({ projects, onOpen }: { projects: Project[]; onOpen: (id: string) => void }) {
   const [cursor, setCursor] = useState(() => new Date());
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -461,9 +498,9 @@ function CalendarioVista({ projects }: { projects: Project[] }) {
                 <span className={isToday ? "text-primary" : "text-muted-foreground"}>{d}</span>
                 <div className="space-y-0.5">
                   {dayProjects.slice(0, 2).map((p) => (
-                    <span key={p.id} className="block truncate rounded bg-destructive/15 px-1 py-0.5 text-[9px] text-destructive">
+                    <button key={p.id} onClick={() => onOpen(p.id)} title={p.name} className="block w-full text-left truncate rounded bg-destructive/15 px-1 py-0.5 text-[9px] text-destructive">
                       🎯 {p.name}
-                    </span>
+                    </button>
                   ))}
                   {dayProjects.length > 2 && (
                     <span className="text-[9px] text-muted-foreground">+{dayProjects.length - 2}</span>
@@ -480,7 +517,7 @@ function CalendarioVista({ projects }: { projects: Project[] }) {
 
 /* ------------------------------------------------------- Gantt (barras) */
 
-function GanttVista({ projects }: { projects: Project[] }) {
+function GanttVista({ projects, onOpen }: { projects: Project[]; onOpen: (id: string) => void }) {
   const withDates = projects.filter((p) => (p.sold_date || (p as any).start_date) && p.delivery_date);
 
   if (withDates.length === 0) {
@@ -512,7 +549,7 @@ function GanttVista({ projects }: { projects: Project[] }) {
           const width = ((end - start) / range) * 100;
           return (
             <div key={p.id} className="flex items-center gap-3">
-              <span className="w-48 truncate text-xs text-foreground">{p.name}</span>
+              <button onClick={() => onOpen(p.id)} className="w-48 truncate text-left text-xs text-foreground hover:text-primary">{p.name}</button>
               <div className="relative h-6 flex-1 rounded-md bg-muted/40">
                 <div
                   className="absolute inset-y-0 rounded-md bg-primary/70"

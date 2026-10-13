@@ -33,7 +33,8 @@ export function TaskList({ dealId, clientId, profiles }: Props) {
       client_id: clientId || null,
       title: newTitle.trim(),
       due_date: newDueDate ? format(newDueDate, "yyyy-MM-dd") : null,
-      created_by: newResponsible || user?.id || null,
+      created_by: user?.id || null,
+      assigned_user_id: newResponsible || user?.id || null,
     });
     setNewTitle("");
     setNewDueDate(undefined);

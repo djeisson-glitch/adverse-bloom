@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useDeals } from "@/hooks/useDeals";
+import { useDeals, isWonStage } from "@/hooks/useDeals";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
@@ -30,7 +30,7 @@ export function ClientContextPanel({ clientId }: Props) {
 
   const stats = useMemo(() => {
     const clientDeals = deals.filter((d) => d.client_id === clientId);
-    const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
+    const wonDeals = clientDeals.filter((d) => isWonStage(d.stage));
     const lostDeals = clientDeals.filter((d) => d.stage === "perdido");
     const projects = projectsQuery.data || [];
 

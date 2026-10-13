@@ -5,7 +5,7 @@ import { StatCard } from "@/components/StatCard";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart, PieChart, Pie, Cell } from "recharts";
-import type { Deal } from "@/hooks/useDeals";
+import { isWonStage, type Deal } from "@/hooks/useDeals";
 import type { Task } from "@/hooks/useTasks";
 import { addDays, isBefore } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -36,11 +36,10 @@ export function Indicadores({ deals, meta = 200000, allTasks = [], periodFrom, p
   });
 
   const stats = useMemo(() => {
-    const openStages = ["contato", "proposta", "negociacao"];
-    const openDeals = deals.filter((d) => openStages.includes(d.stage));
+    const openDeals = deals.filter((d) => !isWonStage(d.stage) && d.stage !== "perdido");
     const totalPipeline = openDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
 
-    const wonDeals = deals.filter((d) => d.stage === "fechamento");
+    const wonDeals = deals.filter((d) => isWonStage(d.stage));
     const wonValue = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
     const wonCount = wonDeals.length;
 

@@ -39,6 +39,7 @@ export function useTasks(dealId?: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-all"] });
+      qc.invalidateQueries({ queryKey: ["crm-tasks"] });
     },
   });
 
@@ -51,6 +52,7 @@ export function useTasks(dealId?: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["tasks-all"] });
+      qc.invalidateQueries({ queryKey: ["crm-tasks"] });
     },
   });
 

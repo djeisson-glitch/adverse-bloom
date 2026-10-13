@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { CrmNav } from "@/components/comercial/CrmNav";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Input } from "@/components/ui/input";
 import { ClipboardList, Plus } from "lucide-react";
 import { useDeals, useProfiles, STAGES, isWonStage, type Deal, type Stage } from "@/hooks/useDeals";
 import { useCommercialSettings } from "@/hooks/useCommercialSettings";
@@ -18,14 +21,17 @@ import { IndicadoresComercial } from "@/components/comercial/IndicadoresComercia
  * /orcamentos/:id (OrcamentoEditor) — clicar num card navega pra lá.
  * Os modais Lost/Won ficam só pro drag-and-drop entre colunas.
  */
-export default function Orcamentos() {
-  const { deals, updateDeal } = useDeals();
+export default function Orcamentos({crm = false}: {crm?: boolean}) {
+  const { deals, updateDeal, isLoading, isError, refetch } = useDeals();
+  const {can} = usePermissions();
+  const [search,setSearch] = useState("");
+  const [stageFilter,setStageFilter] = useState(crm ? "abertos" : "todos");
   const { data: profiles } = useProfiles();
   const { settings } = useCommercialSettings();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [vista, setVista] = useState<"board" | "lista">("lista");
+  const [vista, setVista] = useState<"board" | "lista">(crm ? "board" : "lista");
   const [pendingMove, setPendingMove] = useState<{ dealId: string; stage: Stage } | null>(null);
   const [lostOpen, setLostOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);
@@ -42,7 +48,8 @@ export default function Orcamentos() {
    *
    * O contador do topo segue contando só os ABERTOS: perdido não é pipeline.
    */
-  const openDeals = deals;
+  const openDeals = deals.filter(d => `${d.title} ${d.client?.name || ""}`.toLowerCase().includes(search.toLowerCase())
+    && (stageFilter === "todos" || (stageFilter === "abertos" ? !isWonStage(d.stage) && d.stage !== "perdido" : d.stage === stageFilter)));
   const activeDeals = useMemo(
     () => deals.filter((d) => !isWonStage(d.stage) && d.stage !== "perdido"),
     [deals],
@@ -53,6 +60,7 @@ export default function Orcamentos() {
   );
 
   const handleMoveDeal = (dealId: string, newStage: Stage) => {
+    if (!can("orcamentos", "edit")) return;
     if (newStage === "perdido") {
       setPendingMove({ dealId, stage: newStage });
       setLostOpen(true);
@@ -123,7 +131,7 @@ export default function Orcamentos() {
         <div className="flex items-center gap-3">
           <ClipboardList className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">Orçamentos</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">{crm ? "Negócios" : "Orçamentos"}</h1>
             <p className="text-sm text-muted-foreground">
               {activeDeals.length} abertos · pipeline{" "}
               <span className="font-medium text-primary">{formatCurrency(pipelineValue)}</span>
@@ -149,17 +157,24 @@ export default function Orcamentos() {
               Lista
             </button>
           </div>
-          <Button
+          {can("orcamentos", "edit") && <Button
             size="sm"
             className="bg-primary text-primary-foreground"
             onClick={() => navigate("/orcamentos/novo")}
           >
             <Plus className="mr-1 h-4 w-4" />
-            Novo
-          </Button>
+            {crm ? "Novo negócio" : "Novo"}
+          </Button>}
         </div>
       </div>
 
+      {crm && <CrmNav/>}
+      <div className="flex flex-wrap gap-2">
+        <Input className="max-w-sm" aria-label="Buscar negócios" placeholder="Buscar negócio ou cliente" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select aria-label="Filtrar negócios por etapa" className="h-10 rounded-md border border-input bg-background px-3 text-sm" value={stageFilter} onChange={e=>setStageFilter(e.target.value)}><option value="abertos">Em aberto</option><option value="todos">Todas as etapas</option>{STAGES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</select>
+      </div>
+      {isError && <div role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm">Não foi possível carregar os negócios. <Button variant="link" onClick={()=>refetch()}>Tentar novamente</Button></div>}
+      {isLoading && <p className="text-sm text-muted-foreground">Carregando negócios…</p>}
       <details className="rounded-lg border border-border/50 px-4 py-3">
         <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Indicadores comerciais</summary>
         <div className="mt-4"><IndicadoresComercial deals={deals as any[]} meta={settings?.monthly_target} /></div>
@@ -168,6 +183,7 @@ export default function Orcamentos() {
       {vista === "board" ? (
         <KanbanBoard
           deals={openDeals}
+          readOnly={!can("orcamentos", "edit")}
           onMoveDeal={handleMoveDeal}
           onEditDeal={(d) => navigate(`/orcamentos/${d.id}`)}
         />

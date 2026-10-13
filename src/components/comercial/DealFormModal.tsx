@@ -65,7 +65,7 @@ export function DealFormModal({ open, onOpenChange, deal, clients, profiles, onS
       setTitle("");
       setClientId("");
       setValue("");
-      setStage("diagnostico");
+      setStage("lead");
       setProbability("50");
       setCloseDate(undefined);
       setNotes("");

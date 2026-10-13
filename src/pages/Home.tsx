@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePeriod } from "@/contexts/PeriodContext";
 import { PeriodFilter } from "@/components/PeriodFilter";
-import { useDeals } from "@/hooks/useDeals";
+import { useDeals, isWonStage } from "@/hooks/useDeals";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects, isFinalizado } from "@/hooks/useProjects";
 import { useAllContaAzulCache, extractItems, useSyncContaAzul } from "@/hooks/useContaAzulCache";
@@ -528,12 +528,12 @@ export default function Home() {
   };
 
   // ===== COMERCIAL =====
-  const openDeals = deals.filter((d) => !["fechamento", "perdido"].includes(d.stage));
+  const openDeals = deals.filter((d) => !isWonStage(d.stage) && d.stage !== "perdido");
   const pipelineValue = openDeals.reduce((s, d) => s + (d.approved_value ?? 0), 0);
 
   const wonThisMonth = useMemo(() => {
     return deals.filter((d) => {
-      if (d.stage !== "fechamento") return false;
+      if (!isWonStage(d.stage)) return false;
       const upd = d.updated_at ? new Date(d.updated_at) : null;
       return upd && upd >= monthStart;
     });

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClients } from "@/hooks/useDeals";
-import { useDeals } from "@/hooks/useDeals";
+import { useDeals, isWonStage } from "@/hooks/useDeals";
 import { formatCurrency } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export default function Clientes() {
   const enriched = useMemo(() => {
     return clients.map((c) => {
       const clientDeals = deals.filter((d) => d.client_id === c.id);
-      const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
+      const wonDeals = clientDeals.filter((d) => isWonStage(d.stage));
       const totalFaturado = wonDeals.reduce((sum, d) => sum + (d.value || 0), 0);
       const lastDeal = clientDeals[0];
       return {

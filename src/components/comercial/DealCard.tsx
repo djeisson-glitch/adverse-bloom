@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, ListChecks, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { Deal } from "@/hooks/useDeals";
+import { isWonStage, type Deal } from "@/hooks/useDeals";
 import { useProjects, useCreateProjectFromBudget } from "@/hooks/useProjects";
 import { toast } from "sonner";
 
@@ -14,10 +14,11 @@ interface Props {
   onEdit: () => void;
   isDragging?: boolean;
   pendingTaskCount?: number;
+  readOnly?: boolean;
 }
 
-export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Props) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id });
+export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0, readOnly = false }: Props) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id, disabled: readOnly });
   const navigate = useNavigate();
   const { data: projects } = useProjects();
   const createProject = useCreateProjectFromBudget();
@@ -36,7 +37,7 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
 
   // Check if deal has a project linked
   const linkedProject = (projects || []).find((p: any) => p.deal_id === deal.id);
-  const isWon = deal.stage === "fechamento";
+  const isWon = isWonStage(deal.stage);
 
   return (
     <div
@@ -44,6 +45,10 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
       style={style}
       {...listeners}
       {...attributes}
+      tabIndex={0}
+      role="button"
+      aria-label={`Abrir negócio ${deal.title}`}
+      onKeyDown={e=>{if(e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")){e.preventDefault();onEdit();}}}
       onClick={onEdit}
       className={`rounded-md border border-border/60 bg-card p-3 cursor-grab active:cursor-grabbing transition-all hover:border-primary/40 hover:shadow-md hover:shadow-primary/5 ${
         isDragging ? "opacity-80 shadow-lg shadow-primary/10 rotate-2" : ""
@@ -90,6 +95,7 @@ export function DealCard({ deal, onEdit, isDragging, pendingTaskCount = 0 }: Pro
         </div>
       )}
 
+      {creatorName && <p className="mt-2 truncate text-[10px] text-muted-foreground">Cadastro por {creatorName}</p>}
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-2">
           {deal.expected_close_date ? (

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { etapaComercial } from "@/lib/crm";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type Deal = Tables<"deals"> & {
@@ -28,14 +29,15 @@ export type Stage = (typeof STAGES)[number]["id"];
 
 /** Estágios "ganhos" (fora do funil aberto): aceite e fechado – ganho. */
 export function isWonStage(stage: string | null | undefined): boolean {
-  return stage === "aceite" || stage === "fechado_ganho";
+  return etapaComercial(stage || "") === "aceite" || stage === "fechado_ganho";
 }
 
-export function useDeals() {
+export function useDeals(enabled = true) {
   const qc = useQueryClient();
 
   const query = useQuery({
     queryKey: ["deals"],
+    enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("deals")
@@ -63,6 +65,7 @@ export function useDeals() {
 
       return (data || []).map((d: any) => ({
         ...d,
+        stage: etapaComercial(d.stage),
         approved_value: budgetMap[d.id] ?? null,
       })) as Deal[];
     },

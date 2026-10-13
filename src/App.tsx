@@ -50,7 +50,7 @@ import RelatorioCliente from "./pages/RelatorioCliente";
 import RelatorioProjeto from "./pages/RelatorioProjeto";
 import ProjetosLegado from "./pages/ProjetosLegado";
 import ContasAPagar from "./pages/ContasAPagar";
-import Comercial from "./pages/Comercial";
+import Crm from "./pages/Crm";
 import Projetos from "./pages/Projetos";
 import Assistente from "./pages/Assistente";
 import MapaOperacional from "./pages/MapaOperacional";
@@ -143,10 +143,10 @@ function HomeSwitch() {
   return canSeeMoney ? <Inicio /> : <HomeEquipe />;
 }
 
-function ModuleGuard({ module, children }: { module: ModuleId; children: React.ReactNode }) {
+function ModuleGuard({ module, anyModules, children }: { module?: ModuleId; anyModules?: ModuleId[]; children: React.ReactNode }) {
   const { can, isLoading } = usePermissions();
   if (isLoading) return null;
-  if (!can(module)) {
+  if (!(anyModules ? anyModules.some(m => can(m)) : module && can(module))) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4" />
@@ -189,12 +189,14 @@ const App = () => (
               <Route path="/clientes/:id" element={<ProtectedRoute><ModuleGuard module="clientes"><ClienteDetalhe /></ModuleGuard></ProtectedRoute>} />
 
               {/* Onda 0 — Produção */}
+              <Route path="/crm" element={<ProtectedRoute><ModuleGuard anyModules={["orcamentos", "leads", "follow_ups"]}><Crm /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/crm/negocios" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos key="crm" crm /></ModuleGuard></ProtectedRoute>} />
               <Route path="/demandas" element={<ProtectedRoute><ModuleGuard module="demandas"><Demandas /></ModuleGuard></ProtectedRoute>} />
               <Route path="/demandas/:id/briefing" element={<ProtectedRoute><ModuleGuard module="demandas"><DemandaBriefing /></ModuleGuard></ProtectedRoute>} />
               <Route path="/leads" element={<ProtectedRoute><ModuleGuard module="leads"><Leads /></ModuleGuard></ProtectedRoute>} />
               <Route path="/planos" element={<ProtectedRoute><ModuleGuard module="planos"><Planos /></ModuleGuard></ProtectedRoute>} />
               <Route path="/leads/:id" element={<ProtectedRoute><ModuleGuard module="leads"><LeadDetalhe /></ModuleGuard></ProtectedRoute>} />
-              <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos /></ModuleGuard></ProtectedRoute>} />
+              <Route path="/orcamentos" element={<ProtectedRoute><ModuleGuard module="orcamentos"><Orcamentos key="orcamentos" /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/novo" element={<ProtectedRoute><ModuleGuard module="orcamentos"><NovoOrcamento /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/:id" element={<ProtectedRoute><ModuleGuard module="orcamentos"><OrcamentoEditor /></ModuleGuard></ProtectedRoute>} />
               <Route path="/orcamentos/:id/carta" element={<ProtectedRoute><ModuleGuard module="orcamentos"><CartaOrcamento /></ModuleGuard></ProtectedRoute>} />

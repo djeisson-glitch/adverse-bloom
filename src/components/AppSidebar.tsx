@@ -67,6 +67,7 @@ type NavItem = {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
+  anyModules?: ModuleId[];
   module?: ModuleId;   // sem módulo = qualquer pessoa logada
   soMoney?: boolean;   // só aparece pra quem vê dinheiro (visões de gestão)
   /**
@@ -111,8 +112,10 @@ const GRUPOS: NavGrupo[] = [
   },
   {
     id: "comercial",
-    label: "Comercial",
+    label: "CRM & Comercial",
     itens: [
+      { title: "CRM", url: "/crm", icon: Target, anyModules: ["orcamentos", "leads", "follow_ups"] },
+      { title: "Leads", url: "/leads", icon: Sprout, module: "leads" },
       { title: "Demandas", url: "/demandas", icon: Inbox, module: "demandas" },
       { title: "Orçamentos", url: "/orcamentos", icon: ClipboardList, module: "orcamentos" },
       { title: "Clientes", url: "/clientes", icon: Users, module: "clientes" },
@@ -204,7 +207,7 @@ export function AppSidebar() {
     () =>
       GRUPOS.map((g) => ({
         ...g,
-        itens: g.itens.filter((i) => (i.soMoney ? canSeeMoney : !i.module || can(i.module))),
+        itens: g.itens.filter((i) => (i.soMoney ? canSeeMoney : i.anyModules ? i.anyModules.some(m => can(m)) : !i.module || can(i.module))),
       })).filter((g) => g.itens.length > 0),
     [can, canSeeMoney],
   );

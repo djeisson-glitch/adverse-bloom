@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useVoltar } from "@/hooks/useVoltar";
-import { useParams, useNavigate } from "react-router-dom";
-import { useClients, useDeals } from "@/hooks/useDeals";
+import { useParams, useNavigate, useSearchParams, useLocation, Link } from "react-router-dom";
+import { useClients, useDeals, isWonStage } from "@/hooks/useDeals";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency, formatPercent } from "@/lib/format";
@@ -22,6 +22,9 @@ import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
 import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
 import SaldoCliente from "@/components/clientes/SaldoCliente";
+import { linkProjeto } from "@/lib/projetoNavegacao";
+import { PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
+import { formatDate } from "@/lib/format";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const SEGMENTS = ["Tecnologia", "Saúde", "Educação", "Varejo", "Indústria", "Serviços", "Entretenimento", "Outro"];
@@ -44,7 +47,15 @@ export default function ClienteDetalhe() {
   const voltar = useVoltar("/clientes");
   const { clients, updateClient } = useClients();
   const { deals } = useDeals();
-  const { canSeeMoney } = usePermissions();
+  const { canSeeMoney, can } = usePermissions();
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const aba = params.get("aba") || "deals";
+  const historicoRef = useRef<HTMLDivElement>(null);
+  const abrirProjetosCliente = () => {
+    setParams(prev => { const next = new URLSearchParams(prev); next.set("aba", "projetos"); return next; }, { replace: true });
+    historicoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const client = clients.find((c) => c.id === id);
 
@@ -149,7 +160,7 @@ export default function ClienteDetalhe() {
   };
 
   // Summary stats
-  const wonDeals = clientDeals.filter((d) => d.stage === "fechamento");
+  const wonDeals = clientDeals.filter((d) => isWonStage(d.stage));
   const lostDeals = clientDeals.filter((d) => d.stage === "perdido");
   const ltv = wonDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
   const lostValue = lostDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
@@ -188,7 +199,7 @@ export default function ClienteDetalhe() {
     { label: "Ticket Médio", value: formatCurrency(ticketMedio), icon: TrendingUp, color: "text-primary" },
     { label: "Valor Fechado", value: formatCurrency(ltv), icon: Target, color: "text-success" },
     { label: "Valor Perdido", value: formatCurrency(lostValue), icon: AlertTriangle, color: "text-destructive" },
-    { label: "Projetos", value: String(totalProjectCount || projects.length), icon: Briefcase, color: "text-primary" },
+    { label: "Projetos", value: projectsQuery.isLoading ? "…" : projectsQuery.isError ? "—" : String(projects.length), icon: Briefcase, color: "text-primary" },
     { label: "Conversão", value: formatPercent(taxaConversao), icon: Activity, color: taxaConversao >= 50 ? "text-success" : "text-warning" },
   ];
 
@@ -208,9 +219,8 @@ export default function ClienteDetalhe() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {summaryCards.map((s) => (
-          <Card key={s.label} className="bg-card border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
+        {summaryCards.map((s) => {
+          const conteudo = <CardContent className="p-4 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
                 <s.icon className={`h-5 w-5 ${s.color}`} />
               </div>
@@ -218,9 +228,17 @@ export default function ClienteDetalhe() {
                 <p className="text-xs text-muted-foreground">{s.label}</p>
                 <p className={`text-lg font-heading font-bold ${s.color}`}>{s.value}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </CardContent>;
+          return <Card key={s.label} className="bg-card border-border/50">
+            {s.label === "Projetos" ? (
+              <button type="button" onClick={abrirProjetosCliente}
+                aria-label={`Ver projetos de ${client.name}`}
+                className="h-full w-full rounded-lg text-left transition-colors hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                {conteudo}
+              </button>
+            ) : conteudo}
+          </Card>;
+        })}
       </div>
 
       {/* Timeline card */}
@@ -331,15 +349,36 @@ export default function ClienteDetalhe() {
         </Card>
 
         {/* Right: History tabs */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="deals">
-            <TabsList className="w-full justify-start">
+        <div ref={historicoRef} className="lg:col-span-2 scroll-mt-6">
+          <Tabs value={aba} onValueChange={valor => setParams(prev => { const next = new URLSearchParams(prev); next.set("aba", valor); return next; }, { replace: true })}>
+            <TabsList className="h-auto w-full flex-wrap justify-start">
+              <TabsTrigger value="projetos">Projetos ({projects.length})</TabsTrigger>
               <TabsTrigger value="deals">Deals ({clientDeals.length})</TabsTrigger>
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
               <TabsTrigger value="formulario">Formulário de demandas</TabsTrigger>
               {canSeeMoney && <TabsTrigger value="faturamento">Faturamento</TabsTrigger>}
             </TabsList>
+
+            <TabsContent value="projetos" className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">Todos os projetos deste cliente, incluindo finalizados.</p>
+                {can("projetos") && <Button variant="ghost" size="sm" asChild><Link to={`/projetos?cliente=${id}&vista=todos`}>Ver na aba Projetos</Link></Button>}
+              </div>
+              {projectsQuery.isLoading ? <p className="py-6 text-sm text-muted-foreground">Carregando projetos…</p> : projectsQuery.isError ? (
+                <div className="py-6 text-sm"><p>Não foi possível carregar os projetos.</p><Button variant="outline" size="sm" onClick={() => projectsQuery.refetch()}>Tentar novamente</Button></div>
+              ) : projects.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhum projeto vinculado a este cliente.</p> : projects.map(p => {
+                const origem = location.pathname + location.search;
+                const status = PRODUCTION_STAGES_NEW.find(s => s.id === p.status)?.label || ({ finalizado: "Finalizado", entregue: "Entregue", faturado: "Faturado" }[p.status || ""] || p.status || "Sem etapa");
+                return <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border/50 bg-card p-4">
+                  <div className="min-w-0 flex-1">
+                    {can("projetos") ? <Link className="text-sm font-medium hover:text-primary" to={linkProjeto(p.id, origem)}>{p.name}</Link> : <p className="text-sm font-medium">{p.name}</p>}
+                    <p className="mt-1 text-xs text-muted-foreground">{status} · {(p as typeof p & { diarias_contratadas?: number | null }).diarias_contratadas || 0} diárias contratadas{p.delivery_date ? ` · Prazo ${formatDate(p.delivery_date)}` : ""}</p>
+                  </div>
+                  {can("projetos") && <Button variant="outline" size="sm" asChild><Link to={linkProjeto(p.id, origem, "diarias")}><Calendar className="mr-1.5 h-3.5 w-3.5" />Diárias</Link></Button>}
+                </div>;
+              })}
+            </TabsContent>
 
             <TabsContent value="deals" className="space-y-3">
               <div className="flex justify-end">

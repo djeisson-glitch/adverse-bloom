@@ -9,17 +9,21 @@ interface Props {
   total: number;
   onEditDeal: (deal: Deal) => void;
   taskCounts?: Record<string, number>;
+  readOnly?: boolean;
 }
 
 const stageColors: Record<string, string> = {
-  diagnostico: "border-blue-500/40",
-  orcamento: "border-amber-500/40",
+  lead: "border-blue-500/40",
+  elaboracao: "border-amber-500/40",
+  negociacao: "border-purple-500/40",
+  aceite: "border-emerald-500/40",
+  fechado_ganho: "border-emerald-500/40",
   proposta: "border-purple-500/40",
   fechamento: "border-emerald-500/40",
   perdido: "border-red-500/40",
 };
 
-export function KanbanColumn({ stage, deals, total, onEditDeal, taskCounts = {} }: Props) {
+export function KanbanColumn({ stage, deals, total, onEditDeal, taskCounts = {}, readOnly = false }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -41,10 +45,10 @@ export function KanbanColumn({ stage, deals, total, onEditDeal, taskCounts = {} 
 
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
         {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} onEdit={() => onEditDeal(deal)} pendingTaskCount={taskCounts[deal.id] || 0} />
+          <DealCard key={deal.id} deal={deal} onEdit={() => onEditDeal(deal)} pendingTaskCount={taskCounts[deal.id] || 0} readOnly={readOnly} />
         ))}
         {deals.length === 0 && (
-          <p className="text-xs text-muted-foreground/50 text-center py-8">Nenhum deal</p>
+          <p className="text-xs text-muted-foreground/50 text-center py-8">Nenhum negócio</p>
         )}
       </div>
     </div>

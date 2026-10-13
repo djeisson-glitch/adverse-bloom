@@ -19,9 +19,10 @@ interface Props {
   onMoveDeal: (dealId: string, newStage: Stage) => void;
   onEditDeal: (deal: Deal) => void;
   taskCounts?: Record<string, number>;
+  readOnly?: boolean;
 }
 
-export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: Props) {
+export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {}, readOnly = false }: Props) {
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
 
   const sensors = useSensors(
@@ -36,7 +37,7 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDeal(null);
     const { active, over } = event;
-    if (!over) return;
+    if (!over || readOnly) return;
 
     const dealId = active.id as string;
     const overId = over.id as string;
@@ -51,10 +52,10 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: 
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={()=>setActiveDeal(null)}>
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[60vh]">
-        {STAGES.map((stage) => {
-          const stageDeals = deals.filter((d) => d.stage === stage.id);
+        {[...STAGES, ...(deals.some(d=>!STAGES.some(s=>s.id===d.stage)) ? [{id:"__revisar",label:"Etapa a revisar"}] : [])].map((stage) => {
+          const stageDeals = deals.filter((d) => stage.id === "__revisar" ? !STAGES.some(s=>s.id===d.stage) : d.stage === stage.id);
           const total = stageDeals.reduce((s, d) => s + (d.approved_value ?? d.value ?? 0), 0);
           return (
             <KanbanColumn
@@ -64,6 +65,7 @@ export function KanbanBoard({ deals, onMoveDeal, onEditDeal, taskCounts = {} }: 
               total={total}
               onEditDeal={onEditDeal}
               taskCounts={taskCounts}
+              readOnly={readOnly}
             />
           );
         })}

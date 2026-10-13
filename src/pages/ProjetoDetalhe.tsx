@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { comLinks } from "@/lib/autolink";
+import { origemProjetos } from "@/lib/projetoNavegacao";
 import { useVoltar } from "@/hooks/useVoltar";
 import { primeiroNome } from "@/lib/pessoa";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BALDES, rotuloBalde } from "@/lib/faturamentoBalde";
@@ -124,7 +125,10 @@ async function copiarNomePadrao(texto: string) {
 export default function ProjetoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const voltar = useVoltar("/projetos");
+  const voltarHistorico = useVoltar("/projetos");
+  const [params] = useSearchParams();
+  const origem = origemProjetos(params.get("retorno"));
+  const voltar = () => origem ? navigate(origem, { replace: true }) : voltarHistorico();
   const qc = useQueryClient();
   const { canSeeMoney, canSeeHours, isAdmin, isCoordenadora } = usePermissions();
   // Quem cuida da produção mexe no cabeçalho do projeto: cliente e status.
@@ -138,9 +142,11 @@ export default function ProjetoDetalhe() {
     const { error } = await (supabase as any).from("projects").update(patch).eq("id", id);
     if (error) return toast.error("Não salvou", { description: error.message });
     qc.invalidateQueries({ queryKey: ["projeto", id] });
+    qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: ["projects-client"] });
     if (msg) toast.success(msg);
   };
-  const [tab, setTab] = useState<ProjetoTab>("entregaveis");
+  const [tab, setTab] = useState<ProjetoTab>(() => params.get("aba") === "diarias" ? "diarias" : "entregaveis");
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["projeto", id],
