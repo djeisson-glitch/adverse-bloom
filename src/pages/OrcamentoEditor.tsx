@@ -1614,17 +1614,13 @@ function PlanilhaSection({
         )}
 
 
-        <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
-          <summary className="cursor-pointer font-medium text-muted-foreground">Resumo da produção · diárias, equipe e entregas</summary>
-          <div className="mt-3">        <QuadroResumo
+        <QuadroResumo
           itens={itens}
           categorias={categorias}
           entregas={Array.isArray(budget.entregas) ? budget.entregas : []}
           ocultas={ocultasSet}
         />
 
-          </div>
-        </details>
         <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
           <summary className="cursor-pointer font-medium text-muted-foreground">Sugerir itens com IA</summary>
           <div className="mt-3">        {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
