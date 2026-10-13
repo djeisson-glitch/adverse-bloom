@@ -143,7 +143,7 @@ export default function NovoOrcamento() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Novo orçamento</h1>
         <p className="text-sm text-muted-foreground">
-          Entrada do pedido — o orçamento começa no estágio <strong>“lead”</strong>.
+          Comece pelo projeto e cliente. Você pode completar os detalhes depois.
         </p>
       </div>
 
@@ -266,24 +266,6 @@ export default function NovoOrcamento() {
             )}
 
             <div>
-              <Label>Canal de entrada</Label>
-              <Select
-                value={form.canal_entrada}
-                onValueChange={(v) => setForm({ ...form, canal_entrada: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CANAIS_ENTRADA.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label>Tipo de orçamento</Label>
               <Select
                 value={form.tipo_orcamento}
@@ -312,6 +294,39 @@ export default function NovoOrcamento() {
               </Select>
             </div>
 
+            <div>
+              <Label>Verba estimada</Label>
+              <Input
+                type="number"
+                value={form.verba_estimada}
+                onChange={(e) => setForm({ ...form, verba_estimada: e.target.value })}
+                placeholder="0,00"
+              />
+            </div>
+
+
+          </div>
+          <details className="rounded-lg border border-border/60 p-4">
+            <summary className="cursor-pointer text-sm font-medium text-foreground">Detalhes de produção e briefing <span className="font-normal text-muted-foreground">· opcional</span></summary>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div>
+              <Label>Canal de entrada</Label>
+              <Select
+                value={form.canal_entrada}
+                onValueChange={(v) => setForm({ ...form, canal_entrada: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANAIS_ENTRADA.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Roteiro</Label>
               <Select
@@ -427,19 +442,8 @@ export default function NovoOrcamento() {
                 })}
               </div>
             </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <Label>Verba estimada</Label>
-              <Input
-                type="number"
-                value={form.verba_estimada}
-                onChange={(e) => setForm({ ...form, verba_estimada: e.target.value })}
-                placeholder="0,00"
-              />
             </div>
-          </div>
+          </details>
 
           <Button
             onClick={() => criar.mutate()}
@@ -447,7 +451,7 @@ export default function NovoOrcamento() {
             className="bg-primary text-primary-foreground"
           >
             {criar.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-            Criar orçamento
+            Criar e montar orçamento
           </Button>
         </CardContent>
       </Card>

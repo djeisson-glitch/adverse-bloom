@@ -17,6 +17,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { ComentariosSection } from "./ProjetoDetalhe";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,7 @@ export default function OrcamentoEditor() {
    * principal, que é onde se cai por padrão.
    */
   const [varianteId, setVarianteId] = useState<string | null>(null);
+  const [secao, setSecao] = useState("planilha");
 
   /**
    * A seção de Entregas guarda a lista em estado próprio (pra salvar sozinha).
@@ -253,7 +255,7 @@ export default function OrcamentoEditor() {
   const stage = STAGES.find((s) => s.id === deal.stage);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 py-6">
+    <div className="mx-auto max-w-[1600px] space-y-4 py-6">
       <div className="flex items-center justify-between">
         <button
           onClick={voltar}
@@ -288,8 +290,8 @@ export default function OrcamentoEditor() {
       </div>
 
       {/* Header + ações */}
-      <Card className="glass-card">
-        <CardContent className="space-y-4 p-6">
+      <div className="border-b border-border/60 pb-4">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs text-muted-foreground">
@@ -334,22 +336,24 @@ export default function OrcamentoEditor() {
             </Link>
           )}
 
-          <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
-        </CardContent>
-      </Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{budget.recorrente ? `Plano recorrente · ${budget.contrato_meses || 12} meses` : "Orçamento avulso"} · {(Array.isArray(budget.entregas) ? budget.entregas : []).reduce((n: number, entrega: any) => n + (Number(entrega.quantidade) || 0), 0)} entregas</p>
+            <Button size="sm" variant="outline" onClick={() => setSecao("proposta")}><Send className="mr-1.5 h-3.5 w-3.5" /> Proposta e envio</Button>
+          </div>
+        </div>
+      </div>
 
-      {/* Discussão do orçamento */}
-      <ComentariosSection
-        entityType="deal"
-        entityId={deal.id}
-        profiles={profiles}
-        titulo="💬 Discussão do orçamento"
-        vazio="Nenhuma mensagem ainda."
-      />
-
-      {/* Avulso ou plano — vem ANTES da planilha porque muda o que a planilha
-          significa: num plano, o total dela é a MENSALIDADE, não o preço do
-          job. Decidir isso depois de montar a planilha é decidir tarde. */}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
+          <Tabs value={!canSeeMoney && secao === "planilha" ? "escopo" : secao} onValueChange={setSecao}>
+            <TabsList aria-label="Seções do orçamento" className="mb-3 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border/60 bg-transparent p-0 pb-2">
+              {canSeeMoney && <TabsTrigger value="planilha">Custos e valores</TabsTrigger>}
+              <TabsTrigger value="escopo">Escopo</TabsTrigger>
+              <TabsTrigger value="proposta">Proposta</TabsTrigger>
+              <TabsTrigger value="briefing">Briefing</TabsTrigger>
+            </TabsList>
+            {/* Mantém os formulários montados ao trocar abas para preservar edições e autosave. */}
+            <TabsContent value="planilha" forceMount className="space-y-4 data-[state=inactive]:hidden">
       {canSeeMoney && (
         <TipoDoOrcamento
           budget={budget}
@@ -357,11 +361,6 @@ export default function OrcamentoEditor() {
         />
       )}
 
-      {/* Planilha de produção */}
-      {/* key: planilha e entregas guardam estado copiado do orçamento aberto.
-          Voltar pra uma opção já visitada (A→B→A) vem do cache, sem remontar —
-          e o salvamento automático gravava a margem/comissões/entregas da
-          opção anterior por cima desta. */}
       {canSeeMoney && (
         <PlanilhaSection
           key={budget.id}
@@ -381,11 +380,16 @@ export default function OrcamentoEditor() {
         />
       )}
 
-      {/* Entregas / escopo do job */}
+            </TabsContent>
+            <TabsContent value="escopo" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <EntregasSection key={`${budget.id}:${versaoEntregas}`} budget={budget} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-budget"] })} />
 
-      {/* Condições logo depois do escopo: escopo é o que entra, condições é o
-          que está e o que não está incluso — a mesma pergunta do cliente. */}
+            </TabsContent>
+            <TabsContent value="proposta" forceMount className="space-y-4 data-[state=inactive]:hidden">
+              <div className="rounded-lg border border-border/60 p-4">
+                <h2 className="mb-3 text-sm font-semibold">Apresentar ao cliente</h2>
+                <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
+              </div>
       {budget && (
         <CondicoesEntrega
           budgetId={budget.id}
@@ -394,8 +398,6 @@ export default function OrcamentoEditor() {
         />
       )}
 
-      {/* Resumo logo depois do escopo: é escrito em cima dele e da planilha,
-          e é o que vai junto no link compartilhado. */}
       {budget && canSeeMoney && (
         <ResumoJob
           budgetId={budget.id}
@@ -404,7 +406,6 @@ export default function OrcamentoEditor() {
         />
       )}
 
-      {/* Follow-ups agendados */}
       {followUps.length > 0 && (
         <Card className="glass-card">
           <CardContent className="space-y-2 p-6">
@@ -430,11 +431,25 @@ export default function OrcamentoEditor() {
         </Card>
       )}
 
-      {/* Briefing */}
+            </TabsContent>
+            <TabsContent value="briefing" forceMount className="space-y-4 data-[state=inactive]:hidden">
       <BriefingSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
 
       {/* Mergulho / Briefing estratégico */}
-      <MergulhoSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} />
+      <details className="rounded-lg border border-border/50 p-3 text-sm">
+        <summary className="cursor-pointer font-medium text-muted-foreground">Briefing estratégico</summary>
+        <div className="mt-3"><MergulhoSection deal={deal} onChanged={() => qc.invalidateQueries({ queryKey: ["orcamento-deal"] })} /></div>
+      </details>            </TabsContent>
+          </Tabs>
+        </div>
+        <aside className="flex h-[420px] min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-card/50 p-4 xl:sticky xl:top-6 xl:h-[min(640px,calc(100dvh-80px))]" aria-label="Conversa do orçamento">
+          <h2 className="text-sm font-semibold">Conversa do orçamento</h2>
+          <div className="min-h-0 flex-1">
+          <ComentariosSection entityType="deal" entityId={deal.id} profiles={profiles}
+            titulo="Conversa do orçamento" vazio="Converse sobre escopo, custos e proposta." fill />
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -1368,10 +1383,10 @@ function PlanilhaSection({
     <>
     <Card className="glass-card">
       <CardContent className="space-y-4 p-6">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Table className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold text-foreground">Planilha de produção</h2>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
             <span className="flex items-center gap-1 text-xs text-muted-foreground" title="Salva sozinho — não precisa clicar">
               {saveStatus === "saving" ? (
                 <><Loader2 className="h-3 w-3 animate-spin" /> salvando…</>
@@ -1383,9 +1398,10 @@ function PlanilhaSection({
               <Upload className="mr-1 h-3.5 w-3.5" />
               Usar como proposta
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => salvarPadrao.mutate()} disabled={salvarPadrao.isPending} title="Fixa margem/imposto/comissões pros próximos orçamentos">
-              Salvar como padrão
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button size="sm" variant="ghost" aria-label="Mais opções da planilha"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => salvarPadrao.mutate()} disabled={salvarPadrao.isPending}>Salvar valores como padrão</DropdownMenuItem></DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -1395,7 +1411,7 @@ function PlanilhaSection({
             muita informação, muito texto explicativo... o olho fica perdido
             no meio de tanta informação". Nada foi removido, só deixou de
             ficar sempre aberto. */}
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/20 p-4">
+        <div className="sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/95 p-3 shadow-sm backdrop-blur">
           <div className="flex flex-wrap items-center gap-6">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
@@ -1598,14 +1614,20 @@ function PlanilhaSection({
         )}
 
 
-        <QuadroResumo
+        <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
+          <summary className="cursor-pointer font-medium text-muted-foreground">Resumo da produção · diárias, equipe e entregas</summary>
+          <div className="mt-3">        <QuadroResumo
           itens={itens}
           categorias={categorias}
           entregas={Array.isArray(budget.entregas) ? budget.entregas : []}
           ocultas={ocultasSet}
         />
 
-        {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
+          </div>
+        </details>
+        <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
+          <summary className="cursor-pointer font-medium text-muted-foreground">Sugerir itens com IA</summary>
+          <div className="mt-3">        {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
             uma opção não pode ser gravada na outra por engano. */}
         <SugerirItensIA
           key={budget.id}
@@ -1616,6 +1638,9 @@ function PlanilhaSection({
           onChanged={onChanged}
           onEntregasInseridas={onEntregasInseridas}
         />
+
+          </div>
+        </details>
 
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (
@@ -1676,20 +1701,20 @@ function PlanilhaSection({
             const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
             return (
               <div key={cat.id} className="rounded-lg border border-border/50">
-                <div className="flex w-full items-center gap-3 px-4 py-2.5">
+                <div className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap sm:px-4">
                   <button
                     onClick={() => toggleCat(cat.id)}
-                    className="flex flex-1 items-center gap-3 text-left"
+                    className="flex w-full min-w-0 items-center gap-2 text-left sm:w-auto sm:flex-1 sm:gap-3"
                   >
-                    {aberta ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <span className="font-mono text-[10px] text-muted-foreground">{cat.codigo}</span>
+                    {aberta ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{cat.codigo}</span>
                     {/* Grupo sem nenhum real dentro fica apagado: a varredura
                         de cima pra baixo passa direto por ele. */}
-                    <span className={`text-sm ${totalCat > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                    <span className={`min-w-0 truncate text-sm ${totalCat > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
                       {cat.nome}
                     </span>
-                    <span className="ml-auto flex items-center gap-3">
-                      <span className="text-[10px] text-muted-foreground">{itensCat.length}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+                      <span className="hidden text-[10px] text-muted-foreground sm:inline">{itensCat.length}</span>
                       <span className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:block">
                         <span
                           className={`block h-full rounded-full ${maiorPeso ? "bg-warning" : "bg-primary/50"}`}
@@ -1697,12 +1722,12 @@ function PlanilhaSection({
                         />
                       </span>
                       <span
-                        className={`w-11 text-right text-xs tabular-nums ${maiorPeso ? "font-semibold text-warning" : "text-muted-foreground"}`}
+                        className={`hidden w-11 text-right sm:inline text-xs tabular-nums ${maiorPeso ? "font-semibold text-warning" : "text-muted-foreground"}`}
                         title="peso deste grupo na soma das linhas"
                       >
                         {peso >= 0.05 ? `${peso.toFixed(1)}%` : "—"}
                       </span>
-                      <span className={`w-28 text-right text-sm ${totalCat > 0 ? "font-semibold text-foreground" : "text-muted-foreground/60"}`}>
+                      <span className={`text-right sm:w-28 text-sm ${totalCat > 0 ? "font-semibold text-foreground" : "text-muted-foreground/60"}`}>
                         {formatCurrency(totalCat)}
                       </span>
                     </span>
@@ -1777,19 +1802,6 @@ function PlanilhaSection({
       </CardContent>
     </Card>
 
-    {/* Barra fixa: total + rentabilidade sempre na tela (ajuda no orçamento grande) */}
-    <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-full border border-border/60 bg-card/95 px-5 py-2 shadow-lg backdrop-blur">
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</span>
-        <span className="text-sm font-semibold text-primary">{formatCurrency(valorTotalArredondado)}</span>
-      </div>
-      <div className="h-4 w-px bg-border" />
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Rentab.</span>
-        <span className={`text-sm font-semibold ${rentabilidade >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(rentabilidade)}</span>
-        <span className="text-[10px] text-muted-foreground">{margemPercent.toFixed(0)}%</span>
-      </div>
-    </div>
     </>
   );
 }

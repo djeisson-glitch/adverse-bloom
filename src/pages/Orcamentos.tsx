@@ -25,7 +25,7 @@ export default function Orcamentos() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [vista, setVista] = useState<"board" | "lista">("board");
+  const [vista, setVista] = useState<"board" | "lista">("lista");
   const [pendingMove, setPendingMove] = useState<{ dealId: string; stage: Stage } | null>(null);
   const [lostOpen, setLostOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);
@@ -138,7 +138,7 @@ export default function Orcamentos() {
                 vista === "board" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
               }`}
             >
-              Board
+              Funil
             </button>
             <button
               onClick={() => setVista("lista")}
@@ -160,7 +160,10 @@ export default function Orcamentos() {
         </div>
       </div>
 
-      <IndicadoresComercial deals={deals as any[]} meta={settings?.monthly_target} />
+      <details className="rounded-lg border border-border/50 px-4 py-3">
+        <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Indicadores comerciais</summary>
+        <div className="mt-4"><IndicadoresComercial deals={deals as any[]} meta={settings?.monthly_target} /></div>
+      </details>
 
       {vista === "board" ? (
         <KanbanBoard
