@@ -2,7 +2,7 @@ import { rentabilidadeGrupo, SINAIS_GRUPO } from "@/lib/rentabilidadeGrupo";
 import { diasOrcamento } from "@/lib/diasOrcamento";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useVoltar } from "@/hooks/useVoltar";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TipoDoOrcamento } from "@/components/budgets/TipoDoOrcamento";
@@ -71,7 +71,9 @@ export default function OrcamentoEditor() {
    * tempo ("Com drone", "Enxuta") — não versões que se sucedem. `null` = o
    * principal, que é onde se cai por padrão.
    */
-  const [varianteId, setVarianteId] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const [varianteId, setVarianteId] = useState<string | null>(params.get("variante"));
+  useEffect(() => { setVarianteId(params.get("variante")); }, [params]);
   const [secao, setSecao] = useState("planilha");
 
   /**
@@ -101,7 +103,7 @@ export default function OrcamentoEditor() {
     queryFn: async () => {
       if (varianteId) {
         const { data: v, error: ev } = await (supabase as any)
-          .from("budgets").select("*").eq("id", varianteId).maybeSingle();
+          .from("budgets").select("*").eq("id", varianteId).eq("deal_id", deal.id).maybeSingle();
         if (ev) throw ev;
         if (v) return v;
       }

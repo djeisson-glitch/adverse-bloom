@@ -1,3 +1,4 @@
+import { OrcamentosFechamento } from "@/components/OrcamentosFechamento";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -539,6 +540,7 @@ export default function FaturamentoMensal() {
 
                   {expandido && (
                     <div className="space-y-4 border-t border-border/40 px-4 py-4 text-sm">
+                      <OrcamentosFechamento id={f.id} rows={f.detalhe?.orcamentos_projetos} />
                       {/* Composição do valor */}
                       <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
                         {f.modelo === "horas" && (
@@ -776,7 +778,7 @@ export default function FaturamentoMensal() {
                             {f.detalhe.por_projeto.map((p: any, i: number) => (
                               <LinhaJob
                                 key={p.project_id || i}
-                                p={p}
+                                p={{ ...p, ...(f.detalhe?.orcamentos_projetos || []).find((r: any) => r.project_id === p.project_id) }}
                                 modelo={f.detalhe?.modelo}
                                 refMes={f.ref_mes}
                                 ocupado={mudarProjeto.isPending || mudarPeca.isPending}
@@ -1109,6 +1111,7 @@ function LinhaJob({ p, modelo, refMes, ocupado, onBalde, onValor, onBaldePeca }:
         <span className="min-w-0 flex-1 truncate">
           {p.numero && <span className="text-muted-foreground">{p.numero} · </span>}
           {p.projeto}
+          {p.orcamento_numero && <span className="ml-2 font-mono text-primary">Orç. #{String(p.orcamento_numero).padStart(4, "0")}</span>}
           {p.criacao && (
             <span
               className={`ml-1.5 rounded px-1 py-0.5 text-[9px] ${antigo ? "bg-muted text-muted-foreground" : "text-muted-foreground/60"}`}

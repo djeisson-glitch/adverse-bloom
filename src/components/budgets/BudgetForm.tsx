@@ -876,6 +876,10 @@ export function BudgetForm({ budgetId, onClose, onOpenVersion, initialDealId, in
 
   return (
     <div className="space-y-4">
+      {existing?.proposta?.referencia_fechamento && <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+        <strong>Orçamento de referência do fechamento</strong>
+        <p className="mt-1 text-muted-foreground">Cobrança conforme o cliente: {existing.proposta.modelo_cobranca === "horas" ? "por horas" : existing.proposta.modelo_cobranca === "tabela" ? "tabela de entregas" : existing.proposta.modelo_cobranca === "contrato" ? "contrato e franquia" : "a configurar"}. O valor é apurado no fechamento mensal; o total inicial zerado não significa serviço gratuito. Este registro não é uma proposta aprovada nem uma cobrança adicional.</p>
+      </div>}
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-4">

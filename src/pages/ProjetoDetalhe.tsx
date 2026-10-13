@@ -832,10 +832,10 @@ function OrcamentoDoProjeto({
             ))}
           </SelectContent>
         </Select>
-      ) : dealId ? (
+      ) : (dealId || budgetId) ? (
         <div className="flex items-center gap-2">
           <Link
-            to={`/orcamentos/${dealId}`}
+            to={dealId ? `/orcamentos/${dealId}` : `/orcamentos-legado?budget=${budgetId}`}
             className="flex items-center gap-1 text-sm text-primary hover:underline"
             title={orc?.project_name || "Abrir o orçamento de origem"}
           >

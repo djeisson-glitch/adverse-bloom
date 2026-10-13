@@ -163,6 +163,15 @@ export default function Orcamentos() {
   const { data: allProjects } = useProjects();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const budgetId = searchParams.get("budget");
+    if (budgetId && budgets.some(b => b.id === budgetId)) {
+      setEditingId(budgetId);
+      const next = new URLSearchParams(searchParams); next.delete("budget");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, budgets, setSearchParams]);
+
   // Map budget_id -> project exists
   const projectsByBudget = useMemo(() => {
     const map: Record<string, boolean> = {};

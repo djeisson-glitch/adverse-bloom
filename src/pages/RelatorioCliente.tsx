@@ -1,3 +1,4 @@
+import { numeroOrcamento, type OrcamentoFechamento } from "@/lib/orcamentosFechamento";
 import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -230,6 +231,7 @@ export default function RelatorioCliente() {
         ...e,
         ...cobrancaDaPeca(e, cobradoPorPeca, data.precos),
         projeto: data.projetos.get(e.project_id)?.name || "",
+        orcamentoNumero: (data.fatura?.detalhe?.orcamentos_projetos || []).find((r: OrcamentoFechamento) => r.project_id === e.project_id)?.orcamento_numero,
         // Data de SOLICITAÇÃO: a da demanda quando o pedido entrou pelo
         // formulário; senão a data em que a peça foi criada no sistema, que
         // é o mais perto disso que existe.
@@ -483,7 +485,7 @@ export default function RelatorioCliente() {
                     {g.itens.map((l: any) => (
                       <tr key={l.id} className="border-b border-[#f0f0f0]">
                         <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
-                        <td className="py-1.5 pr-3">{l.titulo}</td>
+                        <td className="py-1.5 pr-3">{l.titulo}{l.orcamentoNumero && <span className="block text-[10px] text-[#666]">Orçamento {numeroOrcamento(l.orcamentoNumero)}</span>}</td>
                         <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
                         <td className="py-1.5 pr-3">
                           {l.tipoCobrado || "—"}
@@ -571,6 +573,15 @@ export default function RelatorioCliente() {
           </>
         )}
 
+        {Array.isArray(data.fatura?.detalhe?.orcamentos_projetos) && (
+          <Secao titulo="Referências dos projetos deste fechamento">
+            <table className="w-full text-xs"><thead><tr className="border-b border-[#ddd] text-left"><th className="py-2 pr-4">Orçamento</th><th>Projeto</th></tr></thead>
+              <tbody>{(data.fatura.detalhe.orcamentos_projetos as OrcamentoFechamento[]).filter(r => r.baldes.includes("mensal")).map(r =>
+                <tr key={r.project_id} className="border-b border-[#eee]"><td className="py-2 pr-4 font-mono">{numeroOrcamento(r.orcamento_numero)}</td><td>{r.projeto}</td></tr>)}</tbody>
+            </table>
+          </Secao>
+        )}
+
         {/* ---------- HORAS: o cliente compra tempo ---------- */}
         {modelo === "horas" && (
           <>
@@ -590,7 +601,7 @@ export default function RelatorioCliente() {
                   {calc.linhas.map((l: any) => (
                     <tr key={l.id} className="border-b border-[#f0f0f0]">
                       <td className="py-1.5 pr-3 font-mono text-[10px] text-[#888]">{l.codigo || "—"}</td>
-                      <td className="py-1.5 pr-3">{l.titulo}</td>
+                      <td className="py-1.5 pr-3">{l.titulo}{l.orcamentoNumero && <span className="block text-[10px] text-[#666]">Orçamento {numeroOrcamento(l.orcamentoNumero)}</span>}</td>
                       <td className="py-1.5 pr-3 tabular-nums text-[#555]"><CelulaSolicitado linha={l} /></td>
                       <td className="py-1.5 pr-3 text-[#555]">{l.solicitante || "—"}</td>
                       <td className="py-1.5 text-right tabular-nums">{l.minEdic > 0 ? fmtDuracao(l.minEdic) : "—"}</td>
