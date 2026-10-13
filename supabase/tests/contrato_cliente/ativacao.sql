@@ -1,0 +1,33 @@
+BEGIN;
+SET test.uid='00000000-0000-0000-0000-000000000001';
+SET test.money='true';
+DO $$
+DECLARE cli uuid:=gen_random_uuid(); outro uuid:=gen_random_uuid(); cid uuid; cid2 uuid; payload jsonb;
+BEGIN
+ INSERT INTO clients VALUES(cli,'Toggle fixture'),(outro,'Outro cliente');
+ INSERT INTO client_faturamento VALUES(cli,'tabela'),(outro,'horas');
+ payload:='{"nome":"Contrato","inicio":"2026-02-01","fim":"2027-01-31","valor_mensal":6100,"diarias_mes":1,"entregas_mes":8,"acumulo_meses":2,"documento_path":null}';
+ cid:=salvar_contrato_cliente(cli,payload);
+ IF NOT EXISTS(SELECT 1 FROM client_contratos WHERE id=cid AND ativo AND modelo_faturamento_anterior='tabela') THEN RAISE EXCEPTION 'Initial activation lost previous model'; END IF;
+ PERFORM definir_contrato_ativo(cid,false);
+ IF (SELECT ativo FROM client_contratos WHERE id=cid) OR (SELECT modelo FROM client_faturamento WHERE client_id=cli)<>'tabela' THEN RAISE EXCEPTION 'Deactivation failed'; END IF;
+ cid2:=salvar_contrato_cliente(cli,payload||'{"nome":"Revisado inativo"}');
+ IF cid2<>cid OR (SELECT count(*) FROM client_contratos WHERE client_id=cli)<>1 OR (SELECT ativo FROM client_contratos WHERE id=cid) OR (SELECT modelo FROM client_faturamento WHERE client_id=cli)<>'tabela' THEN RAISE EXCEPTION 'Inactive save duplicated or activated'; END IF;
+ PERFORM definir_contrato_ativo(cid,true);
+ PERFORM definir_contrato_ativo(cid,true);
+ IF NOT (SELECT ativo FROM client_contratos WHERE id=cid) OR (SELECT modelo FROM client_faturamento WHERE client_id=cli)<>'contrato' THEN RAISE EXCEPTION 'Reactivation failed'; END IF;
+ IF (SELECT nome FROM client_contratos WHERE id=cid)<>'Revisado inativo' THEN RAISE EXCEPTION 'Configuration lost'; END IF;
+ UPDATE client_faturamento SET modelo='horas' WHERE client_id=cli;
+ PERFORM definir_contrato_ativo(cid,false);
+ IF (SELECT modelo FROM client_faturamento WHERE client_id=cli)<>'horas' THEN RAISE EXCEPTION 'Explicit model overwritten'; END IF;
+ PERFORM definir_contrato_ativo(cid,true);
+ PERFORM definir_contrato_ativo(cid,false);
+ IF (SELECT modelo FROM client_faturamento WHERE client_id=cli)<>'horas' THEN RAISE EXCEPTION 'Latest previous model not restored'; END IF;
+ IF (SELECT modelo FROM client_faturamento WHERE client_id=outro)<>'horas' OR EXISTS(SELECT 1 FROM client_contratos WHERE client_id=outro) THEN RAISE EXCEPTION 'Another client changed'; END IF;
+ INSERT INTO client_contratos(client_id,ativo,nome,inicio) VALUES(cli,true,'Outro ativo','2026-02-01');
+ BEGIN PERFORM definir_contrato_ativo(cid,true);RAISE EXCEPTION 'Duplicate activation accepted';EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Este cliente já tem outro contrato ativo' THEN RAISE;END IF;END;
+ PERFORM set_config('test.money','false',true);
+ BEGIN PERFORM definir_contrato_ativo(cid,true);RAISE EXCEPTION 'Permission bypass';EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'Sem permissão' THEN RAISE;END IF;END;
+ RAISE NOTICE 'PASS: toggle, preservation, idempotency, inactive edit, billing restore, client isolation, duplicate guard, permission';
+END $$;
+ROLLBACK;

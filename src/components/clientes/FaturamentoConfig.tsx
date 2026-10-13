@@ -47,10 +47,11 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
       return (data || []) as Preco[];
     },
   });
-  const { data: contratoDB } = useQuery({
+  const { data: contratoDB, isSuccess: contratoPronto } = useQuery({
     queryKey: ["client_contratos", clientId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("client_contratos").select("*").eq("client_id", clientId).eq("ativo", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await (supabase as any).from("client_contratos").select("*").eq("client_id", clientId).order("ativo", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if(error) throw error;
       return data;
     },
   });
@@ -90,14 +91,10 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     setPrecos(precosDB);
   }, [precosDB, clientId]);
 
-  // Guarda o id do contrato criado no meio da edição: sem isso, o patch seguinte
-  // inseriria um segundo contrato antes de o refetch trazer o primeiro.
-  const contratoIdRef = useRef<string | null>(null);
   const semeadoContrato = useRef<string | null>(null);
   useEffect(() => {
     if (!contratoDB || semeadoContrato.current === clientId) return;
     semeadoContrato.current = clientId;
-    contratoIdRef.current = contratoDB.id;
     setContrato({
       nome: contratoDB.nome || "Contrato",
       valor_mensal: String(contratoDB.valor_mensal ?? 0),
@@ -154,33 +151,13 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
     qc.invalidateQueries({ queryKey: ["client_precos", clientId] });
   });
 
-  // Contrato: mantém um ativo por cliente. Se ainda não existe, o primeiro
-  // campo mexido cria a linha inteira — daí em diante só o campo mexido vai.
+  // Ativação e criação ficam na aba Contrato. Aqui só editamos o contrato ativo existente.
   const autoContrato = useFormAutosave<Record<string, unknown>>(async (patch) => {
-    const erroDe = (error: any) => {
+    if (!contratoDB?.ativo) throw new Error("Ative o contrato na aba Contrato antes de editar o faturamento");
+    const { error } = await (supabase as any).from("client_contratos").update(patch).eq("id", contratoDB.id);
+    if (error) {
       toast.error("Não salvou o contrato", { description: error.message });
       throw error;
-    };
-    const atual = contratoIdRef.current ?? contratoDB?.id ?? null;
-    if (atual) {
-      const { error } = await (supabase as any).from("client_contratos").update(patch).eq("id", atual);
-      if (error) erroDe(error);
-    } else {
-      const { data, error } = await (supabase as any).from("client_contratos").insert({
-        client_id: clientId,
-        nome: contrato.nome || "Contrato",
-        valor_mensal: Number(contrato.valor_mensal) || 0,
-        diarias_mes: Number(contrato.diarias_mes) || 0,
-        entregas_mes: Number(contrato.entregas_mes) || 0,
-        acumulo_meses: Number(contrato.acumulo_meses) || 1,
-        valor_diaria_extra: Number(contrato.valor_diaria_extra) || 0,
-        valor_entrega_extra: Number(contrato.valor_entrega_extra) || 0,
-        inicio: contrato.inicio || null,
-        ativo: true,
-        ...patch,
-      }).select("id").single();
-      if (error) erroDe(error);
-      contratoIdRef.current = data?.id ?? null;
     }
     qc.invalidateQueries({ queryKey: ["client_contratos", clientId] });
   });
@@ -222,6 +199,11 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
           <Select
             value={modelo}
             onValueChange={(v) => {
+              if(v === "contrato" && (!contratoPronto || !contratoDB?.ativo)) {
+                toast.info("Configure e ative o contrato na aba Contrato");
+                navigate(`/clientes/${clientId}?aba=contrato`);
+                return;
+              }
               setModelo(v as Modelo);
               autoEscolha.agendar({ modelo: v });
             }}
@@ -312,7 +294,8 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
           </div>
         )}
 
-        {modelo === "contrato" && (
+        {modelo === "contrato" && !contratoDB?.ativo && <p className="text-sm text-muted-foreground">Ative o contrato na aba Contrato para configurar o fee e as franquias.</p>}
+        {modelo === "contrato" && contratoDB?.ativo && (
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Nome do contrato</Label>

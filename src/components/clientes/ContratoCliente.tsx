@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { FileText, Pencil, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,12 +24,26 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
   const [mes,setMes]=useState(mesISO().slice(0,7));
   const [dataCorte,setDataCorte]=useState('');
   const [editar,setEditar]=useState(false);
+  const [alterandoAtivo,setAlterandoAtivo]=useState(false);
+  const qc=useQueryClient();
   const [filtro,setFiltro]=useState('todos');
   const contrato=useQuery<Contrato|null>({queryKey:['client_contratos',clientId],queryFn:async()=>{
-    const {data,error}=await db.from('client_contratos').select('*').eq('client_id',clientId).eq('ativo',true).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    const {data,error}=await db.from('client_contratos').select('*').eq('client_id',clientId).order('ativo',{ascending:false}).order('created_at',{ascending:false}).limit(1).maybeSingle();
     if(error) throw error; return data;
   }});
   const c=contrato.data;
+  async function definirAtivo(ativo:boolean) {
+    if(!c){setEditar(ativo);return;}
+    setAlterandoAtivo(true);
+    try {
+      const {error}=await db.rpc('definir_contrato_ativo',{_contrato:c.id,_ativo:ativo});
+      if(error)throw error;
+      await Promise.all(['client_contratos','client_faturamento','contrato-movimentos','faturamento-mensal'].map(k=>qc.invalidateQueries({queryKey:[k]})));
+      toast.success(ativo?'Contrato ativado':'Contrato desativado; histórico preservado');
+    }catch(e:any){toast.error('Não foi possível alterar o contrato',{description:e.message});}
+    finally{setAlterandoAtivo(false);}
+  }
+
   const movimentos=useQuery<MovimentoContrato[]>({queryKey:['contrato-movimentos',c?.id,mes],staleTime:0,enabled:!!c,queryFn:async()=>{
     const {data,error}=await db.rpc('contrato_movimentos',{_contrato:c!.id,_ate:limitesMes(mes).fim});
     if(error) throw error; return data || [];
@@ -48,9 +63,14 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-lg font-semibold">{c?.nome || 'Contrato do cliente'}</h2><p className="text-xs text-muted-foreground">{c ? `${c.inicio?formatDate(c.inicio):'Início não informado'} → ${c.fim?formatDate(c.fim):'Sem data final'} · ${formatCurrency(c.valor_mensal)}/mês` : 'Cadastre a vigência, as franquias e as regras do contrato.'}</p></div>
-      <Button variant="outline" onClick={()=>setEditar(!editar)}><Pencil className="mr-2 h-4 w-4"/>{editar?'Fechar edição':c?'Revisar contrato':'Configurar contrato'}</Button>
+      {c && <Button variant="outline" disabled={alterandoAtivo} onClick={()=>setEditar(!editar)}><Pencil className="mr-2 h-4 w-4"/>{editar?'Fechar edição':'Revisar contrato'}</Button>}
     </div>
-    {(editar || !c) && <EditorContrato key={c?.id || clientId} clientId={clientId} contrato={c||null} onSaved={()=>setEditar(false)}/>}
+    <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-4">
+      <div><Label htmlFor="contrato-ativo">{c?.ativo?'Contrato ativo':!c && editar?'Configurar contrato':'Contrato desativado'}</Label><p id="contrato-ativo-ajuda" className="mt-1 text-xs text-muted-foreground">{c?.ativo?'Ativo para este cliente. Desativar preserva o histórico e retoma o modelo de cobrança anterior; sem modelo anterior, pausa o faturamento por contrato.':c?'Cadastro e histórico preservados. Ative para voltar a aplicar o fee e as franquias no faturamento.':editar?'Preencha os dados e salve para ativar o contrato deste cliente.':'Este cliente ainda não usa contrato mensal. Ative para configurar.'}</p></div>
+      <Switch id="contrato-ativo" aria-describedby="contrato-ativo-ajuda" checked={c?c.ativo:editar} disabled={alterandoAtivo|| (!!c && editar)} onCheckedChange={definirAtivo}/>
+    </div>
+    {c && !c.ativo && <p className="text-xs text-muted-foreground">Contrato inativo: os números abaixo são uma consulta do histórico. Fechamentos já gerados e a cobrança dos projetos permanecem preservados.</p>}
+    {editar && <EditorContrato key={c?.id || clientId} clientId={clientId} contrato={c||null} onSaved={()=>setEditar(false)}/>}
     {c && <>
       {historico.isLoading && <p className="text-sm">Calculando execução do contrato…</p>}
       {historico.isError && <div className="rounded-lg border border-destructive/40 p-4 text-sm">Não foi possível consultar a execução do contrato. <Button variant="outline" onClick={()=>historico.refetch()}>Tentar novamente</Button></div>}
@@ -134,8 +154,8 @@ function EditorContrato({clientId,contrato,onSaved}:{clientId:string;contrato:Co
     <div><Label htmlFor="franquia-tipo">O que desconta da franquia de entregas</Label><select id="franquia-tipo" disabled={!!busy} className="ml-2 rounded border bg-background p-2 text-sm" value={form.franquia_entregas_tipo} onChange={e=>patch('franquia_entregas_tipo',e.target.value)}><option value="todos">Todos os entregáveis</option><option value="video">Somente vídeos</option><option value="video_foto">Vídeos e entregas de fotos (franquia compartilhada)</option></select><p className="mt-1 text-xs text-muted-foreground">Com validade em dias, o saldo usa créditos por competência; a janela legada deixa de ser usada neste painel.</p></div>
     <div><Label htmlFor="contrato-escopo">Entregas contratadas · tipos, formatos e quantidades</Label><Textarea id="contrato-escopo" disabled={!!busy} value={form.escopo_entregas} onChange={e=>patch('escopo_entregas',e.target.value)}/></div>
     <div><Label htmlFor="contrato-regras">Regras, prazos e observações</Label><Textarea id="contrato-regras" disabled={!!busy} rows={4} value={form.observacoes} onChange={e=>patch('observacoes',e.target.value)}/></div>
-    <p className="text-xs text-muted-foreground">Salvar ativa o modelo de faturamento por contrato para este cliente. Cada mês da vigência libera a franquia integral; regras especiais permanecem para conferência.</p>
-    <Button type="submit" disabled={!!busy}>{busy==='salvar'?'Salvando…':'Salvar contrato'}</Button>
+    <p className="text-xs text-muted-foreground">{contrato ? 'Salvar preserva o estado ativo ou inativo do contrato.' : 'Salvar cria e ativa o contrato somente para este cliente.'} Cada mês da vigência libera a franquia integral; regras especiais permanecem para conferência.</p>
+    <Button type="submit" disabled={!!busy}>{busy==='salvar'?'Salvando…':contrato?'Salvar contrato':'Salvar e ativar contrato'}</Button>
   </form>;
 }
 
