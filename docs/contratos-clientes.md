@@ -37,3 +37,9 @@ Testes unitários do saldo/janelas e handler real de IA com rede simulada. Teste
 - Testes: `npm test -- src/lib/creditosContrato.test.ts src/lib/consumoContrato.test.ts`; `supabase/tests/contrato_cliente/creditos.sql` no fixture isolado após a migration.
 
 A visão geral distingue saldo utilizável agora, próximo vencimento, total nominal contratado, franquias já liberadas, consumo e liberações futuras. Não soma futuro ao saldo disponível. Vídeos e entregas de fotos têm contadores separados, mesmo quando compartilham os créditos. O saldo é sinalizado como provisório enquanto houver peças sem tipo definido.
+
+## Execução do contrato inteiro (ajuste de 13/10/2026)
+
+O destaque agora é **total contratado − execução concluída**: SLC tem 96 entregas compartilhadas (vídeos + entregas de fotos) e 12 diárias. O mês selecionado não altera esse resumo, consultado separadamente até hoje. `entregue` e o estado final legado `aprovado` contam como concluídos; `pronto`, `com_cliente`, edição e revisão não descontam. Diárias descontam somente a fração marcada como `realizada`; a migration `20261014000000` acrescenta a maior fração realizada por data/balde, sem mudar o agrupamento do extrato anterior. Trabalhos à parte e registros cancelados não entram.
+
+A apuração usa os estados atuais dos registros e a vinculação à vigência pela data efetiva do projeto (peças) ou captação (diárias). Não é uma reconstrução histórica da data de aprovação. Peças concluídas sem tipo deixam o total provisório, com confirmação manual no painel. Créditos expirados e tetos não são subtraídos desse indicador de execução. O controle mensal e o extrato de validade permanecem recolhidos em “Uso por mês e validade dos créditos”, sem gerar cobranças ou mudar o fechamento financeiro.

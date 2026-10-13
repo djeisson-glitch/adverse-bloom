@@ -7,7 +7,7 @@ export type Contrato = {
 };
 export type MovimentoContrato = {
   id: string; tipo: 'diaria' | 'entrega'; titulo: string; data: string;
-  tipo_midia?: 'video' | 'foto' | 'outro' | null; tipo_registro?: string; formato?: string | null; duracao?: string | null; quantidade: number; status: string; faturamento: string;
+  tipo_midia?: 'video' | 'foto' | 'outro' | null; tipo_registro?: string; formato?: string | null; duracao?: string | null; quantidade: number; quantidade_realizada?: number; status: string; faturamento: string;
   projetos: { id: string; nome: string }[];
 };
 export function limitesMes(mes: string) {

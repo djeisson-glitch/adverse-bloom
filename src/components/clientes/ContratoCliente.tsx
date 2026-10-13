@@ -13,6 +13,7 @@ import { calcularCreditos, tipoMidia, type ContaCredito } from '@/lib/creditosCo
 import { hojeISO, mesISO } from '@/lib/dataLocal';
 import { Contrato, MovimentoContrato, limitesMes, resumoContrato } from '@/lib/consumoContrato';
 import VisaoGeralContrato from './VisaoGeralContrato';
+import { execucaoContrato } from '@/lib/execucaoContrato';
 import { linkProjeto } from '@/lib/projetoNavegacao';
 
 const db = supabase as any;
@@ -32,6 +33,12 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
     const {data,error}=await db.rpc('contrato_movimentos',{_contrato:c!.id,_ate:limitesMes(mes).fim});
     if(error) throw error; return data || [];
   }});
+  const hoje=hojeISO();
+  const historico=useQuery<MovimentoContrato[]>({queryKey:['contrato-movimentos',c?.id,'execucao',hoje],staleTime:0,enabled:!!c,queryFn:async()=>{
+    const {data,error}=await db.rpc('contrato_movimentos',{_contrato:c!.id,_ate:hoje});
+    if(error) throw error; return data || [];
+  }});
+  const execucao=c && historico.data ? execucaoContrato(c,historico.data,hoje):null;
   if(contrato.isLoading) return <p className="p-4 text-sm">Carregando contrato…</p>;
   if(contrato.isError) return <div className="p-4 text-sm text-destructive">Não foi possível carregar o contrato. <Button variant="outline" onClick={()=>contrato.refetch()}>Tentar novamente</Button></div>;
   const resumo=c && movimentos.data ? resumoContrato(c,movimentos.data,mes):null;
@@ -45,13 +52,23 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
     </div>
     {(editar || !c) && <EditorContrato key={c?.id || clientId} clientId={clientId} contrato={c||null} onSaved={()=>setEditar(false)}/>}
     {c && <>
+      {historico.isLoading && <p className="text-sm">Calculando execução do contrato…</p>}
+      {historico.isError && <div className="rounded-lg border border-destructive/40 p-4 text-sm">Não foi possível consultar a execução do contrato. <Button variant="outline" onClick={()=>historico.refetch()}>Tentar novamente</Button></div>}
+      {execucao && <>
+        <VisaoGeralContrato contrato={c} execucao={execucao} hoje={hoje}/>
+        {!!execucao.pendentes.length && <details className="rounded-lg border border-warning/50 p-3 text-sm"><summary className="cursor-pointer">Total provisório: {execucao.pendentes.length} peça(s) concluída(s) sem tipo definido</summary><p className="my-2 text-xs text-muted-foreground">Estas peças já estão concluídas, mas ainda não foram descontadas. Confirme se são vídeos ou entregas de fotos para atualizar o total restante.</p>{execucao.pendentes.map(m=><div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-2"><span>{m.titulo} · {formatDate(m.data)}</span><ClassificarMidia movimento={m}/></div>)}</details>}
+      </>}
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer text-sm font-medium">Uso por mês e validade dos créditos</summary>
+        <div className="mt-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><Label htmlFor="mes-contrato">Mês de referência</Label><Input id="mes-contrato" type="month" className="w-44" value={mes} onChange={e=>{if(/^\d{4}-\d{2}$/.test(e.target.value)){setMes(e.target.value);setDataCorte('');}}}/></div>
       {movimentos.isLoading && <p className="text-sm">Calculando consumo…</p>}
       {movimentos.isError && <div className="rounded-lg border border-destructive/40 p-4 text-sm">Não foi possível consultar o consumo. Nenhum saldo foi calculado. <Button variant="outline" onClick={()=>movimentos.refetch()}>Tentar novamente</Button></div>}
       {resumo && <>
         {creditos ? <>
           <div className="flex flex-wrap items-center justify-between gap-2"><Label htmlFor="corte-contrato">Saldo em {corte > hojeISO() ? '(projeção)' : ''}</Label><Input id="corte-contrato" className="w-44" type="date" min={limitesMes(mes).inicio} max={limitesMes(mes).fim} value={corte} onChange={e=>{const v=e.target.value;if(!v || (v>=limitesMes(mes).inicio && v<=limitesMes(mes).fim))setDataCorte(v);}}/></div>
-          <VisaoGeralContrato contrato={c} resumo={creditos} corte={corte}/>
+          <div className="grid gap-3 sm:grid-cols-2">{[{titulo:'Diárias',conta:creditos.diarias,usado:creditos.diariasMes},{titulo:'Entregas',conta:creditos.entregas,usado:creditos.entregasMes}].map(l=><div key={l.titulo} className="rounded-lg border p-3"><p className="text-sm font-medium">{l.titulo}</p><p className="mt-1 text-xs text-muted-foreground">{qtd(l.usado)} no mês · {qtd(l.conta.saldo)} créditos disponíveis na data</p></div>)}</div>
+          <p className="text-xs text-muted-foreground">Este controle de créditos inclui peças em produção e captações pela data marcada. Ele é separado da execução total concluída mostrada acima.</p>
           <p className="text-xs text-muted-foreground">Registros posteriores à data selecionada aparecem abaixo, mas ainda não descontam créditos.</p>
           {creditos.semInicio && <p className="text-sm text-warning">Informe o início do contrato para apurar créditos anteriores.</p>}
           {!!creditos.pendentes.length && c.franquia_entregas_tipo!=='todos' && <details className="rounded-lg border border-warning/50 p-3 text-sm"><summary className="cursor-pointer">Saldo provisório: {creditos.pendentes.length} peça(s) sem tipo definido no histórico</summary><p className="my-2 text-xs text-muted-foreground">Estas peças ainda não descontam a franquia de entregas. Confirme o tipo para recalcular.</p>{creditos.pendentes.map(m=><div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-2"><span>{m.titulo} · {formatDate(m.data)}</span><ClassificarMidia movimento={m}/></div>)}</details>}
@@ -69,6 +86,8 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
           <div className="max-h-[460px] overflow-y-auto divide-y">{linhas.length ? linhas.map(m=><div key={`${m.tipo}-${m.id}`} className="space-y-1 p-3"><div className="flex items-start justify-between gap-3"><p className="text-sm font-medium">{m.tipo==='diaria'?`${qtd(m.quantidade)} diária(s) · captação`:m.titulo}</p><span className={`shrink-0 rounded px-2 py-1 text-[10px] ${m.faturamento==='mensal'?'bg-primary/10 text-primary':'bg-muted text-muted-foreground'}`}>{m.faturamento==='mensal'?'No fee':'À parte'}</span></div><p className="text-xs text-muted-foreground">{formatDate(m.data)} · {m.status.replace(/_/g,' ')}{creditos && m.data>corte?' · após a data do saldo':''}</p>{creditos && m.tipo==='entrega' && <ClassificarMidia movimento={m}/>}{m.projetos.map(p=><Link key={p.id} className="mr-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary" to={linkProjeto(p.id,`/clientes/${clientId}?aba=contrato`)}>{p.nome}<ExternalLink className="h-3 w-3"/></Link>)}</div>):<p className="p-4 text-sm text-muted-foreground">Nenhum registro neste mês para este filtro.</p>}</div>
         </div>
       </>}
+        </div>
+      </details>
       {(c.escopo_entregas||c.observacoes) && <div className="rounded-lg border p-4 space-y-3">{c.escopo_entregas&&<div><h3 className="text-sm font-semibold">Entregas contratadas</h3><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.escopo_entregas}</p></div>}{c.observacoes&&<div><h3 className="text-sm font-semibold">Regras do contrato</h3><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.observacoes}</p></div>}</div>}
       {c.documento_path && <Button variant="outline" onClick={async()=>{const {data,error}=await db.storage.from('contratos-clientes').createSignedUrl(c.documento_path,60);if(error)toast.error('Não abriu o documento');else window.open(data.signedUrl,'_blank','noopener,noreferrer');}}><FileText className="mr-2 h-4 w-4"/>{c.documento_nome||'Abrir contrato'}</Button>}
     </>}
