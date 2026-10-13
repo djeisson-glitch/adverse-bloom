@@ -1,3 +1,4 @@
+import { salvarPropostaCampos } from "@/lib/salvarProposta";
 import { registrarEmissaoPdf } from "@/lib/emissaoOrcamento";
 import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -161,8 +162,9 @@ export default function CartaOrcamento() {
     if (!data?.budget?.id || !p) return; // modo manual não persiste
     // Não persiste o investimento: ele é sempre puxado do orçamento (fica automático).
     const { investimento, ...propostaSemValor } = p;
-    const { error } = await (supabase as any).from("budgets").update({ proposta: propostaSemValor }).eq("id", data.budget.id);
-    if (error) {
+    try {
+      await salvarPropostaCampos(data.budget.id, propostaSemValor);
+    } catch (error: any) {
       const msg = /proposta/i.test(error.message || "")
         ? "Rode 'supabase db push' pra habilitar o salvamento da carta (coluna nova)."
         : error.message;

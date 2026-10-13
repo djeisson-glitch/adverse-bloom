@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useEffect, useRef } from "react";
 import { nomeDeEntregavel, nomeDeProjeto } from "@/lib/nomeCurto";
 import { hojeISO } from "@/lib/dataLocal";
@@ -107,7 +108,7 @@ export default function Demandas() {
 
   const autoRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!aberta) return;
+    if (!IA_HABILITADA || !aberta) return;
     const d = demandas.find((x) => x.id === aberta);
     if (!d || d.ia_complexidade || d.status === "recusada") return;
     if (autoRef.current.has(d.id)) return;
@@ -296,10 +297,10 @@ export default function Demandas() {
                               </p>
                               <button
                                 onClick={() => analisar.mutate(d.id)}
-                                disabled={analisando}
+                                disabled={!IA_HABILITADA || analisando}
                                 className="text-[11px] text-primary hover:underline disabled:opacity-50"
                               >
-                                {analisando ? "analisando…" : ia ? "reanalisar" : "analisar"}
+                                {!IA_HABILITADA ? "IA desativada" : analisando ? "analisando…" : ia ? "reanalisar" : "analisar"}
                               </button>
                             </div>
                             {analisando && !ia ? (

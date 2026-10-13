@@ -1,3 +1,4 @@
+import { respostaIADesativada } from "../_shared/iaDisponibilidade.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -43,6 +44,8 @@ const NAO_PESSOA = /agenciamento|direitos?\s+de\s+(uso|imagem)|renova[çc][ãa]o
 const CAT_POS = ["011"];
 
 serve(async (req) => {
+  const pausaIA = respostaIADesativada(req);
+  if (pausaIA) return pausaIA;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

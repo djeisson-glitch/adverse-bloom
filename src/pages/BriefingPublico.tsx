@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -96,7 +97,7 @@ export default function BriefingPublico() {
   // com base no que foi preenchido. Se sugerir algo, mostramos antes de enviar.
   const enviar = async () => {
     const d = dados || {};
-    if (iaChecado) return enviarDeVerdade(d);
+    if (!IA_HABILITADA || iaChecado) return enviarDeVerdade(d);
     setEnviando(true);
     try {
       if (timer.current) clearTimeout(timer.current);

@@ -23,9 +23,9 @@ export type Balde = "mensal" | "mensal_separado" | "avulso";
 export const BALDES: { id: Balde; label: string; curto: string; ajuda: string }[] = [
   {
     id: "mensal",
-    label: "No fechamento do mês",
+    label: "Mensal — dentro do fee / fechamento",
     curto: "no mês",
-    ajuda: "Entra no fechamento e na carta do cliente, como o resto do dia a dia.",
+    ajuda: "Consome a franquia quando o cliente tem contrato mensal. Nos demais casos, entra no fechamento do mês.",
   },
   {
     id: "mensal_separado",
@@ -35,7 +35,7 @@ export const BALDES: { id: Balde; label: string; curto: string; ajuda: string }[
   },
   {
     id: "avulso",
-    label: "Avulso — faturo à parte",
+    label: "Avulso — faturado à parte",
     curto: "avulso",
     ajuda: "Outro projeto, cobrado por hora. Fora do fechamento e da carta.",
   },

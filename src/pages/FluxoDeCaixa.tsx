@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
@@ -279,13 +280,13 @@ export default function FluxoDeCaixa() {
           <h2 className="font-heading text-lg font-semibold flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" /> Análise de caixa (IA)
           </h2>
-          <Button onClick={analisar} disabled={loadingAi} size="sm">
+          <Button onClick={analisar} disabled={!IA_HABILITADA || loadingAi} size="sm">
             {loadingAi ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {loadingAi ? "Analisando..." : "Analisar caixa"}
+            {!IA_HABILITADA ? "IA desativada" : loadingAi ? "Analisando..." : "Analisar caixa"}
           </Button>
         </div>
 
-        {!ai && !loadingAi && <p className="text-sm text-muted-foreground">Clique em "Analisar caixa" para recomendações de ação sobre o seu fluxo.</p>}
+        {!ai && !loadingAi && <p className="text-sm text-muted-foreground">A análise por IA está desativada. Os dados financeiros continuam disponíveis acima.</p>}
 
         {ai && (
           <div className="space-y-4">

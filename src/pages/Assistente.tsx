@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useEffect, useRef } from "react";
 import { Send, Bot, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +15,8 @@ interface Message {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-assistant`;
 
-export default function Assistente() {
+export default function Assistente() { return IA_HABILITADA ? <AssistenteAtivo /> : <div className="p-6 text-sm text-muted-foreground">Assistente de IA desativado por enquanto.</div>; }
+function AssistenteAtivo() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");

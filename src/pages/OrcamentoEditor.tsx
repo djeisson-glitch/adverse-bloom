@@ -1,3 +1,5 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
+import { FaturamentoOrcamento } from "@/components/orcamento/FaturamentoOrcamento";
 import { rentabilidadeGrupo, SINAIS_GRUPO } from "@/lib/rentabilidadeGrupo";
 import { diasOrcamento } from "@/lib/diasOrcamento";
 import { useMemo, useState, useEffect, useRef } from "react";
@@ -35,7 +37,6 @@ import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
 import { ResumoJob } from "@/components/orcamento/ResumoJob";
 import { CondicoesEntrega } from "@/components/orcamento/CondicoesEntrega";
-import { SugerirItensIA } from "@/components/orcamento/SugerirItensIA";
 import { QuadroResumo } from "@/components/orcamento/QuadroResumo";
 import {
   CANAIS_ENTRADA, TIPOS_ORCAMENTO, PRECISA_ROTEIRO, PRECISA_ELENCO,
@@ -341,11 +342,13 @@ export default function OrcamentoEditor() {
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">{budget.recorrente ? `Plano recorrente · ${budget.contrato_meses || 12} meses` : "Orçamento avulso"} · {(Array.isArray(budget.entregas) ? budget.entregas : []).reduce((n: number, entrega: any) => n + (Number(entrega.quantidade) || 0), 0)} entregas</p>
-            <Button size="sm" variant="outline" onClick={() => setSecao("proposta")}><Send className="mr-1.5 h-3.5 w-3.5" /> Proposta e envio</Button>
+            <p className="text-xs text-muted-foreground">{budget.recorrente ? `Plano recorrente · ${budget.contrato_meses || 12} meses` : budget.proposta?.faturamento === "mensal" ? "No fee / fechamento do cliente" : "Orçamento pontual"} · {(Array.isArray(budget.entregas) ? budget.entregas : []).reduce((n: number, entrega: any) => n + (Number(entrega.quantidade) || 0), 0)} entregas</p>
+            <Button size="lg" className="h-12 w-full gap-2 px-5 text-base font-semibold shadow-sm sm:w-auto" onClick={() => setSecao("proposta")}><Send className="h-5 w-5" /> Proposta e envio</Button>
           </div>
         </div>
       </div>
+
+      {canSeeMoney && <FaturamentoOrcamento key={budget.id} budget={budget}/>}
 
       <section aria-label="Datas e andamento do orçamento" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -590,9 +593,9 @@ function MergulhoSection({ deal, onChanged }: { deal: any; onChanged: () => void
             <span className="text-[11px] text-muted-foreground">
               {status === "saving" ? "salvando…" : status === "saved" ? "salvo" : deal.mergulho_em ? "respondido" : ""}
             </span>
-            <Button size="sm" variant="outline" onClick={consolidarIA} disabled={consolidando}>
+            <Button size="sm" variant="outline" onClick={consolidarIA} disabled={!IA_HABILITADA || consolidando}>
               {consolidando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1 h-3.5 w-3.5" />}
-              Consolidar com IA
+              {IA_HABILITADA ? "Consolidar com IA" : "IA desativada"}
             </Button>
             <Button size="sm" variant="outline" onClick={copiarLink}>
               <Link2 className="mr-1 h-3.5 w-3.5" /> Copiar link do cliente
@@ -1670,22 +1673,7 @@ function PlanilhaSection({
         )}
 
 
-        <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
-          <summary className="cursor-pointer font-medium text-muted-foreground">Sugerir itens com IA</summary>
-          <div className="mt-3">        {/* key: trocar de opção (A/B) zera o rascunho — sugestão pendente de
-            uma opção não pode ser gravada na outra por engano. */}
-        <SugerirItensIA
-          key={budget.id}
-          budgetId={budget.id}
-          categorias={categorias}
-          itens={itens}
-          entregasAtuais={Array.isArray(budget.entregas) ? budget.entregas : []}
-          onChanged={onChanged}
-          onEntregasInseridas={onEntregasInseridas}
-        />
 
-          </div>
-        </details>
 
         {/* Planilha vazia → carregar itens padrão */}
         {itens.length === 0 && (

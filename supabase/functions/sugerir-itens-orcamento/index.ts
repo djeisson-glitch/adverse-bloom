@@ -1,3 +1,4 @@
+import { respostaIADesativada } from "../_shared/iaDisponibilidade.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -90,6 +91,8 @@ const MAX_ANEXOS = 10;
 const MAX_BASE64 = 24 * 1024 * 1024;
 
 serve(async (req) => {
+  const pausaIA = respostaIADesativada(req);
+  if (pausaIA) return pausaIA;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {

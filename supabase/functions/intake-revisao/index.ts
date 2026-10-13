@@ -1,3 +1,4 @@
+import { respostaIADesativada } from "../_shared/iaDisponibilidade.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -27,6 +28,8 @@ const MAX_BRIEFING = 1500;
 const corta = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 
 serve(async (req) => {
+  const pausaIA = respostaIADesativada(req);
+  if (pausaIA) return pausaIA;
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

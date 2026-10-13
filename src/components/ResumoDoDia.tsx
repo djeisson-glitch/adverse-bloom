@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, RefreshCw, Loader2 } from "lucide-react";
@@ -13,7 +14,8 @@ import { hojeISO } from "@/lib/dataLocal";
  * das notificações. Puxa o digest de hoje da pessoa; se ainda não saiu, deixa
  * gerar na hora. Ao aparecer aqui, marca o digest como lido pra não duplicar no sino.
  */
-export function ResumoDoDia() {
+export function ResumoDoDia() { return IA_HABILITADA ? <ResumoDoDiaAtivo /> : null; }
+function ResumoDoDiaAtivo() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [gerando, setGerando] = useState(false);

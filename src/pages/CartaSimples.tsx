@@ -1,3 +1,7 @@
+import { useEdicaoCartaSimples } from "@/hooks/useEdicaoCartaSimples";
+import { diariasDaCarta, type TextosCartaSimples } from "@/lib/cartaSimples";
+import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { baixarCartaPdf } from "@/lib/cartaPdf";
 import { registrarEmissaoPdf } from "@/lib/emissaoOrcamento";
 import { toast } from "sonner";
@@ -105,45 +109,13 @@ function Chave<V extends Record<string, boolean>>({ k, rot, ver, setVer }: {
 }
 
 export default function CartaSimples() {
-  const qc = useQueryClient();
   const { id } = useParams<{ id: string }>();
   // Qual OPÇÃO do orçamento esta carta representa. Vem do editor (`?opcao=`);
   // sem ela, a busca cai no principal.
   const [params] = useSearchParams();
   const opcaoId = params.get("opcao");
   const voltar = useVoltar(`/orcamentos/${id}`);
-  /**
-   * O que aparece na folha.
-   *
-   * Tudo desligável porque a mesma carta serve pra situações diferentes: a que
-   * vai pro cliente esconde a composição (valor por linha é convite a
-   * negociar item a item); a que vai pro financeiro dele às vezes precisa da
-   * quantidade; e a interna quer tudo. Um documento só, com chaves.
-   *
-   * O padrão é o mais fechado: só o total. Mostrar a mais é decisão
-   * consciente; mostrar a mais por descuido é o que gera a conversa errada.
-   */
-  const [ver, setVer] = useState({
-    itens: true,          // as linhas da tabela
-    quantidade: false,    // coluna Qtd.
-    valorLinha: false,    // valor de cada linha — fechado por padrão
-    unitario: false,      // preço unitário (só faz sentido com valor por linha)
-    criacao: true,        // quando o orçamento foi feito
-    emissao: true,        // quando este papel foi gerado
-    validade: true,
-    condicoes: true,
-    inclusos: true,
-    entregas: true,       // o que o escopo contempla
-  });
-  const [gerandoPdf, setGerandoPdf] = useState(false);
-  const [detalhada, setDetalhada] = useState(false);
-
-  /** Textos editáveis do documento — vivem só nesta tela até serem salvos. */
-  const [txt, setTxt] = useState<{ condicoes: string | null; incl: string[] | null; naoIncl: string[] | null; entregas: string[] | null }>({
-    condicoes: null, incl: null, naoIncl: null, entregas: null,
-  });
-
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["carta-simples", id, opcaoId],
     enabled: !!id,
     queryFn: async () => {
@@ -159,9 +131,12 @@ export default function CartaSimples() {
       // mesma lista que vem a letra que diferencia os arquivos exportados —
       // sem ela as opções saíam com nome idêntico, porque budget_number é o
       // MESMO nas variantes (só o variante_nome muda).
-      const { data: opcoes } = await (supabase as any).from("budgets")
-        .select("id, budget_number, total_value, condicoes, entregas, created_at, variante_nome, parent_budget_id, is_latest_version, proposta")
+      if (deal.error) throw deal.error;
+      if (cats.error) throw cats.error;
+      const { data: opcoes, error: erroOpcoes } = await (supabase as any).from("budgets")
+        .select("id, budget_number, total_value, condicoes, entregas, created_at, variante_nome, parent_budget_id, is_latest_version, proposta, capture_days, categorias_ocultas")
         .eq("deal_id", id).order("created_at", { ascending: true });
+      if (erroOpcoes) throw erroOpcoes;
       const escolhido = orcamentoDaCarta<any>(opcoes || [], opcaoId);
       const budget = { data: escolhido };
       const letraOpcao = letraDaOpcao<any>(opcoes || [], escolhido?.id);
@@ -170,6 +145,7 @@ export default function CartaSimples() {
             .select("id, item_name, descricao, quantity, diaria, client_unit_price, categoria_id, ordem")
             .eq("budget_id", budget.data.id).order("ordem")
         : { data: [] };
+      if (itens.error) throw itens.error;
       return {
         deal: deal.data,
         budget: budget.data,
@@ -179,6 +155,28 @@ export default function CartaSimples() {
       };
     },
   });
+
+  if (isLoading) return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (isError) return <div className="p-8 text-center"><p>Não foi possível carregar a carta.</p><Button variant="outline" onClick={() => refetch()}>Tentar novamente</Button></div>;
+  if (!data?.deal || !data.budget) return <div className="p-8 text-center"><p>Orçamento não encontrado.</p><Button variant="outline" onClick={voltar}>Voltar</Button></div>;
+  return <CartaSimplesDocumento key={data.budget.id} data={data} />;
+}
+
+function CartaSimplesDocumento({ data }: { data: any }) {
+  const qc = useQueryClient();
+  const { id } = useParams<{ id: string }>();
+  const voltar = useVoltar(`/orcamentos/${id}`);
+  const { can } = usePermissions();
+  const podeEditar = can("orcamentos", "edit");
+  const { edicao, alterar, salvar, status } = useEdicaoCartaSimples(data.budget.id, data.budget.proposta?.carta_simples);
+  const { textos: txt, ver, detalhada } = edicao;
+  const setTxt = (fn: (prev: TextosCartaSimples) => TextosCartaSimples) => alterar({ textos: fn(txt) });
+  const setVer = (fn: (prev: typeof ver) => typeof ver) => alterar({ ver: fn(ver) });
+  const setDetalhada = (value: boolean) => alterar({ detalhada: value });
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+  const diarias = diariasDaCarta(data.budget, data.itens, [...data.categorias.values()]);
+  const voltarSalvando = async () => { if (await salvar()) voltar(); };
+  const imprimir = async () => { if (await salvar()) window.print(); };
 
   const calc = useMemo(() => {
     if (!data) return null;
@@ -228,6 +226,7 @@ export default function CartaSimples() {
   const baixarPdf = async () => {
     setGerandoPdf(true);
     try {
+      if (!await salvar()) return;
       const resultado = await baixarCartaPdf(nomeArquivoProposta(titulo, numero, { letra: letraOpcao, nome: data?.budget?.variante_nome }), {
         seletor: ".nota",
         style: "@page { size: A4; margin: 12mm; } body { background: white !important; } .nota { margin: 0 !important; box-shadow: none !important; max-width: none !important; } .bloco, tr { break-inside: avoid; }",
@@ -241,11 +240,13 @@ export default function CartaSimples() {
     } finally { setGerandoPdf(false); }
   };
 
-  if (isLoading || !data || !calc) {
+  if (!data || !calc) {
     return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   const cli = data.deal?.client || {};
+  const ac = txt.ac ?? cli.contact_name ?? "";
+  const briefing = txt.briefing ?? data.deal?.objetivo ?? "";
   const emissao = new Date();
   const validade = new Date(emissao.getTime() + 15 * 86400000);
   const fmtD = (d: Date) => d.toLocaleDateString("pt-BR");
@@ -276,7 +277,7 @@ export default function CartaSimples() {
   // Mesma fonte da carta completa (budgets.proposta.entregas_texto), pra as
   // duas dizerem a MESMA coisa sobre o que o cliente está comprando. Carta
   // que nunca teve texto de entregas puxa as do orçamento — antes ficava sem
-  // seção nenhuma (ROOS, 11/09). Editar aqui vale só para este documento.
+  // seção nenhuma (ROOS, 11/09). As edições da simples ficam salvas separadamente nesta opção.
   const entregasOrc = (data?.budget as any)?.entregas;
   const textoCarta: string | undefined = (data?.budget as any)?.proposta?.entregas_texto;
   const listaEntregas = txt.entregas ?? emItens(textoCarta ?? entregasParaTexto(entregasOrc));
@@ -308,17 +309,17 @@ export default function CartaSimples() {
       `}</style>
 
       <div className="no-print sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur">
-        <button onClick={voltar} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <button onClick={voltarSalvando} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar
         </button>
         <span className="text-xs text-muted-foreground">Carta simples · {data.deal?.title}</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Um painel só, com tudo que o documento pode mostrar ou esconder.
               Espalhar isso em botões soltos faria a barra crescer a cada
               pedido novo — e ninguém acharia a chave que procura. */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" disabled={!podeEditar || gerandoPdf}>
                 <Settings2 className="mr-1.5 h-3.5 w-3.5" /> O que mostrar
               </Button>
             </PopoverTrigger>
@@ -347,18 +348,27 @@ export default function CartaSimples() {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button size="sm" variant="outline">Editar textos</Button>
+              <Button size="sm" variant="outline" disabled={!podeEditar || gerandoPdf}>Editar textos e A/C</Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="max-h-[70vh] w-96 overflow-y-auto">
+            <PopoverContent align="end" className="max-h-[70vh] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto">
+              <div className="mb-3 space-y-1.5">
+                <Label htmlFor="carta-ac" className="text-xs">A/C — pessoa de contato</Label>
+                <Input id="carta-ac" value={ac} onChange={e => setTxt(t => ({ ...t, ac: e.target.value }))} placeholder="Nome de quem receberá a proposta" />
+                <button className="text-[10px] text-muted-foreground hover:underline" onClick={() => setTxt(t => ({ ...t, ac: null }))}>Usar contato do cadastro</button>
+              </div>
+              <div className="mb-3 space-y-1.5">
+                <Label htmlFor="carta-briefing" className="text-xs">Descrição do projeto</Label>
+                <Textarea id="carta-briefing" value={briefing} onChange={e => setTxt(t => ({ ...t, briefing: e.target.value }))} rows={3} />
+              </div>
               <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <Label className="text-xs">Condições</Label>
+                  <Label htmlFor="carta-condicoes" className="text-xs">Condições</Label>
                   <button onClick={() => setTxt((t) => ({ ...t, condicoes: null }))}
                           className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground">
                     <RotateCcw className="h-3 w-3" /> padrão
                   </button>
                 </div>
-                <Textarea rows={3} className="text-xs" value={condicoesTexto}
+                <Textarea id="carta-condicoes" rows={3} className="text-xs" value={condicoesTexto}
                           onChange={(e) => setTxt((t) => ({ ...t, condicoes: e.target.value }))} />
               </div>
 
@@ -405,16 +415,17 @@ export default function CartaSimples() {
               </div>
 
               <p className="mt-3 border-t border-border/50 pt-2 text-[10px] text-muted-foreground">
-                Vale só para este documento — não altera o orçamento. Pra mudar de vez, edite as
-                condições na planilha.
+                Textos e A/C são salvos automaticamente nesta opção do orçamento e mantidos ao reabrir a carta. O cadastro do cliente permanece igual.
               </p>
             </PopoverContent>
           </Popover>
 
+          <IndicadorAutosave status={status} />
+          {status === "erro" && <Button size="sm" variant="outline" onClick={() => salvar()}>Tentar salvar novamente</Button>}
           <Button size="sm" disabled={gerandoPdf} onClick={baixarPdf}>
             {gerandoPdf ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />} Baixar PDF
           </Button>
-          <Button size="sm" variant="outline" onClick={() => window.print()}>
+          <Button size="sm" variant="outline" onClick={imprimir} disabled={gerandoPdf}>
             <Printer className="mr-1.5 h-3.5 w-3.5" /> Imprimir / Salvar PDF
           </Button>
         </div>
@@ -435,7 +446,7 @@ export default function CartaSimples() {
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a8a8a]">Para</p>
             <p className="mt-1 text-lg font-bold leading-tight">{cli.name || "—"}</p>
-            {cli.contact_name && <p className="text-sm text-[#555]">A/C {cli.contact_name}</p>}
+            {ac && <p className="text-sm text-[#555]">A/C {ac}</p>}
             {cli.email && <p className="text-xs text-[#777]">{cli.email}</p>}
             {cli.phone && <p className="text-xs text-[#777]">{cli.phone}</p>}
           </div>
@@ -475,9 +486,14 @@ export default function CartaSimples() {
           <div className="bloco mb-6 border-t border-[#d8d8d8] pt-4">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a8a8a]">Projeto</p>
             <p className="mt-0.5 text-sm font-semibold">{data.deal.title}</p>
-            {data.deal.objetivo && <p className="mt-1 text-xs leading-relaxed text-[#555]">{data.deal.objetivo}</p>}
+            {briefing && <p className="mt-1 text-xs leading-relaxed text-[#555]">{briefing}</p>}
           </div>
         )}
+
+        <div className="bloco mb-6 rounded border border-[#d8d8d8] bg-[#f4f4f4] px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#666]">Diárias de captação contratadas</p>
+          <p className="mt-1 text-lg font-bold">{diarias > 0 ? `${diarias.toLocaleString("pt-BR")} ${diarias === 1 ? "diária" : "diárias"}` : "Sem diária de captação prevista"}</p>
+        </div>
 
         {ver.entregas && listaEntregas.filter(Boolean).length > 0 && (
           <div className="bloco mb-6 border-t border-[#d8d8d8] pt-4">

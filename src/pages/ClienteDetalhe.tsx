@@ -20,6 +20,7 @@ import { useFormAutosave, vaziosParaNull } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
+import ContratoCliente from "@/components/clientes/ContratoCliente";
 import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
 import SaldoCliente from "@/components/clientes/SaldoCliente";
 import { useResumoDiariasProjetos } from "@/hooks/useResumoDiariasProjetos";
@@ -361,6 +362,7 @@ export default function ClienteDetalhe() {
               <TabsTrigger value="orcamentos">Orçamentos ({budgets.length})</TabsTrigger>
               <TabsTrigger value="tarefas">Tarefas ({tasks.length})</TabsTrigger>
               <TabsTrigger value="formulario">Formulário de demandas</TabsTrigger>
+              {canSeeMoney && <TabsTrigger value="contrato">Contrato</TabsTrigger>}
               {canSeeMoney && <TabsTrigger value="faturamento">Faturamento</TabsTrigger>}
             </TabsList>
 
@@ -472,6 +474,8 @@ export default function ClienteDetalhe() {
                 </div>
               )}
             </TabsContent>
+
+            {canSeeMoney && id && <TabsContent value="contrato"><ContratoCliente key={id} clientId={id}/></TabsContent>}
 
             <TabsContent value="formulario">
               {id && <IntakeConfig clientId={id} clientName={client.name} />}

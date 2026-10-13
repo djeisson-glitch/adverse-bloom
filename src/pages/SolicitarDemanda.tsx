@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -389,7 +390,7 @@ export default function SolicitarDemanda() {
     setConfirmando(true);
     // Faltando obrigatório, não tem por que gastar a IA: o pop-up já abre
     // dizendo o que completar.
-    if (faltasObrigatorias(entregasConferir).length) {
+    if (!IA_HABILITADA || faltasObrigatorias(entregasConferir).length) {
       setIa({ carregando: false, faltas: [], resumo: "", pecas: null });
       return;
     }

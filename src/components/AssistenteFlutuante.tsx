@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useRef, useEffect } from "react";
 import { TextoComLinks } from "@/lib/autolink";
 import { X, Send, Bot, Loader2, Sparkles, MessagesSquare, ChevronLeft } from "lucide-react";
@@ -49,14 +50,14 @@ export function AssistenteFlutuante() {
           `no-print` porque estes dois estavam saindo impressos na carta que
           vai pro cliente — um balão de "Conversas" no meio da fatura. */}
       <div className="no-print fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
-        <button
+        {IA_HABILITADA && <button
           onClick={() => setAberto((v) => !v)}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg transition hover:border-primary/50"
           title="Assistente (IA)"
           aria-label="Abrir assistente de IA"
         >
           {aberto ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-        </button>
+        </button>}
         <button
           onClick={() => setConversas(true)}
           className="flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-105"
@@ -68,7 +69,7 @@ export function AssistenteFlutuante() {
       </div>
 
       {/* Bolha compacta: só o assistente (IA) */}
-      {aberto && (
+      {IA_HABILITADA && aberto && (
         <div className="fixed bottom-[9rem] right-5 z-40 flex h-[500px] w-[min(390px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Bot className="h-4 w-4 text-primary" /> Assistente</p>

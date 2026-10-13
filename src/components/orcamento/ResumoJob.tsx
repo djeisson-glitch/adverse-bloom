@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,11 +51,11 @@ export function ResumoJob({ budgetId, resumo, onChanged }: {
               </span>
             )}
           </h2>
-          <Button size="sm" variant={resumo ? "outline" : "default"} onClick={gerar} disabled={gerando}>
+          <Button size="sm" variant={resumo ? "outline" : "default"} onClick={gerar} disabled={!IA_HABILITADA || gerando}>
             {gerando ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                      : resumo ? <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                               : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-            {gerando ? "Gerando…" : resumo ? "Refazer" : "Gerar com IA"}
+            {!IA_HABILITADA ? "IA desativada" : gerando ? "Gerando…" : resumo ? "Refazer" : "Gerar com IA"}
           </Button>
         </div>
 

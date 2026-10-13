@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useCallback } from "react";
 import { Bot, Loader2, Clock, AlertTriangle, Lightbulb, Zap, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,8 @@ const impactoColor: Record<string, string> = {
   baixo: "secondary",
 };
 
-export function AiInsightsSection({ financialData, categorias, hasData }: Props) {
+export function AiInsightsSection(props: Props) { return IA_HABILITADA ? <AiInsightsAtivos {...props} /> : null; }
+function AiInsightsAtivos({ financialData, categorias, hasData }: Props) {
   const [insights, setInsights] = useState<AiInsightsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);

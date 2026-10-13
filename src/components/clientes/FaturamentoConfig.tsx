@@ -50,7 +50,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
   const { data: contratoDB } = useQuery({
     queryKey: ["client_contratos", clientId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("client_contratos").select("*").eq("client_id", clientId).eq("ativo", true).order("created_at", { ascending: false }).maybeSingle();
+      const { data } = await (supabase as any).from("client_contratos").select("*").eq("client_id", clientId).eq("ativo", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
       return data;
     },
   });

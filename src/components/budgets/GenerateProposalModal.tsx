@@ -1,3 +1,4 @@
+import { IA_HABILITADA } from "@/lib/iaDisponibilidade";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -374,17 +375,17 @@ export function GenerateProposalModal({ open, onClose, budget, items }: Props) {
                 variant="ghost"
                 size="sm"
                 onClick={generateDescriptionAI}
-                disabled={generatingAI}
+                disabled={!IA_HABILITADA || generatingAI}
                 className="text-xs gap-1.5 h-7"
               >
                 {generatingAI ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                Gerar com IA
+                {IA_HABILITADA ? "Gerar com IA" : "IA desativada"}
               </Button>
             </div>
             <Textarea
               value={projectDescription}
               onChange={e => setProjectDescription(e.target.value)}
-              placeholder="Breve descrição do projeto (ou use IA para gerar)"
+              placeholder="Breve descrição do projeto"
               rows={3}
             />
           </div>
