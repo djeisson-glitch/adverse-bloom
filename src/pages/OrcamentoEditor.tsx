@@ -1,3 +1,4 @@
+import { rentabilidadeGrupo, SINAIS_GRUPO } from "@/lib/rentabilidadeGrupo";
 import { diasOrcamento } from "@/lib/diasOrcamento";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useVoltar } from "@/hooks/useVoltar";
@@ -1172,8 +1173,14 @@ function PlanilhaSection({
   });
   const toggleOculta = (catId: string, ocultar: boolean) => {
     const lista = ocultar ? [...ocultas, catId] : ocultas.filter((x) => x !== catId);
-    setOcultas(lista);
-    salvarOcultas.mutate(lista);
+    salvarOcultas.mutate(lista, {
+      onSuccess: () => {
+        setOcultas(lista);
+        toast.success(ocultar ? "Grupo retirado deste orçamento" : "Grupo reincluído", {
+          description: ocultar ? "Saiu dos totais. Os itens ficam guardados para reincluir depois." : undefined,
+        });
+      },
+    });
   };
 
   const itensPorCategoria = useMemo(() => {
@@ -1731,23 +1738,43 @@ function PlanilhaSection({
           </div>
           <div className="grid md:grid-cols-[200px_minmax(0,1fr)]">
             <nav aria-label="Grupos da planilha" className="hidden h-[560px] overflow-y-auto border-r border-border/50 bg-muted/10 p-2 md:block">
-              <p className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Grupos</p>
+              <div className="px-3 pb-3 pt-1">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupos</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">Margem antes das taxas</p>
+                <div className="mt-1 flex flex-wrap gap-x-2 text-[9px]"><span className="text-success">≥ 30%</span><span className="text-warning">&gt; 0 a &lt; 30%</span><span className="text-destructive">≤ 0%</span></div>
+              </div>
               {categoriasNaTela.map((cat) => {
                 const ativa = cat.id === categoriaAtiva?.id;
                 const total = totaisPorCategoria.get(cat.id) || 0;
-                const quantidade = itensPorCategoria.get(cat.id)?.length || 0;
+                const itensCat = itensPorCategoria.get(cat.id) || [];
+                const quantidade = itensCat.length;
+                const resultado = rentabilidadeGrupo(itensCat);
+                const sinal = SINAIS_GRUPO[resultado.status];
+                const mostraMargem = resultado.margem !== null && !["sem_valores", "custo_pendente"].includes(resultado.status);
                 return (
-                  <button key={cat.id} onClick={() => selecionarCategoria(cat.id)}
-                    aria-pressed={ativa} aria-controls={`grupo-painel-${cat.id}`}
-                    className={`mb-1 block w-full rounded-md border px-3 py-3 text-left transition-colors ${ativa
-                      ? "border-primary/30 bg-primary/10 text-foreground"
-                      : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}>
-                    <span className="block text-xs font-medium leading-relaxed">{cat.nome}</span>
-                    <span className="mt-1 flex items-center justify-between gap-2 text-[11px]">
-                      <span className="text-muted-foreground">{quantidade} {quantidade === 1 ? "item" : "itens"}</span>
-                      <span className={total > 0 ? "font-medium tabular-nums text-foreground" : "tabular-nums text-muted-foreground"}>{formatCurrency(total)}</span>
-                    </span>
-                  </button>
+                  <div key={cat.id} className="relative mb-1">
+                    <button onClick={() => selecionarCategoria(cat.id)}
+                      aria-pressed={ativa} aria-controls={`grupo-painel-${cat.id}`}
+                      title={`Margem direta: valor dos itens menos custos, antes das taxas. ${sinal.label}.`}
+                      className={`block w-full rounded-md border border-l-[3px] px-3 py-3 text-left transition-colors ${sinal.faixa} ${ativa
+                        ? "border-t-foreground/25 border-r-foreground/25 border-b-foreground/25 bg-muted/60 text-foreground"
+                        : "border-t-transparent border-r-transparent border-b-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}>
+                      <span className="block pr-5 text-xs font-medium leading-relaxed">{cat.nome}</span>
+                      <span className="mt-1 flex items-center justify-between gap-2 text-[11px]">
+                        <span className="text-muted-foreground">{quantidade} {quantidade === 1 ? "item" : "itens"}</span>
+                        <span className={total > 0 ? "font-medium tabular-nums text-foreground" : "tabular-nums text-muted-foreground"}>{formatCurrency(total)}</span>
+                      </span>
+                      <span className={`mt-2 flex items-center gap-1 text-[10px] ${sinal.cor}`}>
+                        {resultado.status === "prejuizo" ? <AlertTriangle className="h-3 w-3 shrink-0" /> : <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />}
+                        {sinal.label}{mostraMargem ? ` · ${resultado.margem!.toFixed(0)}%` : ""}
+                      </span>
+                    </button>
+                    <button aria-label={`Retirar ${cat.nome} deste orçamento`} title="Retirar deste orçamento e dos totais; os itens ficam guardados"
+                      disabled={salvarOcultas.isPending} onClick={() => toggleOculta(cat.id, true)}
+                      className="absolute right-1 top-2 rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40">
+                      <EyeOff className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </nav>
@@ -1761,6 +1788,8 @@ function PlanilhaSection({
                 const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
                 const foraDaTaxa = itensCat.filter((i) => i.tira_taxa).length;
                 const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
+                const resultado = rentabilidadeGrupo(itensCat);
+                const sinal = SINAIS_GRUPO[resultado.status];
                 return (
                   <section key={cat.id} id={`grupo-painel-${cat.id}`} hidden={!ativa} aria-label={`Itens de ${cat.nome}`}>
                     <div className="sticky top-0 z-10 flex flex-wrap items-start justify-between gap-3 border-b border-border/50 bg-card px-4 py-3">
@@ -1774,9 +1803,19 @@ function PlanilhaSection({
                           <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Opções de ${cat.nome}`}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {itensCat.length > 0 && <DropdownMenuItem onClick={() => marcarGrupoForaDaTaxa(cat.id, !todosFora)}>{todosFora ? "Incluir grupo na taxa da produtora" : "Tirar grupo da taxa da produtora"}</DropdownMenuItem>}
-                            <DropdownMenuItem onClick={() => toggleOculta(cat.id, true)}>Retirar grupo do orçamento</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      </div>
+                      <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                        <span className={`flex items-center gap-1.5 text-[11px] ${sinal.cor}`}>
+                          {resultado.status === "prejuizo" && <AlertTriangle className="h-3.5 w-3.5" />}
+                          {sinal.label}{resultado.status === "prejuizo" ? ` · custo excede o orçado em ${formatCurrency(-resultado.saldo)}`
+                            : resultado.status === "custo_pendente" ? " · há item com custo zerado"
+                            : resultado.margem !== null ? ` · margem direta ${resultado.margem.toFixed(1)}%` : ""}
+                        </span>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" disabled={salvarOcultas.isPending}
+                          title="Retira este grupo e seus valores apenas deste orçamento. Pode reincluir depois."
+                          onClick={() => toggleOculta(cat.id, true)}><EyeOff className="mr-1.5 h-3.5 w-3.5" />Retirar grupo</Button>
                       </div>
                       {foraDaTaxa > 0 && <p className="w-full text-[11px] text-warning">{todosFora ? "Grupo fora da taxa da produtora" : `${foraDaTaxa} itens fora da taxa da produtora`}</p>}
                     </div>
@@ -1800,12 +1839,14 @@ function PlanilhaSection({
         {/* Grupos excluídos deste orçamento — clique pra reincluir */}
         {categoriasOcultas.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/50 bg-muted/10 p-3">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupos ocultos</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupos retirados deste orçamento</span>
             {categoriasOcultas.map((c) => (
               <button
                 key={c.id}
                 onClick={() => toggleOculta(c.id, false)}
                 title="Reincluir este grupo no orçamento"
+                aria-label={`Reincluir ${c.nome}`}
+                disabled={salvarOcultas.isPending}
                 className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground"
               >
                 <Plus className="h-3 w-3" />
