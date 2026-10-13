@@ -343,7 +343,7 @@ export default function OrcamentoEditor() {
         </div>
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <Tabs value={!canSeeMoney && secao === "planilha" ? "escopo" : secao} onValueChange={setSecao}>
             <TabsList aria-label="Seções do orçamento" className="mb-3 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border/60 bg-transparent p-0 pb-2">
@@ -442,7 +442,7 @@ export default function OrcamentoEditor() {
       </details>            </TabsContent>
           </Tabs>
         </div>
-        <aside className="flex h-[420px] min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-card/50 p-4 xl:sticky xl:top-6 xl:h-[min(640px,calc(100dvh-80px))]" aria-label="Conversa do orçamento">
+        <aside className="flex h-[420px] min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-card/50 p-4 lg:sticky lg:top-6 lg:h-[min(640px,calc(100dvh-80px))]" aria-label="Conversa do orçamento">
           <h2 className="text-sm font-semibold">Conversa do orçamento</h2>
           <div className="min-h-0 flex-1">
           <ComentariosSection entityType="deal" entityId={deal.id} profiles={profiles}
