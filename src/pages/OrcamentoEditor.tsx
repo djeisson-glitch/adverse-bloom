@@ -1381,7 +1381,7 @@ function PlanilhaSection({
 
   return (
     <>
-    <Card className="glass-card">
+    <Card className="glass-card !overflow-visible">
       <CardContent className="space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Table className="h-4 w-4 text-primary" />
@@ -1411,7 +1411,8 @@ function PlanilhaSection({
             muita informação, muito texto explicativo... o olho fica perdido
             no meio de tanta informação". Nada foi removido, só deixou de
             ficar sempre aberto. */}
-        <div className="sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/95 p-3 shadow-sm backdrop-blur">
+        <div data-testid="resumo-orcamento-fixo" className="sticky top-3 z-20 max-h-[50dvh] space-y-3 overflow-y-auto rounded-lg border border-border/60 bg-card/95 p-3 shadow-sm backdrop-blur lg:max-h-none lg:overflow-visible">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-6">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Valor total</p>
@@ -1432,6 +1433,13 @@ function PlanilhaSection({
             {detalheAberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             {detalheAberto ? "Ocultar detalhes financeiros" : "Ver detalhes financeiros"}
           </button>
+        </div>
+        <QuadroResumo
+          itens={itens}
+          categorias={categorias}
+          entregas={Array.isArray(budget.entregas) ? budget.entregas : []}
+          ocultas={ocultasSet}
+        />
         </div>
 
         {detalheAberto && (
@@ -1613,13 +1621,6 @@ function PlanilhaSection({
           </>
         )}
 
-
-        <QuadroResumo
-          itens={itens}
-          categorias={categorias}
-          entregas={Array.isArray(budget.entregas) ? budget.entregas : []}
-          ocultas={ocultasSet}
-        />
 
         <details className="rounded-lg border border-border/50 px-3 py-2 text-xs">
           <summary className="cursor-pointer font-medium text-muted-foreground">Sugerir itens com IA</summary>
