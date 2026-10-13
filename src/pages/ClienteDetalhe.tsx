@@ -22,6 +22,8 @@ import { STAGES } from "@/hooks/useDeals";
 import IntakeConfig from "@/components/clientes/IntakeConfig";
 import FaturamentoConfig from "@/components/clientes/FaturamentoConfig";
 import SaldoCliente from "@/components/clientes/SaldoCliente";
+import { useResumoDiariasProjetos } from "@/hooks/useResumoDiariasProjetos";
+import { rotuloDiarias } from "@/lib/resumoDiarias";
 import { linkProjeto } from "@/lib/projetoNavegacao";
 import { PRODUCTION_STAGES_NEW } from "@/hooks/useProjects";
 import { formatDate } from "@/lib/format";
@@ -91,6 +93,8 @@ export default function ClienteDetalhe() {
     },
     enabled: !!id,
   });
+
+  const diariasQuery = useResumoDiariasProjetos((projectsQuery.data || []).map(p => p.id), aba === "projetos" && can("projetos"));
 
   // Tasks for this client's deals
   const clientDeals = useMemo(() => deals.filter((d) => d.client_id === id), [deals, id]);
@@ -365,6 +369,7 @@ export default function ClienteDetalhe() {
                 <p className="text-xs text-muted-foreground">Todos os projetos deste cliente, incluindo finalizados.</p>
                 {can("projetos") && <Button variant="ghost" size="sm" asChild><Link to={`/projetos?cliente=${id}&vista=todos`}>Ver na aba Projetos</Link></Button>}
               </div>
+              {can("projetos") && diariasQuery.isError && <div className="flex flex-wrap items-center gap-2 text-xs text-destructive"><span>Não foi possível carregar as diárias dos projetos.</span><Button variant="ghost" size="sm" onClick={() => diariasQuery.refetch()}>Tentar novamente</Button></div>}
               {projectsQuery.isLoading ? <p className="py-6 text-sm text-muted-foreground">Carregando projetos…</p> : projectsQuery.isError ? (
                 <div className="py-6 text-sm"><p>Não foi possível carregar os projetos.</p><Button variant="outline" size="sm" onClick={() => projectsQuery.refetch()}>Tentar novamente</Button></div>
               ) : projects.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhum projeto vinculado a este cliente.</p> : projects.map(p => {
@@ -373,7 +378,7 @@ export default function ClienteDetalhe() {
                 return <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border/50 bg-card p-4">
                   <div className="min-w-0 flex-1">
                     {can("projetos") ? <Link className="text-sm font-medium hover:text-primary" to={linkProjeto(p.id, origem)}>{p.name}</Link> : <p className="text-sm font-medium">{p.name}</p>}
-                    <p className="mt-1 text-xs text-muted-foreground">{status} · {(p as typeof p & { diarias_contratadas?: number | null }).diarias_contratadas || 0} diárias contratadas{p.delivery_date ? ` · Prazo ${formatDate(p.delivery_date)}` : ""}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{status}{can("projetos") && <> · {diariasQuery.isError ? "Diárias indisponíveis" : !diariasQuery.data ? "Carregando diárias…" : rotuloDiarias(diariasQuery.data[p.id] || 0)}</>} · {(p as typeof p & { diarias_contratadas?: number | null }).diarias_contratadas || 0} contratadas{p.delivery_date ? ` · Prazo ${formatDate(p.delivery_date)}` : ""}</p>
                   </div>
                   {can("projetos") && <Button variant="outline" size="sm" asChild><Link to={linkProjeto(p.id, origem, "diarias")}><Calendar className="mr-1.5 h-3.5 w-3.5" />Diárias</Link></Button>}
                 </div>;
