@@ -32,8 +32,8 @@ export type ResultadoPdf = { ok: boolean; motivo?: string };
  * que ainda entrega um PDF (claro). Ficar sem nenhum PDF na hora de mandar
  * proposta é pior que um PDF fora do tema.
  */
-export async function baixarCartaPdf(nomeArquivo: string): Promise<ResultadoPdf> {
-  const doc = document.querySelector(".carta-doc");
+export async function baixarCartaPdf(nomeArquivo: string, opcoes?: { seletor: string; style: string; extra: string }): Promise<ResultadoPdf> {
+  const doc = document.querySelector(opcoes?.seletor || ".carta-doc");
   if (!doc) return { ok: false, motivo: "carta não encontrada na tela" };
 
   const { data } = await supabase.auth.getSession();
@@ -48,8 +48,8 @@ export async function baixarCartaPdf(nomeArquivo: string): Promise<ResultadoPdf>
       body: JSON.stringify({
         corpo: doc.outerHTML,
         css: await cssDoApp(),
-        style: CARTA_STYLE,
-        extra: CARTA_PDF_ESCURO_STYLE,
+        style: opcoes?.style ?? CARTA_STYLE,
+        extra: opcoes?.extra ?? CARTA_PDF_ESCURO_STYLE,
         nome: nomeArquivo,
       }),
     });

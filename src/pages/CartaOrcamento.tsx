@@ -1,3 +1,4 @@
+import { registrarEmissaoPdf } from "@/lib/emissaoOrcamento";
 import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -110,6 +111,10 @@ export default function CartaOrcamento() {
     setGerando(true);
     const r = await baixarCartaPdf(nomeArquivoProposta(data?.deal?.title, data?.deal?.numero, { letra: data?.letra, nome: (data?.budget as any)?.variante_nome }));
     setGerando(false);
+    if (r.ok && data?.budget?.id) {
+      await registrarEmissaoPdf(data.budget.id);
+      qc.invalidateQueries({ queryKey: ["orcamento-budget"] });
+    }
     if (!r.ok) {
       toast.error("Não consegui gerar o PDF escuro — abrindo a impressão normal.", {
         description: r.motivo,

@@ -1,9 +1,12 @@
+import { baixarCartaPdf } from "@/lib/cartaPdf";
+import { registrarEmissaoPdf } from "@/lib/emissaoOrcamento";
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Printer, Loader2, Settings2, Plus, X, RotateCcw } from "lucide-react";
+import { ArrowLeft, Printer, Download, Loader2, Settings2, Plus, X, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -102,6 +105,7 @@ function Chave<V extends Record<string, boolean>>({ k, rot, ver, setVer }: {
 }
 
 export default function CartaSimples() {
+  const qc = useQueryClient();
   const { id } = useParams<{ id: string }>();
   // Qual OPÇÃO do orçamento esta carta representa. Vem do editor (`?opcao=`);
   // sem ela, a busca cai no principal.
@@ -131,6 +135,7 @@ export default function CartaSimples() {
     inclusos: true,
     entregas: true,       // o que o escopo contempla
   });
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [detalhada, setDetalhada] = useState(false);
 
   /** Textos editáveis do documento — vivem só nesta tela até serem salvos. */
@@ -219,6 +224,22 @@ export default function CartaSimples() {
     });
     return () => { document.title = antes; };
   }, [titulo, numero, data]);
+
+  const baixarPdf = async () => {
+    setGerandoPdf(true);
+    try {
+      const resultado = await baixarCartaPdf(nomeArquivoProposta(titulo, numero, { letra: letraOpcao, nome: data?.budget?.variante_nome }), {
+        seletor: ".nota",
+        style: "@page { size: A4; margin: 12mm; } body { background: white !important; } .nota { margin: 0 !important; box-shadow: none !important; max-width: none !important; } .bloco, tr { break-inside: avoid; }",
+        extra: "",
+      });
+      if (!resultado.ok) { toast.error("Não foi possível gerar o PDF", { description: resultado.motivo }); return; }
+      if (data?.budget?.id) {
+        await registrarEmissaoPdf(data.budget.id);
+        qc.invalidateQueries({ queryKey: ["orcamento-budget"] });
+      }
+    } finally { setGerandoPdf(false); }
+  };
 
   if (isLoading || !data || !calc) {
     return <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -390,7 +411,10 @@ export default function CartaSimples() {
             </PopoverContent>
           </Popover>
 
-          <Button size="sm" onClick={() => window.print()}>
+          <Button size="sm" disabled={gerandoPdf} onClick={baixarPdf}>
+            {gerandoPdf ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />} Baixar PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>
             <Printer className="mr-1.5 h-3.5 w-3.5" /> Imprimir / Salvar PDF
           </Button>
         </div>

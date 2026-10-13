@@ -1,3 +1,4 @@
+import { diasOrcamento } from "@/lib/diasOrcamento";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useVoltar } from "@/hooks/useVoltar";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -343,6 +344,26 @@ export default function OrcamentoEditor() {
         </div>
       </div>
 
+      <section aria-label="Datas e andamento do orçamento" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Criado", data: deal.created_at || budget.created_at, detalhe: "Início do orçamento" },
+          { label: "Primeira emissão", data: budget.pdf_primeira_emissao_em, detalhe: "Primeiro PDF gerado" },
+          { label: "Última emissão", data: budget.pdf_ultima_emissao_em, detalhe: `${Array.isArray(budget.pdf_emissoes) ? budget.pdf_emissoes.length : 0} PDFs registrados` },
+        ].map(({ label, data, detalhe }) => (
+          <div key={label} className="rounded-lg border border-border/60 bg-card/40 px-4 py-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className="mt-1 text-sm font-semibold">{data ? formatDate(data) : "Sem registro"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{detalhe}</p>
+          </div>
+        ))}
+        <div className="rounded-lg border border-border/60 bg-card/40 px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tempo percorrido</p>
+          <p className="mt-1 text-sm font-semibold">{diasOrcamento(deal.created_at || budget.created_at, budget.aprovada_em || undefined) ?? "—"} dias</p>
+          <p className="mt-1 text-xs text-muted-foreground">{budget.aprovada_em ? `Até aprovação · ${formatDate(budget.aprovada_em)}` : "Desde a criação"}</p>
+          {budget.pdf_primeira_emissao_em && <p className="mt-1 text-xs text-muted-foreground">{diasOrcamento(budget.pdf_primeira_emissao_em, budget.aprovada_em || undefined)} dias desde a emissão{budget.aprovada_em ? " até aprovar" : ""}</p>}
+        </div>
+      </section>
+
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <Tabs value={!canSeeMoney && secao === "planilha" ? "escopo" : secao} onValueChange={setSecao}>
@@ -388,6 +409,10 @@ export default function OrcamentoEditor() {
             <TabsContent value="proposta" forceMount className="space-y-4 data-[state=inactive]:hidden">
               <div className="rounded-lg border border-border/60 p-4">
                 <h2 className="mb-3 text-sm font-semibold">Apresentar ao cliente</h2>
+                {Array.isArray(budget.pdf_emissoes) && budget.pdf_emissoes.length > 0 && <details className="mb-3 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Histórico de emissão · {budget.pdf_emissoes.length} PDFs</summary>
+                  <ul className="mt-2 space-y-1">{budget.pdf_emissoes.map((emissao: any, i: number) => <li key={i}>{new Date(emissao.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} · {profiles.find((p: any) => p.id === emissao.por)?.full_name || "Usuário"}</li>)}</ul>
+                </details>}
                 <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
               </div>
       {budget && (
@@ -1680,7 +1705,7 @@ function PlanilhaSection({
         )}
 
         {/* Categorias */}
-        <div className="space-y-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {categoriasNaTela.map((cat) => {
             const itensCat = itensPorCategoria.get(cat.id) || [];
             const totalCat = totaisPorCategoria.get(cat.id) || 0;
@@ -1697,11 +1722,11 @@ function PlanilhaSection({
             const foraDaTaxa = itensCat.filter((i: any) => i.tira_taxa).length;
             const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
             return (
-              <div key={cat.id} className="rounded-lg border border-border/50">
-                <div className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:flex-nowrap sm:px-4">
+              <div key={cat.id} className={`rounded-lg border border-border/50 ${aberta ? "md:col-span-2" : ""}`}>
+                <div className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:px-4">
                   <button
                     onClick={() => toggleCat(cat.id)}
-                    className="flex w-full min-w-0 items-center gap-2 text-left sm:w-auto sm:flex-1 sm:gap-3"
+                    className="flex w-full min-w-0 items-center gap-2 text-left sm:gap-3"
                   >
                     {aberta ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
                     <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{cat.codigo}</span>
@@ -1712,7 +1737,7 @@ function PlanilhaSection({
                     </span>
                     <span className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
                       <span className="hidden text-[10px] text-muted-foreground sm:inline">{itensCat.length}</span>
-                      <span className="hidden h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:block">
+                      <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted xl:block">
                         <span
                           className={`block h-full rounded-full ${maiorPeso ? "bg-warning" : "bg-primary/50"}`}
                           style={{ width: `${Math.min(100, peso)}%` }}
