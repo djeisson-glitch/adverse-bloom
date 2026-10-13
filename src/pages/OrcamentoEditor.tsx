@@ -1106,7 +1106,9 @@ function PlanilhaSection({
   onEntregasInseridas: () => Promise<void>;
 }) {
   const qc = useQueryClient();
-  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  const [visitadas, setVisitadas] = useState<Set<string>>(new Set());
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | null>(null);
+  const painelGrupo = useRef<HTMLDivElement>(null);
   const [percentuais, setPercentuais] = useState({
     margem: budget.margem_produtora_percent || 0,
     imposto: budget.imposto_percent || 0,
@@ -1234,6 +1236,18 @@ function PlanilhaSection({
     return m;
   }, [itens]);
 
+  const categoriaAtiva = categoriasNaTela.find((c) => c.id === categoriaSelecionada)
+    || categoriasNaTela.find((c) => (totaisPorCategoria.get(c.id) || 0) > 0)
+    || categoriasNaTela[0];
+
+  // Mantém o rascunho dos grupos visitados ao alternar a seleção.
+  const categoriaAtivaId = categoriaAtiva?.id;
+  useEffect(() => {
+    if (!categoriaAtivaId) return;
+    setVisitadas((anteriores) => anteriores.has(categoriaAtivaId)
+      ? anteriores : new Set([...anteriores, categoriaAtivaId]));
+  }, [categoriaAtivaId]);
+
   // Só as linhas de grupos NÃO ocultos entram nos totais e na rentabilidade.
   const itensAtivos = useMemo(
     () => itens.filter((i) => !ocultasSet.has(i.categoria_id || "")),
@@ -1295,10 +1309,10 @@ function PlanilhaSection({
     toast.success(fora ? `${alvos.length} itens fora da taxa` : `${alvos.length} itens de volta na taxa`);
   };
 
-  const toggleCat = (id: string) => {
-    const s = new Set(expandidas);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setExpandidas(s);
+  const selecionarCategoria = (id: string) => {
+    setCategoriaSelecionada(id);
+    painelGrupo.current?.scrollTo({ top: 0 });
+    setVisitadas((anteriores) => new Set([...anteriores, id]));
   };
 
   const salvarPercentuais = useMutation({
@@ -1704,95 +1718,75 @@ function PlanilhaSection({
           </div>
         )}
 
-        {/* Categorias */}
-        <div className="grid gap-3 md:grid-cols-2">
-          {categoriasNaTela.map((cat) => {
-            const itensCat = itensPorCategoria.get(cat.id) || [];
-            const totalCat = totaisPorCategoria.get(cat.id) || 0;
-            const aberta = expandidas.has(cat.id);
-            // Peso do grupo na soma das linhas — onde o orçamento pesa de
-            // verdade. A base é a soma dos grupos ativos (não o total cobrado)
-            // pra que os percentuais somem 100% e dê pra comparar de bater o
-            // olho; margem e imposto incidem por cima, iguais pra todo grupo.
-            const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
-            const maiorPeso = peso >= 25;
-            // Quantos itens do grupo estão fora da taxa. Grupo inteiro fora é
-            // o caso comum (elenco, cachê) — marcar item a item é trabalho à
-            // toa, e sem o contador ninguém sabe que o grupo está misto.
-            const foraDaTaxa = itensCat.filter((i: any) => i.tira_taxa).length;
-            const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
-            return (
-              <div key={cat.id} className={`rounded-lg border border-border/50 ${aberta ? "md:col-span-2" : ""}`}>
-                <div className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 sm:px-4">
-                  <button
-                    onClick={() => toggleCat(cat.id)}
-                    className="flex w-full min-w-0 items-center gap-2 text-left sm:gap-3"
-                  >
-                    {aberta ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-                    <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{cat.codigo}</span>
-                    {/* Grupo sem nenhum real dentro fica apagado: a varredura
-                        de cima pra baixo passa direto por ele. */}
-                    <span className={`min-w-0 truncate text-sm ${totalCat > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
-                      {cat.nome}
-                    </span>
-                    <span className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-                      <span className="hidden text-[10px] text-muted-foreground sm:inline">{itensCat.length}</span>
-                      <span className="hidden h-1.5 w-12 overflow-hidden rounded-full bg-muted xl:block">
-                        <span
-                          className={`block h-full rounded-full ${maiorPeso ? "bg-warning" : "bg-primary/50"}`}
-                          style={{ width: `${Math.min(100, peso)}%` }}
-                        />
-                      </span>
-                      <span
-                        className={`hidden w-11 text-right sm:inline text-xs tabular-nums ${maiorPeso ? "font-semibold text-warning" : "text-muted-foreground"}`}
-                        title="peso deste grupo na soma das linhas"
-                      >
-                        {peso >= 0.05 ? `${peso.toFixed(1)}%` : "—"}
-                      </span>
-                      <span className={`text-right sm:w-28 text-sm ${totalCat > 0 ? "font-semibold text-foreground" : "text-muted-foreground/60"}`}>
-                        {formatCurrency(totalCat)}
-                      </span>
+        {/* Navegação e editor independentes: selecionar um grupo não rearranja os demais. */}
+        <div className="overflow-hidden rounded-lg border border-border/60" data-testid="editor-grupos">
+          <div className="border-b border-border/50 p-3 md:hidden">
+            <Label htmlFor="grupo-orcamento" className="mb-2 block text-xs text-muted-foreground">Grupo da planilha</Label>
+            <Select value={categoriaAtiva?.id || ""} onValueChange={selecionarCategoria}>
+              <SelectTrigger id="grupo-orcamento"><SelectValue placeholder="Nenhum grupo visível" /></SelectTrigger>
+              <SelectContent>
+                {categoriasNaTela.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.nome}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid md:grid-cols-[200px_minmax(0,1fr)]">
+            <nav aria-label="Grupos da planilha" className="hidden h-[560px] overflow-y-auto border-r border-border/50 bg-muted/10 p-2 md:block">
+              <p className="px-3 pb-2 pt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Grupos</p>
+              {categoriasNaTela.map((cat) => {
+                const ativa = cat.id === categoriaAtiva?.id;
+                const total = totaisPorCategoria.get(cat.id) || 0;
+                const quantidade = itensPorCategoria.get(cat.id)?.length || 0;
+                return (
+                  <button key={cat.id} onClick={() => selecionarCategoria(cat.id)}
+                    aria-pressed={ativa} aria-controls={`grupo-painel-${cat.id}`}
+                    className={`mb-1 block w-full rounded-md border px-3 py-3 text-left transition-colors ${ativa
+                      ? "border-primary/30 bg-primary/10 text-foreground"
+                      : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}>
+                    <span className="block text-xs font-medium leading-relaxed">{cat.nome}</span>
+                    <span className="mt-1 flex items-center justify-between gap-2 text-[11px]">
+                      <span className="text-muted-foreground">{quantidade} {quantidade === 1 ? "item" : "itens"}</span>
+                      <span className={total > 0 ? "font-medium tabular-nums text-foreground" : "tabular-nums text-muted-foreground"}>{formatCurrency(total)}</span>
                     </span>
                   </button>
-                  {itensCat.length > 0 && (
-                    <button
-                      onClick={() => marcarGrupoForaDaTaxa(cat.id, !todosFora)}
-                      title={todosFora
-                        ? "Este grupo inteiro está fora da base da margem — clique pra devolver"
-                        : `Tirar os ${itensCat.length} itens deste grupo da base da margem`}
-                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
-                        foraDaTaxa === 0
-                          ? "text-muted-foreground hover:bg-muted/40"
-                          : "bg-warning/15 font-medium text-warning"
-                      }`}
-                    >
-                      {foraDaTaxa === 0
-                        ? "fora da taxa"
-                        : todosFora ? "grupo fora da taxa" : `${foraDaTaxa}/${itensCat.length} fora`}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => toggleOculta(cat.id, true)}
-                    title="Excluir este grupo do orçamento (dá pra reincluir depois)"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                  >
-                    <EyeOff className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {aberta && (
-                  <CategoriaItens
-                    budgetId={budget.id}
-                    categoriaId={cat.id}
-                    codigo={cat.codigo}
-                    catNome={cat.nome}
-                    itens={itensCat}
-                    esconderZeradas={soPreenchidos}
-                    onChanged={onChanged}
-                  />
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </nav>
+            <div ref={painelGrupo} className="h-[560px] min-w-0 overflow-y-auto overscroll-contain" data-testid="itens-grupo">
+              {!categoriaAtiva && <p className="p-6 text-sm text-muted-foreground">Nenhum grupo visível. Mostre as linhas zeradas ou reinclua um grupo abaixo.</p>}
+              {categoriasVisiveis.map((cat) => {
+                const ativa = cat.id === categoriaAtiva?.id;
+                if (!ativa && !visitadas.has(cat.id)) return null;
+                const itensCat = itensPorCategoria.get(cat.id) || [];
+                const totalCat = totaisPorCategoria.get(cat.id) || 0;
+                const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
+                const foraDaTaxa = itensCat.filter((i) => i.tira_taxa).length;
+                const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
+                return (
+                  <section key={cat.id} id={`grupo-painel-${cat.id}`} hidden={!ativa} aria-label={`Itens de ${cat.nome}`}>
+                    <div className="sticky top-0 z-10 flex flex-wrap items-start justify-between gap-3 border-b border-border/50 bg-card px-4 py-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold">{cat.nome}</h3>
+                        <p className="mt-1 text-[11px] text-muted-foreground">{itensCat.length} {itensCat.length === 1 ? "item" : "itens"}{peso > 0 ? ` · ${peso.toFixed(1)}% do valor dos itens` : ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold tabular-nums">{formatCurrency(totalCat)}</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Opções de ${cat.nome}`}><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {itensCat.length > 0 && <DropdownMenuItem onClick={() => marcarGrupoForaDaTaxa(cat.id, !todosFora)}>{todosFora ? "Incluir grupo na taxa da produtora" : "Tirar grupo da taxa da produtora"}</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => toggleOculta(cat.id, true)}>Retirar grupo do orçamento</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      {foraDaTaxa > 0 && <p className="w-full text-[11px] text-warning">{todosFora ? "Grupo fora da taxa da produtora" : `${foraDaTaxa} itens fora da taxa da produtora`}</p>}
+                    </div>
+                    <CategoriaItens budgetId={budget.id} categoriaId={cat.id} codigo={cat.codigo} catNome={cat.nome}
+                      itens={itensCat} esconderZeradas={soPreenchidos} onChanged={onChanged} />
+                  </section>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Grupo inteiro zerado some junto — mas dito em voz alta, senão
@@ -1923,23 +1917,11 @@ function CategoriaItens({
 
   return (
     <div className="border-t border-border/40">
-      <div className="grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span />
-        <span>Descrição</span>
-        <span>QTD</span>
-        <span>{porHora ? "Horas" : "Diária"}</span>
-        <span>{porHora ? "Valor/hora" : "Valor unit."}</span>
-        <span>{porHora ? "Custo/hora" : "Custo unit."}</span>
-        <span className="text-right">Valor</span>
-        <span>Observações</span>
-        <span className="text-center" title="Item marcado NÃO entra na base da margem da produtora">Fora da taxa</span>
-        <span />
-      </div>
       {/* O índice sai da posição REAL na lista: recolher não pode renumerar as
           linhas, senão o 011.007 de ontem vira outro item hoje. */}
       {itens.map((it, idx) =>
         escondida(it) ? null : (
-          <BudgetItemRow key={it.id} item={it} codigo={codigo} idx={idx + 1} onChanged={onChanged} />
+          <BudgetItemRow key={it.id} item={it} codigo={codigo} porHora={porHora} idx={idx + 1} onChanged={onChanged} />
         ),
       )}
       {ocultas > 0 && (
@@ -1953,7 +1935,8 @@ function CategoriaItens({
           value={novaDesc}
           onChange={(e) => setNovaDesc(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && adicionar.mutate()}
-          placeholder="Adicionar item em..."
+          aria-label={`Novo item em ${catNome}`}
+          placeholder="Nome do novo item"
           className="h-8 text-sm"
         />
         <Button size="sm" onClick={() => adicionar.mutate()}>
@@ -1994,10 +1977,11 @@ function NumCell({ value, onChange, onCommit, className }: {
 }
 
 function BudgetItemRow({
-  item, codigo, idx, onChanged,
+  item, codigo, porHora, idx, onChanged,
 }: {
   item: BudgetItem;
   codigo: string;
+  porHora: boolean;
   idx: number;
   onChanged: () => void;
 }) {
@@ -2055,68 +2039,36 @@ function BudgetItemRow({
   const vazia = valor === 0 && custoLinha === 0;
 
   return (
-    <div className={`grid grid-cols-[70px_1.2fr_60px_70px_95px_95px_95px_0.9fr_72px_36px] gap-2 border-b border-border/30 px-4 py-1.5 transition-opacity last:border-0 ${
-      row.tira_taxa ? "bg-warning/[0.06]" : ""
-    } ${vazia ? "opacity-45 focus-within:opacity-100 hover:opacity-100" : ""}`}>
-      <span className="font-mono text-[10px] text-muted-foreground">
-        {codigo}.{String(idx).padStart(3, "0")}
-      </span>
-      <Input
-        value={row.descricao}
-        onChange={(e) => setRow({ ...row, descricao: e.target.value })}
-        onBlur={() => salvar.mutate()}
-        className="h-7 text-xs"
-      />
-      <NumCell value={row.quantity} onChange={(n) => setRow({ ...row, quantity: n })} onCommit={() => salvar.mutate()} />
-      <NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} />
-      <NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} />
-      <NumCell value={row.custo_unitario} onChange={(n) => setRow({ ...row, custo_unitario: n })} onCommit={() => salvar.mutate()} />
-      <span
-        className={`text-right text-xs tabular-nums ${vazia ? "text-muted-foreground/60" : "font-medium text-foreground"}`}
-        title={`Custo ${formatCurrency(custoLinha)} · sobra ${formatCurrency(sobra)}`}
-      >
-        {formatCurrency(valor)}
-        {/* Sobra só quando há dinheiro na linha: "+R$ 0,00" em verde repetido
-            oitenta vezes era metade do ruído da planilha. */}
-        {!vazia && (
-          <span className={`block text-[9px] ${sobra >= 0 ? "text-success" : "text-destructive"}`}>
-            {sobra >= 0 ? "+" : ""}{formatCurrency(sobra)}
-          </span>
-        )}
-      </span>
-      <Input
-        value={row.observacoes}
-        onChange={(e) => setRow({ ...row, observacoes: e.target.value })}
-        onBlur={() => salvar.mutate()}
-        className="h-7 text-xs"
-        placeholder="—"
-      />
-      {/* "Fora da taxa": este item não entra na base da margem. Era uma
-          caixinha muda de 14px sob o rótulo "T. taxa" — existia e ninguém
-          via. Agora tem texto do lado e a linha inteira muda de cara quando
-          marcada, que é o que permite conferir a planilha de bater o olho. */}
-      <label
-        className={`flex cursor-pointer items-center justify-center gap-1 rounded px-1 py-0.5 text-[10px] transition-colors ${
-          row.tira_taxa ? "bg-warning/15 font-medium text-warning" : "text-muted-foreground hover:bg-muted/40"
-        }`}
-        title={row.tira_taxa
-          ? "Fora da taxa: este item NÃO entra na base da margem da produtora"
-          : "Marcar pra tirar este item da base da margem da produtora"}
-      >
-        <input
-          type="checkbox"
-          checked={row.tira_taxa}
-          onChange={(e) => {
-            setRow({ ...row, tira_taxa: e.target.checked });
-            setTimeout(() => salvar.mutate(), 0);
-          }}
-          className="h-3.5 w-3.5 accent-warning"
-        />
-        {row.tira_taxa ? "fora" : ""}
-      </label>
-      <button onClick={() => excluir.mutate()} className="text-muted-foreground hover:text-destructive">
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+    <div className={`space-y-3 border-b border-border/40 p-4 ${row.tira_taxa ? "bg-warning/[0.04]" : ""}`}>
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{codigo}.{String(idx).padStart(3, "0")}</span>
+        <Input aria-label="Descrição do item" value={row.descricao}
+          onChange={(e) => setRow({ ...row, descricao: e.target.value })}
+          onBlur={() => salvar.mutate()} className="h-8 min-w-0 flex-1 text-sm font-medium" />
+        <button aria-label={`Excluir ${row.descricao}`} onClick={() => excluir.mutate()} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+      </div>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(85px, 1fr))" }}>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>Quantidade</span><NumCell value={row.quantity} onChange={(n) => setRow({ ...row, quantity: n })} onCommit={() => salvar.mutate()} /></label>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Horas" : "Diárias"}</span><NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} /></label>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Valor/hora" : "Valor unitário"}</span><NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} /></label>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Custo/hora" : "Custo unitário"}</span><NumCell value={row.custo_unitario} onChange={(n) => setRow({ ...row, custo_unitario: n })} onCommit={() => salvar.mutate()} /></label>
+        <div className="space-y-1 text-right"><p className="text-[10px] text-muted-foreground">Total do item</p><p className={`text-sm tabular-nums ${vazia ? "text-muted-foreground" : "font-semibold"}`}>{formatCurrency(valor)}</p></div>
+      </div>
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer text-[11px]">Observações e taxa{row.observacoes ? " · com observação" : ""}{row.tira_taxa ? " · fora da taxa" : ""}</summary>
+        <div className="mt-2 space-y-2">
+          <Input aria-label={`Observações de ${row.descricao}`} value={row.observacoes}
+            onChange={(e) => setRow({ ...row, observacoes: e.target.value })} onBlur={() => salvar.mutate()}
+            className="h-8 text-xs" placeholder="Observações do item" />
+          <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+            <input type="checkbox" checked={row.tira_taxa} onChange={(e) => {
+              setRow({ ...row, tira_taxa: e.target.checked });
+              setTimeout(() => salvar.mutate(), 0);
+            }} className="h-3.5 w-3.5 accent-warning" />Fora da taxa da produtora
+          </label>
+          {!vazia && <p>Custo total {formatCurrency(custoLinha)} · Sobra <span className={sobra >= 0 ? "text-success" : "text-destructive"}>{formatCurrency(sobra)}</span></p>}
+        </div>
+      </details>
     </div>
   );
 }
