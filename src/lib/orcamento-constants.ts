@@ -14,6 +14,13 @@ export const CANAIS_ENTRADA = [
   { value: "outro", label: "Outro" },
 ] as const;
 
+export const PORTES_ORCAMENTO = [
+  { value: "grande", label: "Grande (planilha completa)" },
+  { value: "medio", label: "Médio (planilha reduzida)" },
+  { value: "pequeno", label: "Pequeno" },
+  { value: "jogo_rapido", label: "Jogo rápido" },
+] as const;
+
 export const TIPOS_ORCAMENTO = [
   { value: "geral", label: "Geral" },
   { value: "so_producao", label: "Só produção" },

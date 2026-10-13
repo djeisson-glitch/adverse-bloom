@@ -17,6 +17,7 @@ import { nomeCodigo, semPrefixoCodigo } from "@/lib/codigo";
 import {
   CANAIS_ENTRADA,
   TIPOS_ORCAMENTO,
+  PORTES_ORCAMENTO,
   PRECISA_ROTEIRO,
   PRECISA_ELENCO,
   MOEDAS,
@@ -284,14 +285,18 @@ export default function NovoOrcamento() {
               </Select>
             </div>
             <div>
-              <Label>Porte do projeto</Label>
+              <Label htmlFor="porte-projeto">Porte do projeto</Label>
               <Select value={form.porte} onValueChange={(v) => setForm({ ...form, porte: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="porte-projeto" aria-describedby="porte-padrao"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="grande">Grande (planilha completa)</SelectItem>
-                  <SelectItem value="medio">Médio (planilha reduzida)</SelectItem>
+                  {PORTES_ORCAMENTO.map((porte) => (
+                    <SelectItem key={porte.value} value={porte.value}>{porte.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p id="porte-padrao" className="mt-2 text-xs text-muted-foreground">
+                Todos incluem operador de câmera, assistente, edição e deslocamento. Quantidades e valores ajustáveis.
+              </p>
             </div>
 
             <div>

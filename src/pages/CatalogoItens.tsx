@@ -72,8 +72,9 @@ export default function CatalogoItens() {
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <span>
           O <strong>valor unitário</strong> (o que você cobra) e o <strong>custo padrão</strong> (o que custa de verdade) já vêm preenchidos no orçamento novo
-          — com quantidade 0, você só coloca as quantidades. A diferença entre eles é a sobra que vira rentabilidade.
-          Marque <strong>"no médio"</strong> nos itens que devem aparecer no orçamento de porte <strong>médio</strong>; o <strong>grande</strong> traz tudo.
+          — operador de câmera, 1º assistente de câmera, edição e deslocamento começam com quantidade 1 em todos os portes.
+          Os demais itens começam zerados. Pequeno e Jogo rápido trazem só esses quatro itens essenciais.
+          Marque <strong>"no médio"</strong> para incluir outros itens no porte <strong>médio</strong>; o <strong>grande</strong> traz tudo.
         </span>
       </div>
 
