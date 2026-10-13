@@ -591,13 +591,14 @@ export default function FaturamentoMensal() {
 
                       {/* Consumo de contrato */}
                       {f.detalhe?.consumo && (
-                        <Bloco icon={<FileText className="h-3.5 w-3.5" />} titulo={`Consumo — ${f.detalhe.consumo.contrato}`}>
+                        <Bloco icon={<FileText className="h-3.5 w-3.5" />} titulo={`Consumo registrado no fechamento — ${f.detalhe.consumo.contrato}`}>
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <Kpi label="Diárias no mês" v={`${f.detalhe.consumo.diarias_usadas_mes}/${f.detalhe.consumo.diarias_franquia_mes}`} />
                             <Kpi label={`Saldo diárias (${f.detalhe.consumo.acumulo_meses}m)`} v={String(f.detalhe.consumo.diarias_saldo_janela)} />
                             <Kpi label="Entregas no mês" v={`${f.detalhe.consumo.entregas_usadas_mes}/${f.detalhe.consumo.entregas_franquia_mes}`} />
                             <Kpi label={`Saldo entregas (${f.detalhe.consumo.acumulo_meses}m)`} v={String(f.detalhe.consumo.entregas_saldo_janela)} />
                           </div>
+                          <p className="mt-2 text-xs text-muted-foreground">Fotografia do cálculo salvo neste fechamento. Para o saldo atualizado com validade e classificação de vídeos, <Link className="underline" to={`/clientes/${f.client_id}?aba=contrato`}>consulte o controle do contrato</Link>.</p>
                         </Bloco>
                       )}
 

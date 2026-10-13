@@ -3,6 +3,7 @@ import { resumoContrato, limitesMes, type Contrato, type MovimentoContrato } fro
 const contrato:Contrato={id:'c',client_id:'cli',nome:'Contrato',inicio:'2026-09-15',fim:null,ativo:true,valor_mensal:5000,diarias_mes:2,entregas_mes:4,acumulo_meses:2,observacoes:null};
 const movimento=(data:string,tipo:'diaria'|'entrega',quantidade=1,faturamento='mensal'):MovimentoContrato=>({id:data+tipo,tipo,data,titulo:'Item',status:'em_edicao',quantidade,faturamento,projetos:[]});
 describe('consumo do contrato',()=>{
+ it('respeita franquia de vídeos também na janela legada',()=>{const r=resumoContrato({...contrato,franquia_entregas_tipo:'video'},[{...movimento('2026-10-01','entrega'),titulo:'Fotos'},{...movimento('2026-10-01','entrega'),titulo:'Vídeo'}],'2026-10');expect(r.entregas).toBe(1);});
  it('separa mês, janela e histórico e não consome itens à parte',()=>{
   const r=resumoContrato(contrato,[movimento('2026-09-20','diaria'),movimento('2026-10-01','diaria',0.5),movimento('2026-10-02','diaria',1,'avulso'),movimento('2026-10-03','entrega'),movimento('2026-10-04','entrega',1,'mensal_separado')],'2026-10');
   expect(r.diarias).toBe(0.5);expect(r.diariasJanela).toBe(1.5);expect(r.entregas).toBe(1);expect(r.limiteDiarias).toBe(4);expect(r.noMes).toHaveLength(4);

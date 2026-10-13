@@ -1,12 +1,13 @@
+import { consomeFranquia } from './midiaContrato';
 export type Contrato = {
   id: string; client_id: string; nome: string; inicio: string | null; fim: string | null;
   ativo: boolean; valor_mensal: number; diarias_mes: number; entregas_mes: number;
-  acumulo_meses: number; observacoes: string | null; escopo_entregas?: string | null;
+  acumulo_meses: number; validade_creditos_dias?: number | null; limite_diarias_acumuladas?: number | null; limite_entregas_acumuladas?: number | null; franquia_entregas_tipo?: 'todos' | 'video' | 'video_foto'; observacoes: string | null; escopo_entregas?: string | null;
   documento_path?: string | null; documento_nome?: string | null; leitura_ia?: unknown;
 };
 export type MovimentoContrato = {
   id: string; tipo: 'diaria' | 'entrega'; titulo: string; data: string;
-  quantidade: number; status: string; faturamento: string;
+  tipo_midia?: 'video' | 'foto' | 'outro' | null; tipo_registro?: string; formato?: string | null; duracao?: string | null; quantidade: number; status: string; faturamento: string;
   projetos: { id: string; nome: string }[];
 };
 export function limitesMes(mes: string) {
@@ -25,7 +26,7 @@ export function resumoContrato(c: Contrato, movimentos: MovimentoContrato[], mes
   const validos = movimentos.filter(v => v.data <= ate && (!c.inicio || v.data >= c.inicio));
   const noMes = validos.filter(v => v.data >= inicio);
   const noFee = validos.filter(v => v.faturamento === 'mensal');
-  const somar = (rows: MovimentoContrato[], tipo: string) => rows.filter(v=>v.tipo===tipo).reduce((s,v)=>s+Number(v.quantidade),0);
+  const somar = (rows: MovimentoContrato[], tipo: string) => rows.filter(v=>v.tipo===tipo && (tipo!=='entrega' || consomeFranquia(c.franquia_entregas_tipo,v))).reduce((s,v)=>s+Number(v.quantidade),0);
   return {
     de, ate, meses, noMes,
     diarias: somar(noMes.filter(v=>v.faturamento==='mensal'),'diaria'),

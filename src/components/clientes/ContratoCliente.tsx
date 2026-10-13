@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { FileText, Pencil, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { mesISO } from '@/lib/dataLocal';
+import { calcularCreditos, tipoMidia, type ContaCredito } from '@/lib/creditosContrato';
+import { hojeISO, mesISO } from '@/lib/dataLocal';
 import { Contrato, MovimentoContrato, limitesMes, resumoContrato } from '@/lib/consumoContrato';
+import VisaoGeralContrato from './VisaoGeralContrato';
 import { linkProjeto } from '@/lib/projetoNavegacao';
 
 const db = supabase as any;
@@ -18,6 +20,7 @@ const qtd = (n:number) => n.toLocaleString('pt-BR',{maximumFractionDigits:2});
 
 export default function ContratoCliente({clientId}:{clientId:string}) {
   const [mes,setMes]=useState(mesISO().slice(0,7));
+  const [dataCorte,setDataCorte]=useState('');
   const [editar,setEditar]=useState(false);
   const [filtro,setFiltro]=useState('todos');
   const contrato=useQuery<Contrato|null>({queryKey:['client_contratos',clientId],queryFn:async()=>{
@@ -32,6 +35,8 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
   if(contrato.isLoading) return <p className="p-4 text-sm">Carregando contrato…</p>;
   if(contrato.isError) return <div className="p-4 text-sm text-destructive">Não foi possível carregar o contrato. <Button variant="outline" onClick={()=>contrato.refetch()}>Tentar novamente</Button></div>;
   const resumo=c && movimentos.data ? resumoContrato(c,movimentos.data,mes):null;
+  const corte=dataCorte || (mes===hojeISO().slice(0,7)?hojeISO():limitesMes(mes).fim);
+  const creditos=c?.validade_creditos_dias && movimentos.data ? calcularCreditos(c,movimentos.data,mes,corte) : null;
   const linhas=resumo?.noMes.filter(m=>filtro==='todos'||(filtro==='fee'?m.faturamento==='mensal':m.faturamento!=='mensal')) || [];
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -40,19 +45,28 @@ export default function ContratoCliente({clientId}:{clientId:string}) {
     </div>
     {(editar || !c) && <EditorContrato key={c?.id || clientId} clientId={clientId} contrato={c||null} onSaved={()=>setEditar(false)}/>}
     {c && <>
-      <div className="flex flex-wrap items-center justify-between gap-2"><Label htmlFor="mes-contrato">Mês de referência</Label><Input id="mes-contrato" type="month" className="w-44" value={mes} onChange={e=>{if(/^\d{4}-\d{2}$/.test(e.target.value))setMes(e.target.value);}}/></div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><Label htmlFor="mes-contrato">Mês de referência</Label><Input id="mes-contrato" type="month" className="w-44" value={mes} onChange={e=>{if(/^\d{4}-\d{2}$/.test(e.target.value)){setMes(e.target.value);setDataCorte('');}}}/></div>
       {movimentos.isLoading && <p className="text-sm">Calculando consumo…</p>}
       {movimentos.isError && <div className="rounded-lg border border-destructive/40 p-4 text-sm">Não foi possível consultar o consumo. Nenhum saldo foi calculado. <Button variant="outline" onClick={()=>movimentos.refetch()}>Tentar novamente</Button></div>}
       {resumo && <>
+        {creditos ? <>
+          <div className="flex flex-wrap items-center justify-between gap-2"><Label htmlFor="corte-contrato">Saldo em {corte > hojeISO() ? '(projeção)' : ''}</Label><Input id="corte-contrato" className="w-44" type="date" min={limitesMes(mes).inicio} max={limitesMes(mes).fim} value={corte} onChange={e=>{const v=e.target.value;if(!v || (v>=limitesMes(mes).inicio && v<=limitesMes(mes).fim))setDataCorte(v);}}/></div>
+          <VisaoGeralContrato contrato={c} resumo={creditos} corte={corte}/>
+          <p className="text-xs text-muted-foreground">Registros posteriores à data selecionada aparecem abaixo, mas ainda não descontam créditos.</p>
+          {creditos.semInicio && <p className="text-sm text-warning">Informe o início do contrato para apurar créditos anteriores.</p>}
+          {!!creditos.pendentes.length && c.franquia_entregas_tipo!=='todos' && <details className="rounded-lg border border-warning/50 p-3 text-sm"><summary className="cursor-pointer">Saldo provisório: {creditos.pendentes.length} peça(s) sem tipo definido no histórico</summary><p className="my-2 text-xs text-muted-foreground">Estas peças ainda não descontam a franquia de entregas. Confirme o tipo para recalcular.</p>{creditos.pendentes.map(m=><div key={m.id} className="flex flex-wrap items-center justify-between gap-2 border-t py-2"><span>{m.titulo} · {formatDate(m.data)}</span><ClassificarMidia movimento={m}/></div>)}</details>}
+          <details className="rounded-lg border p-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">Créditos por competência e regras do saldo</summary><p className="my-3">Cada competência libera a franquia no primeiro dia (ou no início da vigência, no mês inicial). Créditos expiram no início da data indicada, {c.validade_creditos_dias} dias após o primeiro dia da competência. O consumo usa os mais antigos primeiro. Teto de saldo: {c.limite_diarias_acumuladas ?? 'sem limite'} diárias e {c.limite_entregas_acumuladas ?? 'sem limite'} {c.franquia_entregas_tipo==='video'?'vídeos':'entregas'}; ao ultrapassar, o saldo mais antigo é retirado. Excedentes ficam separados e não são compensados por meses futuros. Captações programadas contam na data marcada; peças seguem a data do projeto. Itens à parte, cancelados e reprovados não consomem a franquia.</p><ExtratoCreditos titulo="Diárias" conta={creditos.diarias}/><ExtratoCreditos titulo={c.franquia_entregas_tipo==='video'?'Vídeos':'Entregas'} conta={creditos.entregas}/></details>
+        </> : <>
         <div className="grid gap-3 sm:grid-cols-2">
           <ConsumoCard titulo="Diárias de captação" mes={resumo.diarias} usadas={resumo.diariasJanela} limite={resumo.limiteDiarias} franquia={Number(c.diarias_mes)}/>
           <ConsumoCard titulo="Entregáveis" mes={resumo.entregas} usadas={resumo.entregasJanela} limite={resumo.limiteEntregas} franquia={Number(c.entregas_mes)}/>
         </div>
         <p className="text-xs text-muted-foreground">Saldo na janela de {formatDate(resumo.de)} a {formatDate(resumo.ate)} · {resumo.meses} mês(es) de franquia. {c.inicio ? `Desde o início até este mês: ${qtd(resumo.totalDiarias)} diárias e ${qtd(resumo.totalEntregas)} entregáveis no fee.`:'Informe o início para consultar o histórico completo.'}</p>
         <details className="rounded-lg border p-3 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">Como o consumo é calculado</summary><p className="mt-2">Diárias incluem captações realizadas e programadas; canceladas não contam. Uma mesma data compartilhada entre projetos conta pela maior fração. Entregáveis contam pela data do projeto, seguindo o fechamento existente, mesmo ainda em produção. Cancelados e reprovados são excluídos. Exceções de cobrança da peça prevalecem sobre o projeto. Franquias são mensais, sem rateio de mês parcial. Regras específicas do documento ficam registradas abaixo para conferência.</p></details>
+        </>}
         <div className="rounded-lg border">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3"><h3 className="text-sm font-semibold">Consumo e trabalhos à parte</h3><select aria-label="Filtrar cobrança do consumo" className="rounded-md bg-background p-2 text-xs" value={filtro} onChange={e=>setFiltro(e.target.value)}><option value="todos">Todos</option><option value="fee">Dentro do fee</option><option value="fora">Faturados à parte</option></select></div>
-          <div className="max-h-[460px] overflow-y-auto divide-y">{linhas.length ? linhas.map(m=><div key={`${m.tipo}-${m.id}`} className="space-y-1 p-3"><div className="flex items-start justify-between gap-3"><p className="text-sm font-medium">{m.tipo==='diaria'?`${qtd(m.quantidade)} diária(s) · captação`:m.titulo}</p><span className={`shrink-0 rounded px-2 py-1 text-[10px] ${m.faturamento==='mensal'?'bg-primary/10 text-primary':'bg-muted text-muted-foreground'}`}>{m.faturamento==='mensal'?'No fee':'À parte'}</span></div><p className="text-xs text-muted-foreground">{formatDate(m.data)} · {m.status.replace(/_/g,' ')}</p>{m.projetos.map(p=><Link key={p.id} className="mr-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary" to={linkProjeto(p.id,`/clientes/${clientId}?aba=contrato`)}>{p.nome}<ExternalLink className="h-3 w-3"/></Link>)}</div>):<p className="p-4 text-sm text-muted-foreground">Nenhum registro neste mês para este filtro.</p>}</div>
+          <div className="max-h-[460px] overflow-y-auto divide-y">{linhas.length ? linhas.map(m=><div key={`${m.tipo}-${m.id}`} className="space-y-1 p-3"><div className="flex items-start justify-between gap-3"><p className="text-sm font-medium">{m.tipo==='diaria'?`${qtd(m.quantidade)} diária(s) · captação`:m.titulo}</p><span className={`shrink-0 rounded px-2 py-1 text-[10px] ${m.faturamento==='mensal'?'bg-primary/10 text-primary':'bg-muted text-muted-foreground'}`}>{m.faturamento==='mensal'?'No fee':'À parte'}</span></div><p className="text-xs text-muted-foreground">{formatDate(m.data)} · {m.status.replace(/_/g,' ')}{creditos && m.data>corte?' · após a data do saldo':''}</p>{creditos && m.tipo==='entrega' && <ClassificarMidia movimento={m}/>}{m.projetos.map(p=><Link key={p.id} className="mr-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary" to={linkProjeto(p.id,`/clientes/${clientId}?aba=contrato`)}>{p.nome}<ExternalLink className="h-3 w-3"/></Link>)}</div>):<p className="p-4 text-sm text-muted-foreground">Nenhum registro neste mês para este filtro.</p>}</div>
         </div>
       </>}
       {(c.escopo_entregas||c.observacoes) && <div className="rounded-lg border p-4 space-y-3">{c.escopo_entregas&&<div><h3 className="text-sm font-semibold">Entregas contratadas</h3><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.escopo_entregas}</p></div>}{c.observacoes&&<div><h3 className="text-sm font-semibold">Regras do contrato</h3><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{c.observacoes}</p></div>}</div>}
@@ -68,7 +82,7 @@ function ConsumoCard({titulo,mes,usadas,limite,franquia}:{titulo:string;mes:numb
 
 function EditorContrato({clientId,contrato,onSaved}:{clientId:string;contrato:Contrato|null;onSaved:()=>void}) {
   const qc=useQueryClient();
-  const [form,setForm]=useState<Record<string,any>>(()=>({nome:contrato?.nome||'Contrato mensal',inicio:contrato?.inicio||'',fim:contrato?.fim||'',valor_mensal:contrato?.valor_mensal??'',diarias_mes:contrato?.diarias_mes??'',entregas_mes:contrato?.entregas_mes??'',acumulo_meses:contrato?.acumulo_meses??1,observacoes:contrato?.observacoes||'',escopo_entregas:contrato?.escopo_entregas||'',documento_path:contrato?.documento_path||null,documento_nome:contrato?.documento_nome||null}));
+  const [form,setForm]=useState<Record<string,any>>(()=>({nome:contrato?.nome||'Contrato mensal',inicio:contrato?.inicio||'',fim:contrato?.fim||'',valor_mensal:contrato?.valor_mensal??'',diarias_mes:contrato?.diarias_mes??'',entregas_mes:contrato?.entregas_mes??'',acumulo_meses:contrato?.acumulo_meses??1,observacoes:contrato?.observacoes||'',escopo_entregas:contrato?.escopo_entregas||'',validade_creditos_dias:contrato?.validade_creditos_dias??'',limite_diarias_acumuladas:contrato?.limite_diarias_acumuladas??'',limite_entregas_acumuladas:contrato?.limite_entregas_acumuladas??'',franquia_entregas_tipo:contrato?.franquia_entregas_tipo||'todos',documento_path:contrato?.documento_path||null,documento_nome:contrato?.documento_nome||null}));
   const [busy,setBusy]=useState('');
   const patch=(key:string,value:any)=>{setForm(f=>({...f,[key]:value}));};
   async function anexar(file?:File) {
@@ -96,11 +110,25 @@ function EditorContrato({clientId,contrato,onSaved}:{clientId:string;contrato:Co
   return <form onSubmit={salvar} className="rounded-xl border bg-card p-4 space-y-4">
     <div className="rounded-lg border border-dashed p-3 space-y-2"><Label htmlFor="arquivo-contrato">Documento do contrato · PDF ou TXT, até 10 MB</Label><Input id="arquivo-contrato" type="file" accept=".pdf,.txt" disabled={!!busy} onChange={e=>anexar(e.target.files?.[0])}/>{form.documento_nome&&<p className="text-xs text-muted-foreground">{form.documento_nome}</p>}<p className="text-xs text-muted-foreground">Anexo para consulta. Preencha os campos manualmente; a leitura por IA está desativada.</p></div>
     <fieldset disabled={!!busy} className="grid gap-3 sm:grid-cols-2">{[
-      ['nome','Nome do contrato','text'],['valor_mensal','Fee mensal (R$)','number'],['inicio','Início da vigência','date'],['fim','Fim da vigência (opcional)','date'],['diarias_mes','Diárias por mês','number'],['entregas_mes','Entregáveis por mês','number'],['acumulo_meses','Janela de acúmulo (meses)','number'],
-    ].map(([key,label,type])=><div key={key}><Label htmlFor={`contrato-${key}`}>{label}</Label><Input id={`contrato-${key}`} type={type} value={form[key]} onChange={e=>patch(key,e.target.value)} required={key!=='fim'} min={type==='number'?(key==='acumulo_meses'?1:0):undefined} max={key==='acumulo_meses'?60:undefined} step={key==='valor_mensal'||key==='diarias_mes'?'0.01':1}/></div>)}</fieldset>
+      ['nome','Nome do contrato','text'],['valor_mensal','Fee mensal (R$)','number'],['inicio','Início da vigência','date'],['fim','Fim da vigência (opcional)','date'],['diarias_mes','Diárias por mês','number'],['entregas_mes','Entregáveis por mês','number'],['acumulo_meses','Janela legada (meses, se não houver validade em dias)','number'],['validade_creditos_dias','Validade dos créditos (dias)','number'],['limite_diarias_acumuladas','Saldo máximo de diárias','number'],['limite_entregas_acumuladas','Saldo máximo de entregas','number'],
+    ].map(([key,label,type])=><div key={key}><Label htmlFor={`contrato-${key}`}>{label}</Label><Input id={`contrato-${key}`} type={type} value={form[key]} onChange={e=>patch(key,e.target.value)} required={!['fim','validade_creditos_dias','limite_diarias_acumuladas','limite_entregas_acumuladas'].includes(key)} min={type==='number'?(['acumulo_meses','validade_creditos_dias'].includes(key)?1:0):undefined} max={key==='acumulo_meses'?60:key==='validade_creditos_dias'?3660:undefined} step={key==='valor_mensal'||key==='diarias_mes'||key==='limite_diarias_acumuladas'?'0.01':1}/></div>)}</fieldset>
+    <div><Label htmlFor="franquia-tipo">O que desconta da franquia de entregas</Label><select id="franquia-tipo" disabled={!!busy} className="ml-2 rounded border bg-background p-2 text-sm" value={form.franquia_entregas_tipo} onChange={e=>patch('franquia_entregas_tipo',e.target.value)}><option value="todos">Todos os entregáveis</option><option value="video">Somente vídeos</option><option value="video_foto">Vídeos e entregas de fotos (franquia compartilhada)</option></select><p className="mt-1 text-xs text-muted-foreground">Com validade em dias, o saldo usa créditos por competência; a janela legada deixa de ser usada neste painel.</p></div>
     <div><Label htmlFor="contrato-escopo">Entregas contratadas · tipos, formatos e quantidades</Label><Textarea id="contrato-escopo" disabled={!!busy} value={form.escopo_entregas} onChange={e=>patch('escopo_entregas',e.target.value)}/></div>
     <div><Label htmlFor="contrato-regras">Regras, prazos e observações</Label><Textarea id="contrato-regras" disabled={!!busy} rows={4} value={form.observacoes} onChange={e=>patch('observacoes',e.target.value)}/></div>
     <p className="text-xs text-muted-foreground">Salvar ativa o modelo de faturamento por contrato para este cliente. Cada mês da vigência libera a franquia integral; regras especiais permanecem para conferência.</p>
     <Button type="submit" disabled={!!busy}>{busy==='salvar'?'Salvando…':'Salvar contrato'}</Button>
   </form>;
+}
+
+function ExtratoCreditos({titulo,conta}:{titulo:string;conta:ContaCredito}) {
+  return <div className="my-3 overflow-x-auto"><h4 className="mb-2 font-semibold">{titulo}</h4><table className="w-full text-left"><thead><tr>{['Competência','Expira em','Liberado','Usado','Expirado','Retirado pelo teto','Disponível'].map(t=><th className="p-2" key={t}>{t}</th>)}</tr></thead><tbody>{conta.lotes.map(l=><tr key={l.competencia} className="border-t"><td className="p-2">{l.competencia.slice(5)}/{l.competencia.slice(0,4)}</td><td className="p-2">{formatDate(l.expiraEm)}</td>{[l.concedido,l.consumido,l.expirado,l.limitado,l.saldo].map((v,i)=><td className="p-2" key={i}>{qtd(v)}</td>)}</tr>)}</tbody></table></div>;
+}
+function ClassificarMidia({movimento:m}:{movimento:MovimentoContrato}) {
+  const qc=useQueryClient();
+  const [busy,setBusy]=useState(false);
+  const labels={video:'Vídeo',foto:'Fotos',outro:'Outro',conferir:'Conferir tipo'};
+  return <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">Tipo da peça<select aria-label={`Tipo de ${m.titulo}`} className="rounded border bg-background p-1" value={m.tipo_midia||''} disabled={busy} onChange={async e=>{
+    const tipo=e.target.value||null;setBusy(true);
+    try {const {error}=await db.from('deliverables').update({tipo_midia:tipo}).eq('id',m.id);if(error)throw error;await qc.invalidateQueries({queryKey:['contrato-movimentos']});toast.success('Tipo salvo; saldo recalculado');}catch {toast.error('Não foi possível salvar o tipo');}finally {setBusy(false);}
+  }}><option value="">Automático: {labels[tipoMidia({...m,tipo_midia:null})]}</option><option value="video">Vídeo</option><option value="foto">Fotos</option><option value="outro">Outro</option></select></label>;
 }

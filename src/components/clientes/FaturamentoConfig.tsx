@@ -337,15 +337,17 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Acúmulo (meses)</Label>
+              <Label>{contratoDB?.validade_creditos_dias ? "Validade dos créditos" : "Acúmulo (meses)"}</Label>
               <Input
                 type="number"
-                value={contrato.acumulo_meses}
+                disabled={!!contratoDB?.validade_creditos_dias}
+                value={contratoDB?.validade_creditos_dias || contrato.acumulo_meses}
                 onChange={(e) => {
                   setContrato({ ...contrato, acumulo_meses: e.target.value });
                   autoContrato.agendar({ acumulo_meses: Number(e.target.value) || 1 });
                 }}
               />
+              {!!contratoDB?.validade_creditos_dias && <p className="text-xs text-muted-foreground">Dias por competência. Ajuste os limites e consulte o saldo na aba Contrato.</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Diária extra (R$)</Label>
