@@ -26,7 +26,7 @@ it('mantém a execução do contrato em destaque ao trocar o mês secundário',(
  expect(within(overview).getByText('96')).toBeInTheDocument();
  expect(within(overview).getByText('52')).toBeInTheDocument();
  expect(within(overview).getByText('6,5')).toBeInTheDocument();
- const summary=screen.getByText('Uso por mês e validade dos créditos');
+ const summary=screen.getByText('Uso mensal e créditos');
  expect(summary.closest('details')).not.toHaveAttribute('open');
  fireEvent.click(summary);
  fireEvent.change(screen.getByLabelText('Mês de referência'),{target:{value:'2026-02'}});

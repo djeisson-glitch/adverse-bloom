@@ -34,3 +34,10 @@ it('não inventa total sem vigência e destaca excesso sem saldo negativo',()=>{
  expect(calc([],{fim:null}).entregas.restante).toBeNull();
  expect(calc([m({quantidade:100})]).entregas).toEqual({total:96,realizado:100,restante:0,excedente:4});
 });
+it('ignorar e reincluir é reversível e não muda o tipo ou a cobrança da peça',()=>{
+ const rows=[m({tipo_midia:'video',ignorar_contrato:true}),m({titulo:'Sem tipo',ignorar_contrato:true}),m({tipo_midia:'foto'})];
+ const r=calc(rows);expect(r.entregas.realizado).toBe(1);expect(r.videos).toBe(0);expect(r.fotos).toBe(1);expect(r.pendentes).toHaveLength(0);
+ expect(calc(rows,{franquia_entregas_tipo:'todos'}).entregas.realizado).toBe(1);
+ expect(calc([{...rows[0],ignorar_contrato:false},rows[2]]).entregas.realizado).toBe(2);
+ expect(rows[0].tipo_midia).toBe('video');expect(rows[0].faturamento).toBe('mensal');
+});

@@ -30,7 +30,7 @@ export function calcularCreditos(c: Contrato, movimentos: MovimentoContrato[], m
   const validos = movimentos.filter(m => m.data >= inicio && m.data <= ate &&
     !['cancelado', 'cancelada', 'reprovado'].includes(m.status));
   const noMes = validos.filter(m => m.data >= periodo.inicio);
-  const fee = validos.filter(m => m.faturamento === 'mensal');
+  const fee = validos.filter(m => m.faturamento === 'mensal' && !m.ignorar_contrato);
   const videos = fee.filter(m => m.tipo === 'entrega' && tipoMidia(m) === 'video');
   const entregas = fee.filter(m => m.tipo === 'entrega' && consomeFranquia(c.franquia_entregas_tipo,m));
   const somar = (rows: MovimentoContrato[]) => round(rows.reduce((n, m) => n + Math.max(0, Number(m.quantidade) || 0), 0));
@@ -74,7 +74,7 @@ export function calcularCreditos(c: Contrato, movimentos: MovimentoContrato[], m
     entregas: conta(entregas, Number(c.entregas_mes), c.limite_entregas_acumuladas),
     diariasMes: somar(noMes.filter(m=>m.tipo==='diaria' && m.faturamento==='mensal')),
     entregasMes: somar(entregas.filter(m=>m.data>=periodo.inicio)),
-    fotosMes: somar(noMes.filter(m=>m.tipo==='entrega' && m.faturamento==='mensal' && tipoMidia(m)==='foto')),
+    fotosMes: somar(noMes.filter(m=>m.tipo==='entrega' && m.faturamento==='mensal' && !m.ignorar_contrato && tipoMidia(m)==='foto')),
     totalVideos: somar(videos),
     videosMes: somar(videos.filter(m=>m.data>=periodo.inicio)),
     totalFotos: somar(fee.filter(m=>m.tipo==='entrega' && tipoMidia(m)==='foto')),

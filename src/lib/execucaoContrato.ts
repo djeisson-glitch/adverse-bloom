@@ -11,7 +11,7 @@ export function execucaoContrato(c: Contrato, movimentos: MovimentoContrato[], h
   const meses = c.inicio && c.fim ? Math.max(0,
     (Number(c.fim.slice(0, 4)) - Number(c.inicio.slice(0, 4))) * 12 +
     Number(c.fim.slice(5, 7)) - Number(c.inicio.slice(5, 7)) + 1) : null;
-  const fee = movimentos.filter(m => m.faturamento === 'mensal' &&
+  const fee = movimentos.filter(m => m.faturamento === 'mensal' && !m.ignorar_contrato &&
     (!c.inicio || m.data >= c.inicio) && (!c.fim || m.data <= c.fim) && m.data <= hoje &&
     !['cancelado', 'cancelada', 'reprovado', 'arquivado'].includes(m.status));
   const pecas = fee.filter(m => m.tipo === 'entrega' && (!m.tipo_registro || m.tipo_registro === 'entregavel'));

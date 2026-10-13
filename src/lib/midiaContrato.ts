@@ -14,6 +14,7 @@ export function tipoMidia(m: MovimentoContrato): TipoMidia {
 }
 
 export function consomeFranquia(tipo: string | undefined, m: MovimentoContrato) {
+  if (m.ignorar_contrato) return false;
   const midia = tipoMidia(m);
   return tipo === 'video' ? midia === 'video' : tipo === 'video_foto' ? ['video','foto'].includes(midia) : true;
 }

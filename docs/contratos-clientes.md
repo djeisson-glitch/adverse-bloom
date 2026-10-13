@@ -49,3 +49,9 @@ A apuração usa os estados atuais dos registros e a vinculação à vigência p
 O toggle na aba Contrato usa `definir_contrato_ativo` (migration `20261014010000`). Não apaga o cadastro, o anexo, os movimentos nem os fechamentos já gerados. O painel mostra o contrato ativo ou, se não houver, o mais recente inativo. Salvar um inativo mantém seu estado e ID. Clientes sem cadastro começam com o toggle desligado; ligar abre o formulário e só “Salvar e ativar” cria o contrato.
 
 Ativar configura cobrança por contrato; desativar restaura o modelo anterior (`horas`, `tabela` ou `nenhum`) apenas quando a configuração ainda está em `contrato`. Para contratos antigos sem modelo anterior registrado, usa `nenhum` e não presume tabela ou valor-hora. Modelos alterados explicitamente em outra tela são preservados. Não reclassifica a cobrança dos projetos nem altera outros clientes. A migration não ativa nem desativa nenhum cadastro existente. A aba Faturamento encaminha a criação/ativação para a aba Contrato, evitando contratos duplicados.
+
+## Tela compacta e entregas ignoradas
+
+O painel destaca saldo, total contratado e concluído. Explicações, regras e documento ficam recolhidos; a lista “Entregas” permite busca, classificação e filtro de ignoradas em todo o histórico consultado, sem depender do mês.
+
+`deliverables.ignorar_contrato` (migration `20261014020000`) exclui uma peça dos indicadores de execução, composição, pendências de classificação e créditos deste painel, inclusive franquia genérica. O RPC retorna a marcação e mantém o registro visível para auditoria e reinclusão. “Reincluir” remove apenas a marcação e preserva o tipo anterior. Escolher vídeo/fotos/outro/automático também reinclui e define o tipo escolhido. Nenhuma dessas ações apaga a entrega, altera seu status ou muda a cobrança/faturamento. Não recalcula fechamentos financeiros salvos.

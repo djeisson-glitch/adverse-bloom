@@ -82,3 +82,8 @@ describe('franquia compartilhada e visão geral',()=>{
   expect(r.entregas.lotes[0].consumido).toBe(8);expect(r.entregas.saldo).toBe(15);
  });
 });
+it('peças ignoradas não consomem créditos nem aparecem na composição ou pendências, inclusive franquia genérica',()=>{
+ const rows=[m('2026-02-02',1,{ignorar_contrato:true}),m('2026-02-02',1,{titulo:'Fotos',ignorar_contrato:true}),m('2026-02-02',1,{titulo:'Sem tipo',ignorar_contrato:true})];
+ for(const tipo of ['video','video_foto','todos'] as const){const r=run(rows,'2026-02-10',{franquia_entregas_tipo:tipo});expect(r.entregas.saldo).toBe(8);expect(r.totalVideos).toBe(0);expect(r.totalFotos).toBe(0);expect(r.fotosMes).toBe(0);expect(r.entregasMes).toBe(0);expect(r.pendentes).toHaveLength(0);}
+ expect(run([{...rows[0],ignorar_contrato:false}],'2026-02-10').entregas.saldo).toBe(7);
+});
