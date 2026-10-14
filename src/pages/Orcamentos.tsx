@@ -31,7 +31,7 @@ export default function Orcamentos({crm = false}: {crm?: boolean}) {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [vista, setVista] = useState<"board" | "lista">(crm ? "board" : "lista");
+  const [vista, setVista] = useState<"board" | "lista">("board");
   const [pendingMove, setPendingMove] = useState<{ dealId: string; stage: Stage } | null>(null);
   const [lostOpen, setLostOpen] = useState(false);
   const [wonOpen, setWonOpen] = useState(false);

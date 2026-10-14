@@ -26,6 +26,7 @@ export interface BudgetItem {
 }
 
 export interface Budget {
+  fechamento_mes?: string | null;
   proposta?: { referencia_fechamento?: boolean; modelo_cobranca?: string };
   id: string;
   project_name: string;

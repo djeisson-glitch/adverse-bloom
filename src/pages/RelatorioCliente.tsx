@@ -231,7 +231,7 @@ export default function RelatorioCliente() {
         ...e,
         ...cobrancaDaPeca(e, cobradoPorPeca, data.precos),
         projeto: data.projetos.get(e.project_id)?.name || "",
-        orcamentoNumero: (data.fatura?.detalhe?.orcamentos_projetos || []).find((r: OrcamentoFechamento) => r.project_id === e.project_id)?.orcamento_numero,
+        orcamentoNumero: data.fatura?.detalhe?.orcamento_mensal ? null : (data.fatura?.detalhe?.orcamentos_projetos || []).find((r: OrcamentoFechamento) => r.project_id === e.project_id && r.baldes.includes("mensal"))?.orcamento_numero,
         // Data de SOLICITAÇÃO: a da demanda quando o pedido entrou pelo
         // formulário; senão a data em que a peça foi criada no sistema, que
         // é o mais perto disso que existe.
@@ -573,7 +573,12 @@ export default function RelatorioCliente() {
           </>
         )}
 
-        {Array.isArray(data.fatura?.detalhe?.orcamentos_projetos) && (
+        {data.fatura?.detalhe?.orcamento_mensal ? (
+          <Secao titulo="Orçamento do mês">
+            <p className="font-semibold">{numeroOrcamento(data.fatura.detalhe.orcamento_mensal.orcamento_numero)} · {data.fatura.ref_mes.slice(0, 7).split("-").reverse().join("/")}</p>
+            <p className="mt-1 text-xs text-[#555]">Referência única para as entregas e projetos deste fechamento.</p>
+          </Secao>
+        ) : Array.isArray(data.fatura?.detalhe?.orcamentos_projetos) && (
           <Secao titulo="Referências dos projetos deste fechamento">
             <table className="w-full text-xs"><thead><tr className="border-b border-[#ddd] text-left"><th className="py-2 pr-4">Orçamento</th><th>Projeto</th></tr></thead>
               <tbody>{(data.fatura.detalhe.orcamentos_projetos as OrcamentoFechamento[]).filter(r => r.baldes.includes("mensal")).map(r =>

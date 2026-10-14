@@ -166,11 +166,14 @@ export default function Orcamentos() {
   useEffect(() => {
     const budgetId = searchParams.get("budget");
     if (budgetId && budgets.some(b => b.id === budgetId)) {
+      if (budgets.find(b => b.id === budgetId)?.fechamento_mes) {
+        navigate(`/orcamentos-mensais/${budgetId}`, { replace: true }); return;
+      }
       setEditingId(budgetId);
       const next = new URLSearchParams(searchParams); next.delete("budget");
       setSearchParams(next, { replace: true });
     }
-  }, [searchParams, budgets, setSearchParams]);
+  }, [searchParams, budgets, setSearchParams, navigate]);
 
   // Map budget_id -> project exists
   const projectsByBudget = useMemo(() => {
@@ -241,6 +244,7 @@ export default function Orcamentos() {
     const counts = { draft: 0, sent: 0, approved: 0, rejected: 0 };
 
     const allFiltered = budgets.filter(b => {
+      if (b.fechamento_mes) return false; // Gerenciados no fechamento mensal.
       // Search
       if (searchLower) {
         const num = b.budget_number ? `#${b.budget_number}` : "";

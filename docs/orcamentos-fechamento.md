@@ -1,4 +1,26 @@
-# Orçamentos dos projetos nos fechamentos
+# Orçamento único por cliente e mês
+
+## Alteração de 14/10/2026
+
+A migration `20261014140000_orcamento_mensal_unico.sql` substitui a geração mensal por projeto. `budgets.fechamento_mes` identifica a competência com índice único por cliente/mês. O número vem da sequência existente. O valor continua sendo `faturamento_mensal.total`: não recalcula tarifas, impostos, créditos ou cobrança dos contratos.
+
+O orçamento mensal abre em `/orcamentos-mensais/:id`. Projetos são linhas internas de receita alocada e custo total neste fechamento (inclusive despesas/impostos), em `orcamento_mensal_projetos`, sem criar deals. Valores são gerenciais manuais; não se somam automaticamente a custos gerais do projeto, que podem abranger outros meses. Custos não preenchidos ficam pendentes. Rentabilidade geral só aparece quando todas as linhas têm receita/custo e a distribuição fecha em centavos com o total mensal. Pode-se salvar trabalho parcial. Excluir do fee desativa a linha, preservando os valores caso o projeto volte.
+
+A regeneração atualiza o total e os projetos, preserva o número e os lançamentos manuais. Uma revisão bloqueia salvamentos de telas desatualizadas. Leitura/edição de custos exigem permissão financeira por RPC; não há acesso direto à tabela. O editor legado não pode alterar/excluir o orçamento mensal.
+
+`detalhe.orcamento_mensal` contém a referência única. `orcamentos_projetos` continua compatível, com o mesmo número nas linhas mensais; projetos mistos têm referências distintas por modalidade. A tela e o relatório mostram a referência mensal uma única vez. Faturas novas usam esse número inclusive em meses sem projetos. Avulsos/notas separadas seguem a cobrança existente. A mensalidade fixa continua sendo faturada pelo fluxo de contratos, e `faturar_mes` continua emitindo apenas excedentes nesse modelo.
+
+A migração consolida apenas rascunhos/revisados sem fatura. Orçamentos antigos não são apagados nem desvinculados dos projetos. Documentos enviados/faturados preservam suas referências históricas, inclusive se houver mudança posterior de status. Nenhuma alteração é enviada ao Conta Azul.
+
+Validação: build completo, testes de UI/cálculo e PostgreSQL 15 descartável conforme `supabase/tests/orcamento_mensal/README.md`. A fixture SQL é reduzida; não substitui conferir as demais triggers/RLS na publicação real.
+
+## Aplicação do banco em produção — 14/10/2026
+
+Migration aplicada e conferida: seis rascunhos consolidados nos orçamentos #0454–#0459. Comparação antes/depois confirmou os valores dos nove fechamentos, as três faturas, os 152 orçamentos anteriores e os 243 vínculos de projetos preservados. RLS ativa, leitura anônima negada e nenhum custo/receita gerencial inventado. Sicredi Sul Minas, agosto/2026: #0457, R$ 652,29, quatro projetos.
+
+---
+
+## Histórico da implementação anterior (13/10/2026)
 
 Migrations `20261013200000_orcamentos_fechamento.sql` e `20261013200100_backfill_orcamentos_sicredi.sql` aplicadas em produção em 13/10/2026. Nenhum secret de IA é necessário. O frontend desta alteração usa as referências geradas por elas.
 

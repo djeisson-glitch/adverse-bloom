@@ -10,6 +10,7 @@ import { tipoMidia } from '@/lib/midiaContrato';
 import { linkProjeto } from '@/lib/projetoNavegacao';
 import { statusLabel } from '@/lib/statusEntregavel';
 import { balde, foraDoFechamento } from '@/lib/faturamentoBalde';
+import { DiariasProjeto } from '@/components/producao/DiariasProjeto';
 import ClassificarEntregaContrato from './ClassificarEntregaContrato';
 
 type Props = { movimentos: MovimentoContrato[]; pendentes: number; clientId: string };
@@ -22,6 +23,7 @@ export default function EntregasContrato({ movimentos, pendentes, clientId }: Pr
   const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [aberto, setAberto] = useState<string | null>(null);
+  const [diariasAbertas, setDiariasAbertas] = useState<string | null>(null);
   const grupos = new Map<string, Grupo>();
   for (const m of movimentos) {
     if (m.tipo === 'entrega' && m.tipo_registro && m.tipo_registro !== 'entregavel') continue;
@@ -76,6 +78,12 @@ export default function EntregasContrato({ movimentos, pendentes, clientId }: Pr
             <p className="text-xs text-muted-foreground">{foraDoFechamento(g.projeto.faturamento) ? 'Projeto à parte: nenhuma entrega consome o contrato.' : 'Ignorar retira a entrega do saldo e preserva sua cobrança.'}</p>
             {g.projeto.id !== 'sem-projeto' && <Link className="inline-flex items-center gap-1 text-xs text-primary hover:underline" to={linkProjeto(g.projeto.id, `/clientes/${clientId}?aba=contrato`)}>Abrir projeto<ExternalLink className="h-3 w-3" /></Link>}
           </div>
+          {g.projeto.id !== 'sem-projeto' && <div className="mb-3">
+            <button type="button" className="rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted" aria-expanded={diariasAbertas === g.projeto.id} onClick={() => setDiariasAbertas(diariasAbertas === g.projeto.id ? null : g.projeto.id)}>
+              {diariasAbertas === g.projeto.id ? 'Fechar diárias' : 'Gerenciar diárias'}
+            </button>
+            {diariasAbertas === g.projeto.id && <div className="mt-3"><DiariasProjeto projectId={g.projeto.id} projectName={g.projeto.nome} clientId={clientId} /></div>}
+          </div>}
           <div className="divide-y">{g.linhas.map(m => <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
             <div className="min-w-0 basis-full sm:flex-1 sm:basis-0"><p className="break-words text-sm">{m.titulo}</p><p className="mt-1 text-xs text-muted-foreground">{statusLabel(m.status)} · {m.faturamento !== 'mensal' ? 'À parte' : m.ignorar_contrato ? 'Ignorada' : 'No contrato'}</p></div>
             <ClassificarEntregaContrato movimento={m} />

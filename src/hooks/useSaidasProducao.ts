@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { dataISO } from "@/lib/dataLocal";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -75,6 +75,10 @@ async function sincronizar(action: "upsert" | "delete", saida_id: string) {
   }
 }
 
+export async function invalidarSaidas(qc: QueryClient) {
+  await Promise.all(["producao_saidas", "projeto-diarias", "diarias-do-cliente", "projeto-contagens", "contrato-movimentos", "fechamento-diarias", "fechamento-diarias-cliente", "faturamento_mensal"].map(k => qc.invalidateQueries({ queryKey: [k] })));
+}
+
 export function useSalvarSaida() {
   const qc = useQueryClient();
   return useMutation({
@@ -82,7 +86,7 @@ export function useSalvarSaida() {
       const { project, ...campos } = saida as any;
       let id = saida.id;
       if (id) {
-        const { error } = await (supabase as any).from("producao_saidas").update(campos).eq("id", id);
+        const { error } = await (supabase as any).from("producao_saidas").update(campos).eq("id", id).select("id").single();
         if (error) throw error;
       } else {
         const { data: userData } = await supabase.auth.getUser();
@@ -97,7 +101,7 @@ export function useSalvarSaida() {
       await sincronizar("upsert", id!);
       return id!;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["producao_saidas"] }),
+    onSuccess: () => invalidarSaidas(qc),
   });
 }
 
@@ -108,11 +112,11 @@ export function useCancelarSaida() {
       const { error } = await (supabase as any)
         .from("producao_saidas")
         .update({ status: "cancelada" })
-        .eq("id", id);
+        .eq("id", id).select("id").single();
       if (error) throw error;
       await sincronizar("delete", id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["producao_saidas"] }),
+    onSuccess: () => invalidarSaidas(qc),
   });
 }
 
@@ -124,7 +128,7 @@ export function useExcluirSaida() {
       const { error } = await (supabase as any).from("producao_saidas").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["producao_saidas"] }),
+    onSuccess: () => invalidarSaidas(qc),
   });
 }
 
@@ -149,6 +153,6 @@ export function useSyncTodas() {
       if (error) throw error;
       return data as { sincronizadas: number; erros: number; total: number };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["producao_saidas"] }),
+    onSuccess: () => invalidarSaidas(qc),
   });
 }

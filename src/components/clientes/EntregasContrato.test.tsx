@@ -20,6 +20,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@tanstack/react-query',()=>({useQueryClient:()=>({invalidateQueries:mock.invalidate})}));
 vi.mock('sonner',()=>({toast:{success:vi.fn(),error:mock.error}}));
+vi.mock('@/components/producao/DiariasProjeto',()=>({DiariasProjeto:({projectId}:any)=><div>Diárias do projeto {projectId}</div>}));
 const p = {id:'p',nome:'Captação SLC',faturamento:'mensal'};
 const q = {id:'q',nome:'Evento pontual',faturamento:'avulso'};
 const m:MovimentoContrato = {id:'v',tipo:'entrega',titulo:'Vídeo final',data:'2026-03-01',tipo_midia:'video',quantidade:1,status:'entregue',faturamento:'mensal',projetos:[p]};
@@ -63,4 +64,14 @@ it('falha ao salvar preserva a cobrança e não invalida o saldo',async()=>{
 it('mostra projeto que só tem diária e avisa quando é compartilhada',()=>{
  show([{...m,id:'dia',tipo:'diaria',status:'realizada',quantidade:0.5,projetos:[p,q]}]);
  fireEvent.click(screen.getByRole('button',{name:/Captação SLC/}));expect(screen.getByText(/Há captações compartilhadas/)).toBeInTheDocument();expect(screen.getAllByText(/0,5 diárias realizadas/)).toHaveLength(2);
+});
+
+it('abre o controle de diárias apenas para o projeto expandido',()=>{
+ show();fireEvent.click(screen.getByRole('button',{name:/Captação SLC/}));
+ fireEvent.click(screen.getByRole('button',{name:'Gerenciar diárias'}));
+ expect(screen.getByText('Diárias do projeto p')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:/Evento pontual/}));
+ expect(screen.queryByText('Diárias do projeto p')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Gerenciar diárias'}));
+ expect(screen.getByText('Diárias do projeto q')).toBeInTheDocument();
 });
