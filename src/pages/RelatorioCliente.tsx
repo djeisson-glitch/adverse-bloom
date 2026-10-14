@@ -231,7 +231,7 @@ export default function RelatorioCliente() {
         ...e,
         ...cobrancaDaPeca(e, cobradoPorPeca, data.precos),
         projeto: data.projetos.get(e.project_id)?.name || "",
-        orcamentoNumero: data.fatura?.detalhe?.orcamento_mensal ? null : (data.fatura?.detalhe?.orcamentos_projetos || []).find((r: OrcamentoFechamento) => r.project_id === e.project_id && r.baldes.includes("mensal"))?.orcamento_numero,
+        orcamentoNumero: data.fatura?.detalhe?.orcamento_mensal && !data.fatura.detalhe.orcamento_mensal.historico ? null : (data.fatura?.detalhe?.orcamentos_projetos || []).find((r: OrcamentoFechamento) => r.project_id === e.project_id && r.baldes.includes("mensal"))?.orcamento_numero,
         // Data de SOLICITAÇÃO: a da demanda quando o pedido entrou pelo
         // formulário; senão a data em que a peça foi criada no sistema, que
         // é o mais perto disso que existe.
@@ -573,7 +573,7 @@ export default function RelatorioCliente() {
           </>
         )}
 
-        {data.fatura?.detalhe?.orcamento_mensal ? (
+        {data.fatura?.detalhe?.orcamento_mensal && !data.fatura.detalhe.orcamento_mensal.historico ? (
           <Secao titulo="Orçamento do mês">
             <p className="font-semibold">{numeroOrcamento(data.fatura.detalhe.orcamento_mensal.orcamento_numero)} · {data.fatura.ref_mes.slice(0, 7).split("-").reverse().join("/")}</p>
             <p className="mt-1 text-xs text-[#555]">Referência única para as entregas e projetos deste fechamento.</p>

@@ -36,3 +36,16 @@ it('mostra um único orçamento para todos os projetos mensais',()=>{
  expect(screen.getByRole('link')).toHaveAttribute('href','/orcamentos-mensais/mes');
  expect(screen.getByRole('button',{name:'Copiar número'})).toBeInTheDocument();
 });
+it('consolida mês faturado e recolhe referências antigas no histórico',()=>{
+ const rows=[{project_id:'p',projeto:'Projeto original',budget_id:'antigo',orcamento_numero:313,baldes:['mensal']}];
+ show(<OrcamentosFechamento id="f" fechado mensal={{budget_id:'mes',orcamento_numero:500,ref_mes:'2026-10-01',total:100,historico:true}} rows={rows}/>);
+ expect(screen.getByRole('link',{name:/Ver projetos e rentabilidade/})).toHaveAttribute('href','/orcamentos-mensais/mes');
+ const details=screen.getByText('Referências da emissão original').closest('details')!;
+ expect(details.open).toBe(false);
+ expect(details).toHaveTextContent('#0313');
+ expect(screen.queryByRole('heading',{name:'Nota do fechamento'})).not.toBeInTheDocument();
+});
+it('permite consolidar manualmente um mês emitido ainda sem orçamento mensal',()=>{
+ show(<OrcamentosFechamento id="f" fechado rows={[]}/>);
+ expect(screen.getByRole('button',{name:'Consolidar orçamento do mês'})).toBeEnabled();
+});

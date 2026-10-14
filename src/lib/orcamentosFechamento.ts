@@ -3,7 +3,7 @@ export type OrcamentoFechamento = {
   orcamento_numero: number; baldes: string[]; mensal?: boolean;
 };
 export const numeroOrcamento = (n: number) => `#${String(n).padStart(4, "0")}`;
-export type OrcamentoMensalRef = { budget_id: string; orcamento_numero: number; ref_mes: string; total: number };
+export type OrcamentoMensalRef = { budget_id: string; orcamento_numero: number; ref_mes: string; total: number; historico?: boolean };
 export const linkOrcamento = (r: OrcamentoFechamento) => r.mensal
   ? `/orcamentos-mensais/${r.budget_id}` : r.deal_id
   ? `/orcamentos/${r.deal_id}?variante=${r.budget_id}`

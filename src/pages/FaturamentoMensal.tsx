@@ -786,7 +786,7 @@ export default function FaturamentoMensal() {
                             {f.detalhe.por_projeto.map((p: any, i: number) => (
                               <LinhaJob
                                 key={p.project_id || i}
-                                p={{ ...p, ...referenciaProjeto(f.detalhe?.orcamentos_projetos || [], p.project_id, p.balde || "mensal") }}
+                                p={{ ...p, ...referenciaProjeto(f.detalhe?.orcamentos_projetos || [], p.project_id, p.balde || "mensal"), mensal: !!f.detalhe?.orcamento_mensal && (p.balde || "mensal") === "mensal" }}
                                 modelo={f.detalhe?.modelo}
                                 refMes={f.ref_mes}
                                 ocupado={mudarProjeto.isPending || mudarPeca.isPending}

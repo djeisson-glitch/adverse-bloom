@@ -14,6 +14,14 @@ A migração consolida apenas rascunhos/revisados sem fatura. Orçamentos antigo
 
 Validação: build completo, testes de UI/cálculo e PostgreSQL 15 descartável conforme `supabase/tests/orcamento_mensal/README.md`. A fixture SQL é reduzida; não substitui conferir as demais triggers/RLS na publicação real.
 
+## Correção dos meses já emitidos
+
+A migration `20261014150000_consolidar_fechamentos_emitidos.sql` também adiciona o orçamento gerencial único aos fechamentos enviados/faturados. Usa exclusivamente `orcamentos_projetos` do snapshot original, sem recalcular cobrança, recuperar movimentos novos ou alterar notas. Guarda `orcamento_mensal.historico=true` para distinguir essa consolidação de uma referência originalmente emitida.
+
+Na tela, o orçamento único fica em destaque e os números anteriores ficam recolhidos em “Referências da emissão original”. O relatório mantém as referências originalmente emitidas; um fechamento antigo enviado ainda não faturado continua usando essas referências ao gerar sua nota. Os custos gerenciais podem ser preenchidos no orçamento consolidado normalmente. A operação é idempotente e preserva os lançamentos.
+
+Validação: `supabase/tests/fechamentos_emitidos/README.md`, testes de renderização e build completo. Aplicada em produção em 14/10/2026: três fechamentos emitidos consolidados (#0460–#0462), sem alteração dos documentos originais. Sicredi Região, agosto/2026: #0462, R$ 2.902,90.
+
 ## Aplicação do banco em produção — 14/10/2026
 
 Migration aplicada e conferida: seis rascunhos consolidados nos orçamentos #0454–#0459. Comparação antes/depois confirmou os valores dos nove fechamentos, as três faturas, os 152 orçamentos anteriores e os 243 vínculos de projetos preservados. RLS ativa, leitura anônima negada e nenhum custo/receita gerencial inventado. Sicredi Sul Minas, agosto/2026: #0457, R$ 652,29, quatro projetos.
