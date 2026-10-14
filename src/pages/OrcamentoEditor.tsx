@@ -343,10 +343,14 @@ export default function OrcamentoEditor() {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{budget.recorrente ? `Plano recorrente · ${budget.contrato_meses || 12} meses` : budget.proposta?.faturamento === "mensal" ? "No fee / fechamento do cliente" : "Orçamento pontual"} · {(Array.isArray(budget.entregas) ? budget.entregas : []).reduce((n: number, entrega: any) => n + (Number(entrega.quantidade) || 0), 0)} entregas</p>
-            <Button size="lg" className="h-12 w-full gap-2 px-5 text-base font-semibold shadow-sm sm:w-auto" onClick={() => setSecao("proposta")}><Send className="h-5 w-5" /> Proposta e envio</Button>
+
           </div>
         </div>
       </div>
+
+      <section aria-label="Ações do orçamento" className="rounded-lg border border-border/60 bg-card/40 p-4">
+        <AcaoBotoes key={budget.id} deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
+      </section>
 
       {canSeeMoney && <FaturamentoOrcamento key={budget.id} budget={budget}/>}
 
@@ -414,12 +418,12 @@ export default function OrcamentoEditor() {
             </TabsContent>
             <TabsContent value="proposta" forceMount className="space-y-4 data-[state=inactive]:hidden">
               <div className="rounded-lg border border-border/60 p-4">
-                <h2 className="mb-3 text-sm font-semibold">Apresentar ao cliente</h2>
+                <h2 className="mb-3 text-sm font-semibold">Emissões da proposta</h2>
                 {Array.isArray(budget.pdf_emissoes) && budget.pdf_emissoes.length > 0 && <details className="mb-3 text-xs text-muted-foreground">
                   <summary className="cursor-pointer">Histórico de emissão · {budget.pdf_emissoes.length} PDFs</summary>
                   <ul className="mt-2 space-y-1">{budget.pdf_emissoes.map((emissao: any, i: number) => <li key={i}>{new Date(emissao.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} · {profiles.find((p: any) => p.id === emissao.por)?.full_name || "Usuário"}</li>)}</ul>
                 </details>}
-                <AcaoBotoes deal={deal} budget={budget} jobGerado={jobGerado} navigate={navigate} qc={qc} />
+                {!budget.pdf_emissoes?.length && <p className="text-xs text-muted-foreground">Nenhum PDF emitido ainda.</p>}
               </div>
       {budget && (
         <CondicoesEntrega
@@ -786,9 +790,9 @@ export function EntregasSection({ budget, onChanged }: { budget: any; onChanged:
   );
 }
 
-/* ------------------------------------------ Ações principais (3 botões) */
+/* ------------------------------------------ Ações do orçamento */
 
-function AcaoBotoes({
+export function AcaoBotoes({
   deal, budget, jobGerado, navigate, qc,
 }: {
   deal: any;
@@ -830,6 +834,7 @@ function AcaoBotoes({
       toast.info("Marcado como perdido — follow-up +60d agendado");
       setConfirmarPerder(false);
     },
+    onError: (e: any) => toast.error("Não deu para marcar como perdido", { description: e.message }),
   });
 
   const marcarProposta = () => {
@@ -918,7 +923,7 @@ function AcaoBotoes({
   const botaoCartaSimples = (
     <Button variant="outline" onClick={() => navigate(`/orcamentos/${deal.id}/carta-simples${budget?.id ? `?opcao=${budget.id}` : ""}`)}>
       <FileText className="mr-1.5 h-3.5 w-3.5" />
-      Carta simples
+      Carta simples / PDF
     </Button>
   );
 
@@ -983,51 +988,18 @@ function AcaoBotoes({
   const ganho = isWonStage(deal.stage);
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {/* Compartilhar é vizinho de "Enviar proposta" de propósito: são as duas
-          saídas do orçamento pra fora, uma pro cliente e outra pra quem você
-          quiser mostrar. Só aparece pra quem já vê dinheiro. */}
-      {budget?.id && canSeeMoney && <CompartilharOrcamento budgetId={budget.id} />}
-      {/* Fora do dropdown de propósito: aquele desabilita quando o negócio é
-          ganho, e a carta simples continua valendo. */}
-      {botaoCartaSimples}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" disabled={ganho}>
-            <Send className="mr-1.5 h-3.5 w-3.5" />
-            Enviar proposta
-            <ChevronDown className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72">
-          <DropdownMenuItem onClick={enviarViaLink}>
-            <Link2 className="mr-2 h-4 w-4" />
-            <span className="flex flex-col">
-              <span>Copiar link do cliente</span>
-              <span className="text-[10px] text-muted-foreground">Abre sem login · o cliente aprova online</span>
-            </span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={gerarCarta}>
-            <FileText className="mr-2 h-4 w-4" />
-            <span className="flex flex-col">
-              <span>Abrir a carta (revisar / PDF)</span>
-              <span className="text-[10px] text-muted-foreground">Edita os textos e imprime em PDF</span>
-            </span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate(`/orcamentos/${deal.id}/carta?manual=1`)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            <span className="flex flex-col">
-              <span>Carta manual (em branco)</span>
-              <span className="text-[10px] text-muted-foreground">Monta do zero, sem puxar a planilha</span>
-            </span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={enviarViaLink} disabled={ganho} className="h-11 gap-2 px-5" title="Copia o link da proposta para você enviar ao cliente">
+          <Send className="h-4 w-4" /> Enviar proposta · copiar link
+        </Button>
+        {botaoCartaSimples}
+        <div className="hidden flex-1 sm:block" />
       {ganho ? (
         <>
           <Button
             onClick={() => jobGerado && navigate(`/projetos/${jobGerado.id}`)}
-            className="bg-success text-white hover:bg-success/90"
+            className="h-11 bg-success px-5 text-white hover:bg-success/90"
           >
             <Trophy className="mr-1.5 h-3.5 w-3.5" />
             {jobGerado ? `Job #${jobGerado.numero} gerado` : "Orçamento ganho"}
@@ -1045,11 +1017,12 @@ function AcaoBotoes({
       ) : (
         <Button
           onClick={() => ganhar.mutate()}
-          disabled={ganhar.isPending}
-          className="bg-success text-white hover:bg-success/90"
+          disabled={ganhar.isPending || perder.isPending}
+          title="Marcar como ganho e gerar o projeto"
+          className="h-11 bg-success px-5 text-white hover:bg-success/90"
         >
           <Trophy className="mr-1.5 h-3.5 w-3.5" />
-          Ganhar → gerar Job
+          Ganhar
         </Button>
       )}
       {confirmarPerder ? (
@@ -1061,6 +1034,7 @@ function AcaoBotoes({
           <Button
             size="sm"
             onClick={() => perder.mutate()}
+            disabled={perder.isPending}
             className="bg-destructive text-white hover:bg-destructive/90"
           >
             Sim
@@ -1070,12 +1044,32 @@ function AcaoBotoes({
         <Button
           variant="outline"
           onClick={() => setConfirmarPerder(true)}
-          className="text-destructive hover:text-destructive"
+          disabled={ganhar.isPending}
+          className="h-11 border-destructive/40 bg-destructive/10 px-5 text-destructive hover:bg-destructive/20 hover:text-destructive"
         >
           <XCircle className="mr-1.5 h-3.5 w-3.5" />
           Perder
         </Button>
       )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+        {budget?.id && canSeeMoney && <CompartilharOrcamento budgetId={budget.id} />}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" disabled={ganho}>
+              Outras opções de carta <ChevronDown className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={gerarCarta}>
+              <FileText className="mr-2 h-4 w-4" /> Carta completa / PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/orcamentos/${deal.id}/carta?manual=1`)}>
+              <Pencil className="mr-2 h-4 w-4" /> Carta manual (em branco)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
