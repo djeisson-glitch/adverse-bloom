@@ -1657,7 +1657,8 @@ function AlteracoesSection({
  * O normal é herdar o projeto — e é isso que a primeira opção diz por
  * extenso, em vez de um "—" que obrigaria a abrir o projeto pra descobrir.
  *
- * As outras opções são os baldes que o projeto NÃO é. Oferecer o mesmo balde
+ * Projetos fora do fechamento sempre prevalecem sobre a peça.
+ * Em projetos mensais, as outras opções são os baldes que o projeto NÃO é. Oferecer o mesmo balde
  * do projeto criaria um jeito de gravar um valor que não muda nada — e, pior,
  * uma peça marcada "mensal" dentro de um projeto mensal deixaria de
  * acompanhar o projeto no dia em que ele virasse outra coisa, sem ninguém
@@ -1670,8 +1671,11 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
   const [v, setV] = useState(valor || HERDA);
   const doProjetoOk = balde(doProjeto);
   const outros = BALDES.filter((b) => b.id !== doProjetoOk);
+  const segueObrigatoriamente = foraDoFechamento(doProjetoOk);
+  useEffect(() => setV(valor || HERDA), [valor]);
 
   const salvar = async (nv: string) => {
+    if (segueObrigatoriamente) return;
     setV(nv);
     const { error } = await (supabase as any)
       .from("deliverables")
@@ -1689,7 +1693,7 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
 
   return (
     <div>
-      <Select value={v} onValueChange={salvar}>
+      <Select value={segueObrigatoriamente ? HERDA : v} disabled={segueObrigatoriamente} onValueChange={salvar}>
         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value={HERDA} className="text-xs">
@@ -1700,7 +1704,8 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
           ))}
         </SelectContent>
       </Select>
-      {foraDoFechamento(v === HERDA ? doProjetoOk : v) && (
+      {segueObrigatoriamente && <p className="mt-1 text-xs text-muted-foreground">Definido pelo projeto. Todas as entregas são faturadas à parte.</p>}
+      {!segueObrigatoriamente && foraDoFechamento(v === HERDA ? doProjetoOk : v) && (
         <p className="mt-1 text-[10px] text-warning">
           {BALDES.find((b) => b.id === (v === HERDA ? doProjetoOk : v))?.ajuda}
         </p>

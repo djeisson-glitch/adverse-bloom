@@ -693,6 +693,7 @@ function FaturamentoProjeto({
   podeEditar: boolean;
   onChanged: () => void;
 }) {
+  const qc = useQueryClient();
   const auto = useFormAutosave<Record<string, unknown>>(
     async (patch) => {
       // `.select()` e conta as linhas: sem ele o PostgREST devolve 204 mesmo
@@ -710,6 +711,7 @@ function FaturamentoProjeto({
         toast.error("Não salvou o faturamento", { description: "Sem permissão para alterar este projeto." });
         throw new Error("update sem efeito");
       }
+      await Promise.all(["contrato-movimentos", "projects-client", "entregavel", "deliverables", "faturamento-mensal", "faturamento_mensal"].map(k => qc.invalidateQueries({ queryKey: [k] })));
       onChanged();
     },
     { delay: 150 },

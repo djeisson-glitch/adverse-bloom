@@ -10,5 +10,6 @@ export function linkProjeto(id: string, origem: string, aba?: "diarias") {
   const retorno = origemProjetos(origem);
   if (retorno) params.set("retorno", retorno);
   if (aba) params.set("aba", aba);
-  return `/projetos/${encodeURIComponent(id)}${params.size ? `?${params}` : ""}`;
+  const query = params.toString();
+  return `/projetos/${encodeURIComponent(id)}${query ? `?${query}` : ""}`;
 }

@@ -18,7 +18,7 @@ it('ignora sem alterar tipo, status ou faturamento e atualiza os saldos',async()
 });
 it('encontra a entrega ignorada e permite reincluir preservando o tipo',async()=>{
  render(<MemoryRouter><EntregasContrato movimentos={[{...m,ignorar_contrato:true},{...m,id:'f',titulo:'Fotos',tipo_midia:'foto'}]} pendentes={0} clientId="cli"/></MemoryRouter>);
- fireEvent.click(screen.getByText('Entregas'));
+ fireEvent.click(screen.getByRole('button',{name:/Sem projeto/}));
  fireEvent.change(screen.getByLabelText('Filtrar entregas do contrato'),{target:{value:'ignoradas'}});
  expect(screen.getByText('Vídeo final')).toBeInTheDocument();
  expect(screen.queryByLabelText('Tipo de Fotos')).not.toBeInTheDocument();

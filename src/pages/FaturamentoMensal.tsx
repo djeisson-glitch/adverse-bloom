@@ -259,6 +259,12 @@ export default function FaturamentoMensal() {
 
   const mudarPeca = useMutation({
     mutationFn: async ({ did, balde }: { did: string; balde: string | null }) => {
+      const { data: cobranca, error: consultaError } = await (supabase as any)
+        .from("deliverables_faturamento").select("faturamento_projeto").eq("id", did).single();
+      if (consultaError) throw consultaError;
+      if (["avulso", "mensal_separado"].includes(cobranca.faturamento_projeto)) {
+        throw new Error("Esta entrega segue a cobrança à parte do projeto. Altere o faturamento no projeto.");
+      }
       const { data, error } = await (supabase as any)
         .from("deliverables").update({ faturamento: balde }).eq("id", did).select("id");
       if (error) throw error;

@@ -12,7 +12,7 @@ CREATE TABLE producao_saidas(id uuid PRIMARY KEY,project_id uuid,tipo text,statu
 CREATE TABLE client_contratos(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),client_id uuid,ativo bool DEFAULT true,created_at timestamptz DEFAULT now(),nome text,valor_mensal numeric DEFAULT 0,diarias_mes int DEFAULT 0,entregas_mes int DEFAULT 0,acumulo_meses int DEFAULT 1,inicio date,fim date,observacoes text);
 CREATE TABLE client_faturamento(client_id uuid PRIMARY KEY,modelo text);
 CREATE VIEW deliverables_criacao AS SELECT d.id,p.created_at AS criacao_efetiva FROM deliverables d JOIN projects p ON p.id=d.project_id;
-CREATE VIEW deliverables_faturamento AS SELECT d.id,coalesce(d.faturamento,p.faturamento,'mensal') AS faturamento_efetivo FROM deliverables d JOIN projects p ON p.id=d.project_id;
+CREATE VIEW deliverables_faturamento WITH (security_invoker=on) AS SELECT d.id,d.project_id,p.client_id,coalesce(d.faturamento,p.faturamento,'mensal') AS faturamento_efetivo,(d.faturamento IS NOT NULL) AS decidido_na_peca,coalesce(p.faturamento,'mensal') AS faturamento_projeto FROM deliverables d LEFT JOIN projects p ON p.id=d.project_id;
 CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public bool,file_size_limit bigint,allowed_mime_types text[]);
 CREATE TABLE storage.objects(id uuid,name text,bucket_id text);
 CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;
