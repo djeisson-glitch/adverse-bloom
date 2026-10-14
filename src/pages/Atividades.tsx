@@ -95,9 +95,7 @@ export default function Atividades() {
         <History className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Log geral</h1>
-          <p className="text-sm text-muted-foreground">
-            Tudo que foi feito no sistema — criações, mudanças de status e remoções.
-          </p>
+
         </div>
       </div>
 

@@ -75,7 +75,7 @@ export function MergulhoForm({
         return (
           <div className="rounded-lg border border-border/50 p-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Complementos do cliente</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Respostas às perguntas que a IA sugeriu no fim do briefing.</p>
+
             <div className="mt-3 space-y-3">
               {extras.map((e: any, i: number) => (
                 <div key={i}>

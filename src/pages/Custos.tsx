@@ -62,7 +62,7 @@ export default function Custos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Custos</h1>
-          <p className="text-sm text-muted-foreground">Análise detalhada de despesas</p>
+
         </div>
         <PeriodFilter value={period} onChange={setPeriod} />
       </div>

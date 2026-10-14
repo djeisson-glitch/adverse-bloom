@@ -186,9 +186,7 @@ export function NovoLeadModal({ aberto, onFechar, onCriado }: {
                 />
               </Campo>
             </div>
-            <p className="mt-1.5 text-[10px] text-muted-foreground">
-              Aparece na sua Minha mesa e no calendário no dia — e o sistema te avisa.
-            </p>
+
           </div>
 
           <Campo label="Observações">

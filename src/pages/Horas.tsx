@@ -50,7 +50,6 @@ function rotuloMes(ym: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-
 /** Status que tiram o projeto da lista do dia a dia (mas não do retroativo). */
 const FINALIZADOS = ["finalizado", "entregue", "faturado"];
 
@@ -306,7 +305,6 @@ export default function Horas() {
             <p className="text-sm text-muted-foreground">
               {ehMesAtual ? "Este mês" : rotuloMes(verMes)} · total <strong>{totalHoras.toFixed(1)}h</strong>
               {rodando.length > 0 && <> · <strong>{rodando.length}</strong> {rodando.length === 1 ? "cronômetro rodando" : "cronômetros rodando"}</>}
-              {isAdmin && <> · você pode corrigir, excluir e lançar retroativo.</>}
             </p>
           </div>
         </div>
@@ -361,7 +359,7 @@ export default function Horas() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">Só admin lança horas de outra pessoa (ex.: retroativo do ClickUp por editor).</p>
+
             </div>
           )}
           <div className="grid gap-3 md:grid-cols-2">

@@ -101,10 +101,7 @@ export default function PortalCliente() {
         <Send className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Portal do Cliente</h1>
-          <p className="text-sm text-muted-foreground">
-            Gere um link isolado por cliente. Ele acessa via URL única, sem senha, e enxerga só os
-            próprios projetos e entregáveis.
-          </p>
+
         </div>
       </div>
 

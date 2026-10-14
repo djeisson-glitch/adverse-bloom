@@ -161,7 +161,7 @@ function ChatIA({ user }: { user: any }) {
         {msgs.length === 0 && (
           <div className="pt-4 text-center">
             <Sparkles className="mx-auto h-6 w-6 text-primary/70" />
-            <p className="mt-2 text-sm text-muted-foreground">Oi! Posso te ajudar a achar as coisas e lembrar dos prazos.</p>
+
             <div className="mt-3 flex flex-col gap-1.5">
               {SUGESTOES.map((s) => (
                 <button key={s} onClick={() => enviar(s)} className="rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-foreground hover:border-primary/40">{s}</button>

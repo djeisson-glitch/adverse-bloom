@@ -57,7 +57,7 @@ export default function ConfiguracoesContratos() {
         <Button variant="ghost" size="icon" onClick={voltar}><ArrowLeft className="h-5 w-5" /></Button>
         <div>
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2"><Repeat className="h-5 w-5 text-primary" /> Contratos recorrentes (MRR)</h1>
-          <p className="text-sm text-muted-foreground">Cadastre o valor mensal de cada contrato fixo. O MRR é a soma dos ativos.</p>
+
         </div>
       </div>
 

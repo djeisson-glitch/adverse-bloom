@@ -332,10 +332,7 @@ export default function LeadDetalhe() {
                   <Plus className="mr-1 h-4 w-4" /> Registrar
                 </Button>
               </div>
-              <p className="mt-1.5 text-[10px] text-muted-foreground">
-                Já vem preenchido pela temperatura ({cadenciaDias(form.temperatura)} dias) — mude se combinaram outra data.
-                Ao registrar, isto vira a agenda do lead lá em cima.
-              </p>
+
             </div>
           </div>
 

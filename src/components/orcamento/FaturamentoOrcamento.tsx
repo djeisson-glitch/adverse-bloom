@@ -20,7 +20,7 @@ export function FaturamentoOrcamento({ budget }: { budget: any }) {
     finally {setSaving(false);}
   }
   return <div className="rounded-lg border border-border/60 p-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
-    <div><p className="text-sm font-medium">Como este trabalho será cobrado?</p><p className="text-xs text-muted-foreground">A escolha acompanha o projeto. Peças com cobrança própria mantêm sua exceção.</p></div>
+    <div><p className="text-sm font-medium">Cobrança</p></div>
     <Select value={modo} onValueChange={salvar} disabled={saving}>
       <SelectTrigger aria-label="Cobrança do orçamento" className="mt-2 sm:mt-0 sm:w-72"><SelectValue placeholder="Definir cobrança" /></SelectTrigger>
       <SelectContent>{BALDES.map(b=><SelectItem key={b.id} value={b.id}>{b.label}</SelectItem>)}</SelectContent>

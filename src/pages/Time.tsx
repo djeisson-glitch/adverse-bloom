@@ -287,9 +287,7 @@ export default function Time() {
         <UsersRound className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Time</h1>
-          <p className="text-sm text-muted-foreground">
-            Cadastro da equipe e acompanhamento do apontamento de horas (semana atual).
-          </p>
+
         </div>
       </div>
 

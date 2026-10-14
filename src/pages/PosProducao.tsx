@@ -115,7 +115,7 @@ export default function PosProducao() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">Ilha de edição</h1>
             <p className="text-sm text-muted-foreground">
-              Tudo que está aberto, por cliente. {total} peça{total === 1 ? "" : "s"} na ilha
+              {total} peça{total === 1 ? "" : "s"} na ilha
               {atrasadas > 0 && (
                 <> · <span className="font-medium text-destructive">{atrasadas} com prazo vencido</span></>
               )}

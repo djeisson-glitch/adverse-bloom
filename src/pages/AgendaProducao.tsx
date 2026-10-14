@@ -537,9 +537,7 @@ function SaidaDialog({
                 <p className="text-xs text-muted-foreground">Cadastre o time em Time / Fornecedores.</p>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Quem sai de produção fica indisponível pra edição naquele dia — é isso que desconta as horas do editor/câmera.
-            </p>
+
           </div>
 
           <div className="space-y-1.5">

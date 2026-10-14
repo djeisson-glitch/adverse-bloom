@@ -138,10 +138,7 @@ export default function AdminEtapas() {
         <Layers className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Etapas de pós</h1>
-          <p className="text-sm text-muted-foreground">
-            A ordem aqui é a ordem da trilha. Entre os candidatos, o sistema escolhe o de menor fila —
-            a posição desempata.
-          </p>
+
         </div>
       </div>
 

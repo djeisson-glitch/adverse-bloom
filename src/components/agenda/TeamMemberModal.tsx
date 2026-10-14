@@ -132,9 +132,7 @@ export function TeamMemberModal({ open, onOpenChange, member }: Props) {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    Conecte para criar eventos automaticamente na agenda do membro.
-                  </p>
+
                   <Button variant="outline" size="sm" className="text-xs" onClick={handleConnectGoogle}>
                     <ExternalLink className="h-3 w-3 mr-1" /> Conectar Google
                   </Button>

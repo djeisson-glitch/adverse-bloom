@@ -151,8 +151,7 @@ export function CompartilharOrcamento({ budgetId }: { budgetId: string }) {
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          Gera um endereço que abre sem login, mostrando só o que você marcar. O que fica de fora
-          não sai do banco — não é escondido na tela, é bloqueado na origem.
+          Quem tiver o link acessa sem login os dados selecionados.
         </p>
 
         {/* Novo link */}

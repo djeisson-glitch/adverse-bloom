@@ -442,7 +442,6 @@ export default function EntregavelDetalhe() {
         }}
       />
 
-
       {canSeeHours && (
         <section id="horas-entregavel" aria-label="Horas do entregável" className="scroll-mt-24 space-y-2">
         <TimesheetEntregavel
@@ -492,7 +491,6 @@ export default function EntregavelDetalhe() {
         }}
       />
 
-
           <Tabs key={did} defaultValue="arquivos" className="min-w-0">
             <TabsList aria-label="Informações do entregável" className="h-auto w-full justify-start gap-2 rounded-none border-b border-border bg-transparent px-0 pb-2">
 
@@ -520,7 +518,6 @@ export default function EntregavelDetalhe() {
           {/* Anexos de mídia: fotos e vídeos subidos de verdade pro Storage. */}
           <AnexosEntregavel did={did!} projectId={projectId!} />
 
-
             </TabsContent>
 
             <TabsContent value="detalhes" forceMount className="pt-3 data-[state=inactive]:hidden">
@@ -540,8 +537,6 @@ export default function EntregavelDetalhe() {
                 </button>
               </div>
             </L>
-
-
 
           <div className="mt-3 border-t border-border/60 pt-3">
 
@@ -621,10 +616,9 @@ export default function EntregavelDetalhe() {
             <h2 className="text-sm font-semibold">Conversa da peça</h2>
           </div>
           <div className="h-[440px] p-4 lg:h-[min(640px,calc(100dvh-10rem))] lg:min-h-[320px]">
-            <ComentariosSection key={did} entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Converse com o time sobre esta peça. Use @nome para mencionar alguém." />
+            <ComentariosSection key={did} entityType="deliverable" entityId={did!} profiles={profiles} fill vazio="Sem mensagens." />
           </div>
         </aside>
-
 
       </div>
 
@@ -1313,8 +1307,6 @@ function TimesheetEntregavel({
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground">DaVinci × 1,25 inclui uma estimativa de pesquisa, revisão e outras tarefas. Lançamentos manuais e cronômetro permanecem sem acréscimo.</p>
-
         {/* Tem alteração aberta: quem está mexendo por causa do cliente NÃO
             deve apontar aqui (isso é edição pura) — deve apontar na alteração,
             senão a hora de alteração fica invisível e o custo se perde. */}
@@ -1704,7 +1696,7 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
           ))}
         </SelectContent>
       </Select>
-      {segueObrigatoriamente && <p className="mt-1 text-xs text-muted-foreground">Definido pelo projeto. Todas as entregas são faturadas à parte.</p>}
+      {segueObrigatoriamente && <p className="mt-1 text-xs text-muted-foreground">À parte · definido pelo projeto.</p>}
       {!segueObrigatoriamente && foraDoFechamento(v === HERDA ? doProjetoOk : v) && (
         <p className="mt-1 text-[10px] text-warning">
           {BALDES.find((b) => b.id === (v === HERDA ? doProjetoOk : v))?.ajuda}

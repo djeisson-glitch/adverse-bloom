@@ -99,9 +99,7 @@ export default function MetasFinanceiras() {
     <div className="p-6 md:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Metas financeiras</h1>
-        <p className="text-muted-foreground">
-          Quanto precisamos faturar, mês a mês. Calculado dos custos com vigência — não do que já foi pago.
-        </p>
+
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

@@ -142,9 +142,7 @@ export default function ContasFees() {
         <Building2 className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Contas / Fees</h1>
-          <p className="text-sm text-muted-foreground">
-            Contas guarda-chuva (fees recorrentes) que agregam vários projetos.
-          </p>
+
         </div>
       </div>
 

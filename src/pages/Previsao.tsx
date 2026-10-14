@@ -65,10 +65,7 @@ export default function Previsao() {
         <TrendingUp className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Previsão</h1>
-          <p className="text-sm text-muted-foreground">
-            Pipeline ponderado (orçamentos abertos × probabilidade) projetando receita e carga vs.
-            capacidade livre das próximas 6 semanas.
-          </p>
+
         </div>
       </div>
 
@@ -162,11 +159,6 @@ export default function Previsao() {
         </CardContent>
       </Card>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Probabilidades por estágio vêm do funil (lead 10% · elaboração 40% · proposta 60% · negociação
-        80% · aceite 100%). Horas estimadas usam R${R_HORA_MEDIO}/h como taxa média — quando a Onda 4
-        entregar Horas/Fechamento, essa taxa passa a vir da média real por função.
-      </p>
     </div>
   );
 }

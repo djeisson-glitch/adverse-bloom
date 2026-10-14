@@ -249,10 +249,6 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                 );
               })}
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              O prazo do formulário usa a fila de quem estiver disponível, de cima pra baixo.
-              Sem nenhum nível preenchido, ele reparte pela capacidade do time — menos preciso.
-            </p>
 
           </div>
           <div>
@@ -288,7 +284,7 @@ export default function IntakeConfig({ clientId, clientName }: { clientId: strin
                 auto.agendar({ intake_alteracoes_media: Number(e.target.value) || 1 });
               }}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">Fallback enquanto não há histórico. Com ≥3 entregáveis, o sistema passa a usar a média real do cliente automaticamente.</p>
+
           </div>
         </div>
         <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">

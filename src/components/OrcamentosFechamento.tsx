@@ -23,7 +23,7 @@ export function OrcamentosFechamento({ id, rows, mensal }: { id: string; rows?: 
   return <section className="rounded-lg border border-primary/20 bg-primary/[0.03] p-3 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h3 className="flex items-center gap-2 font-semibold text-sm"><FileText className="h-4 w-4 text-primary" /> {mensal ? "Orçamento do mês" : "Referências do fechamento"}</h3>
-        <p className="text-xs text-muted-foreground mt-1">{mensal?.historico ? "Controle consolidado do mês já faturado." : "Referência para nota fiscal, boleto e Conta Azul."}</p></div>
+        </div>
       {!mensal && <Button size="sm" onClick={() => preparar.mutate()} disabled={preparar.isPending}>Consolidar orçamento do mês</Button>}
     </div>
     {mensal && <div className="flex flex-wrap items-center justify-between gap-3">

@@ -73,7 +73,7 @@ export function ControleOrcamentoMensal({ dados }: { dados: Dados }) {
     </section>
     <section className="border rounded-xl overflow-hidden">
       <div className="p-4 border-b space-y-1"><h2 className="font-semibold">Projetos do mês <span className="text-muted-foreground font-normal">· {projetos.length}</span></h2>
-        <p className="text-sm text-muted-foreground">Distribua a receita e informe os custos do mês, incluindo impostos e despesas. Não altera a cobrança.</p>
+
       </div>
       <div className="overflow-x-auto"><table className="w-full text-sm min-w-[650px]"><thead className="text-xs text-muted-foreground bg-muted/20"><tr><th className="text-left p-4 font-medium">Projeto</th><th className="text-right p-4 font-medium">Parte do fee (R$)</th><th className="text-right p-4 font-medium">Custo no mês (R$)</th><th className="text-right p-4 font-medium">Resultado</th></tr></thead>
         <tbody>{projetos.map(p => <Linha key={p.project_id} p={p} disabled={salvar.isPending} alterar={alterar} sair={sair} retorno={`/orcamentos-mensais/${base.id}`} />)}</tbody>
@@ -85,7 +85,7 @@ export function ControleOrcamentoMensal({ dados }: { dados: Dados }) {
       </footer>
     </section>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs text-muted-foreground max-w-xl">{!resumo.completo ? "Preencha receita e custo de todos os projetos e distribua o valor exato do mês para conferir a rentabilidade geral. Custo zero precisa ser informado." : "Resultado = parte do fee menos os custos informados. Trabalhos faturados à parte não entram neste total."}</p>
+      <p className="text-xs text-muted-foreground max-w-xl">{!resumo.completo ? "Receitas e custos pendentes. Informe 0 quando não houver custo." : ""}</p>
       <div className="flex items-center gap-3">{dirty && <span className="text-xs text-warning">Alterações não salvas</span>}<Button onClick={() => salvar.mutate()} disabled={!dirty || salvar.isPending}><Save className="w-4 h-4 mr-2" />{salvar.isPending ? "Salvando…" : "Salvar divisão e custos"}</Button></div>
     </div>
     {salvar.isError && <p role="alert" className="text-destructive text-sm">{salvar.error.message} {salvar.error.message.includes("Recarregue") && <button className="underline" onClick={() => { if (window.confirm("Recarregar descarta as alterações não salvas. Continuar?")) window.location.reload(); }}>Recarregar</button>}</p>}

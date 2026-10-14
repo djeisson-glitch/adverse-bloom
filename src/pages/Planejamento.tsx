@@ -135,9 +135,7 @@ export default function Planejamento() {
         <CalendarClock className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Planejamento de capacidade</h1>
-          <p className="text-sm text-muted-foreground">
-            Horas planejadas por pessoa nas próximas 6 semanas vs. capacidade de cada um.
-          </p>
+
         </div>
       </div>
 

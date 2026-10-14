@@ -208,7 +208,7 @@ export default function Demandas() {
         <Inbox className="h-6 w-6 text-primary" />
         <div className="flex-1">
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Demandas</h1>
-          <p className="text-sm text-muted-foreground">Solicitações que chegaram pelos formulários dos clientes.</p>
+
         </div>
         {novas > 0 && <Badge className="bg-primary/15 text-primary">{novas} nova{novas > 1 ? "s" : ""}</Badge>}
       </div>
@@ -332,7 +332,7 @@ export default function Demandas() {
                                 )}
                               </div>
                             ) : (
-                              <p className="mt-2 text-xs text-muted-foreground">Abra pra analisar, ou clique em “analisar”.</p>
+                              null
                             )}
                           </div>
                         );

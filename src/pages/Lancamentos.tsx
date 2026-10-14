@@ -184,9 +184,7 @@ export default function Lancamentos() {
     <div className="p-6 md:p-8 space-y-5 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Lançamentos</h1>
-        <p className="text-muted-foreground">
-          O livro da Adverse. O que você lança aqui é o que vale — o Conta Azul fica só de conferência.
-        </p>
+
       </div>
 
       <Card>
@@ -254,7 +252,7 @@ export default function Lancamentos() {
                   <Input id="parc" type="number" min={1} value={parcelas}
                     onChange={(e) => setParcelas(e.target.value)} />
                   <p className="text-xs text-muted-foreground">
-                    O valor é o TOTAL — ele se divide sozinho, uma parcela por mês.
+                    Total dividido em parcelas mensais.
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -262,7 +260,7 @@ export default function Lancamentos() {
                   <Input id="comp" type="date" value={competencia}
                     onChange={(e) => setCompetencia(e.target.value)} />
                   <p className="text-xs text-muted-foreground">
-                    Vazio = igual à data. Preencha quando o gasto é de um mês e vence em outro.
+                    Opcional · padrão: data do lançamento.
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -273,9 +271,7 @@ export default function Lancamentos() {
                       {projetos.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Preencher aqui é o que faz a margem do projeto sair sozinha.
-                  </p>
+
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="contra">Quem</Label>

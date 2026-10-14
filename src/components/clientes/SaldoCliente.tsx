@@ -120,9 +120,7 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
             <Wallet className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-sm font-semibold text-foreground">Saldo a usar</p>
-              <p className="text-xs text-muted-foreground">
-                O que este cliente ainda tem de crédito. Uso interno — não aparece no portal dele.
-              </p>
+
             </div>
           </div>
           <Button size="sm" variant={abrir ? "ghost" : "outline"} onClick={() => setAbrir(!abrir)}>
@@ -138,8 +136,7 @@ export default function SaldoCliente({ clientId }: { clientId: string }) {
           </div>
         ) : (
           <p className="rounded-lg border border-dashed border-border/50 px-4 py-3 text-xs text-muted-foreground">
-            Sem saldo pendente. Lance aqui o que sobrou de um pacote, o que foi pré-pago, ou as
-            diárias contratadas e ainda não usadas.
+            Sem saldo pendente.
           </p>
         )}
 

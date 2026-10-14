@@ -87,9 +87,7 @@ export default function AdminAprovacoes() {
         <ShieldCheck className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Aprovações</h1>
-          <p className="text-sm text-muted-foreground">
-            Quem aprova os entregáveis por padrão. Cada projeto pode sobrescrever na própria ficha.
-          </p>
+
         </div>
       </div>
 
@@ -122,10 +120,7 @@ export default function AdminAprovacoes() {
                   {profiles.map((p) => <SelectItem key={p.id} value={p.id}>{primeiroNome(p.full_name || p.email)}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Quem recebe na Minha mesa o "pronto — falta enviar ao cliente". Sem definir, o item
-                cai pra coordenação inteira.
-              </p>
+
             </div>
 
             <label className="flex items-center gap-2 text-sm text-foreground">
@@ -145,11 +140,6 @@ export default function AdminAprovacoes() {
         </Card>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        O fluxo: editor termina → <strong>Revisão interna</strong> aprova ou devolve ao editor → <strong>Cliente</strong> (se ligado) aprova ou pede ajuste no portal → Entregue.
-        "Pedir ajuste" interno é revisão (conta no indicador). Ajuste do cliente vira uma alteração
-        rastreável.
-      </p>
     </div>
   );
 }

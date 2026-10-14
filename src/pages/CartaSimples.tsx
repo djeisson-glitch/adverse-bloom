@@ -414,9 +414,6 @@ function CartaSimplesDocumento({ data }: { data: any }) {
                 <ListaEditavel itens={listaNaoIncl} onChange={(l) => setTxt((t) => ({ ...t, naoIncl: l }))} />
               </div>
 
-              <p className="mt-3 border-t border-border/50 pt-2 text-[10px] text-muted-foreground">
-                Textos e A/C são salvos automaticamente nesta opção do orçamento e mantidos ao reabrir a carta. O cadastro do cliente permanece igual.
-              </p>
             </PopoverContent>
           </Popover>
 

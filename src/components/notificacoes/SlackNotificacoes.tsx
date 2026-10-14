@@ -33,7 +33,7 @@ export function SlackNotificacoes({pessoas}: {pessoas:PessoaMatriz[]}) {
   return <Card className="glass-card"><CardContent className="space-y-4 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-base font-semibold">Slack · avisos da equipe</h2>
-        <p className="text-xs text-muted-foreground">Mensagem direta para cada responsável e acompanhamento no canal da produção.</p></div>
+        </div>
       {data && <Button variant={data.config.enabled ? 'outline' : 'default'} disabled={save.isPending || (!data.configurado && !data.config.enabled)}
         onClick={()=>save.mutate({action:'toggle',enabled:!data.config.enabled})}>{data.config.enabled ? 'Pausar envios' : 'Ativar envios'}</Button>}
     </div>

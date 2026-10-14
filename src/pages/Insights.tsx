@@ -216,7 +216,7 @@ export default function Insights() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Insights</h1>
-          <p className="text-sm text-muted-foreground">Análise inteligente e alertas automáticos</p>
+
         </div>
         <PeriodFilter value={period} onChange={setPeriod} defaultPreset="ano_atual" />
       </div>
@@ -342,9 +342,7 @@ export default function Insights() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground py-4">
-                  Continue coletando dados para identificar oportunidades.
-                </p>
+                null
               )}
             </motion.div>
           </div>

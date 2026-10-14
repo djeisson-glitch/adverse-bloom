@@ -75,9 +75,7 @@ export default function Planos() {
         <Package className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Planos</h1>
-          <p className="text-sm text-muted-foreground">
-            Pacotes recorrentes: o cliente compra entregas, a gente custeia horas.
-          </p>
+
         </div>
       </div>
 
@@ -516,9 +514,7 @@ function AplicarAoCliente({ plano }: { plano: any }) {
           Aplicar ao cliente
         </Button>
       </div>
-      <p className="mt-1.5 text-[10px] text-muted-foreground">
-        Valor e custo são congelados na aplicação — reajuste no rate card não mexe em contrato já assinado.
-      </p>
+
     </div>
   );
 }
@@ -598,10 +594,7 @@ function DegrausDeDesconto() {
             </Button>
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Prazo sem degrau exato usa o maior que couber — 9 meses pega o de 6. Cada orçamento
-          ainda pode ter o desconto próprio dele.
-        </p>
+
       </CardContent>
     </Card>
   );

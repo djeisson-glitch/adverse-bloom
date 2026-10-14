@@ -96,9 +96,7 @@ export default function ConfiguracoesContexto() {
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" /> Contexto da Empresa
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Quanto mais contexto, mais sob medida ficam as recomendações da IA financeira.
-          </p>
+
         </div>
         <IndicadorAutosave status={auto.status} />
       </div>

@@ -191,7 +191,7 @@ export default function Notificacoes() {
             {som ? <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> : <VolumeX className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
             <div>
               <p className="text-sm font-medium text-foreground">Som ao chegar notificação</p>
-              <p className="text-xs text-muted-foreground">Toque curto quando algo importante chega. Só nesta máquina.</p>
+
             </div>
           </div>
           <div className="flex gap-2">

@@ -144,9 +144,7 @@ export default function Faturamento() {
         <FileText className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Faturamento</h1>
-          <p className="text-sm text-muted-foreground">
-            Emita faturas/recibos por projeto ou cliente, acompanhe o recebimento e veja o que falta faturar.
-          </p>
+
         </div>
       </div>
 
@@ -241,10 +239,6 @@ export default function Faturamento() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        Quando marcar como <strong>Paga</strong>, um snapshot da fatura é gravado no cache do Conta Azul
-        (<code>invoice_paid_snapshot</code>) — a Edge Function existente cuida da reconciliação.
-      </p>
     </div>
   );
 }

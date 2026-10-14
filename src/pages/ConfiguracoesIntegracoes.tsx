@@ -204,9 +204,7 @@ export default function ConfiguracoesIntegracoes() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Integração com o Conta Azul para sincronização de dados financeiros, contas a pagar e receber.
-          </p>
+
           {needsReauth && (
             <div className="bg-warning/10 border border-warning/30 rounded-md p-3 text-sm text-warning">
               Token inválido ou expirado — faça login novamente na Conta Azul para continuar sincronizando.

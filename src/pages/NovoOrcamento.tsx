@@ -143,9 +143,7 @@ export default function NovoOrcamento() {
 
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Novo orçamento</h1>
-        <p className="text-sm text-muted-foreground">
-          Comece pelo projeto e cliente. Você pode completar os detalhes depois.
-        </p>
+
       </div>
 
       <Card className="glass-card">
@@ -162,11 +160,11 @@ export default function NovoOrcamento() {
                 placeholder="Nome do projeto"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                O sistema põe o número na frente ao criar:{" "}
+
                 <span className="font-mono text-foreground">
                   [XXXX]_{nomeCodigo(semPrefixoCodigo(form.title)) || "NOME_DO_PROJETO"}
                 </span>
-                {" "}— e é o mesmo número que o projeto vai herdar.
+
               </p>
             </div>
 
@@ -232,8 +230,8 @@ export default function NovoOrcamento() {
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {form.contato_nome || form.contato_celular || form.contato_email
-                    ? "Vem da ficha do cliente. Editar aqui atualiza a ficha."
-                    : "Ainda não temos contato dessa empresa — preencha e fica salvo na ficha."}
+                    ? "Alterações atualizam o cadastro do cliente."
+                    : "Contato salvo no cadastro do cliente."}
                 </p>
               </div>
             )}
@@ -260,9 +258,7 @@ export default function NovoOrcamento() {
                     placeholder="E-mail"
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Fica na ficha do cliente e serve pro orçamento, pro portal e pra cobrança.
-                </p>
+
               </div>
             )}
 
@@ -294,9 +290,7 @@ export default function NovoOrcamento() {
                   ))}
                 </SelectContent>
               </Select>
-              <p id="porte-padrao" className="mt-2 text-xs text-muted-foreground">
-                Todos incluem operador de câmera, assistente, edição e deslocamento. Quantidades e valores ajustáveis.
-              </p>
+
             </div>
 
             <div>
@@ -308,7 +302,6 @@ export default function NovoOrcamento() {
                 placeholder="0,00"
               />
             </div>
-
 
           </div>
           <details className="rounded-lg border border-border/60 p-4">

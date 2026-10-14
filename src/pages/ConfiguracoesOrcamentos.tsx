@@ -129,7 +129,7 @@ export default function ConfiguracoesOrcamentos() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Orçamentos</h1>
-          <p className="text-sm text-muted-foreground">Markup, impostos, comissões, templates e itens pré-cadastrados</p>
+
         </div>
         <IndicadorAutosave status={auto.status} />
       </motion.div>
@@ -198,7 +198,7 @@ export default function ConfiguracoesOrcamentos() {
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-base">Itens pré-cadastrados</CardTitle>
-          <p className="text-xs text-muted-foreground">Itens reutilizáveis com valores padrão para agilizar a criação de orçamentos</p>
+
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Add new preset */}

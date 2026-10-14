@@ -134,9 +134,7 @@ export default function Admin() {
         <Settings2 className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Administração</h1>
-          <p className="text-sm text-muted-foreground">
-            Configurações estruturais do sistema. Só admin acessa.
-          </p>
+
         </div>
       </div>
 

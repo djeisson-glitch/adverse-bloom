@@ -27,8 +27,6 @@ const MODELO_LABEL: Record<Modelo, string> = {
   contrato: "Contrato (valor fixo mensal + franquia)",
 };
 
-
-
 export default function FaturamentoConfig({ clientId, clientName }: { clientId: string; clientName: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -189,7 +187,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-foreground">Faturamento de {clientName}</h3>
-            <p className="text-xs text-muted-foreground">Como esse cliente é cobrado — define o rascunho mensal automático.</p>
+
           </div>
           <IndicadorAutosave status={status} />
         </div>
@@ -229,7 +227,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                 autoCfg.agendar({ valor_hora: Number(e.target.value) || 0 });
               }}
             />
-            <p className="text-[11px] text-muted-foreground">Vale para horas de edição e de alteração — o relatório separa as duas.</p>
+
           </div>
         )}
 
@@ -330,7 +328,7 @@ export default function FaturamentoConfig({ clientId, clientName }: { clientId: 
                   autoContrato.agendar({ acumulo_meses: Number(e.target.value) || 1 });
                 }}
               />
-              {!!contratoDB?.validade_creditos_dias && <p className="text-xs text-muted-foreground">Dias por competência. Ajuste os limites e consulte o saldo na aba Contrato.</p>}
+              {!!contratoDB?.validade_creditos_dias && null}
             </div>
             <div className="space-y-1.5">
               <Label>Diária extra (R$)</Label>

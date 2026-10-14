@@ -356,20 +356,18 @@ export default function OrcamentoEditor() {
 
       <section aria-label="Datas e andamento do orçamento" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Criado", data: deal.created_at || budget.created_at, detalhe: "Início do orçamento" },
-          { label: "Primeira emissão", data: budget.pdf_primeira_emissao_em, detalhe: "Primeiro PDF gerado" },
-          { label: "Última emissão", data: budget.pdf_ultima_emissao_em, detalhe: `${Array.isArray(budget.pdf_emissoes) ? budget.pdf_emissoes.length : 0} PDFs registrados` },
-        ].map(({ label, data, detalhe }) => (
+          { label: "Criado", data: deal.created_at || budget.created_at },
+          { label: "Primeira emissão", data: budget.pdf_primeira_emissao_em },
+          { label: "Última emissão", data: budget.pdf_ultima_emissao_em },
+        ].map(({ label, data }) => (
           <div key={label} className="rounded-lg border border-border/60 bg-card/40 px-4 py-3">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
             <p className="mt-1 text-sm font-semibold">{data ? formatDate(data) : "Sem registro"}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{detalhe}</p>
           </div>
         ))}
         <div className="rounded-lg border border-border/60 bg-card/40 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tempo percorrido</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{budget.aprovada_em ? "Até aprovação" : "Desde a criação"}</p>
           <p className="mt-1 text-sm font-semibold">{diasOrcamento(deal.created_at || budget.created_at, budget.aprovada_em || undefined) ?? "—"} dias</p>
-          <p className="mt-1 text-xs text-muted-foreground">{budget.aprovada_em ? `Até aprovação · ${formatDate(budget.aprovada_em)}` : "Desde a criação"}</p>
           {budget.pdf_primeira_emissao_em && <p className="mt-1 text-xs text-muted-foreground">{diasOrcamento(budget.pdf_primeira_emissao_em, budget.aprovada_em || undefined)} dias desde a emissão{budget.aprovada_em ? " até aprovar" : ""}</p>}
         </div>
       </section>
@@ -481,7 +479,7 @@ export default function OrcamentoEditor() {
           <h2 className="text-sm font-semibold">Conversa do orçamento</h2>
           <div className="min-h-0 flex-1">
           <ComentariosSection entityType="deal" entityId={deal.id} profiles={profiles}
-            titulo="Conversa do orçamento" vazio="Converse sobre escopo, custos e proposta." fill />
+            titulo="Conversa do orçamento" vazio="Sem mensagens." fill />
           </div>
         </aside>
       </div>

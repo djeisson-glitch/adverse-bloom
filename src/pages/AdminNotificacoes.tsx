@@ -90,9 +90,7 @@ export default function AdminNotificacoes() {
         <BellRing className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Notificações do time</h1>
-          <p className="text-sm text-muted-foreground">
-            Escolha, por pessoa, o que cada uma recebe — quem precisa de mais, e quem precisa de menos.
-          </p>
+
         </div>
       </div>
 
@@ -134,10 +132,7 @@ export default function AdminNotificacoes() {
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium text-foreground">Horários do resumo</p>
-              <p className="text-xs text-muted-foreground">
-                Tudo que é <strong className="text-foreground">no resumo</strong> se acumula e sai nestes horários,
-                num aviso só por pessoa. Vale pro time inteiro — ninguém escolhe o seu.
-              </p>
+
             </div>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -255,10 +250,6 @@ export default function AdminNotificacoes() {
         </div>
       )}
 
-      <p className="text-[11px] text-muted-foreground/70">
-        Cada pessoa também pode ajustar os tipos de aviso na própria tela de notificações.
-        Os horários do resumo são definidos pela gestão e valem para o time inteiro.
-      </p>
     </div>
   );
 }

@@ -16,7 +16,7 @@ export default function MapaOperacional() {
       >
         <div>
           <h1 className="text-2xl font-bold">Mapa Operacional</h1>
-          <p className="text-sm text-muted-foreground">Fluxos e processos da Adverse</p>
+
         </div>
         <Button variant="outline" size="sm" onClick={handleFullscreen}>
           <Maximize2 className="h-4 w-4 mr-2" />

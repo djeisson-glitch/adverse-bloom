@@ -164,7 +164,7 @@ export default function FluxoDeCaixa() {
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold">Fluxo de Caixa</h1>
-        <p className="text-sm text-muted-foreground">Projeção do caixa e recomendações de ação</p>
+
       </div>
 
       {primeiroNegativo && (
@@ -218,7 +218,7 @@ export default function FluxoDeCaixa() {
       {/* Realizado mês a mês */}
       <div className="glass-card p-5">
         <h2 className="font-heading text-lg font-semibold mb-1">Realizado — últimos 6 meses</h2>
-        <p className="text-xs text-muted-foreground mb-3">Caixa efetivo (valores pagos), por mês de vencimento. Saldo acumulado reconstruído a partir do saldo atual.</p>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

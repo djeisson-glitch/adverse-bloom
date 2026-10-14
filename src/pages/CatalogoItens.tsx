@@ -64,7 +64,7 @@ export default function CatalogoItens() {
         <Package className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Catálogo de itens</h1>
-          <p className="text-sm text-muted-foreground">Valor unitário padrão de cada item e o que entra no orçamento "médio".</p>
+
         </div>
       </div>
 

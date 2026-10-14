@@ -109,11 +109,7 @@ export default function FollowUps() {
         <CalendarRange className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Agenda de Follow-up</h1>
-          <p className="text-sm text-muted-foreground">
-            Lembretes automáticos +60 dias após cada orçamento{" "}
-            <span className="text-success">ganho</span> ou{" "}
-            <span className="text-destructive">perdido</span> — pra reabordar o cliente na hora certa.
-          </p>
+
         </div>
       </div>
 

@@ -45,7 +45,7 @@ export default function Agenda() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Agenda da Equipe</h1>
-          <p className="text-sm text-muted-foreground">Alocações e diárias de captação</p>
+
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>

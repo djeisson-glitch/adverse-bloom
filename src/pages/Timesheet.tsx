@@ -146,7 +146,7 @@ export default function Timesheet() {
         <CalendarCheck className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Timesheet</h1>
-          <p className="text-sm text-muted-foreground">Grid semanal projeto × dia. Digite as horas na célula e pressione Enter.</p>
+
         </div>
       </div>
 
@@ -276,10 +276,6 @@ export default function Timesheet() {
         </Button>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Digite as horas direto na célula (projeto × dia) e pressione Enter. O total do dia fica vermelho se passar de 8h.
-        Ao salvar, criamos uma <em>time entry</em> sintética com <code>source=timesheet</code> — para não conflitar com o timer manual.
-      </p>
     </div>
   );
 }

@@ -132,12 +132,7 @@ export default function EntregasDoMes() {
         <PackageCheck className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Entregas do mês</h1>
-          <p className="text-sm text-muted-foreground">
-            {base === "criacao"
-              ? "O que ENTROU no mês, por cliente e projeto — a data de criação manda (a do projeto prevalece sobre a da peça)."
-              : "O que SAIU no mês, por cliente e projeto — corte pela data de entrega."}
-            {" "}Entram todos — inclusive quem não tem cobrança configurada.
-          </p>
+
         </div>
       </div>
 
@@ -190,9 +185,7 @@ export default function EntregasDoMes() {
             <p className="text-sm text-muted-foreground">
               Nenhuma entrega com data em <span className="capitalize">{mesLabel}</span>.
             </p>
-            <p className="text-[11px] text-muted-foreground">
-              A conta é pela data de entrega da peça — peça sem data não aparece aqui.
-            </p>
+
           </CardContent>
         </Card>
       ) : (

@@ -100,9 +100,7 @@ export default function ConfiguracoesPermissoes() {
           <Shield className="h-6 w-6 text-primary" />
           Permissões
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Defina o acesso de cada usuário aos módulos do sistema. Administradores sempre têm acesso total.
-        </p>
+
       </motion.div>
 
       {nonAdminProfiles.length === 0 ? (

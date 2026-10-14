@@ -78,9 +78,7 @@ export default function AdminRateCard() {
         <Coins className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Rate card</h1>
-          <p className="text-sm text-muted-foreground">
-            Preço/hora por função (usado como sugestão em orçamentos) e custo/hora padrão (base do fechamento).
-          </p>
+
         </div>
       </div>
 

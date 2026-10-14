@@ -77,7 +77,7 @@ export default function Leads() {
         <Sprout className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">Leads</h1>
-          <p className="text-sm text-muted-foreground">Nutrição pré-funil — mantenha quente até virar orçamento.</p>
+
         </div>
       </div>
 

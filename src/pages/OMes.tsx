@@ -134,7 +134,7 @@ export default function OMes() {
     <div className="p-6 md:p-8 space-y-5 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold capitalize">{nomeMes}</h1>
-        <p className="text-muted-foreground">Três perguntas. O resto está a um clique.</p>
+
       </div>
 
       <Bloco pergunta="Vou fechar o mês?" resposta={resposta1} tom={tom1}

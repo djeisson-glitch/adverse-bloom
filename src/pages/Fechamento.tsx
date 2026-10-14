@@ -142,9 +142,7 @@ export default function Fechamento() {
     <div className="p-6 md:p-8 space-y-5 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold">Fechamento de projetos</h1>
-        <p className="text-muted-foreground">
-          Projetos entregues que ainda não tiveram os números congelados.
-        </p>
+
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -178,10 +176,6 @@ export default function Fechamento() {
         <Tabela titulo="" rows={arquivo} isLoading={false} vazio="Nenhum fechado ainda." onFinalizar={pedirFechamento} podeFechar={false} />
       </Recolhivel>
 
-      <p className="text-xs text-muted-foreground">
-        Custo total = horas × custo/hora de quem apontou, mais os custos externos do projeto.
-        Margem = valor vendido − custo total.
-      </p>
     </div>
   );
 }

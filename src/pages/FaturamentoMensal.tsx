@@ -47,7 +47,6 @@ const STATUS: Record<string, { label: string; cls: string; next?: string; nextLa
   faturado: { label: "Faturado", cls: "bg-emerald-500/20 text-success border-emerald-500/30" },
 };
 
-
 /**
  * Hora em formato de relógio, não em decimal.
  *
@@ -689,10 +688,7 @@ export default function FaturamentoMensal() {
                               <li className="list-decimal">Tem decupagem, transições e letterings? → <b>Pílula +</b></li>
                               <li className="list-decimal">Resto (legenda, trilha, cortes, lettering básico) → <b>Pílula</b></li>
                             </ol>
-                            <p className="mt-1 pl-4 text-[10px] text-muted-foreground">
-                              Pare no primeiro "sim". Borda acesa: confirmado por você. Horas em âmbar:
-                              passou do previsto. <b>Meia</b> = metade do preço do tipo.
-                            </p>
+
                           </details>
                         </Bloco>
                       )}

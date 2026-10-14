@@ -297,9 +297,7 @@ export default function ClienteDetalhe() {
               <div className="space-y-1.5">
                 <Label>Cliente</Label>
                 <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
-                <p className="text-[11px] text-muted-foreground">
-                  Razão social ou como o cliente é conhecido. Aparece assim em todo o sistema e nas propostas.
-                </p>
+
               </div>
               <div className="space-y-1.5">
                 <Label>Responsável</Label>
@@ -308,16 +306,12 @@ export default function ClienteDetalhe() {
                   onChange={(e) => set("contact_name", e.target.value)}
                   placeholder="Quem assina e aprova"
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  A pessoa de contato. Sai como “A/C” na carta que vai pro cliente.
-                </p>
+
               </div>
               <div className="space-y-1.5">
                 <Label>Empresa</Label>
                 <Input value={form.company} onChange={(e) => set("company", e.target.value)} />
-                <p className="text-[11px] text-muted-foreground">
-                  Só quando a razão social ou o grupo for diferente do nome acima.
-                </p>
+
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
@@ -368,7 +362,7 @@ export default function ClienteDetalhe() {
 
             <TabsContent value="projetos" className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">Todos os projetos deste cliente, incluindo finalizados.</p>
+
                 {can("projetos") && <Button variant="ghost" size="sm" asChild><Link to={`/projetos?cliente=${id}&vista=todos`}>Ver na aba Projetos</Link></Button>}
               </div>
               {can("projetos") && diariasQuery.isError && <div className="flex flex-wrap items-center gap-2 text-xs text-destructive"><span>Não foi possível carregar as diárias dos projetos.</span><Button variant="ghost" size="sm" onClick={() => diariasQuery.refetch()}>Tentar novamente</Button></div>}
