@@ -106,7 +106,7 @@ export default function EntregavelDetalhe() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, client_id, criado_em, faturamento, budget:budgets(budget_number))")
+        .select("*, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, cliente_aprova, client_id, criado_em, faturamento, budget:budgets!projects_budget_id_fkey(budget_number))")
         .eq("id", did!)
         .single();
       if (error) throw error;
