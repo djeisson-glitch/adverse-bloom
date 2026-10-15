@@ -1,0 +1,33 @@
+ADVERSE OS — PASTAS NO SERVIDOR WINDOWS
+
+Instalação única pelo administrador do servidor:
+1. Instale Python 3 para todos os usuários pelo site oficial https://www.python.org/downloads/windows/ (se ainda não estiver instalado).
+2. No Adverse OS, abra um projeto > Pastas no servidor > Configurar servidor > Baixar configuração.
+3. Leve esse JSON e este pacote extraído para o servidor Windows.
+4. Abra PowerShell como administrador. Na pasta do pacote, execute:
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\instalar.ps1
+   A opção vale somente para este processo; não altera a política do Windows.
+5. Informe o caminho do JSON e o caminho LOCAL de Estrutura de pastas.
+   O destino é identificado automaticamente pelo compartilhamento PROJETOS_ATIVOS do Windows.
+   Se ele não existir, a instalação para; nenhum outro compartilhamento é usado.
+6. Aguarde até um minuto e confira Servidor conectado no Adverse OS.
+7. Proteja ou remova a cópia baixada do JSON. A configuração instalada fica protegida em C:\ProgramData\AdverseOS\Pastas.
+
+Uso por Djêisson e Maiara:
+Abra o projeto > Pastas no servidor > confira o nome do cliente > Criar pastas.
+A data de criação exibida no projeto define ano e mês (fuso de São Paulo).
+O sistema mantém o mesmo pedido se clicar novamente. Pastas existentes são reaproveitadas.
+A pasta do cliente é criada automaticamente se ainda não existir naquele mês.
+O nome escolhido para a pasta do cliente é lembrado para os próximos projetos.
+Todos os pedidos usam PROJETOS_ATIVOS. O conector confere esse destino a cada execução.
+Se o caminho do compartilhamento mudar, reinstale o conector para confirmar o novo local.
+
+O conector cria somente diretórios do modelo. Não copia arquivos, apaga ou renomeia pastas.
+Um projeto encontrado em outro mês/cliente gera aviso para conferência, em vez de uma cópia.
+Nomes de clientes com prefixos como 01. e diferenças de composição de acentos são reconhecidos.
+Servidor desligado: pedidos ficam pendentes. Erro de estrutura: corrigir e clicar Tentar novamente.
+Não são abertas portas nem compartilhamentos novos. A conexão é HTTPS de saída para o Supabase.
+A tarefa Adverse OS - Pastas roda a cada minuto e na inicialização do Windows, como SYSTEM.
+Se reinstalar, a tarefa anterior será atualizada. Gerar uma nova configuração invalida a chave anterior.
+
+Para desativar, desabilite a tarefa Adverse OS - Pastas no Agendador de Tarefas do Windows.

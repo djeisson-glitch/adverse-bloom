@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PessoaAvatar } from "@/components/PessoaAvatar";
+import { PastasProjeto } from "@/components/projeto/PastasProjeto";
 import { CriadoEm } from "@/components/projeto/CriadoEm";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -401,6 +402,7 @@ export default function ProjetoDetalhe() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
+              {podeEditarProjeto && <PastasProjeto project={project} isAdmin={isAdmin} />}
               {/* Acabar o projeto é AÇÃO, não etapa: ele fica em Fechamento o
                   tempo que precisar e só sai do board quando alguém disser que
                   acabou. Reabrir devolve pra Fechamento — clique errado não
