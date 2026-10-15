@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Children, isValidElement, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,6 +105,30 @@ function botoesDoItem(it: Item): BtnCfg[] {
     { kind: "alteracaoCliente", label: "Alteração", Icon: MessageSquarePlus, cls: CLS_SECUNDARIO, outline: true },
   ];
   return [];
+}
+
+/** Prazo ausente fica por último; datas iguais mantêm a ordem existente. */
+function compararPrazos(a?: string | null, b?: string | null) {
+  return (a || "9999-12-31").localeCompare(b || "9999-12-31");
+}
+
+function primeiroPrazo(datas: (string | null | undefined)[]) {
+  return datas.filter((d): d is string => !!d).sort(compararPrazos)[0] || null;
+}
+
+function destaquePrazo(prazo: string | null | undefined, hoje: string) {
+  if (!prazo) return null;
+  const dias = diasAte(prazo, hoje);
+  if (dias < 0) return { cor: "destructive", forca: 0.18, rotulo: "Vencido" };
+  if (dias === 0) return { cor: "primary", forca: 0.15, rotulo: "Hoje" };
+  if (dias === 1) return { cor: "warning", forca: 0.12, rotulo: "Amanhã" };
+  if (dias <= 7) return { cor: "warning", forca: 0.10 - dias * 0.008, rotulo: `Em ${dias} dias` };
+  return null;
+}
+
+function fundoPrazo(prazo: string | null | undefined, hoje: string) {
+  const destaque = destaquePrazo(prazo, hoje);
+  return destaque ? { backgroundImage: `linear-gradient(100deg, hsl(var(--${destaque.cor}) / ${destaque.forca}), transparent 90%)` } : undefined;
 }
 
 const iso = dataISO;
@@ -215,7 +239,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, codigo, titulo, status, formato, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, codigo, titulo, status, formato, prazo_interno, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -367,7 +391,7 @@ export default function MinhaMesa() {
    * essas peças, senão elas somem do sistema inteiro e ninguém libera nada.
    */
   const praLiberar = useMemo(
-    () => (podeCliente ? deliverables.filter((d: any) => d.status === "pendente") : []),
+    () => (podeCliente ? deliverables.filter((d: any) => d.status === "pendente").sort((a: any, b: any) => compararPrazos(prazoDe(a), prazoDe(b))) : []),
     [deliverables, podeCliente],
   );
 
@@ -576,13 +600,14 @@ export default function MinhaMesa() {
   // substitui todos os blocos, quem tivesse só gravações — ou, agora, só leads
   // pra tocar — via "Tudo em dia" com trabalho na tela e os blocos nem
   // renderizavam.
-  const mesaVazia = total === 0 && gravacoes.length === 0;
+
 
   // FILA ÚNICA. As 4 seções viraram uma lista só: a ordem JÁ é a prioridade
   // (atrasado > te esperando > esta semana > em andamento), então repetir isso
   // em cabeçalhos era pedir pra pessoa ler 4 títulos pra achar 6 itens.
   const fila = useMemo(
-    () => [...porBucket.atrasado, ...porBucket.espera, ...porBucket.semana, ...porBucket.andamento],
+    () => [...porBucket.atrasado, ...porBucket.espera, ...porBucket.semana, ...porBucket.andamento]
+      .sort((a, b) => compararPrazos(a.due, b.due) || Number(b.bloqueante) - Number(a.bloqueante)),
     [porBucket],
   );
 
@@ -652,6 +677,10 @@ export default function MinhaMesa() {
     [travados],
   );
 
+  const temTrabalho = praEditar.length + praAprovar.length + praLiberar.length + outras.length + leadsPraTocar.length > 0;
+  const temAcompanhamento = gravacoes.length + comCliente.length + vaiEntrar.length > 0;
+  const mesaVazia = !temTrabalho && !temAcompanhamento;
+
   const [aba, setAba] = useState<"minha" | "time">("minha");
 
   /**
@@ -669,29 +698,26 @@ export default function MinhaMesa() {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  // 6xl e não 4xl: duas colunas em 896px espremem as duas. A largura extra só
-  // vale a partir de lg — abaixo disso o grid empilha e a leitura continua
-  // sendo de coluna única.
   return (
-    <div className="mx-auto max-w-6xl space-y-4 py-6">
+    <div className="mx-auto max-w-7xl space-y-6 py-6">
       {/* Cabeçalho enxuto: o nome da tela e quanta coisa tem. O subtítulo
           explicativo saiu — quem abre a mesa já sabe pra que ela serve. */}
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Minha mesa</h1>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           {porBucket.atrasado.length > 0 && (
-            <span className="font-medium text-destructive">{porBucket.atrasado.length} atrasado</span>
+            <span className="whitespace-nowrap font-medium text-destructive">{porBucket.atrasado.length} {porBucket.atrasado.length === 1 ? "atrasado" : "atrasados"}</span>
           )}
-          <span className="text-muted-foreground">{total} pra resolver</span>
+          <span className="whitespace-nowrap text-muted-foreground">{total} para resolver</span>
           {coordena && (
-            <button
-              onClick={() => setAba(aba === "minha" ? "time" : "minha")}
-              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                aba === "time" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40"
-              }`}
-            >
-              Time ({sistema.length})
-            </button>
+            <div className="flex rounded-lg border border-border p-1" aria-label="Visualização da mesa">
+              {(["minha", "time"] as const).map((opcao) => (
+                <button key={opcao} onClick={() => setAba(opcao)} aria-pressed={aba === opcao}
+                  className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${aba === opcao ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  {opcao === "minha" ? "Minha mesa" : `Time (${sistema.length})`}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -714,29 +740,9 @@ export default function MinhaMesa() {
         </Card>
       ) : (
         <>
-          {/* ---- BLOCOS. Cada um responde uma pergunta diferente ----
-              Antes era uma fila só ("Agora" / "Depois") com tudo misturado:
-              o que estava comigo, o que esperava aprovação e o que estava com
-              o cliente competiam pela mesma leitura. O desenho aqui é o que o
-              Djêisson descreveu — o que é MEU em destaque, e o resto separado
-              por quem está segurando. */}
-
-          {/* BLOCOS. Djêisson (12/08), sobre a primeira tentativa: "ficou uma
-              merda hein? cortou as informações, ficou uma tira só do lado...
-              não era isso! crie literalmente blocos".
-
-              Ele tinha razão duas vezes. O erro técnico: filho de grid tem
-              `min-width: auto`, então a coluna não encolhia abaixo do conteúdo
-              e o título vazava pra fora da tela em vez de truncar — daí o
-              `min-w-0` em cada bloco. O erro de julgamento foi pior: validei o
-              desenho num mock com 3 itens curtos, e a tela real tinha 9 com
-              títulos longos.
-
-              Agora cada seção é uma CAIXA fechada, de largura igual, com
-              cabeçalho e contagem próprios. Duas por linha; em tela estreita,
-              uma. A ordem é a da urgência: editar, aprovar, e o resto. */}
-          <div className="grid gap-4 md:grid-cols-2 md:items-start">
-            <Bloco titulo="Pra eu editar" n={praEditar.length} tom="editar">
+          <div className={`grid items-start gap-6 ${temTrabalho && temAcompanhamento ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]" : ""}`}>
+            {temTrabalho && <ColunaPorPrazo hoje={hoje}>
+            <Bloco prioridade={0} prazo={primeiroPrazo(praEditar.map(it => it.due))} titulo="Pra eu editar" n={praEditar.length} tom="editar">
               {/* Subdividido por prazo: dez itens numa lista só faziam os três
                   atrasados sumirem entre os que vencem em setembro. */}
               {FAIXAS.map((f) => {
@@ -751,6 +757,7 @@ export default function MinhaMesa() {
                     <button
                       key={f.id}
                       onClick={() => setFilaAberta(true)}
+                      aria-expanded={false}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <ChevronRight className="h-3.5 w-3.5 shrink-0" />
@@ -785,32 +792,35 @@ export default function MinhaMesa() {
               })}
             </Bloco>
 
-            <Bloco titulo="Pra eu aprovar" n={praAprovar.length} tom="aprovar">
+            <Bloco prazo={primeiroPrazo(praAprovar.map(it => it.due))} titulo="Pra eu aprovar" n={praAprovar.length} tom="aprovar">
               {praAprovar.map((it) => (
                 <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
                   rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
               ))}
             </Bloco>
 
-            {/* Liberar pra edição: a peça chegou, falta confirmar que o
-                material do cliente veio. Enquanto ninguém confirma, ela NÃO
-                aparece pro editor. */}
-            <Bloco titulo="Liberar pra edição" n={praLiberar.length} tom="liberar">
+            <Bloco prioridade={2} prazo={primeiroPrazo(outras.map(it => it.due))} titulo="Outras tarefas" n={outras.length}>
+              {outras.map((it) => (
+                <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
+                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
+              ))}
+            </Bloco>
+
+            <Bloco prazo={primeiroPrazo(praLiberar.map(prazoDe))} titulo="Liberar pra edição" n={praLiberar.length} tom="liberar">
               <ListaComMais itens={praLiberar} render={(d: any) => (
-                <div key={d.id} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                  <Link
-                    to={`/projetos/${d.project?.id}/entregaveis/${d.id}`}
-                    className="min-w-0 flex-1 truncate text-sm text-foreground"
-                    title={d.titulo}
-                  >
-                    {d.codigo && <span className="mr-2 font-mono text-[11px] text-muted-foreground">{d.codigo}</span>}
+                <div key={d.id} style={fundoPrazo(prazoDe(d), hoje)} className="space-y-2 border-b border-border/50 px-4 py-3 last:border-0">
+                  <Link to={`/projetos/${d.project?.id}/entregaveis/${d.id}`}
+                    className="block break-words text-sm font-medium leading-relaxed text-foreground hover:underline [overflow-wrap:anywhere]">
                     {d.titulo}
                   </Link>
-                  <span className="hidden shrink-0 truncate text-right text-xs text-muted-foreground lg:block">
-                    {d.project?.client_name || ""}
-                  </span>
+                  {prazoDe(d) && <p className={`text-xs ${estaAtrasado(d, hoje) ? "text-destructive" : "text-muted-foreground"}`}>{prazoNatural(prazoDe(d), hoje)}</p>}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                      {d.codigo && <span className="mr-2 font-mono">{d.codigo}</span>}
+                      {d.project?.client_name || ""}
+                    </div>
                   <Button
-                    size="sm" variant="outline" className="h-7 shrink-0 text-xs"
+                    size="sm" variant="outline" className="h-8 shrink-0 text-xs"
                     disabled={busy === `lib-${d.id}`}
                     onClick={async () => {
                       setBusy(`lib-${d.id}`);
@@ -827,50 +837,26 @@ export default function MinhaMesa() {
                   >
                     Enviar para edição
                   </Button>
+                  </div>
                 </div>
               )} />
             </Bloco>
 
-            <Bloco titulo="Outras tarefas" n={outras.length}>
-              {outras.map((it) => (
-                <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                  rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
-              ))}
-            </Bloco>
 
-            {/* Gravações: o que não dá pra remarcar de manhã. */}
-            <Bloco titulo="Gravações" n={gravacoes.length} tom="gravacoes">
-              {gravacoes.map((g: any) => (
-                <div key={g.id} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                  <span className="w-14 shrink-0 text-xs font-medium text-foreground">
-                    {new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={g.titulo}>
-                    {g.titulo}
-                    {g.hora_inicio && <span className="ml-2 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</span>}
-                  </span>
-                  <Link to="/saidas" className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
-                    ver <ChevronRight className="inline h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              ))}
-            </Bloco>
 
-            {/* Leads pra tocar. Cor só no que decide: barra vermelha no atrasado,
-                âmbar no que vence hoje — a mesma linguagem das faixas de cima. */}
-            <Bloco titulo="Leads pra tocar" n={leadsPraTocar.length} tom="leads">
+            <Bloco prazo={primeiroPrazo(leadsPraTocar.map((l: any) => l.proximo_toque))} titulo="Leads pra tocar" n={leadsPraTocar.length} tom="leads">
               {leadsPraTocar.map((l: any) => {
                 const dias = diasDeAtraso(l.proximo_toque, hoje);
                 const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
                 return (
                   <Link
-                    key={l.id} to={`/leads/${l.id}`}
+                    key={l.id} to={`/leads/${l.id}`} style={fundoPrazo(l.proximo_toque, hoje)}
                     className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
                   >
                     <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground" title={`${l.nome}${l.motivo_toque ? ` — ${l.motivo_toque}` : ""}`}>
+                    <span className="min-w-0 flex-1 break-words text-sm text-foreground [overflow-wrap:anywhere]" title={`${l.nome}${l.motivo_toque ? ` — ${l.motivo_toque}` : ""}`}>
                       {l.nome}
-                      {l.empresa && <span className="ml-2 text-xs text-muted-foreground">{l.empresa}</span>}
+                      {l.empresa && <span className="mt-1 block text-xs text-muted-foreground">{l.empresa}</span>}
                     </span>
                     {temp && (
                       <span className={`hidden shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium lg:inline ${temp.chip}`}>
@@ -884,6 +870,24 @@ export default function MinhaMesa() {
                 );
               })}
             </Bloco>
+            </ColunaPorPrazo>}
+            {temAcompanhamento && <div className="min-w-0 space-y-4">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Acompanhar</h2>
+            <Bloco titulo="Gravações" n={gravacoes.length} tom="gravacoes">
+              {gravacoes.map((g: any) => (
+                <Link key={g.id} to="/saidas" className="flex min-w-0 items-start gap-3 border-b border-border/50 px-4 py-4 last:border-0 hover:bg-sidebar-accent/40">
+                  <div className="flex w-12 shrink-0 flex-col items-center rounded-lg bg-muted px-1 py-2">
+                    <span className="text-lg font-semibold leading-none tabular-nums">{g.data.slice(8, 10)}</span>
+                    <span className="mt-1 text-[11px] text-muted-foreground">{new Date(g.data + "T00:00:00").toLocaleDateString("pt-BR", { month: "short" })}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-medium leading-relaxed [overflow-wrap:anywhere]">{g.titulo}</p>
+                    {g.hora_inicio && <p className="mt-1 text-xs text-muted-foreground">{String(g.hora_inicio).slice(0, 5)}</p>}
+                  </div>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))}
+            </Bloco>
 
             <Bloco titulo="Com o cliente" n={comCliente.length} tom="cliente">
               <ListaComMais itens={comCliente} render={(it: any) => (
@@ -892,26 +896,19 @@ export default function MinhaMesa() {
               )} />
             </Bloco>
 
-            {/* Ainda não é seu, mas vai ser: peça em que você é o responsável e
-                que está na mão de outra pessoa (etapa anterior ou revisão). */}
             <Bloco titulo="Vai entrar pra você" n={vaiEntrar.length} tom="cliente">
               <ListaComMais itens={vaiEntrar} render={(t: any) => (
-                <div key={t.key} className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0">
-                  <Link to={t.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={`${t.titulo} — ${t.quem} · ${t.falta}`}>
-                    {t.d?.codigo && (
-                      <span className="mr-2 font-mono text-[11px] text-muted-foreground">{t.d.codigo}</span>
-                    )}
-                    {t.titulo}
-                  </Link>
-                  <span className="hidden shrink-0 truncate text-right text-xs text-muted-foreground lg:block">
-                    {t.quem}
-                  </span>
-                  <span className="shrink-0 text-right text-xs text-muted-foreground">
-                    há {t.dias}d
-                  </span>
-                </div>
+                <Link key={t.key} to={t.link} className="block space-y-2 border-b border-border/50 px-4 py-4 last:border-0 hover:bg-sidebar-accent/40">
+                  <p className="break-words text-sm font-medium leading-relaxed [overflow-wrap:anywhere]">{t.titulo}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    {t.d?.codigo && <span className="font-mono">{t.d.codigo}</span>}
+                    <span className="break-words">{t.quem} · {t.falta}</span>
+                    <span className="ml-auto shrink-0">há {t.dias}d</span>
+                  </div>
+                </Link>
               )} />
             </Bloco>
+            </div>}
           </div>
 
         </>
@@ -931,6 +928,7 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
       onClick={onClick}
       disabled={busy}
       title={rodando ? "Parar e lançar as horas" : "Rastrear horas nesta peça"}
+      aria-label={rodando ? "Parar e lançar as horas" : "Rastrear horas nesta peça"}
       className={`shrink-0 rounded p-1.5 disabled:opacity-50 ${
         rodando ? "text-warning hover:bg-warning/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
@@ -940,31 +938,7 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
   );
 }
 
-/**
- * O item que a tela escolheu como "agora": grande, com o MOTIVO da escolha
- * escrito. Sem o motivo, destacar vira palpite — a pessoa não sabe se pode
- * confiar na ordem.
- */
-/**
- * Um bloco da mesa. Some quando está vazio — bloco vazio com título é uma
- * linha a mais pra ler dizendo que não há nada pra ler.
- */
-/**
- * Cor por bloco — uma tarja lateral, e só.
- *
- * Djêisson (12/08): "deixar um pouco mais com cor (aquela tarjinha amarela no
- * pra eu editar é muito boa, fica minimalista mas separa visualmente rápido
- * cada coisa)".
- *
- * A tarja de 3px na borda esquerda é a MESMA linguagem que ele elogiou nas
- * linhas, agora identificando a caixa. Uma cor por assunto, aplicada num
- * lugar só: o olho acha o bloco antes de ler o título, e nada mais na caixa
- * ganha cor por causa disso.
- *
- * Dentro de "Pra eu editar" a barra por LINHA continua sendo prazo (vermelho
- * = vencido, âmbar = esta semana) — são dois eixos diferentes e não podem
- * disputar o mesmo lugar.
- */
+/** Cor discreta por categoria; blocos vazios não são exibidos. */
 const TARJA: Record<string, string> = {
   editar: "border-l-warning",       // âmbar — o trabalho longo
   aprovar: "border-l-primary",      // laranja — destrava outra pessoa
@@ -975,22 +949,42 @@ const TARJA: Record<string, string> = {
   tarefa: "border-l-border",        // neutro
 };
 
+/** Edição primeiro, demais ações por prazo e outras tarefas ao final. */
+function ColunaPorPrazo({ hoje, children }: { hoje: string; children: React.ReactNode }) {
+  const blocos = Children.toArray(children)
+    .filter(isValidElement<{ n: number; prazo?: string | null; prioridade?: number }>)
+    .filter(bloco => bloco.props.n > 0)
+    .sort((a, b) => ((a.props.prioridade ?? 1) - (b.props.prioridade ?? 1))
+      || compararPrazos(a.props.prazo, b.props.prazo));
+  const destaque = destaquePrazo(blocos[0]?.props.prazo, hoje);
+  return (
+    <div className="min-w-0 space-y-4">
+      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Seu trabalho</h2>
+      <div className="space-y-4 rounded-xl" style={destaque ? {
+        backgroundImage: `linear-gradient(180deg, hsl(var(--${destaque.cor}) / 0.14), hsl(var(--${destaque.cor}) / 0.04) 45%, transparent 90%)`,
+      } : undefined}>
+        {blocos}
+      </div>
+    </div>
+  );
+}
+
 function Bloco({ titulo, n, tom, children }: {
-  titulo: string; n: number; tom?: keyof typeof TARJA; children: React.ReactNode;
+  titulo: string; n: number; prazo?: string | null; prioridade?: number; tom?: keyof typeof TARJA; children: React.ReactNode;
 }) {
   if (!n) return null;
   const tarja = TARJA[tom || "tarefa"] || "border-l-border";
-  const borda = `border-border/60 border-l-[3px] ${tarja}`;
+  const borda = `border-border/70 border-l-2 ${tarja}`;
   return (
     // `min-w-0` é o conserto do bug: filho de grid tem min-width auto, não
     // encolhe abaixo do conteúdo, e o título longo vazava pra fora da tela em
     // vez de truncar. `overflow-hidden` segura o resto.
     <section className={`min-w-0 overflow-hidden rounded-xl border bg-card/40 ${borda}`}>
-      <header className="flex items-center gap-2 border-b border-border/50 px-4 py-2.5">
-        <h3 className="truncate text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+      <header className="flex items-center gap-2 border-b border-border/50 px-4 py-3.5">
+        <h3 className="text-sm font-semibold text-foreground">
           {titulo}
         </h3>
-        <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">{n}</span>
+        <span className="ml-auto rounded-md bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{n}</span>
       </header>
       {children}
     </section>
@@ -1015,6 +1009,7 @@ function ListaComMais({ itens, limite = 5, render }: {
       {itens.length > limite && (
         <button
           onClick={() => setTudo(!tudo)}
+          aria-expanded={tudo}
           className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
         >
           <ChevronRight className={`h-3.5 w-3.5 shrink-0 ${tudo ? "rotate-90" : ""}`} />
@@ -1037,26 +1032,13 @@ function SubTitulo({ barra, titulo, n, aberto, onToggle }: {
       {titulo} · {n}
     </>
   );
-  const cls = "flex items-center gap-2 px-4 pb-1 pt-2.5 text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground";
+  const cls = "flex items-center gap-2 px-4 pb-1 pt-3 text-[11px] font-medium text-muted-foreground";
   return onToggle
-    ? <button onClick={onToggle} className={`${cls} hover:text-foreground`}>{conteudo}</button>
+    ? <button onClick={onToggle} aria-expanded={aberto} className={`${cls} hover:text-foreground`}>{conteudo}</button>
     : <p className={cls}>{conteudo}</p>;
 }
 
-/**
- * Uma linha da mesa. Densa, e com COR SÓ ONDE ELA DECIDE ALGO.
- *
- * Antes cada item era um cartão de ~100px com um botão laranja sólido. Oito
- * itens viravam oito botões idênticos gritando junto: cor em tudo é cor em
- * nada, e o atrasado se perdia no meio do resto. Agora:
- *
- *   · barra de 3px na lateral — vermelha no vencido, âmbar no que vence esta
- *     semana, NADA na fila. É a marca que o olho pega descendo a lista;
- *   · o prazo herda a mesma cor, e é a única palavra colorida da linha;
- *   · o botão principal é SÓLIDO só no vencido. No resto ele existe em
- *     contorno — continua a um clique, mas para de disputar atenção com o
- *     que está pegando fogo.
- */
+/** Título e prazo primeiro; identificação e ações na linha seguinte. */
 function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
   it: Item; hoje: string; busy: boolean; rodando: boolean;
   onAgir: (kind: string, it: Item) => void; faixa?: Faixa;
@@ -1066,6 +1048,8 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
   const principal = botoes[0];
   const extras = botoes.slice(1);
   const urgente = faixa === "vencido" || (!faixa && atrasado);
+  // Aguardando o cliente permanece neutro: o prazo não cobra quem já enviou.
+  const destaque = it.tipo !== "cliente" ? destaquePrazo(it.due, hoje) : null;
 
   const prazo = it.due
     ? it.due === hoje
@@ -1074,79 +1058,46 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
     : "";
 
   return (
-    <div className="flex items-center gap-3 border-b border-border/40 py-2 pr-4 last:border-0 hover:bg-sidebar-accent/40">
-      {/* A barra é a cor: 3px na lateral, e só quando significa algo. */}
-      <span className={`h-8 w-[3px] shrink-0 rounded-r ${
-        urgente ? "bg-destructive" : faixa === "agora" ? "bg-warning" : "bg-transparent"
-      }`} />
-
-      <Link to={it.link} className="min-w-0 flex-1 truncate text-sm text-foreground" title={it.titulo}>
-        {/* O código na frente do título: é por ele que a peça é procurada no
-            Drive, no DaVinci e na conversa com o cliente. Fica em mono e
-            apagado — informação de busca, não de leitura. Só entregável tem
-            código; tarefa e demanda passam batido. */}
-        {it.d?.codigo && (
-          <span className="mr-2 font-mono text-[11px] text-muted-foreground">{it.d.codigo}</span>
-        )}
-        {it.d?.etapa_atual && (
-          <span className="mr-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-            {it.d.etapa_atual}
-          </span>
-        )}
-        {it.titulo}
-        {it.nota && <span className="ml-2 text-xs text-muted-foreground">↻ {it.nota}</span>}
-      </Link>
-
-      {/* O cliente some antes do título: num bloco de ~570px ele é o primeiro
-          a sobrar. O título fica (é o que identifica a peça) e o contexto
-          continua no `title` da linha. */}
-      <span className="hidden w-28 shrink-0 truncate text-right text-xs text-muted-foreground xl:block" title={it.contexto}>
-        {it.contexto}
-      </span>
-
-      <span className={`w-16 shrink-0 text-right text-xs ${
-        urgente ? "font-medium text-destructive"
-          : faixa === "agora" ? "font-medium text-warning"
-          : "text-muted-foreground"
-      }`}>
-        {prazo}
-      </span>
-
-      <div className="flex shrink-0 items-center justify-end gap-1">
-        {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
-        {principal ? (
-          <>
-            {/* Sólido só no AGORA. Aqui embaixo o botão existe mas não grita —
-                era isso que fazia os 11 itens parecerem igualmente urgentes. */}
-            <Button
-              size="sm"
-              variant={urgente ? "default" : "outline"}
-              disabled={busy}
-              onClick={() => onAgir(principal.kind, it)}
-              className="h-7 px-2.5 text-xs"
-            >
-              {busy ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              {principal.label}
-            </Button>
-            {/* A 2ª ação (Ajuste, Alteração) vira ícone: existe, mas não
-                compete com a principal nem gasta uma palavra na linha. */}
-            {extras.map((b) => (
-              <button
-                key={b.kind}
-                disabled={busy}
-                title={b.label}
-                onClick={() => onAgir(b.kind, it)}
-                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-              >
-                <b.Icon className="h-3.5 w-3.5" />
-              </button>
-            ))}
-          </>
-        ) : (
-          <Link to={it.link} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            {it.acao} <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        )}
+    <div style={it.tipo !== "cliente" ? fundoPrazo(it.due, hoje) : undefined} className="space-y-2 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-sidebar-accent/30">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <Link to={it.link} className="min-w-[min(100%,12rem)] flex-1 break-words text-sm font-medium leading-relaxed text-foreground hover:underline [overflow-wrap:anywhere]">
+          {it.titulo}
+        </Link>
+        {prazo && <span className={`mt-0.5 shrink-0 rounded-md px-2 py-1 text-xs tabular-nums ${
+          urgente ? "bg-destructive/10 font-medium text-destructive"
+            : destaque ? "bg-warning/10 font-medium text-warning" : "text-muted-foreground"
+        }`} title={urgente ? prazoNatural(it.due, hoje) : undefined}>{destaque ? (it.due === hoje ? "Hoje" : `${destaque.rotulo} · ${prazo}`) : prazo}</span>}
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+          {it.d?.codigo && <span className="font-mono">{it.d.codigo}</span>}
+          {it.contexto && <span>{it.contexto}</span>}
+          {it.d?.etapa_atual && <span className="rounded bg-secondary px-1.5 py-0.5">{it.d.etapa_atual}</span>}
+          {it.nota && <span className="basis-full">↻ {it.nota}</span>}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-start">
+          {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
+          {principal ? (
+            <>
+              <Button size="sm" variant={urgente ? "default" : "outline"} disabled={busy}
+                onClick={() => onAgir(principal.kind, it)} className="h-8 px-3 text-xs">
+                {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                {principal.label}
+              </Button>
+              {extras.map((b) => (
+                <button key={b.kind} disabled={busy} title={b.label} aria-label={b.label}
+                  onClick={() => onAgir(b.kind, it)}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                  <b.Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </>
+          ) : (
+            <Link to={it.link} className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted">
+              {it.acao} <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );
