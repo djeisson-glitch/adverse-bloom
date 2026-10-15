@@ -1,6 +1,9 @@
 """Conector de pastas ADVERSE. Somente diretórios; nunca remove ou sobrescreve arquivos."""
 import argparse
 import json
+import os
+import signal
+import threading
 from pathlib import Path
 import re
 import stat
@@ -8,6 +11,8 @@ import subprocess
 import unicodedata
 import urllib.request
 import uuid
+
+UNRAID_ROOT = Path('/projects/PROJETOS_ATIVOS')
 
 MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -172,6 +177,17 @@ def rpc(config, function, data):
 
 
 def server_root(config):
+    if config.get('platform') == 'unraid':
+        root = Path(config['root'])
+        if root != UNRAID_ROOT or not root.is_mount():
+            raise ValueError('Compartilhamento PROJETOS_ATIVOS não montado no conector')
+        for parent in reversed((root, *root.parents)):
+            regular(parent)
+        if not root.is_dir():
+            raise ValueError('PROJETOS_ATIVOS indisponível')
+        return root
+    if config.get('platform', 'windows') != 'windows':
+        raise ValueError('Plataforma inválida')
     # Resolve o compartilhamento pelo nome: o diretório físico pode ter outro nome.
     result = subprocess.run([
         'powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
@@ -191,13 +207,30 @@ def server_root(config):
     return root
 
 
+def check_config(config):
+    if not re.fullmatch(r'https://[a-z0-9]+\.supabase\.co', config['url']):
+        raise ValueError('Endereço do Adverse OS inválido')
+    if not re.fullmatch(r'[a-f0-9]{64}', config['token']) or not config['public_key']:
+        raise ValueError('Configuração inválida; baixe novamente no Adverse OS')
+    root = server_root(config)
+    template = Path(config['template'])
+    if config.get('platform') == 'unraid':
+        template.relative_to(root)
+        for parent in reversed((template, *template.parents)):
+            if parent == root or root in parent.parents:
+                regular(parent)
+        if not os.access(root, os.W_OK | os.X_OK):
+            raise ValueError('Conector sem permissão de escrita em PROJETOS_ATIVOS')
+    model_tree(template)
+    return root
+
+
 def run(config):
     # Sem servidor/modelo, não retira pedidos da fila. Serão atendidos quando voltar.
-    root = server_root(config)
-    model_tree(Path(config['template']))
+    root = check_config(config)
     job = rpc(config, 'pastas_buscar_pedido', {'_token': config['token']})
     if not job:
-        return
+        return 'idle'
     result, error = None, None
     try:
         result = create_folders(root, config['template'], job['payload'], apply=True)
@@ -206,14 +239,48 @@ def run(config):
         error = str(exc)[:500]
     rpc(config, 'pastas_concluir', {'_token': config['token'], '_project_id': job['payload']['project_id'],
         '_lease_id': job['lease_id'], '_path': result['relative_path'] if result else None, '_error': error})
+    return 'error' if error else 'ready'
+
+
+def serve(config, stop, interval=60):
+    previous = None
+    while not stop.is_set():
+        try:
+            result = run(config)
+            if previous != 'connected':
+                print('Conector conectado ao Adverse OS.', flush=True)
+            if result == 'ready':
+                print('Pastas do projeto criadas ou reaproveitadas.', flush=True)
+            elif result == 'error':
+                print('Pedido com erro. Confira o aviso no projeto no Adverse OS.', flush=True)
+            previous = 'connected'
+        except Exception:
+            if previous != 'unavailable':
+                print('Conector indisponível. Confira rede, configuração e permissões. Tentando novamente em um minuto.', flush=True)
+            previous = 'unavailable'
+        stop.wait(interval)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--loop', action='store_true')
+    mode.add_argument('--check', action='store_true')
     args = parser.parse_args()
     try:
-        run(json.loads(Path(args.config).read_text(encoding='utf-8-sig')))
+        config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))
+        if config.get('platform') == 'unraid':
+            os.umask(0o002)  # Pastas novas permitem escrita ao grupo users; não muda as existentes.
+        if args.check:
+            check_config(config)
+            print('Configuração, montagem e modelo validados. Nenhum pedido executado.')
+        elif args.loop:
+            stop = threading.Event()
+            signal.signal(signal.SIGTERM, lambda *_: stop.set())
+            signal.signal(signal.SIGINT, lambda *_: stop.set())
+            serve(config, stop)
+        else:
+            run(config)
     except Exception:
-        # O Agendador repete; nada de credenciais nos logs do Windows.
-        raise SystemExit('Conector indisponível. Confira rede, configuração e permissões; nova tentativa em um minuto.')
+        raise SystemExit('Conector indisponível. Confira rede, configuração e permissões; nenhum segredo foi registrado.')

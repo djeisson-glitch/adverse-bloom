@@ -1,0 +1,36 @@
+ADVERSE OS — CONECTOR PARA UNRAID
+
+Pré-requisitos: array iniciado, Docker ativo, shares PROJETOS_ATIVOS e appdata.
+Instalação única pelo terminal do Unraid. Não precisa instalar Python no NAS.
+
+1. No Adverse OS: projeto > Pastas no servidor > Configurar servidor > Baixar configuração.
+   Guarde esse JSON. Ele contém a chave do conector. Não envie no chat.
+2. Baixe e extraia adverse-pastas-unraid.tar.gz no NAS. No terminal execute:
+   bash instalar-unraid.sh
+3. Confira a pasta modelo. O padrão é _. Database 2026/Estrutura de pastas,
+   dentro de PROJETOS_ATIVOS. Pode informar outro modelo dentro desse share.
+4. Informe o caminho do JSON no NAS, ou pressione Enter para colar seu conteúdo.
+   Ao colar, o conteúdo fica oculto; finalize com Enter em uma linha vazia.
+5. Na aba Docker, ative Auto-Start para adverse-pastas.
+6. No Adverse OS, confira Servidor conectado e teste Criar pastas em um projeto.
+   Confira as pastas no NAS. O teste real de criação e reinício deve ser feito após instalar.
+
+A instalação usa a imagem oficial python:3.13-slim e configurações em
+/mnt/user/appdata/adverse-pastas. O conector não abre portas, não usa modo
+privilegiado e não recebe acesso aos outros shares ou ao controle do Docker.
+Roda como nobody:users e cria pastas com escrita para o grupo users.
+Se as permissões do share/modelo impedirem o acesso, a instalação para.
+Não altera permissões de pastas ou arquivos existentes dos projetos.
+
+Destino fixo: /mnt/user/PROJETOS_ATIVOS. Ano e mês seguem a criação do projeto.
+Cria cliente/projeto/subpastas ausentes. Reaproveita existentes. Não copia,
+apaga nem renomeia arquivos. Projeto encontrado em outro mês/cliente pede revisão.
+Sem rede, o conector tenta novamente a cada minuto. Sem share/modelo, não retira pedidos.
+A configuração é montada somente para leitura e não é exibida nos logs.
+Gerar outra configuração no Adverse OS invalida a chave anterior.
+
+Para pausar: Docker > adverse-pastas > Stop e desative Auto-Start.
+Para conferir falhas: Docker > adverse-pastas > Logs e o aviso no projeto.
+Não execute o instalador de Windows (.ps1) no Unraid.
+Não use o botão Edit do Docker para recriar o contêiner sem um template;
+para mudar imagem, modelo ou configuração, peça orientação antes de reinstalar.

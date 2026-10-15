@@ -52,8 +52,8 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
   };
   const configurar = async () => {
     if (!(await confirmar({ title: "Configurar o servidor de pastas?", description: data?.configured
-      ? "Uma nova chave será gerada. O conector atual para de funcionar até instalar a nova configuração no Windows."
-      : "Baixe a configuração e instale o conector uma única vez no servidor Windows.", confirmText: "Baixar configuração" }))) return;
+      ? "Uma nova chave será gerada. O conector atual para de funcionar até instalar a nova configuração no servidor."
+      : "Baixe a configuração e instale o conector uma única vez no servidor Unraid.", confirmText: "Baixar configuração" }))) return;
     setBusy(true);
     try {
       const { data: token, error } = await (supabase as any).rpc("pastas_configurar_servidor");
@@ -64,7 +64,7 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
       a.href = url; a.download = "adverse-pastas-config.json"; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       await qc.invalidateQueries({ queryKey: key });
-      toast.success("Configuração baixada. Instale no servidor Windows.");
+      toast.success("Configuração baixada. Instale no servidor Unraid.");
     } catch (e: any) { toast.error("Não foi possível configurar", { description: e.message }); }
     finally { setBusy(false); }
   };
@@ -92,8 +92,8 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
             <summary className="cursor-pointer">Configurar servidor</summary>
             <div className="mt-3 space-y-3">
               <Button size="sm" variant="outline" disabled={busy} onClick={configurar}><Settings2 className="mr-2 h-4 w-4" />Baixar configuração</Button>
-              <a className="block text-primary underline" href="/integracoes/adverse-pastas.zip" download>Baixar instalador para Windows</a>
-              <p>Execute instalar.ps1 como administrador no servidor. O arquivo de configuração contém a chave do conector; não compartilhe.</p>
+              <a className="block text-primary underline" href="/integracoes/adverse-pastas-unraid.tar.gz" download>Baixar conector para Unraid</a>
+              <p>Instale uma vez pelo terminal do Unraid. Guarde o arquivo de configuração; ele contém a chave do conector.</p>
             </div>
           </details>}
         </>}
