@@ -9,20 +9,38 @@ const project={id:"p1",client_id:"c1",client_name:"Sicredi Sul Minas RS/MG",nome
 function show(){render(<PastasProjeto project={project} isAdmin={false}/>);fireEvent.click(screen.getByRole("button",{name:"Pastas no servidor"}));}
 beforeEach(()=>{mock.state={configured:true,online:true};mock.rpc.mockReset();mock.rpc.mockResolvedValue({error:null});});
 afterEach(cleanup);
-it("usa a data de criação em São Paulo e nome compatível com o servidor",()=>{show();expect(screen.getByText(/09. Setembro/)).toHaveTextContent(/^PROJETOS_ATIVOS \/ /);expect(screen.getByLabelText("Pasta do cliente no servidor")).toHaveValue("Sicredi Sul Minas");});
-it("envia um pedido autenticado com projeto e pasta escolhida",async()=>{show();fireEvent.change(screen.getByLabelText("Pasta do cliente no servidor"),{target:{value:"Sicredi Sul Minas"}});fireEvent.click(screen.getByRole("button",{name:"Criar pastas"}));await waitFor(()=>expect(mock.rpc).toHaveBeenCalledWith("pastas_solicitar",{_project_id:"p1",_client_folder:"Sicredi Sul Minas"}));});
-it("não permite novo pedido enquanto aguarda o servidor",()=>{mock.state.job={status:"pending"};show();expect(screen.getByRole("status")).toHaveTextContent("Aguardando o servidor");expect(screen.queryByRole("button",{name:"Criar pastas"})).not.toBeInTheDocument();});
-it("não considera a fila como criação concluída",()=>{mock.state.job={status:"working"};show();expect(screen.getByRole("status")).toHaveTextContent("Criando pastas");expect(screen.queryByText("Pastas criadas")).not.toBeInTheDocument();});
-it("pasta vazia impede criação e não volta ao valor anterior",()=>{show();fireEvent.change(screen.getByLabelText("Pasta do cliente no servidor"),{target:{value:""}});expect(screen.getByRole("button",{name:"Criar pastas"})).toBeDisabled();});
-it("mantém o nome de clientes sem alias confirmado",()=>{expect(pastaClienteInicial("Outro cliente")).toBe("Outro cliente");});
-
-it("informa quando falta vincular um cliente ao projeto",()=>{
+it("aguarda liberação sem oferecer criação manual ou editar destino",()=>{
+  show();expect(screen.getByRole("status")).toHaveTextContent("Aguardando liberação em Pré-produção ou Pronto pra editar");
+  expect(screen.queryByRole("button",{name:"Criar pastas"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();expect(mock.rpc).not.toHaveBeenCalled();
+});
+it("usa a data de criação em São Paulo e o nome compatível com o servidor",()=>{
+  show();expect(screen.getByText(/09. Setembro/)).toHaveTextContent(/^PROJETOS_ATIVOS \/ /);
+  expect(screen.getByText(/09. Setembro/)).toHaveTextContent("Sicredi Sul Minas");
+});
+it("permite reprocessar somente um pedido com erro",async()=>{
+  mock.state.job={status:"error",error:"Corrija o nome da pasta"};show();
+  expect(screen.getByRole("alert")).toHaveTextContent("Corrija o nome");
+  fireEvent.click(screen.getByRole("button",{name:"Reprocessar falha"}));
+  await waitFor(()=>expect(mock.rpc).toHaveBeenCalledWith("pastas_reprocessar",{_project_id:"p1"}));
+});
+it.each(["pending","working","ready"])("não oferece reprocessamento para %s",status=>{
+  mock.state.job={status,relative_path:"pasta/existente"};show();
+  expect(screen.queryByRole("button",{name:"Reprocessar falha"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Criar pastas"})).not.toBeInTheDocument();
+});
+it("fila offline não é mostrada como concluída",()=>{
+  mock.state.online=false;mock.state.job={status:"pending"};show();
+  expect(screen.getByRole("status")).toHaveTextContent("Aguardando o servidor");
+  expect(screen.queryByText("Pastas criadas")).not.toBeInTheDocument();
+});
+it("informa o cliente obrigatório antes da liberação",()=>{
   render(<PastasProjeto project={{...project,client_id:null}} isAdmin={false}/>);
   fireEvent.click(screen.getByRole("button",{name:"Pastas no servidor"}));
-  expect(screen.getByRole("alert")).toHaveTextContent("Vincule um cliente");
-  expect(screen.getByRole("button",{name:"Criar pastas"})).toBeDisabled();
+  expect(screen.getByRole("alert")).toHaveTextContent("Vincule um cliente antes de liberar");
 });
-it("mostra a raiz também no caminho das pastas concluídas",()=>{
+it("mostra a raiz e o caminho realmente concluído",()=>{
   mock.state.job={status:"ready",relative_path:"_. Database 2026/01. Clientes - Projetos/10. Outubro/SLC/[0369]_TESTE"};
   show();expect(screen.getByText(/^PROJETOS_ATIVOS\//)).toHaveTextContent(mock.state.job.relative_path);
 });
+it("mantém o nome de clientes sem alias confirmado",()=>{expect(pastaClienteInicial("Outro cliente")).toBe("Outro cliente");});

@@ -143,6 +143,7 @@ export default function ProjetoDetalhe() {
     const { error } = await (supabase as any).from("projects").update(patch).eq("id", id);
     if (error) return toast.error("Não salvou", { description: error.message });
     qc.invalidateQueries({ queryKey: ["projeto", id] });
+    qc.invalidateQueries({ queryKey: ["pastas-projeto", id] });
     qc.invalidateQueries({ queryKey: ["projects"] });
     qc.invalidateQueries({ queryKey: ["projects-client"] });
     if (msg) toast.success(msg);

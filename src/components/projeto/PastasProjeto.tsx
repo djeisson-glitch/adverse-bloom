@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderPlus, Loader2, Copy, Settings2 } from "lucide-react";
+import { FolderOpen, Loader2, Copy, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useConfirm } from "@/components/ui/confirm";
 import { toast } from "sonner";
@@ -17,7 +15,6 @@ export function pastaClienteInicial(nome: string) {
 
 export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
-  const [clientFolder, setClientFolder] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const confirmar = useConfirm();
   const qc = useQueryClient();
@@ -31,7 +28,7 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
     },
   });
   const job = data?.job;
-  const nomeCliente = clientFolder ?? data?.client_folder ?? pastaClienteInicial(project.client_name || "");
+  const nomeCliente = job?.payload?.client_folder ?? data?.client_folder ?? pastaClienteInicial(project.client_name || "");
   const date = new Date(project.criado_em || project.created_at);
   const month = Number(new Intl.DateTimeFormat("en", { timeZone: "America/Sao_Paulo", month: "numeric" }).format(date));
   const year = new Intl.DateTimeFormat("en", { timeZone: "America/Sao_Paulo", year: "numeric" }).format(date);
@@ -40,14 +37,14 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
 
   const caminhoCriado = `PROJETOS_ATIVOS/${job?.relative_path || ""}`;
 
-  const pedir = async () => {
+  const reprocessar = async () => {
     setBusy(true);
     try {
-      const { error } = await (supabase as any).rpc("pastas_solicitar", { _project_id: project.id, _client_folder: nomeCliente });
+      const { error } = await (supabase as any).rpc("pastas_reprocessar", { _project_id: project.id });
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: key });
-      toast.success("Pedido enviado ao servidor");
-    } catch (e: any) { toast.error("Não foi possível solicitar as pastas", { description: e.message }); }
+      toast.success("Reprocessamento solicitado");
+    } catch (e: any) { toast.error("Não foi possível reprocessar as pastas", { description: e.message }); }
     finally { setBusy(false); }
   };
   const configurar = async () => {
@@ -69,7 +66,7 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
     finally { setBusy(false); }
   };
   return <>
-    <Button variant="outline" size="sm" onClick={() => setOpen(true)}><FolderPlus className="mr-2 h-4 w-4" />Pastas no servidor</Button>
+    <Button variant="outline" size="sm" onClick={() => setOpen(true)}><FolderOpen className="mr-2 h-4 w-4" />Pastas no servidor</Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent aria-describedby={undefined}>
         <DialogHeader><DialogTitle>Pastas do projeto</DialogTitle></DialogHeader>
@@ -80,13 +77,12 @@ export function PastasProjeto({ project, isAdmin }: { project: any; isAdmin: boo
             <p className="break-all rounded-lg bg-muted p-3 text-sm">{caminhoCriado}</p>
             <Button variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(caminhoCriado); toast.success("Caminho copiado"); } catch { toast.error("Não foi possível copiar"); } }}><Copy className="mr-2 h-4 w-4" />Copiar caminho</Button>
           </> : <>
-            <Label htmlFor="pasta-cliente">Pasta do cliente no servidor</Label>
-            <Input id="pasta-cliente" value={nomeCliente} disabled={busy || ["pending","working"].includes(job?.status)} onChange={e=>setClientFolder(e.target.value)} />
             <p className="break-words rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">{caminho}</p>
-            {!project.client_id && <p role="alert" className="text-sm text-muted-foreground">Vincule um cliente ao projeto para criar as pastas.</p>}
+            {!project.client_id && <p role="alert" className="text-sm text-muted-foreground">Vincule um cliente antes de liberar para produção.</p>}
+            {!job && <p role="status" className="text-sm">Aguardando liberação em Pré-produção ou Pronto pra editar.</p>}
             {job?.status === "error" && <p role="alert" className="text-sm text-destructive">{job.error}</p>}
             {["pending","working"].includes(job?.status) ? <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" />{job.status === "working" ? "Criando pastas…" : "Aguardando o servidor"}</p>
-              : <Button disabled={busy || !data?.configured || !nomeCliente.trim() || !project.client_id} onClick={pedir}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{job?.status === "error" ? "Tentar novamente" : "Criar pastas"}</Button>}
+              : job?.status === "error" && <Button disabled={busy || !project.client_id} onClick={reprocessar}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Reprocessar falha</Button>}
           </>}
           {isAdmin && <details className="border-t border-border pt-3 text-xs text-muted-foreground">
             <summary className="cursor-pointer">Configurar servidor</summary>

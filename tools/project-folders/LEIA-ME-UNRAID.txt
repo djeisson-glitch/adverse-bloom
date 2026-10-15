@@ -12,8 +12,10 @@ Instalação única pelo terminal do Unraid. Não precisa instalar Python no NAS
 4. Informe o caminho do JSON no NAS, ou pressione Enter para colar seu conteúdo.
    Ao colar, o conteúdo fica oculto; finalize com Enter em uma linha vazia.
 5. Na aba Docker, ative Auto-Start para adverse-pastas.
-6. No Adverse OS, confira Servidor conectado e teste Criar pastas em um projeto.
-   Confira as pastas no NAS. O teste real de criação e reinício deve ser feito após instalar.
+6. No Adverse OS, confira Servidor conectado. A fila é automática nas próximas
+   mudanças para Pré-produção (projeto) ou Pronto pra editar (entregável), pela
+   coordenação/admin. Criar o cadastro sozinho não gera pastas.
+   Confira as pastas no NAS após a liberação real. Valide também o Auto-Start.
 
 A instalação usa a imagem oficial python:3.13-slim e configurações em
 /mnt/user/appdata/adverse-pastas. O conector não abre portas, não usa modo
@@ -21,6 +23,10 @@ privilegiado e não recebe acesso aos outros shares ou ao controle do Docker.
 Roda como nobody:users e cria pastas com escrita para o grupo users.
 Se as permissões do share/modelo impedirem o acesso, a instalação para.
 Não altera permissões de pastas ou arquivos existentes dos projetos.
+
+Pré-produção permite receber arquivos antes de liberar o material para o editor.
+Pastas existentes são preservadas. Projetos antigos não são enfileirados em massa.
+Em caso de falha, corrija a causa e use Reprocessar falha no projeto.
 
 Destino fixo: /mnt/user/PROJETOS_ATIVOS. Ano e mês seguem a criação do projeto.
 Cria cliente/projeto/subpastas ausentes. Reaproveita existentes. Não copia,
