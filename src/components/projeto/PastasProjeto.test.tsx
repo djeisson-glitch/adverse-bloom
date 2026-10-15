@@ -1,46 +1,44 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PastasProjeto, pastaClienteInicial } from "./PastasProjeto";
-const mock=vi.hoisted(()=>({state:{} as any,rpc:vi.fn()}));
-vi.mock("@tanstack/react-query",()=>({useQuery:()=>({data:mock.state,isPending:false,error:null}),useQueryClient:()=>({invalidateQueries:vi.fn()})}));
+import { PastasProjeto } from "./PastasProjeto";
+const mock=vi.hoisted(()=>({rpc:vi.fn()}));
 vi.mock("@/integrations/supabase/client",()=>({supabase:{rpc:mock.rpc}}));
-vi.mock("@/components/ui/confirm",()=>({useConfirm:()=>vi.fn()}));
-const project={id:"p1",client_id:"c1",client_name:"Sicredi Sul Minas RS/MG",nome_padrao:"[0369]_TESTE",created_at:"2026-10-01T01:00:00Z"};
-function show(){render(<PastasProjeto project={project} isAdmin={false}/>);fireEvent.click(screen.getByRole("button",{name:"Pastas no servidor"}));}
-beforeEach(()=>{mock.state={configured:true,online:true};mock.rpc.mockReset();mock.rpc.mockResolvedValue({error:null});});
-afterEach(cleanup);
-it("aguarda liberação sem oferecer criação manual ou editar destino",()=>{
-  show();expect(screen.getByRole("status")).toHaveTextContent("Aguardando liberação em Pré-produção ou Pronto pra editar");
-  expect(screen.queryByRole("button",{name:"Criar pastas"})).not.toBeInTheDocument();
-  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();expect(mock.rpc).not.toHaveBeenCalled();
+let client: QueryClient;
+function show(){
+  client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+  render(<QueryClientProvider client={client}><PastasProjeto projectId="p1"/></QueryClientProvider>);
+}
+beforeEach(()=>mock.rpc.mockReset());
+afterEach(()=>{cleanup();client?.clear();});
+it("consulta automaticamente e mostra status sem botão, link ou modal",async()=>{
+  mock.rpc.mockResolvedValue({data:{configured:true,online:true,job:null},error:null});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas: aguardando liberação"));
+  expect(mock.rpc).toHaveBeenCalledWith("pastas_estado",{_project_id:"p1"});
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
-it("usa a data de criação em São Paulo e o nome compatível com o servidor",()=>{
-  show();expect(screen.getByText(/09. Setembro/)).toHaveTextContent(/^PROJETOS_ATIVOS \/ /);
-  expect(screen.getByText(/09. Setembro/)).toHaveTextContent("Sicredi Sul Minas");
+it("mostra concluído mesmo com NAS offline e mantém caminho no detalhe",async()=>{
+  mock.rpc.mockResolvedValue({data:{configured:true,online:false,job:{status:"ready",relative_path:"pasta/existente"}},error:null});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas criadas"));
+  expect(screen.getByRole("status")).toHaveAttribute("title","PROJETOS_ATIVOS/pasta/existente");
 });
-it("permite reprocessar somente um pedido com erro",async()=>{
-  mock.state.job={status:"error",error:"Corrija o nome da pasta"};show();
-  expect(screen.getByRole("alert")).toHaveTextContent("Corrija o nome");
-  fireEvent.click(screen.getByRole("button",{name:"Reprocessar falha"}));
-  await waitFor(()=>expect(mock.rpc).toHaveBeenCalledWith("pastas_reprocessar",{_project_id:"p1"}));
+it.each(["pending","working"])("não considera %s offline como concluído ou criando",async status=>{
+  mock.rpc.mockResolvedValue({data:{configured:true,online:false,job:{status}},error:null});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas: aguardando servidor"));
 });
-it.each(["pending","working","ready"])("não oferece reprocessamento para %s",status=>{
-  mock.state.job={status,relative_path:"pasta/existente"};show();
-  expect(screen.queryByRole("button",{name:"Reprocessar falha"})).not.toBeInTheDocument();
-  expect(screen.queryByRole("button",{name:"Criar pastas"})).not.toBeInTheDocument();
+it("indica processamento ativo",async()=>{
+  mock.rpc.mockResolvedValue({data:{configured:true,online:true,job:{status:"working"}},error:null});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Criando pastas…"));
 });
-it("fila offline não é mostrada como concluída",()=>{
-  mock.state.online=false;mock.state.job={status:"pending"};show();
-  expect(screen.getByRole("status")).toHaveTextContent("Aguardando o servidor");
-  expect(screen.queryByText("Pastas criadas")).not.toBeInTheDocument();
+it("mostra falha sem oferecer ações manuais",async()=>{
+  mock.rpc.mockResolvedValue({data:{configured:true,online:true,job:{status:"error",error:"Pasta em outro mês"}},error:null});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas: erro na criação"));
+  expect(screen.getByRole("status")).toHaveAttribute("title","Pasta em outro mês");
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
 });
-it("informa o cliente obrigatório antes da liberação",()=>{
-  render(<PastasProjeto project={{...project,client_id:null}} isAdmin={false}/>);
-  fireEvent.click(screen.getByRole("button",{name:"Pastas no servidor"}));
-  expect(screen.getByRole("alert")).toHaveTextContent("Vincule um cliente antes de liberar");
+it("falha na consulta não vira aguardando liberação",async()=>{
+  mock.rpc.mockResolvedValue({data:null,error:new Error("offline")});show();
+  await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas: status indisponível"));
 });
-it("mostra a raiz e o caminho realmente concluído",()=>{
-  mock.state.job={status:"ready",relative_path:"_. Database 2026/01. Clientes - Projetos/10. Outubro/SLC/[0369]_TESTE"};
-  show();expect(screen.getByText(/^PROJETOS_ATIVOS\//)).toHaveTextContent(mock.state.job.relative_path);
-});
-it("mantém o nome de clientes sem alias confirmado",()=>{expect(pastaClienteInicial("Outro cliente")).toBe("Outro cliente");});

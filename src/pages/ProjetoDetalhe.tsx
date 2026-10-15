@@ -403,7 +403,6 @@ export default function ProjetoDetalhe() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {podeEditarProjeto && <PastasProjeto project={project} isAdmin={isAdmin} />}
               {/* Acabar o projeto é AÇÃO, não etapa: ele fica em Fechamento o
                   tempo que precisar e só sai do board quando alguém disser que
                   acabou. Reabrir devolve pra Fechamento — clique errado não
@@ -467,7 +466,7 @@ export default function ProjetoDetalhe() {
           {/* A data de criação vive aqui, discreta: é ela que decide o mês do
               fechamento, então precisa existir e ser editável — só não precisa
               do mesmo tamanho do nome do cliente. */}
-          <div className="-mt-1 mb-3">
+          <div className="-mt-1 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
             <CriadoEm
               projectId={project.id}
               criadoEm={project.criado_em}
@@ -476,6 +475,7 @@ export default function ProjetoDetalhe() {
               onChanged={() => qc.invalidateQueries({ queryKey: ["projeto", id] })}
               discreto
             />
+            {podeEditarProjeto && <PastasProjeto projectId={project.id} />}
           </div>
 
           {/* flex-wrap em vez de grid fixo: quando um cartão some (permissão),
