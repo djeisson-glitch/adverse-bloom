@@ -23,7 +23,9 @@ describe("revisão interna única", () => {
   });
   it.each([false, true])("envia a primeira entrega e o retrabalho à mesma aprovadora (%s)", async (retrabalho) => {
     await enviarParaRevisao({ id: "peca", status: "em_edicao", retrabalho });
-    expect(["revisao_n1", "revisao"]).toContain(db.update.mock.calls[0][0].status);
+    expect(db.update).toHaveBeenCalledWith(expect.objectContaining({
+      status: "revisao_n1", rev_n1_ajuste: false, rev_n2_ajuste: false, rev_ajuste_pendente: false,
+    }));
   });
   it("preserva o caminho de aprovar e enviar ao cliente", async () => {
     await aprovarEEnviarCliente({ id: "peca", status: "revisao" }, "maiara");
@@ -31,6 +33,8 @@ describe("revisão interna única", () => {
   });
   it("não oferece R2 nos seletores e ainda interpreta registros legados", () => {
     expect(STATUS_ENTREGAVEL.some(s => (s.id as string) === "revisao_n2")).toBe(false);
+    expect(STATUS_ENTREGAVEL.filter(s => s.label === "Revisão interna")).toHaveLength(1);
+    expect(statusLabel("revisao")).toBe("Revisão interna");
     expect(statusLabel("revisao_n2")).toBe("Revisão interna");
     const profiles = [{ id: "maiara" }, { id: "djeisson" }];
     expect(donoDaVez("revisao_n2", {}, "maiara", "djeisson", profiles).pessoa.id).toBe("maiara");

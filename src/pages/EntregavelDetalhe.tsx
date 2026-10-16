@@ -8,6 +8,7 @@ import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
 import { PastasProjeto } from "@/components/projeto/PastasProjeto";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
+import { AprovacaoInterna, NivelAprovacao as Nivel } from "@/components/entregavel/NivelAprovacao";
 import { VisualizarAnexo, podeVerAqui } from "@/components/entregavel/VisualizarAnexo";
 import { primeiroNome } from "@/lib/pessoa";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -23,7 +24,7 @@ import { SeletorPrazo } from "@/components/prazo/SeletorPrazo";
 import { useConfirm, usePrompt } from "@/components/ui/confirm";
 import * as Fluxo from "@/lib/fluxoEntregavel";
 import {
-  STATUS_ENTREGAVEL, statusBorda, statusLabel,
+  STATUS_ENTREGAVEL, statusBorda, statusLabel, normalizarStatusEntregavel,
 } from "@/lib/statusEntregavel";
 import {
   ArrowLeft, Loader2, ExternalLink, Film, CheckCircle2,
@@ -856,7 +857,7 @@ function FluxoCard({
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3 border-t border-border/50 pt-3">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="mr-1 text-muted-foreground">Aprovações</span>
-          <Nivel ok={!!entregavel.aprovado_n1_em} pediuAjuste={!!entregavel.rev_n1_ajuste} label="Interna" quem={nomeDe(profiles, entregavel.aprovado_n1_por)} />
+          <AprovacaoInterna entregavel={entregavel} aprovador={nomeDe(profiles, n1)} autor={nomeDe(profiles, entregavel.aprovado_n1_por)} />
           {clienteAprova && <Nivel ok={!!entregavel.aprovado_cliente_em} label="Cliente" quem={entregavel.aprovado_cliente_por || "—"} />}
         </div>
         {/* Etapa de pós na MESMA caixa do status: dois lugares dizendo onde a
@@ -899,7 +900,7 @@ function FluxoCard({
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground" title="Pula o fluxo — use só pra destravar">
               <Wrench className="h-3 w-3" /> Corrigir status (admin/coord.)
             </span>
-            <Select value={status} onValueChange={forcarEtapa}>
+            <Select value={normalizarStatusEntregavel(status)} onValueChange={forcarEtapa}>
               <SelectTrigger className="h-7 w-[190px] text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_ENTREGAVEL.map((s) => (
@@ -913,24 +914,6 @@ function FluxoCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Três estados por nível de revisão:
-//   pediuAjuste → âmbar "pediu ajuste" (agiu, mas mandou de volta)
-//   ok          → verde, aprovou
-//   pendente    → cinza, ainda não olhou
-// pediuAjuste vence o ok: o fluxo grava aprovado_nX_em nos dois casos, então
-// sem essa precedência quem pediu ajuste apareceria como aprovado.
-function Nivel({ ok, pediuAjuste = false, label, quem }: { ok: boolean; pediuAjuste?: boolean; label: string; quem: string }) {
-  const cor = pediuAjuste ? "bg-warning/15 text-warning" : ok ? "bg-success/15 text-success" : "bg-muted/50 text-muted-foreground";
-  const Icon = pediuAjuste ? RefreshCw : ok ? CheckCircle2 : Clock;
-  return (
-    <span className={`flex items-center gap-1 rounded-md px-2 py-0.5 ${cor}`}>
-      <Icon className="h-3 w-3" />
-      {label}
-      {pediuAjuste ? <span className="opacity-80">· pediu ajuste{quem !== "—" ? ` (${quem})` : ""}</span> : ok && <span className="opacity-70">· {quem}</span>}
-    </span>
   );
 }
 

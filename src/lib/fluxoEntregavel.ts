@@ -32,7 +32,7 @@ export const PATCH_EM_EDICAO = { status: "em_edicao" };
 /** PARAR — patch de status; quem chama para o timer. */
 export const PATCH_EM_PAUSA = { status: "em_pausa" };
 
-/** ENVIAR PARA REVISÃO — 1ª vez vai pra N1; retrabalho vai só pra revisão única. */
+/** Primeira entrega e todos os reenvios entram na mesma fila interna. */
 export async function enviarParaRevisao(d: DelivFluxo, alteracaoAbertaId?: string | null): Promise<string> {
   if (alteracaoAbertaId) {
     await (supabase as any).from("deliverable_alteracoes")
@@ -41,7 +41,7 @@ export async function enviarParaRevisao(d: DelivFluxo, alteracaoAbertaId?: strin
   // Ciclo novo: zera o "pediu ajuste" dos dois níveis pra o badge não carregar
   // o âmbar do ciclo anterior.
   await upd(d.id, {
-    status: d.retrabalho ? "revisao" : "revisao_n1",
+    status: "revisao_n1",
     rev_ajuste_pendente: false, rev_n1_ajuste: false, rev_n2_ajuste: false,
   });
   return "Enviado para revisão interna";
