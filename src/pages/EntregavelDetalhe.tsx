@@ -343,6 +343,14 @@ export default function EntregavelDetalhe() {
         <button onClick={() => navigate(`/projetos/${projectId}`)} className="truncate hover:text-foreground">
           {proj?.name || "Projeto"}
         </button>
+        {proj?.name && <button
+          onClick={() => copiarTexto(nomeProjetoPadrao(proj.numero, proj.name), "Nome do projeto")}
+          title={`Copiar: ${nomeProjetoPadrao(proj.numero, proj.name)}`}
+          aria-label="Copiar nome do projeto"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 hover:bg-muted hover:text-foreground"
+        >
+          <Copy aria-hidden="true" className="h-3.5 w-3.5" /> Copiar projeto
+        </button>}
       </div>
 
       <header className="space-y-2 border-b border-border/60 pb-4">
