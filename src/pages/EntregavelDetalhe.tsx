@@ -5,6 +5,7 @@ import { useVoltar } from "@/hooks/useVoltar";
 import { EtapasPos } from "@/components/entregavel/EtapasPos";
 import { CobrancaEntregavel } from "@/components/entregavel/CobrancaEntregavel";
 import { CriadoEmPeca } from "@/components/entregavel/CriadoEmPeca";
+import { PastasProjeto } from "@/components/projeto/PastasProjeto";
 import { SolicitadoPor } from "@/components/entregavel/SolicitadoPor";
 import { FaixaStatus } from "@/components/entregavel/FaixaStatus";
 import { VisualizarAnexo, podeVerAqui } from "@/components/entregavel/VisualizarAnexo";
@@ -351,6 +352,7 @@ export default function EntregavelDetalhe() {
         >
           <Copy aria-hidden="true" className="h-3.5 w-3.5" /> Copiar projeto
         </button>}
+        {(isAdmin || isCoordenadora) && proj?.id && <PastasProjeto projectId={proj.id} />}
       </div>
 
       <header className="space-y-2 border-b border-border/60 pb-4">
