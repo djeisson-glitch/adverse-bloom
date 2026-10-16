@@ -23,7 +23,7 @@ it("mostra concluído mesmo com NAS offline e mantém caminho no detalhe",async(
   mock.rpc.mockResolvedValue({data:{configured:true,online:false,job:{status:"ready",relative_path:"pasta/existente"}},error:null});show();
   await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Pastas criadas"));
   expect(screen.getByRole("status")).toHaveAttribute("title","PROJETOS_ATIVOS/pasta/existente");
-  expect(screen.getByRole("link",{name:"Abrir pasta no Finder"})).toHaveAttribute("href","smb://192.168.18.200/PROJETOS_ATIVOS/pasta/existente");
+  expect(screen.getByRole("link",{name:"Abrir pasta no Finder"})).toHaveAttribute("href","adverse-finder://open?path=pasta%2Fexistente");
 });
 it.each(["pending","working"])("não considera %s offline como concluído ou criando",async status=>{
   mock.rpc.mockResolvedValue({data:{configured:true,online:false,job:{status}},error:null});show();

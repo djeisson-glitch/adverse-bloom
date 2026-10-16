@@ -1,0 +1,39 @@
+ADVERSE FINDER — macOS 11 ou posterior (Apple Silicon e Intel)
+
+INSTALAR — uma vez em cada Mac
+1. Extraia adverse-finder-mac.zip.
+2. Arraste Adverse Finder.app para Aplicativos (ou Aplicativos do seu usuário).
+3. Abra o aplicativo uma vez. Ele mostra “Adverse Finder pronto”.
+4. No Adverse OS, clique em Pastas criadas > Já instalei · Abrir pasta.
+5. Se o navegador perguntar, permita abrir Adverse Finder.
+
+Este auxiliar foi desenvolvido para a ADVERSE e tem assinatura local, sem
+notarização da Apple. Se o macOS bloquear a primeira abertura, confira o nome
+Adverse Finder e a origem do download (Adverse OS). Em Ajustes do Sistema >
+Privacidade e Segurança, use Abrir Mesmo Assim para este aplicativo somente.
+Não desative o Gatekeeper ou remova proteções gerais do Mac.
+Orientação da Apple: https://support.apple.com/102445
+
+USAR
+Com PROJETOS_ATIVOS conectado, um clique abre a pasta na conexão existente.
+Se estiver desconectado, o auxiliar oferece conectar apenas PROJETOS_ATIVOS.
+Após conectar, clique novamente em Pastas criadas. Use a rede da ADVERSE.
+O auxiliar não pede, guarda ou recebe a senha do servidor: a autenticação
+continua no Finder. Não precisa de acesso total ao disco nem inicialização
+automática. Ele encerra após cada abertura.
+
+O QUE ELE FAZ
+Aceita somente links adverse-finder://open?path=... para pastas de projeto
+na estrutura Database / Clientes - Projetos / mês / cliente / projeto.
+Reutiliza o compartilhamento SMB PROJETOS_ATIVOS do servidor 192.168.18.200.
+Não cria, move, renomeia nem apaga arquivos; não executa comandos recebidos
+por links; rejeita atalhos e caminhos fora do compartilhamento.
+
+SE NÃO ABRIR
+Confirme a instalação, a conexão ao servidor e se a pasta ainda existe.
+O ícone de configuração ao lado de Pastas criadas reabre as instruções.
+Uma montagem antiga com o nome de um projeto não é usada pelo auxiliar.
+Não ejete volumes com arquivos em uso.
+
+REMOVER
+Mova Adverse Finder.app para o Lixo. O servidor e seus arquivos permanecem.

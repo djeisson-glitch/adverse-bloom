@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FolderCheck, FolderClock, FolderX, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { urlPastaServidor } from "@/lib/pastaServidor";
+import { AbrirPastaFinder } from "./AbrirPastaFinder";
 
 export function PastasProjeto({ projectId }: { projectId: string }) {
   const { data, error, isPending } = useQuery({
@@ -55,11 +56,7 @@ export function PastasProjeto({ projectId }: { projectId: string }) {
   const folderUrl = !error && job?.status === "ready" ? urlPastaServidor(job.relative_path) : null;
   if (folderUrl) return (
     <span role="status" aria-live="polite" title={detail}>
-      <a href={folderUrl} aria-label="Abrir pasta no Finder" title={`Abrir no Finder · ${detail}`}
-        className={`inline-flex items-center gap-1.5 rounded text-xs ${tone} hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
-        <FolderCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-        Pastas criadas
-      </a>
+      <AbrirPastaFinder href={folderUrl} detail={detail} />
     </span>
   );
 
