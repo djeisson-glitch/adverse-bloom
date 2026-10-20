@@ -32,6 +32,11 @@ export const PATCH_EM_EDICAO = { status: "em_edicao" };
 /** PARAR — patch de status; quem chama para o timer. */
 export const PATCH_EM_PAUSA = { status: "em_pausa" };
 
+/** Enviar uma peça corrigida não depende de ligar o cronômetro manual. */
+export function podeEnviarParaRevisao(status?: string): boolean {
+  return ["em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(status || "");
+}
+
 /** Primeira entrega e todos os reenvios entram na mesma fila interna. */
 export async function enviarParaRevisao(d: DelivFluxo, alteracaoAbertaId?: string | null): Promise<string> {
   if (alteracaoAbertaId) {

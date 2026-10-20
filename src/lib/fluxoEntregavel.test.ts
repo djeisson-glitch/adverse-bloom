@@ -44,3 +44,15 @@ describe("revisão interna única", () => {
     await expect(aprovarEtapa({ id: "peca", status: "revisao_n1" }, "maiara")).rejects.toThrow("Sem acesso");
   });
 });
+
+
+describe("disponibilidade do envio para revisão", () => {
+  it.each(["em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"])("habilita %s sem exigir sessão manual", async (status) => {
+    const { podeEnviarParaRevisao } = await import("./fluxoEntregavel");
+    expect(podeEnviarParaRevisao(status)).toBe(true);
+  });
+  it.each(["pendente", "pronto_editar", "revisao_n1", "com_cliente", "entregue", "cancelado"])("mantém %s fora do envio", async (status) => {
+    const { podeEnviarParaRevisao } = await import("./fluxoEntregavel");
+    expect(podeEnviarParaRevisao(status)).toBe(false);
+  });
+});

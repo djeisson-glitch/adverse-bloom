@@ -23,6 +23,7 @@ import { ResumoDoDia } from "@/components/ResumoDoDia";
 import { MuralAvisos } from "@/components/MuralAvisos";
 import { AvisoPushDesligado } from "@/components/AvisoPushDesligado";
 import { dataISO } from "@/lib/dataLocal";
+import { naturezaTrabalho, type NaturezaTrabalho } from "@/lib/trabalhoMesa";
 
 /**
  * "Minha mesa": o ÚNICO lugar onde a pessoa vê, em ordem de prioridade, tudo que
@@ -49,6 +50,7 @@ type Item = {
   bloqueante: boolean;
   d?: any;                // entregável cru — pras ações de fluxo
   alt?: any;              // alteração do cliente aberta ligada ao entregável
+  natureza?: NaturezaTrabalho;
 };
 
 type SistItem = {
@@ -85,8 +87,9 @@ const CLS_SECUNDARIO = "text-muted-foreground hover:text-foreground";
 function botoesDoItem(it: Item): BtnCfg[] {
   const s = it.d?.status;
   if (it.tipo === "editar") {
-    if (s === "em_edicao") return [{ kind: "enviarRevisao", label: "Enviar p/ revisão", Icon: ThumbsUp, cls: CLS_PRIMARY }];
-    return [{ kind: "editar", label: s === "em_pausa" ? "Retomar" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
+    if (Fluxo.podeEnviarParaRevisao(s)) return [{ kind: "enviarRevisao", label: "Enviar p/ revisão", Icon: ThumbsUp, cls: CLS_PRIMARY }];
+    const ajuste = it.natureza && it.natureza !== "edicao";
+    return [{ kind: "editar", label: s === "em_pausa" ? (ajuste ? "Retomar ajuste" : "Retomar edição") : ajuste ? "Fazer ajuste" : "Editar", Icon: Play, cls: CLS_PRIMARY }];
   }
   if (it.tipo === "aprovar") {
     // Uma revisão interna; envio ao cliente segue disponível após o primeiro ok.
@@ -114,21 +117,6 @@ function compararPrazos(a?: string | null, b?: string | null) {
 
 function primeiroPrazo(datas: (string | null | undefined)[]) {
   return datas.filter((d): d is string => !!d).sort(compararPrazos)[0] || null;
-}
-
-function destaquePrazo(prazo: string | null | undefined, hoje: string) {
-  if (!prazo) return null;
-  const dias = diasAte(prazo, hoje);
-  if (dias < 0) return { cor: "destructive", forca: 0.18, rotulo: "Vencido" };
-  if (dias === 0) return { cor: "primary", forca: 0.15, rotulo: "Hoje" };
-  if (dias === 1) return { cor: "warning", forca: 0.12, rotulo: "Amanhã" };
-  if (dias <= 7) return { cor: "warning", forca: 0.10 - dias * 0.008, rotulo: `Em ${dias} dias` };
-  return null;
-}
-
-function fundoPrazo(prazo: string | null | undefined, hoje: string) {
-  const destaque = destaquePrazo(prazo, hoje);
-  return destaque ? { backgroundImage: `linear-gradient(100deg, hsl(var(--${destaque.cor}) / ${destaque.forca}), transparent 90%)` } : undefined;
 }
 
 const iso = dataISO;
@@ -211,12 +199,6 @@ function faixaDe(it: Item, hoje: string): Faixa {
   return dias <= 7 ? "agora" : "fila";
 }
 
-const FAIXAS: { id: Faixa; titulo: string; barra: string }[] = [
-  { id: "vencido", titulo: "Vencido",            barra: "bg-destructive" },
-  { id: "agora",   titulo: "Hoje e esta semana", barra: "bg-warning" },
-  { id: "fila",    titulo: "Na fila",            barra: "bg-border" },
-];
-
 export default function MinhaMesa() {
   const { user } = useAuth();
   const { can, isAdmin, isProdutor, isCoordenadora } = usePermissions();
@@ -236,10 +218,11 @@ export default function MinhaMesa() {
 
   const { data: deliverables = [], isLoading } = useQuery({
     queryKey: ["minha-mesa-deliverables"],
+    refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, codigo, titulo, status, formato, prazo_interno, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, codigo, titulo, status, formato, prazo_interno, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, rev_n1_ajuste, rev_n2_ajuste, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -256,6 +239,7 @@ export default function MinhaMesa() {
 
   const { data: alteracoes = [] } = useQuery({
     queryKey: ["minha-mesa-alteracoes"],
+    refetchInterval: 10_000,
     queryFn: async () => (await (supabase as any).from("deliverable_alteracoes")
       .select("id, titulo, status, prazo, responsavel_id, deliverable:deliverables(id, titulo, responsavel_id, data_entrega, project:projects(id, name, numero, client_name))")
       .eq("status", "aberta")).data || [],
@@ -311,7 +295,7 @@ export default function MinhaMesa() {
           start(it.alt ? { ...base, alteracao_id: it.alt.id } : base);
         }
         if (d.status !== "em_edicao") await Fluxo.aplicarPatch(d.id, Fluxo.PATCH_EM_EDICAO);
-        toast.success("Edição iniciada — cronômetro rodando");
+        toast.success(it.natureza && it.natureza !== "edicao" ? "Ajuste iniciado — cronômetro rodando" : "Edição iniciada — cronômetro rodando");
       } else if (kind === "enviarRevisao") {
         if (sessao?.deliverable_id === d.id) await stop();
         toast.success(await Fluxo.enviarParaRevisao(d, it.alt?.id));
@@ -445,7 +429,8 @@ export default function MinhaMesa() {
       .filter((d) => quemEstaCom(d) === user.id && ["pronto_editar", "em_edicao", "em_pausa", "ajuste_interno", "ajuste_solicitado"].includes(d.status))
       .forEach((d) => {
         const alt = altAbertaDe(d.id);
-        const ajuste = d.status === "ajuste_interno" || d.status === "ajuste_solicitado";
+        const natureza = naturezaTrabalho(d, alt);
+        const ajuste = natureza !== "edicao";
         // Peça que chegou POR ETAPA diz qual trabalho é. "Começar edição" numa
         // peça que veio pro color manda a pessoa fazer a coisa errada — e o
         // nome da etapa é a única informação que distingue as duas.
@@ -454,7 +439,8 @@ export default function MinhaMesa() {
         out.push({
           key: `edit-${d.id}`, tipo: "editar", titulo: d.titulo,
           contexto: d.project?.client_name || d.project?.name || "",
-          nota: alt ? `Alteração do cliente: ${alt.titulo}` : undefined,
+          nota: alt?.titulo,
+          natureza,
           acao: ajuste
             ? (d.status === "ajuste_interno" ? "Refazer — ajuste interno" : "Refazer — ajuste do cliente")
             : porEtapa ? `Sua vez — ${porEtapa}`
@@ -621,7 +607,9 @@ export default function MinhaMesa() {
    * "Pra eu editar" já inclui a peça em que eu entro só numa ETAPA: quem
    * decide é `quemEstaCom`, e ele é o dono da etapa quando existe.
    */
-  const praEditar = useMemo(() => fila.filter((it) => it.tipo === "editar"), [fila]);
+  const trabalhoEdicao = useMemo(() => fila.filter((it) => it.tipo === "editar"), [fila]);
+  const praEditar = useMemo(() => trabalhoEdicao.filter(it => it.natureza === "edicao"), [trabalhoEdicao]);
+  const praAlterar = useMemo(() => trabalhoEdicao.filter(it => it.natureza !== "edicao"), [trabalhoEdicao]);
   const praAprovar = useMemo(() => fila.filter((it) => it.tipo === "aprovar" || it.tipo === "enviar"), [fila]);
   const comCliente = useMemo(() => fila.filter((it) => it.tipo === "cliente"), [fila]);
   const outras = useMemo(() => fila.filter((it) => it.tipo === "tarefa" || it.tipo === "demanda"), [fila]);
@@ -641,7 +629,7 @@ export default function MinhaMesa() {
     // em dois lugares faz a contagem mentir.
     // Não repete o que já está em "Pra eu editar" / "Pra eu aprovar": ver a
     // mesma peça em dois blocos faz a contagem mentir.
-    const jaNoTopo = new Set([...praEditar, ...praAprovar].map((i) => i.d?.id).filter(Boolean));
+    const jaNoTopo = new Set([...trabalhoEdicao, ...praAprovar, ...comCliente].map((i) => i.d?.id).filter(Boolean));
     deliverables.forEach((d: any) => {
       if (jaNoTopo.has(d.id)) return;
       const ctx = d.project?.client_name || d.project?.name || "";
@@ -663,7 +651,7 @@ export default function MinhaMesa() {
     });
     // Mexeu hoje não está parado.
     return out.filter((t) => t.dias >= 1).sort((a, b) => b.dias - a.dias);
-  }, [deliverables, itens, praEditar, praAprovar, user?.id, podeCliente, settings, profiles]);
+  }, [deliverables, itens, trabalhoEdicao, praAprovar, comCliente, user?.id, podeCliente, settings, profiles]);
   /**
    * "Vai entrar pra você": peça em que EU sou o responsável e que está na mão
    * de outra pessoa — etapa anterior ou revisão. Não é tarefa minha hoje, mas
@@ -677,22 +665,11 @@ export default function MinhaMesa() {
     [travados],
   );
 
-  const temTrabalho = praEditar.length + praAprovar.length + praLiberar.length + outras.length + leadsPraTocar.length > 0;
+  const temTrabalho = trabalhoEdicao.length + praAprovar.length + praLiberar.length + outras.length + leadsPraTocar.length > 0;
   const temAcompanhamento = gravacoes.length + comCliente.length + vaiEntrar.length > 0;
   const mesaVazia = !temTrabalho && !temAcompanhamento;
 
   const [aba, setAba] = useState<"minha" | "time">("minha");
-
-  /**
-   * A fila começa FECHADA.
-   *
-   * No print do Djêisson, "Pra eu editar · 11" tinha 3 itens da semana e 8 de
-   * setembro. Os 8 empurravam pra baixo o bloco "Pra eu aprovar" — que custa
-   * minutos e destrava OUTRA pessoa. Fila é o que ainda não é problema:
-   * aparece o número e a primeira data, e abre num clique.
-   */
-  const [filaAberta, setFilaAberta] = useState(false);
-
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -740,56 +717,10 @@ export default function MinhaMesa() {
         </Card>
       ) : (
         <>
-          <div className={`grid items-start gap-6 ${temTrabalho && temAcompanhamento ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]" : ""}`}>
+          <div className={`grid items-start gap-6 ${temTrabalho && temAcompanhamento ? "xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]" : ""}`}>
             {temTrabalho && <ColunaPorPrazo hoje={hoje}>
-            <Bloco prioridade={0} prazo={primeiroPrazo(praEditar.map(it => it.due))} titulo="Pra eu editar" n={praEditar.length} tom="editar">
-              {/* Subdividido por prazo: dez itens numa lista só faziam os três
-                  atrasados sumirem entre os que vencem em setembro. */}
-              {FAIXAS.map((f) => {
-                const desta = praEditar.filter((it) => faixaDe(it, hoje) === f.id);
-                if (!desta.length) return null;
-
-                // A fila fechada: só o número e a primeira data. É o que devolve
-                // a tela pro que precisa de decisão hoje.
-                if (f.id === "fila" && !filaAberta) {
-                  const primeira = desta.map((i) => i.due).filter(Boolean).sort()[0];
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => setFilaAberta(true)}
-                      aria-expanded={false}
-                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                      Na fila · {desta.length}
-                      {primeira && (
-                        <span className="truncate text-muted-foreground/70">
-                          — a partir de {new Date(primeira + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                        </span>
-                      )}
-                    </button>
-                  );
-                }
-
-                return (
-                  <div key={f.id}>
-                    <SubTitulo
-                      barra={f.barra}
-                      titulo={f.titulo}
-                      n={desta.length}
-                      aberto={f.id === "fila" ? true : undefined}
-                      onToggle={f.id === "fila" ? () => setFilaAberta(false) : undefined}
-                    />
-                    {desta.map((it) => (
-                      <ItemRow
-                        key={it.key} it={it} hoje={hoje} busy={busy === it.key}
-                        faixa={f.id}
-                        rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
+            <Bloco prioridade={0} prazo={primeiroPrazo([...praEditar, ...praAlterar].map(it => it.due))} titulo="Edição e ajustes" n={praEditar.length + praAlterar.length} tom="editar">
+              <FilaEdicao itens={[...praEditar, ...praAlterar]} hoje={hoje} busy={busy} sessao={sessao} onAgir={agir} />
             </Bloco>
 
             <Bloco prazo={primeiroPrazo(praAprovar.map(it => it.due))} titulo="Pra eu aprovar" n={praAprovar.length} tom="aprovar">
@@ -799,16 +730,16 @@ export default function MinhaMesa() {
               ))}
             </Bloco>
 
-            <Bloco prioridade={2} prazo={primeiroPrazo(outras.map(it => it.due))} titulo="Outras tarefas" n={outras.length}>
+            <Bloco prioridade={2} prazo={primeiroPrazo(outras.map(it => it.due))} titulo="Administrativo" n={outras.length} recolhivel>
               {outras.map((it) => (
                 <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
                   rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
               ))}
             </Bloco>
 
-            <Bloco prazo={primeiroPrazo(praLiberar.map(prazoDe))} titulo="Liberar pra edição" n={praLiberar.length} tom="liberar">
+            <Bloco prazo={primeiroPrazo(praLiberar.map(prazoDe))} titulo="Liberar para edição" n={praLiberar.length} tom="liberar" recolhivel>
               <ListaComMais itens={praLiberar} render={(d: any) => (
-                <div key={d.id} style={fundoPrazo(prazoDe(d), hoje)} className="space-y-2 border-b border-border/50 px-4 py-3 last:border-0">
+                <div key={d.id}  className="space-y-2 border-b border-border/50 px-4 py-3 last:border-0">
                   <Link to={`/projetos/${d.project?.id}/entregaveis/${d.id}`}
                     className="block break-words text-sm font-medium leading-relaxed text-foreground hover:underline [overflow-wrap:anywhere]">
                     {d.titulo}
@@ -850,7 +781,7 @@ export default function MinhaMesa() {
                 const temp = TEMPERATURAS.find((t) => t.v === l.temperatura);
                 return (
                   <Link
-                    key={l.id} to={`/leads/${l.id}`} style={fundoPrazo(l.proximo_toque, hoje)}
+                    key={l.id} to={`/leads/${l.id}`}
                     className="flex min-w-0 items-center gap-3 border-b border-border/40 px-4 py-2 last:border-0 hover:bg-sidebar-accent/40"
                   >
                     <span className={`h-8 w-[3px] shrink-0 rounded-full ${dias > 0 ? "bg-destructive" : "bg-warning"}`} />
@@ -890,7 +821,7 @@ export default function MinhaMesa() {
             </Bloco>
 
             <Bloco titulo="Com o cliente" n={comCliente.length} tom="cliente">
-              <ListaComMais itens={comCliente} render={(it: any) => (
+              <ListaComMais itens={comCliente} limite={3} render={(it: any) => (
                 <ItemRow key={it.key} it={it} hoje={hoje} busy={busy === it.key}
                   rodando={sessao?.deliverable_id === it.d?.id} onAgir={agir} />
               )} />
@@ -940,7 +871,8 @@ function BotaoCronometro({ rodando, busy, onClick }: { rodando: boolean; busy: b
 
 /** Cor discreta por categoria; blocos vazios não são exibidos. */
 const TARJA: Record<string, string> = {
-  editar: "border-l-warning",       // âmbar — o trabalho longo
+  editar: "border-l-info",
+  alterar: "border-l-warning",       // âmbar — o trabalho longo
   aprovar: "border-l-primary",      // laranja — destrava outra pessoa
   gravacoes: "border-l-info",       // azul — data marcada, não remarca
   leads: "border-l-success",        // verde — comercial
@@ -956,39 +888,67 @@ function ColunaPorPrazo({ hoje, children }: { hoje: string; children: React.Reac
     .filter(bloco => bloco.props.n > 0)
     .sort((a, b) => ((a.props.prioridade ?? 1) - (b.props.prioridade ?? 1))
       || compararPrazos(a.props.prazo, b.props.prazo));
-  const destaque = destaquePrazo(blocos[0]?.props.prazo, hoje);
   return (
     <div className="min-w-0 space-y-4">
       <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Seu trabalho</h2>
-      <div className="space-y-4 rounded-xl" style={destaque ? {
-        backgroundImage: `linear-gradient(180deg, hsl(var(--${destaque.cor}) / 0.14), hsl(var(--${destaque.cor}) / 0.04) 45%, transparent 90%)`,
-      } : undefined}>
-        {blocos}
-      </div>
+      <div className="space-y-4">{blocos}</div>
     </div>
   );
 }
 
-function Bloco({ titulo, n, tom, children }: {
-  titulo: string; n: number; prazo?: string | null; prioridade?: number; tom?: keyof typeof TARJA; children: React.ReactNode;
+function Bloco({ titulo, n, tom, children, recolhivel = false }: {
+  titulo: string; n: number; prazo?: string | null; prioridade?: number;
+  tom?: keyof typeof TARJA; children: React.ReactNode; recolhivel?: boolean;
 }) {
+  const [aberto, setAberto] = useState(false);
   if (!n) return null;
-  const tarja = TARJA[tom || "tarefa"] || "border-l-border";
-  const borda = `border-border/70 border-l-2 ${tarja}`;
-  return (
-    // `min-w-0` é o conserto do bug: filho de grid tem min-width auto, não
-    // encolhe abaixo do conteúdo, e o título longo vazava pra fora da tela em
-    // vez de truncar. `overflow-hidden` segura o resto.
-    <section className={`min-w-0 overflow-hidden rounded-xl border bg-card/40 ${borda}`}>
-      <header className="flex items-center gap-2 border-b border-border/50 px-4 py-3.5">
-        <h3 className="text-sm font-semibold text-foreground">
-          {titulo}
-        </h3>
-        <span className="ml-auto rounded-md bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{n}</span>
-      </header>
-      {children}
-    </section>
-  );
+  const trabalho = tom === "editar" || tom === "alterar";
+  const Icon = tom === "editar" ? Clapperboard : tom === "alterar" ? RefreshCw : null;
+  const cor = tom === "editar" ? "text-info bg-info/10" : "text-warning bg-warning/10";
+  const header = <>
+    {Icon && <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${cor}`}><Icon className="h-4 w-4" /></span>}
+    <h3 className={trabalho ? "text-base font-semibold text-foreground" : "text-sm font-medium text-foreground"}>{titulo}</h3>
+    <span className={`ml-auto tabular-nums ${trabalho ? "text-xl font-semibold text-foreground" : "text-xs text-muted-foreground"}`}>{n}</span>
+    {recolhivel && <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${aberto ? "rotate-90" : ""}`} />}
+  </>;
+  const headerClass = `flex w-full items-center gap-3 px-4 text-left ${trabalho ? "py-4" : "py-3"} ${!recolhivel || aberto ? "border-b border-border/50" : ""}`;
+  return <section aria-label={titulo} className={`min-w-0 overflow-hidden rounded-xl border border-border/70 ${trabalho ? "bg-card/60" : "bg-card/20"}`}>
+    {recolhivel
+      ? <button className={`${headerClass} hover:bg-muted/30`} onClick={() => setAberto(!aberto)} aria-expanded={aberto}>{header}</button>
+      : <header className={headerClass}>{header}</header>}
+    {(!recolhivel || aberto) && children}
+  </section>;
+}
+
+function FilaEdicao({ itens, hoje, busy, sessao, onAgir }: {
+  itens: Item[]; hoje: string; busy: string | null; sessao: { deliverable_id?: string | null } | null;
+  onAgir: (kind: string, it: Item) => void;
+}) {
+  const [filaAberta, setFilaAberta] = useState(false);
+  const ordenados = [...itens].sort((a, b) => compararPrazos(a.due, b.due) || a.titulo.localeCompare(b.titulo));
+  const grupos = [
+    {id: "atrasadas", titulo: "Atrasadas", itens: ordenados.filter(it => it.atrasado), cor: "border-destructive/30 bg-destructive/15 text-destructive", Icon: AlertTriangle},
+    {id: "hoje", titulo: "Hoje", itens: ordenados.filter(it => !it.atrasado && it.due === hoje), cor: "border-warning/30 bg-warning/10 text-warning", Icon: Clock},
+    {id: "proximas", titulo: "Próximos dias", itens: ordenados.filter(it => !it.atrasado && it.due !== hoje && faixaDe(it, hoje) === "agora"), cor: "border-border/50 bg-muted/20 text-muted-foreground", Icon: CalendarDays},
+    {id: "fila", titulo: "Na fila", itens: ordenados.filter(it => faixaDe(it, hoje) === "fila"), cor: "border-border/50 text-muted-foreground", Icon: ListChecks},
+  ];
+  return <div>
+    {grupos.map(g => {
+      if (!g.itens.length) return null;
+      const recolher = g.id === "fila" && grupos.some(outro => outro.id !== "fila" && outro.itens.length);
+      return <section key={g.id} aria-label={g.titulo}>
+        {recolher ? <button onClick={() => setFilaAberta(!filaAberta)} aria-expanded={filaAberta} className="flex w-full items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+          <ChevronRight className={`h-3.5 w-3.5 ${filaAberta ? "rotate-90" : ""}`} />Na fila <span className="ml-auto">{g.itens.length}</span>
+        </button> : <header className={`flex items-center gap-2 border-y px-4 py-3 ${g.cor}`}>
+          <g.Icon className="h-4 w-4" /><h4 className="text-sm font-semibold">{g.titulo}</h4>
+          {g.id === "atrasadas" && <span className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">Urgente</span>}
+          <span className="ml-auto text-sm font-semibold tabular-nums">{g.itens.length}</span>
+        </header>}
+        {(!recolher || filaAberta) && g.itens.map(it => <ItemRow key={it.key} it={it} hoje={hoje}
+          busy={busy === it.key} faixa={faixaDe(it, hoje)} rodando={sessao?.deliverable_id === it.d?.id} onAgir={onAgir} />)}
+      </section>;
+    })}
+  </div>;
 }
 
 /**
@@ -1020,24 +980,6 @@ function ListaComMais({ itens, limite = 5, render }: {
   );
 }
 
-/** Cabeçalho de faixa DENTRO do bloco (Vencido / Hoje e esta semana / Na fila). */
-function SubTitulo({ barra, titulo, n, aberto, onToggle }: {
-  barra: string; titulo: string; n: number; aberto?: boolean; onToggle?: () => void;
-}) {
-  const conteudo = (
-    <>
-      {onToggle
-        ? <ChevronRight className={`h-3 w-3 shrink-0 ${aberto ? "rotate-90" : ""}`} />
-        : <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${barra}`} />}
-      {titulo} · {n}
-    </>
-  );
-  const cls = "flex items-center gap-2 px-4 pb-1 pt-3 text-[11px] font-medium text-muted-foreground";
-  return onToggle
-    ? <button onClick={onToggle} aria-expanded={aberto} className={`${cls} hover:text-foreground`}>{conteudo}</button>
-    : <p className={cls}>{conteudo}</p>;
-}
-
 /** Título e prazo primeiro; identificação e ações na linha seguinte. */
 function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
   it: Item; hoje: string; busy: boolean; rodando: boolean;
@@ -1049,7 +991,7 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
   const extras = botoes.slice(1);
   const urgente = faixa === "vencido" || (!faixa && atrasado);
   // Aguardando o cliente permanece neutro: o prazo não cobra quem já enviou.
-  const destaque = it.tipo !== "cliente" ? destaquePrazo(it.due, hoje) : null;
+  const venceHoje = it.tipo !== "cliente" && it.due === hoje;
 
   const prazo = it.due
     ? it.due === hoje
@@ -1058,28 +1000,38 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
     : "";
 
   return (
-    <div style={it.tipo !== "cliente" ? fundoPrazo(it.due, hoje) : undefined} className="space-y-2 border-b border-border/50 px-4 py-3 last:border-0 hover:bg-sidebar-accent/30">
+    <div className={`space-y-2 border-b border-border/50 border-l-2 px-4 py-4 last:border-b-0 hover:bg-sidebar-accent/30 ${urgente ? "border-l-destructive bg-destructive/[0.04]" : venceHoje ? "border-l-warning" : "border-l-transparent"}`}>
+      {(it.natureza || rodando) && <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
+        {it.natureza && <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/60 px-2 py-1 text-foreground">
+          {it.natureza === "edicao" ? <Clapperboard className="h-3 w-3" /> : it.natureza === "alteracao_cliente" ? <MessageSquarePlus className="h-3 w-3" /> : <RefreshCw className="h-3 w-3" />}
+          {it.natureza === "edicao" ? "Edição" : it.natureza === "alteracao_cliente" ? "Alteração do cliente" : "Ajuste interno"}
+        </span>}
+        {rodando && <span className="inline-flex items-center gap-1.5 text-success">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" />
+          {it.natureza === "edicao" ? "Editando agora" : "Ajustando agora"}
+        </span>}
+      </div>}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <Link to={it.link} className="min-w-[min(100%,12rem)] flex-1 break-words text-sm font-medium leading-relaxed text-foreground hover:underline [overflow-wrap:anywhere]">
           {it.titulo}
         </Link>
         {prazo && <span className={`mt-0.5 shrink-0 rounded-md px-2 py-1 text-xs tabular-nums ${
-          urgente ? "bg-destructive/10 font-medium text-destructive"
-            : destaque ? "bg-warning/10 font-medium text-warning" : "text-muted-foreground"
-        }`} title={urgente ? prazoNatural(it.due, hoje) : undefined}>{destaque ? (it.due === hoje ? "Hoje" : `${destaque.rotulo} · ${prazo}`) : prazo}</span>}
+          urgente ? "bg-destructive/15 font-semibold text-destructive"
+            : venceHoje ? "bg-warning/15 font-semibold text-warning" : "text-muted-foreground"
+        }`} title={urgente ? prazoNatural(it.due, hoje) : undefined}>{urgente ? `Venceu ${prazo}` : venceHoje ? "Hoje" : prazo}</span>}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
           {it.d?.codigo && <span className="font-mono">{it.d.codigo}</span>}
           {it.contexto && <span>{it.contexto}</span>}
           {it.d?.etapa_atual && <span className="rounded bg-secondary px-1.5 py-0.5">{it.d.etapa_atual}</span>}
-          {it.nota && <span className="basis-full">↻ {it.nota}</span>}
+          {it.nota && <span className="basis-full line-clamp-1" title={it.nota}>{it.nota}</span>}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 self-start">
           {it.d && <BotaoCronometro rodando={rodando} busy={busy} onClick={() => onAgir("cronometro", it)} />}
           {principal ? (
             <>
-              <Button size="sm" variant={urgente ? "default" : "outline"} disabled={busy}
+              <Button size="sm" variant="outline" disabled={busy}
                 onClick={() => onAgir(principal.kind, it)} className="h-8 px-3 text-xs">
                 {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                 {principal.label}

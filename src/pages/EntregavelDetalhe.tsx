@@ -799,7 +799,7 @@ function FluxoCard({
     } else {
       B("edt", <Button size="sm" onClick={editar} className="bg-primary text-primary-foreground hover:bg-primary/90"><Play className="mr-1 h-3.5 w-3.5" /> {status === "em_edicao" ? "Retomar edição" : "Editar"}</Button>);
     }
-    if (status === "em_edicao" || status === "em_pausa") {
+    if (Fluxo.podeEnviarParaRevisao(status)) {
       B("env", <Button size="sm" onClick={enviarRevisao} className="bg-sky-600 text-white hover:bg-sky-600/90"><ThumbsUp className="mr-1 h-3.5 w-3.5" /> Enviar para revisão</Button>);
     }
   }
