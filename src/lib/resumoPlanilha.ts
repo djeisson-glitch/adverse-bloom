@@ -24,6 +24,7 @@ export type LinhaPlanilha = {
   categoria_id: string | null;
   descricao: string | null;
   item_name?: string | null;
+  unit_type?: string | null;
   quantity: number | null;
   diaria: number | null;
   client_unit_price?: number | null;
@@ -55,7 +56,8 @@ export function resumirPlanilha(
   const ativas = itens.filter((i) => linhaEmUso(i) && !ocultas.has(i.categoria_id || ""));
   const codigo = (i: LinhaPlanilha) => catDe.get(i.categoria_id || "")?.codigo || "";
 
-  const equipe = ativas.filter((i) => codigo(i) === COD_EQUIPE).map(funcaoDa);
+  const captacoes = ativas.filter((i) => i.unit_type === "diaria_tabelada");
+  const equipe = ativas.filter((i) => codigo(i) === COD_EQUIPE && i.unit_type !== "diaria_tabelada").map(funcaoDa);
   const elencoLinhas = ativas.filter((i) => codigo(i) === COD_ELENCO);
   const elenco = elencoLinhas.filter((i) => !ELENCO_NAO_PESSOA.test(nomeDa(i))).map(funcaoDa);
   const elencoNaoPessoa = new Set(elencoLinhas.filter((i) => ELENCO_NAO_PESSOA.test(nomeDa(i))));
@@ -64,23 +66,24 @@ export function resumirPlanilha(
 
   // Dia de set é o MAIOR número de diárias entre as funções — somar daria
   // diária-pessoa (6 pessoas × 3 dias = "18 diárias"), que não é dia de set.
-  const diarias = [...equipe, ...elenco].reduce((m, f) => Math.max(m, f.diarias), 0);
+  const diarias = [...equipe, ...elenco].reduce((m, f) => Math.max(m, f.diarias), captacoes.reduce((s,i) => s + Number(i.quantity || 0) * Number(i.diaria ?? 1), 0));
 
   // Na pós a coluna "diária" é HORA. Linha de 1 hora ou menos é serviço
   // fechado (acessibilidade, trilha, locução) lançado como "1h" só pra
   // multiplicar — somar isso inventaria horas de ilha.
   const pos = ativas.filter((i) => codigo(i) === COD_POS);
-  const posHoras = pos.filter((i) => Number(i.diaria ?? 1) > 1).map(funcaoDa);
-  const posFechados = pos.filter((i) => Number(i.diaria ?? 1) <= 1).map(funcaoDa);
+  const posHoras = pos.filter((i) => i.unit_type !== "servico_tabelado" && Number(i.diaria ?? 1) > 1).map(funcaoDa);
+  const posFechados = pos.filter((i) => (i.unit_type === "servico_tabelado" || Number(i.diaria ?? 1) <= 1)).map(funcaoDa);
   const horasPos = posHoras.reduce((s, f) => s + f.qtd * f.diarias, 0);
 
   const outros = [...categorias]
     .sort((a, b) => a.ordem - b.ordem)
-    .filter((c) => c.codigo !== COD_EQUIPE && c.codigo !== COD_POS)
+    .filter((c) => c.codigo !== COD_POS && (c.codigo !== COD_EQUIPE || captacoes.length > 0))
     .map((c) => ({
       categoria: c,
       itens: ativas
-        .filter((i) => i.categoria_id === c.id && (c.codigo !== COD_ELENCO || elencoNaoPessoa.has(i)))
+        .filter((i) => i.categoria_id === c.id && (c.codigo !== COD_ELENCO || elencoNaoPessoa.has(i))
+          && (c.codigo !== COD_EQUIPE || i.unit_type === "diaria_tabelada"))
         .map(funcaoDa),
     }))
     .filter((g) => g.itens.length > 0);

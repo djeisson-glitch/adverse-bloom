@@ -80,3 +80,13 @@ describe("resumirPlanilha", () => {
     expect(vazio).toMatchObject({ pessoas: 0, diarias: 0, horasPos: 0, entregas: 0, linhasEmUso: 0, outros: [] });
   });
 });
+
+it("pacotes da tabela contam captações sem inventar pessoas ou horas de edição", () => {
+ const r=resumirPlanilha([
+  {...l("c007","Captação",2,1,1928.5),unit_type:"diaria_tabelada"},
+  {...l("c011","Pílula",3,2,446.6),unit_type:"servico_tabelado"},
+ ],cats,[]);
+ expect(r.diarias).toBe(2);expect(r.pessoas).toBe(0);expect(r.horasPos).toBe(0);
+ expect(r.posFechados[0].nome).toBe("Pílula");
+ expect(r.outros[0].itens[0].nome).toBe("Captação");
+});

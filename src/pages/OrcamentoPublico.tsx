@@ -129,7 +129,7 @@ export default function OrcamentoPublico() {
     Number(t.custo_producao || 0) +
     Number(t.margem_valor || 0) +
     Number(t.comissao_valor || 0) +
-    Number(t.imposto_valor || 0);
+    Number(t.imposto_valor || 0) + Number(t.bv_valor || 0);
   const resto = Number(t.total || 0) - somaVisivel;
   const apenasArredondamento = resto < 50;
 
@@ -364,7 +364,7 @@ export default function OrcamentoPublico() {
             documento inteiro. */}
         {m.valores && (
           <section className="print-junto space-y-1.5 border-t border-neutral-200 pt-5 text-sm">
-            <Linha label="Custo de produção" valor={Number(t.custo_producao || 0)} />
+            <Linha label={t.precos_finais ? "Base dos serviços" : "Custo de produção"} valor={Number(t.custo_producao || 0)} />
             {m.rentabilidade && t.margem_valor != null && (
               <Linha label={`Taxa da produtora (${Number(t.margem_percent)}%)`} valor={Number(t.margem_valor)} sutil />
             )}
@@ -378,9 +378,10 @@ export default function OrcamentoPublico() {
             {m.impostos && t.imposto_valor != null && (
               <Linha label={`Imposto (${Number(t.imposto_percent)}%)`} valor={Number(t.imposto_valor)} sutil />
             )}
+            {m.impostos && t.bv_valor != null && Number(t.bv_valor) > 0 && <Linha label="BV da agência" valor={Number(t.bv_valor)} sutil />}
             {resto > 0.01 && (
               <Linha
-                label={apenasArredondamento ? "Arredondamento" : "Demais encargos"}
+                label={!t.precos_finais && apenasArredondamento ? "Arredondamento" : "Demais encargos"}
                 valor={resto}
                 sutil
               />
@@ -408,7 +409,7 @@ export default function OrcamentoPublico() {
                 <Numero rotulo="Sobra das linhas" valor={Number(t.custo_producao || 0) - custoTotal} />
               )}
             </div>
-            {t.base_taxa != null && Number(t.base_taxa) !== Number(t.custo_producao) && (
+            {!t.precos_finais && t.base_taxa != null && Number(t.base_taxa) !== Number(t.custo_producao) && (
               <p className="mt-2 text-[11px] text-neutral-400">
                 A taxa incide sobre {formatCurrency(Number(t.base_taxa))} —{" "}
                 {formatCurrency(Number(t.custo_producao) - Number(t.base_taxa))} em linhas marcadas

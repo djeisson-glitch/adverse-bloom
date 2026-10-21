@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { useFormAutosave } from "@/hooks/useFormAutosave";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { formatCurrency, roundUpTo50, formatDate } from "@/lib/format";
+import { decomporPrecoFinal, fatorLiquidoTabela, moeda } from "@/lib/precosFinais";
 import { calcularImpostoEBV } from "@/lib/bv";
 import { MergulhoForm } from "@/components/MergulhoForm";
 import { CompartilharOrcamento } from "@/components/orcamento/CompartilharOrcamento";
@@ -136,6 +137,7 @@ export default function OrcamentoEditor() {
         .from("budgets")
         .insert({
           deal_id: deal.id,
+          client_id: deal.client_id,
           project_name: deal.title,
           client_name: deal.client?.name || "",
           status: "draft",
@@ -154,8 +156,9 @@ export default function OrcamentoEditor() {
         .single();
       if (e2) throw e2;
 
-      // Planilha nasce populada com os itens padrão, filtrando pelo porte do projeto
-      await (supabase as any).rpc("seed_budget_items", { _budget_id: created.id, _porte: deal.porte || "grande" });
+      // Orçamentos tabelados já nascem com seus itens na mesma transação.
+      const { error: seedError } = await (supabase as any).rpc("seed_budget_items", { _budget_id: created.id, _porte: deal.porte || "grande" });
+      if (seedError) throw seedError;
 
       return created;
     },
@@ -1268,15 +1271,18 @@ function PlanilhaSection({
     () => itensAtivos.reduce((s, i) => s + custoItem(i), 0),
     [itensAtivos],
   );
-  const sobraLinhas = custoProducao - custoReal;
+  const precosFinais = budget.precos_finais === true;
+  const taxasTabela = { ...percentuais, comissoes };
+  const fatorLiquido = fatorLiquidoTabela(custoProducao, taxasTabela);
   const baseSemTaxa = useMemo(
     () => itensAtivos.filter((i) => !i.tira_taxa).reduce((s, i) => s + valorItem(i), 0),
     [itensAtivos],
   );
-  const margemValor = baseSemTaxa * (Number(percentuais.margem) / 100);
+  const tabela = decomporPrecoFinal(custoProducao, baseSemTaxa, taxasTabela);
+  const margemValor = precosFinais ? tabela.margem : baseSemTaxa * (Number(percentuais.margem) / 100);
   const subTotal2 = custoProducao + margemValor;
-  const baseComissao = comissaoBase === "subtotal1" ? custoProducao : subTotal2;
-  const comissaoTotal = comissoes.reduce(
+  const baseComissao = precosFinais || comissaoBase === "subtotal1" ? custoProducao : subTotal2;
+  const comissaoTotal = precosFinais ? tabela.comissao : comissoes.reduce(
     (s, c) => s + (c.tipo === "%" ? baseComissao * (Number(c.valor) / 100) : Number(c.valor)),
     0,
   );
@@ -1285,10 +1291,23 @@ function PlanilhaSection({
   // precisa sair intacto; nem imposto nem BV podem comer um centavo dela.
   const baseProtegida = subTotal2 + comissaoTotal;
   const { impostoValue: imposto, bvValue, valorTotal } =
-    calcularImpostoEBV(baseProtegida, Number(percentuais.imposto), Number(percentuais.bv));
-  // O valor cobrado é sempre arredondado pra cima de 50 em 50 (número "limpo"
-  // pro cliente). O excedente do arredondamento entra como lucro.
-  const valorTotalArredondado = roundUpTo50(valorTotal);
+    precosFinais
+      ? { impostoValue: tabela.imposto, bvValue: tabela.bv, valorTotal: tabela.total }
+      : calcularImpostoEBV(baseProtegida, Number(percentuais.imposto), Number(percentuais.bv));
+  // A tabela preserva os centavos contratados. Os demais orçamentos mantêm
+  // o arredondamento para múltiplos de 50.
+  const valorTotalArredondado = precosFinais ? valorTotal : roundUpTo50(valorTotal);
+  const sobraLinhas = (precosFinais ? tabela.base : custoProducao) - custoReal;
+  const resultadoGrupo = (linhas: BudgetItem[]) => {
+    const bruto = rentabilidadeGrupo(linhas);
+    if (!precosFinais) return bruto;
+    const liquido = rentabilidadeGrupo(linhas.map(i => ({ ...i,
+      client_unit_price: Number(i.client_unit_price || 0) * fatorLiquido })));
+    const margem = bruto.valor > 0 ? liquido.saldo / bruto.valor * 100 : null;
+    const status = ["boa", "atencao"].includes(liquido.status)
+      ? (margem !== null && margem >= 30 ? "boa" : "atencao") : liquido.status;
+    return { ...liquido, margem, status };
+  };
 
   const addComissao = () => {
     if (!novaCom.nome.trim() || !novaCom.valor) return;
@@ -1387,6 +1406,7 @@ function PlanilhaSection({
   // "Salvar como padrão" — fixa margem/imposto/comissões pros próximos orçamentos
   const salvarPadrao = useMutation({
     mutationFn: async () => {
+      if (precosFinais) throw new Error("Este orçamento usa a tabela do cliente");
       const { error } = await (supabase as any).from("orcamento_padroes").upsert({
         id: true,
         margem: percentuais.margem,
@@ -1429,6 +1449,7 @@ function PlanilhaSection({
         <div className="flex flex-wrap items-center gap-2">
           <Table className="h-4 w-4 text-primary" />
           <h2 className="text-base font-semibold text-foreground">Planilha de produção</h2>
+          {precosFinais && <span className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground">Taxas inclusas</span>}
           <div className="ml-auto flex flex-wrap gap-2">
             <span className="flex items-center gap-1 text-xs text-muted-foreground" title="Salva sozinho — não precisa clicar">
               {saveStatus === "saving" ? (
@@ -1443,7 +1464,7 @@ function PlanilhaSection({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button size="sm" variant="ghost" aria-label="Mais opções da planilha"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => salvarPadrao.mutate()} disabled={salvarPadrao.isPending}>Salvar valores como padrão</DropdownMenuItem></DropdownMenuContent>
+              <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => salvarPadrao.mutate()} disabled={salvarPadrao.isPending || precosFinais}>Salvar valores como padrão</DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
@@ -1493,8 +1514,8 @@ function PlanilhaSection({
             que entra na soma tem que aparecer na soma. */}
         <div className="grid gap-3 rounded-lg border border-border/50 bg-muted/20 p-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr]">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Subtotal das linhas</p>
-            <p className="text-sm font-medium text-foreground">{formatCurrency(custoProducao)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{precosFinais ? "Base das linhas" : "Subtotal das linhas"}</p>
+            <p className="text-sm font-medium text-foreground">{formatCurrency(precosFinais ? tabela.base : custoProducao)}</p>
             <p className="text-[10px] text-muted-foreground">custo real {formatCurrency(custoReal)} · taxa sobre {formatCurrency(baseSemTaxa)}</p>
           </div>
           <PctInput
@@ -1502,7 +1523,7 @@ function PlanilhaSection({
             value={percentuais.margem}
             onChange={(v) => setPercentuais({ ...percentuais, margem: v })}
             valorCalc={margemValor}
-            hint="sobre base sem taxa"
+            hint={precosFinais ? "inclusa no preço final" : "sobre base sem taxa"}
           />
           <PctInput
             label="Imposto"
@@ -1533,17 +1554,20 @@ function PlanilhaSection({
           </div>
         </div>
 
-        {/* Comissões por pessoa (entram no valor total) */}
+        {precosFinais && tabela.base < 0 && <p role="alert" className="text-sm text-destructive">As taxas ultrapassam o preço final. Revise os percentuais ou as comissões.</p>}
+        {/* Comissões por pessoa */}
         <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">Comissões por pessoa</p>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Comissão sobre</span>
               <select
-                value={comissaoBase}
+                value={precosFinais ? "final" : comissaoBase}
+                disabled={precosFinais}
                 onChange={(e) => setComissaoBase(e.target.value)}
                 className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
               >
+                {precosFinais && <option value="final">Preço final</option>}
                 <option value="subtotal1">Sub-Total 1 (custo)</option>
                 <option value="subtotal2">Sub-Total 2 (custo + margem)</option>
               </select>
@@ -1634,7 +1658,7 @@ function PlanilhaSection({
             <p className="text-sm font-medium text-foreground">{formatCurrency(margemValor)}</p>
             <p className="text-[10px] text-muted-foreground">margem {percentuais.margem || 0}%</p>
           </div>
-          <div title="Valor cobrado − custo real">
+          <div title={precosFinais ? "Base após taxas − custo real" : "Valor cobrado − custo real"}>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">+ Sobra das linhas</p>
             <p className={`text-sm font-medium ${sobraLinhas >= 0 ? "text-foreground" : "text-destructive"}`}>{formatCurrency(sobraLinhas)}</p>
           </div>
@@ -1722,7 +1746,7 @@ function PlanilhaSection({
             <nav aria-label="Grupos da planilha" className="hidden h-[560px] overflow-y-auto border-r border-border/50 bg-muted/10 p-2 md:block">
               <div className="px-3 pb-3 pt-1">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Grupos</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">Margem antes das taxas</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{precosFinais ? "Margem após taxas" : "Margem antes das taxas"}</p>
                 <div className="mt-1 flex flex-wrap gap-x-2 text-[9px]"><span className="text-success">≥ 30%</span><span className="text-warning">&gt; 0 a &lt; 30%</span><span className="text-destructive">≤ 0%</span></div>
               </div>
               {categoriasNaTela.map((cat) => {
@@ -1730,14 +1754,14 @@ function PlanilhaSection({
                 const total = totaisPorCategoria.get(cat.id) || 0;
                 const itensCat = itensPorCategoria.get(cat.id) || [];
                 const quantidade = itensCat.length;
-                const resultado = rentabilidadeGrupo(itensCat);
+                const resultado = resultadoGrupo(itensCat);
                 const sinal = SINAIS_GRUPO[resultado.status];
                 const mostraMargem = resultado.margem !== null && !["sem_valores", "custo_pendente"].includes(resultado.status);
                 return (
                   <div key={cat.id} className="relative mb-1">
                     <button onClick={() => selecionarCategoria(cat.id)}
                       aria-pressed={ativa} aria-controls={`grupo-painel-${cat.id}`}
-                      title={`Margem direta: valor dos itens menos custos, antes das taxas. ${sinal.label}.`}
+                      title={`${precosFinais ? "Margem após impostos, BV, comissões e custos" : "Margem direta antes das taxas"}. ${sinal.label}.`}
                       className={`block w-full rounded-md border border-l-[3px] px-3 py-3 text-left transition-colors ${sinal.faixa} ${ativa
                         ? "border-t-foreground/25 border-r-foreground/25 border-b-foreground/25 bg-muted/60 text-foreground"
                         : "border-t-transparent border-r-transparent border-b-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}>
@@ -1770,7 +1794,7 @@ function PlanilhaSection({
                 const peso = custoProducao > 0 ? (totalCat / custoProducao) * 100 : 0;
                 const foraDaTaxa = itensCat.filter((i) => i.tira_taxa).length;
                 const todosFora = itensCat.length > 0 && foraDaTaxa === itensCat.length;
-                const resultado = rentabilidadeGrupo(itensCat);
+                const resultado = resultadoGrupo(itensCat);
                 const sinal = SINAIS_GRUPO[resultado.status];
                 return (
                   <section key={cat.id} id={`grupo-painel-${cat.id}`} hidden={!ativa} aria-label={`Itens de ${cat.nome}`}>
@@ -1793,7 +1817,7 @@ function PlanilhaSection({
                           {resultado.status === "prejuizo" && <AlertTriangle className="h-3.5 w-3.5" />}
                           {sinal.label}{resultado.status === "prejuizo" ? ` · custo excede o orçado em ${formatCurrency(-resultado.saldo)}`
                             : resultado.status === "custo_pendente" ? " · há item com custo zerado"
-                            : resultado.margem !== null ? ` · margem direta ${resultado.margem.toFixed(1)}%` : ""}
+                            : resultado.margem !== null ? ` · ${precosFinais ? "margem líquida" : "margem direta"} ${resultado.margem.toFixed(1)}%` : ""}
                         </span>
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" disabled={salvarOcultas.isPending}
                           title="Retira este grupo e seus valores apenas deste orçamento. Pode reincluir depois."
@@ -1802,7 +1826,8 @@ function PlanilhaSection({
                       {foraDaTaxa > 0 && <p className="w-full text-[11px] text-warning">{todosFora ? "Grupo fora da taxa da produtora" : `${foraDaTaxa} itens fora da taxa da produtora`}</p>}
                     </div>
                     <CategoriaItens budgetId={budget.id} categoriaId={cat.id} codigo={cat.codigo} catNome={cat.nome}
-                      itens={itensCat} esconderZeradas={soPreenchidos} onChanged={onChanged} />
+                      itens={itensCat} esconderZeradas={soPreenchidos} onChanged={onChanged}
+                      tabela={precosFinais ? { fatorLiquido, margem: percentuais.margem } : undefined} />
                   </section>
                 );
               })}
@@ -1888,8 +1913,9 @@ function PctInput({
 }
 
 function CategoriaItens({
-  budgetId, categoriaId, codigo, catNome, itens, esconderZeradas, onChanged,
+  budgetId, categoriaId, codigo, catNome, itens, esconderZeradas, onChanged, tabela,
 }: {
+  tabela?: { fatorLiquido: number; margem: number };
   budgetId: string;
   categoriaId: string;
   codigo: string;
@@ -1905,7 +1931,7 @@ function CategoriaItens({
   const [recemCriados, setRecemCriados] = useState<Set<string>>(new Set());
 
   // Pós-produção é orçada por HORA (não por diária) — muda só os rótulos das colunas.
-  const porHora = codigo === "011" || /p[óo]s\s*produ/i.test(catNome || "");
+  const porHora = !tabela && (codigo === "011" || /p[óo]s\s*produ/i.test(catNome || ""));
 
   const adicionar = useMutation({
     mutationFn: async () => {
@@ -1944,7 +1970,7 @@ function CategoriaItens({
           linhas, senão o 011.007 de ontem vira outro item hoje. */}
       {itens.map((it, idx) =>
         escondida(it) ? null : (
-          <BudgetItemRow key={it.id} item={it} codigo={codigo} porHora={porHora} idx={idx + 1} onChanged={onChanged} />
+          <BudgetItemRow key={it.id} item={it} codigo={codigo} porHora={porHora} tabela={tabela} idx={idx + 1} onChanged={onChanged} />
         ),
       )}
       {ocultas > 0 && (
@@ -1999,9 +2025,10 @@ function NumCell({ value, onChange, onCommit, className }: {
   );
 }
 
-function BudgetItemRow({
-  item, codigo, porHora, idx, onChanged,
+export function BudgetItemRow({
+  item, codigo, porHora, idx, onChanged, tabela,
 }: {
+  tabela?: { fatorLiquido: number; margem: number };
   item: BudgetItem;
   codigo: string;
   porHora: boolean;
@@ -2019,7 +2046,8 @@ function BudgetItemRow({
   });
   const valor = row.quantity * row.diaria * row.client_unit_price;
   const custoLinha = row.quantity * row.diaria * row.custo_unitario;
-  const sobra = valor - custoLinha;
+  const baseUnitaria = tabela ? moeda(row.client_unit_price * (tabela.fatorLiquido - (row.tira_taxa ? 0 : tabela.margem / 100))) : row.client_unit_price;
+  const sobra = (tabela ? valor * tabela.fatorLiquido : valor) - custoLinha;
 
   const salvar = useMutation({
     mutationFn: async () => {
@@ -2029,7 +2057,7 @@ function BudgetItemRow({
         quantity: row.quantity,
         diaria: row.diaria,
         client_unit_price: row.client_unit_price,
-        client_price: valor,   // total da linha — lido por Fechamento/Proposta
+        client_price: tabela ? moeda(valor) : valor,   // total da linha — lido por Fechamento/Proposta
         tira_taxa: row.tira_taxa,
         observacoes: row.observacoes,
       };
@@ -2072,8 +2100,9 @@ function BudgetItemRow({
       </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(85px, 1fr))" }}>
         <label className="space-y-1 text-[10px] text-muted-foreground"><span>Quantidade</span><NumCell value={row.quantity} onChange={(n) => setRow({ ...row, quantity: n })} onCommit={() => salvar.mutate()} /></label>
-        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Horas" : "Diárias"}</span><NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} /></label>
-        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Valor/hora" : "Valor unitário"}</span><NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} /></label>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{tabela && codigo === "011" ? "Repetições" : porHora ? "Horas" : "Diárias"}</span><NumCell value={row.diaria} onChange={(n) => setRow({ ...row, diaria: n })} onCommit={() => salvar.mutate()} /></label>
+        <label className="space-y-1 text-[10px] text-muted-foreground"><span>{tabela ? "Preço unitário final" : porHora ? "Valor/hora" : "Valor unitário"}</span><NumCell value={row.client_unit_price} onChange={(n) => setRow({ ...row, client_unit_price: n })} onCommit={() => salvar.mutate()} /></label>
+        {tabela && <div className="space-y-1"><p className="text-[10px] text-muted-foreground">Base unitária</p><p className={`text-sm tabular-nums ${baseUnitaria < 0 ? "text-destructive" : ""}`}>{formatCurrency(baseUnitaria)}</p></div>}
         <label className="space-y-1 text-[10px] text-muted-foreground"><span>{porHora ? "Custo/hora" : "Custo unitário"}</span><NumCell value={row.custo_unitario} onChange={(n) => setRow({ ...row, custo_unitario: n })} onCommit={() => salvar.mutate()} /></label>
         <div className="space-y-1 text-right"><p className="text-[10px] text-muted-foreground">Total do item</p><p className={`text-sm tabular-nums ${vazia ? "text-muted-foreground" : "font-semibold"}`}>{formatCurrency(valor)}</p></div>
       </div>
