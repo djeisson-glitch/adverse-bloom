@@ -1,5 +1,4 @@
-import { BlocosEntrega, EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
-import { correspondeCategoria } from "@/lib/classificacaoEntrega";
+import { BlocosPorCidade, EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { useMemo, useState } from "react";
 import { useFiltro } from "@/hooks/useFiltro";
 import { useQuery } from "@tanstack/react-query";
@@ -34,7 +33,6 @@ export default function EntregasDoMes() {
   // Filtros na URL + memória da aba: dá pra abrir um entregável, voltar, e
   // encontrar a tela como estava. Antes zerava e refazia-se tudo.
   const [ref, setRef] = useFiltro("mes", mesISO(-1), "entregas-mes");
-  const [categoria,setCategoria] = useFiltro<string>("categoria","todos","entregas-mes");
   const [cliente, setCliente] = useFiltro<string>("cliente", "todos", "entregas-mes");
 
   const [ano, mes] = ref.split("-").map(Number);
@@ -104,7 +102,7 @@ export default function EntregasDoMes() {
     const porCliente = new Map<string, { nome: string; projetos: Map<string, any> }>();
     for (const e of dados.entregas) {
       const p = dados.projetos.get(e.project_id);
-      if (!p || !correspondeCategoria(e,categoria)) continue;
+      if (!p) continue;
       const cid = p.client_id || "sem-cliente";
       if (cliente !== "todos" && cid !== cliente) continue;
       const nomeCli = clientes.find((c: any) => c.id === cid)?.name || "Sem cliente";
@@ -122,7 +120,7 @@ export default function EntregasDoMes() {
         return { id, nome: g.nome, projetos, entregas, minutos: min };
       })
       .sort((a, b) => b.entregas - a.entregas);
-  }, [dados, cliente, clientes, categoria]);
+  }, [dados, cliente, clientes]);
 
   const totalEntregas = grupos.reduce((s, g) => s + g.entregas, 0);
   const totalMin = grupos.reduce((s, g) => s + g.minutos, 0);
@@ -179,7 +177,6 @@ export default function EntregasDoMes() {
         </Select>
       </div>
 
-      {dados && <FiltrosEntrega itens={dados.entregas.filter(e=>{const p=dados.projetos.get(e.project_id);return p && (cliente==="todos" || p.client_id===cliente);})} valor={categoria} onChange={setCategoria}/>}
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
@@ -217,7 +214,7 @@ export default function EntregasDoMes() {
                       </span>
                     )}
                   </div>
-                  <BlocosEntrega itens={entregas} renderItem={(e: any) => {
+                  <BlocosPorCidade itens={entregas} renderItem={(e: any) => {
                     const min = dados!.minutos.get(e.id) || 0;
                     const meia = Number(e.cobranca_percent ?? 100) !== 100;
                     return (

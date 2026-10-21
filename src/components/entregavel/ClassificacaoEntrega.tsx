@@ -1,5 +1,6 @@
+import { agruparPorCidade } from "@/lib/cidadeEntrega";
 import { Fragment, type ReactNode } from "react";
-import { Monitor, Clapperboard, Smartphone, Youtube, Image, Shapes, Tags, CircleHelp } from "lucide-react";
+import { MapPin, Monitor, Clapperboard, Smartphone, Youtube, Image, Shapes, Tags, CircleHelp } from "lucide-react";
 import { agruparPorCategoria, classificarEntrega, correspondeCategoria, CATEGORIAS_ENTREGA, ROTULOS_ENTREGA, filtroEntregaValido, type EntregaClassificavel, type FiltroEntrega } from "@/lib/classificacaoEntrega";
 export const ICONES_ENTREGA = {"16x9":Monitor,reels:Clapperboard,story:Smartphone,youtube:Youtube,vertical:Smartphone,fotos:Image,outros:Shapes,sem_classificacao:CircleHelp};
 export function EtiquetasEntrega({item, ocultarIndefinido=false}: {item:EntregaClassificavel;ocultarIndefinido?:boolean}) {
@@ -46,4 +47,20 @@ export function BlocosEntrega<T extends EntregaClassificavel & {id:string}>({ite
       </section>;
     })}
   </div>;
+}
+
+/** Cidade → formatos. Sem localização reconhecida, mantém apenas os formatos. */
+export function BlocosPorCidade<T extends EntregaClassificavel & {id:string}>(props: {
+  itens:T[]; renderItem:(item:T)=>ReactNode; className?:string;
+}) {
+  const grupos=agruparPorCidade(props.itens);
+  if (grupos.every(g=>g.chave==="sem_cidade")) return <BlocosEntrega {...props}/>;
+  return <div className="space-y-7">{grupos.map(g=><section key={g.chave} aria-label={`Cidade: ${g.label}`} className={props.className}>
+    <header className="mb-3 flex items-center gap-2 border-b border-border/70 pb-3">
+      <MapPin aria-hidden="true" className="h-4 w-4 text-muted-foreground"/>
+      <h2 className="text-base font-semibold text-foreground">{g.label}</h2>
+      <span className="ml-auto text-xs tabular-nums text-muted-foreground">{g.itens.length} {g.itens.length===1?"entrega":"entregas"}</span>
+    </header>
+    <BlocosEntrega itens={g.itens} renderItem={props.renderItem}/>
+  </section>)}</div>;
 }

@@ -40,9 +40,7 @@ import { DiariasProjeto } from "@/components/producao/DiariasProjeto";
 import { DiariasFechamento } from "@/components/producao/DiariasFechamento";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
-import { correspondeCategoria } from "@/lib/classificacaoEntrega";
-import { BlocosEntrega, EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
-import { useFiltro } from "@/hooks/useFiltro";
+import { BlocosPorCidade, EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { nomeDeEntregavel } from "@/lib/nomeCurto";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
@@ -1671,7 +1669,6 @@ function rotuloStatus(status: string | null | undefined): string {
 function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa, canSeeHours }: { projectId: string; clienteNome?: string | null; profiles: any[]; onAbrirConversa: (deliverableId: string) => void; canSeeHours: boolean }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [categoria,setCategoria] = useFiltro<string>("categoria","todos",`entregaveis:${projectId}`);
 
   /**
    * Horas por peça. Uma consulta pro projeto inteiro e a soma no cliente —
@@ -1744,7 +1741,6 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
     },
   });
 
-  const filtrados = useMemo(() => items.filter(i=>correspondeCategoria(i,categoria)), [items,categoria]);
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -1789,8 +1785,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
 
         </div>
 
-        <FiltrosEntrega itens={items} valor={categoria} onChange={setCategoria}/>
-        {filtrados.length===0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum entregável nesta categoria.</p>}
+        {items.length===0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum entregável.</p>}
         {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
             lixeira ficava pra fora do card. */}
         <div className="-mx-1 space-y-4 overflow-x-auto px-1 pb-1">
@@ -1799,7 +1794,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
             o tempo foi. Aqui responde "qual peça consumiu o quê", que é a
             pergunta que se faz de verdade. O timesheet manual do editor
             continua dentro da peça, intocado. */}
-        {filtrados.length > 0 && (
+        {items.length > 0 && (
           <div className={`grid min-w-[680px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${COLS(canSeeHours)}`}>
             <span>Entregável</span>
             <span>Formato</span>
@@ -1811,7 +1806,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
             <span className="text-right">Ações</span>
           </div>
         )}
-        <BlocosEntrega itens={filtrados} className="min-w-[680px]" renderItem={(d) => (
+        <BlocosPorCidade itens={items} className="min-w-[680px]" renderItem={(d) => (
           <LinhaEntregavel
             d={d}
             alt={(mapaAlt as any)[d.id]}
