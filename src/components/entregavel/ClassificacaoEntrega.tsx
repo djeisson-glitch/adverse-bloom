@@ -1,5 +1,6 @@
+import { Fragment, type ReactNode } from "react";
 import { Monitor, Clapperboard, Smartphone, Youtube, Image, Shapes, Tags, CircleHelp } from "lucide-react";
-import { classificarEntrega, correspondeCategoria, CATEGORIAS_ENTREGA, ROTULOS_ENTREGA, filtroEntregaValido, type EntregaClassificavel, type FiltroEntrega } from "@/lib/classificacaoEntrega";
+import { agruparPorCategoria, classificarEntrega, correspondeCategoria, CATEGORIAS_ENTREGA, ROTULOS_ENTREGA, filtroEntregaValido, type EntregaClassificavel, type FiltroEntrega } from "@/lib/classificacaoEntrega";
 export const ICONES_ENTREGA = {"16x9":Monitor,reels:Clapperboard,story:Smartphone,youtube:Youtube,vertical:Smartphone,fotos:Image,outros:Shapes,sem_classificacao:CircleHelp};
 export function EtiquetasEntrega({item, ocultarIndefinido=false}: {item:EntregaClassificavel;ocultarIndefinido?:boolean}) {
   const {categorias,origem}=classificarEntrega(item);
@@ -24,6 +25,25 @@ export function FiltrosEntrega({itens,valor,onChange}: {itens:EntregaClassificav
         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${ativo===c?"border-primary/40 bg-primary/10 font-medium text-foreground":"border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
         <Icon aria-hidden="true" className="h-3.5 w-3.5"/>{c==="todos"?"Todos":ROTULOS_ENTREGA[c]}<span className="text-[10px] tabular-nums opacity-70">{n}</span>
       </button>;
+    })}
+  </div>;
+}
+
+/** Blocos sempre visíveis, com uma única ocorrência de cada entregável. */
+export function BlocosEntrega<T extends EntregaClassificavel & {id:string}>({itens,renderItem,className=""}: {
+  itens:T[]; renderItem:(item:T)=>ReactNode; className?:string;
+}) {
+  return <div className="space-y-4">
+    {agruparPorCategoria(itens).map(grupo=>{
+      const Icon=ICONES_ENTREGA[grupo.categorias[0] ?? "sem_classificacao"];
+      return <section key={grupo.chave} aria-label={grupo.label} className={`rounded-xl border border-border/70 bg-card ${className}`}>
+        <header className="flex items-center gap-2.5 rounded-t-xl border-b border-border/60 bg-muted/40 px-3 py-3">
+          <Icon aria-hidden="true" className="h-4 w-4 text-muted-foreground"/>
+          <h3 className="text-sm font-semibold text-foreground">{grupo.label}</h3>
+          <span aria-label={`${grupo.itens.length} entregáveis`} className="ml-auto rounded-md bg-background/70 px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{grupo.itens.length}</span>
+        </header>
+        <div className="space-y-1 p-2">{grupo.itens.map(item=><Fragment key={item.id}>{renderItem(item)}</Fragment>)}</div>
+      </section>;
     })}
   </div>;
 }

@@ -2,8 +2,8 @@
 
 Implementada nesta versão. Migração `20261021170000_classificacao_visual_entregas.sql` deve preceder o frontend. Não habilita IA nem faz chamadas a serviços de classificação.
 
-- Projetos: grupos por categoria e filtros com contagem. O modo lista corrida continua disponível. Filtro preservado na URL e na sessão por projeto.
-- Entregas do mês: mesmo filtro, combinado com cliente e mês. Contagem do filtro considera o cliente selecionado.
+- Projetos: grupos por categoria e filtros com contagem. Na opção Todos, os blocos ficam sempre visíveis, com ícone, título e contagem; preferências antigas de lista corrida não escondem os grupos. Filtro preservado na URL e na sessão por projeto.
+- Entregas do mês: blocos por categoria dentro de cada projeto, com o mesmo filtro combinado com cliente e mês. Contagem do filtro considera o cliente selecionado.
 - Minha mesa: etiquetas; prioridade e ordem por urgência permanecem iguais.
 - Dentro do entregável: etiquetas e **Classificar**, com escolha múltipla manual e retorno a **Automático pelo nome e formato**. A gravação envia exclusivamente `classificacao_visual` e usa as políticas de acesso já existentes.
 

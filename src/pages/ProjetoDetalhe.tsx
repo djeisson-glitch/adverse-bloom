@@ -16,7 +16,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useTimer } from "@/contexts/TimerContext";
 import {
   ArrowLeft, Loader2, Play, Plus, Trash2, BarChart3, Send, Save, X,
-  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, Rows3, CheckCircle2, RotateCcw, Copy, Pencil,
+  FileText, Link2, ExternalLink, MessageSquare, MessageSquarePlus, CheckCircle2, RotateCcw, Copy, Pencil,
   ChevronDown, ChevronRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,10 +39,9 @@ import { EmojiPicker, GifPicker } from "@/components/chat/ChatExtras";
 import { DiariasProjeto } from "@/components/producao/DiariasProjeto";
 import { DiariasFechamento } from "@/components/producao/DiariasFechamento";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
-import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
-import { agruparPorCategoria, correspondeCategoria } from "@/lib/classificacaoEntrega";
-import { EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { correspondeCategoria } from "@/lib/classificacaoEntrega";
+import { BlocosEntrega, EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { useFiltro } from "@/hooks/useFiltro";
 import { nomeDeEntregavel } from "@/lib/nomeCurto";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
@@ -1638,8 +1637,6 @@ function LinhaEntregavel({
   );
 }
 
-// Grupos neutros: os alertas de prazo e status mantêm o destaque de cor.
-const ESTILO_GRUPO = {borda:"border-l-border",chip:"bg-muted/60 text-muted-foreground"} as const;
 
 // Status do entregável em português. O valor cru do banco ("em_edicao",
 // "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
@@ -1675,7 +1672,6 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [categoria,setCategoria] = useFiltro<string>("categoria","todos",`entregaveis:${projectId}`);
-  const [agrupar, setAgrupar] = useLocalPref<"sim" | "nao">("entregaveis:agrupar", "sim", ["sim", "nao"]);
 
   /**
    * Horas por peça. Uma consulta pro projeto inteiro e a soma no cliente —
@@ -1749,7 +1745,6 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
   });
 
   const filtrados = useMemo(() => items.filter(i=>correspondeCategoria(i,categoria)), [items,categoria]);
-  const grupos = useMemo(() => agrupar === "nao" ? null : agruparPorCategoria(filtrados), [filtrados,agrupar]);
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -1791,17 +1786,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Entregáveis
           </p>
-          {/* Só oferece desligar quando o agrupamento de fato apareceu. */}
-          {(grupos || agrupar === "nao") && items.length >= 3 && (
-            <button
-              onClick={() => setAgrupar(agrupar === "sim" ? "nao" : "sim")}
-              title={agrupar === "sim" ? "Ver como lista corrida" : "Agrupar por categoria"}
-              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              <Rows3 className="h-3 w-3" />
-              {agrupar === "sim" ? "Agrupado" : "Lista corrida"}
-            </button>
-          )}
+
         </div>
 
         <FiltrosEntrega itens={items} valor={categoria} onChange={setCategoria}/>
@@ -1826,53 +1811,19 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
             <span className="text-right">Ações</span>
           </div>
         )}
-        {grupos
-          ? grupos.map((g) => {
-              const cor = ESTILO_GRUPO;
-              return (
-                <div
-                  key={g.chave}
-                  className={`min-w-[680px] space-y-1.5 border-l-[3px] py-1 pl-3 ${cor.borda}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cor.chip}`}
-                    >
-                      {g.label}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {g.itens.length} {g.itens.length === 1 ? "item" : "itens"}
-                    </span>
-                  </div>
-                  {g.itens.map((d: any) => (
-                    <LinhaEntregavel
-                      key={d.id}
-                      d={d}
-                      alt={(mapaAlt as any)[d.id]}
-                      horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
-                      projectId={projectId}
-                      nomeDe={nomeDe}
-                      navigate={navigate}
-                      onAbrirConversa={onAbrirConversa}
-                      onExcluir={(id) => excluir.mutate(id)}
-                    />
-                  ))}
-                </div>
-              );
-            })
-          : filtrados.map((d) => (
-              <LinhaEntregavel
-                key={d.id}
-                d={d}
-                alt={(mapaAlt as any)[d.id]}
-                horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
-                projectId={projectId}
-                nomeDe={nomeDe}
-                navigate={navigate}
-                onAbrirConversa={onAbrirConversa}
-                onExcluir={(id) => excluir.mutate(id)}
-              />
-            ))}
+        <BlocosEntrega itens={filtrados} className="min-w-[680px]" renderItem={(d) => (
+          <LinhaEntregavel
+            d={d}
+            alt={(mapaAlt as any)[d.id]}
+            horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
+            projectId={projectId}
+            nomeDe={nomeDe}
+            navigate={navigate}
+            onAbrirConversa={onAbrirConversa}
+            onExcluir={(id) => excluir.mutate(id)}
+          />
+        )}/>
+
         </div>
 
         <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">

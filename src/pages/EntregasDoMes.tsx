@@ -1,4 +1,4 @@
-import { EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { BlocosEntrega, EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { correspondeCategoria } from "@/lib/classificacaoEntrega";
 import { useMemo, useState } from "react";
 import { useFiltro } from "@/hooks/useFiltro";
@@ -217,7 +217,7 @@ export default function EntregasDoMes() {
                       </span>
                     )}
                   </div>
-                  {entregas.map((e: any) => {
+                  <BlocosEntrega itens={entregas} renderItem={(e: any) => {
                     const min = dados!.minutos.get(e.id) || 0;
                     const meia = Number(e.cobranca_percent ?? 100) !== 100;
                     return (
@@ -262,7 +262,7 @@ export default function EntregasDoMes() {
                         </Badge>
                       </div>
                     );
-                  })}
+                  }}/>
                 </div>
               ))}
             </CardContent>
