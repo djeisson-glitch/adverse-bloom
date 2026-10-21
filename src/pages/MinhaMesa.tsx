@@ -1,3 +1,4 @@
+import { EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { Children, isValidElement, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -222,7 +223,7 @@ export default function MinhaMesa() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverables")
-        .select("id, codigo, titulo, status, formato, prazo_interno, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, rev_n1_ajuste, rev_n2_ajuste, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
+        .select("id, codigo, titulo, status, formato, classificacao_visual, prazo_interno, data_entrega, responsavel_id, retrabalho, rev_ajuste_pendente, rev_n1_ajuste, rev_n2_ajuste, revisoes_internas, aprovado_n1_em, aprovado_n2_em, aprovado_cliente_em, updated_at, etapa_atual, etapa_responsavel_id, project:projects(id, numero, name, client_name, aprovador_n1_id, aprovador_n2_id, envio_cliente_id)")
         .order("data_entrega", { nullsFirst: false });
       if (error) throw error;
       return data as any[];
@@ -1023,6 +1024,7 @@ function ItemRow({ it, hoje, busy, rodando, onAgir, faixa }: {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
           {it.d?.codigo && <span className="font-mono">{it.d.codigo}</span>}
+          {it.d && <EtiquetasEntrega item={it.d} ocultarIndefinido/>}
           {it.contexto && <span>{it.contexto}</span>}
           {it.d?.etapa_atual && <span className="rounded bg-secondary px-1.5 py-0.5">{it.d.etapa_atual}</span>}
           {it.nota && <span className="basis-full line-clamp-1" title={it.nota}>{it.nota}</span>}

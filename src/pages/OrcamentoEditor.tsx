@@ -11,6 +11,7 @@ import { TipoDoOrcamento } from "@/components/budgets/TipoDoOrcamento";
 import { STAGES, isWonStage } from "@/hooks/useDeals";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { OpcaoTabelaCliente } from "@/components/orcamento/OpcaoTabelaCliente";
 import { SeletorVariantes } from "@/components/orcamento/SeletorVariantes";
 import {
   ArrowLeft, Loader2, Send, Trophy, XCircle, Plus, Trash2, ChevronRight,
@@ -317,8 +318,9 @@ export default function OrcamentoEditor() {
                   olha pra saber QUAL orçamento está aberto, que é
                   exatamente a pergunta que o seletor responde. */}
               {deal?.id && (
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <SeletorVariantes dealId={deal.id} atual={varianteId} budgetAtualId={budget?.id} onTrocar={setVarianteId} />
+                  {canSeeMoney && <OpcaoTabelaCliente key={budget.id} budget={budget} deal={deal} onCreated={setVarianteId}/>}
                 </div>
               )}
             </div>

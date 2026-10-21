@@ -1,3 +1,6 @@
+import { BriefingComVerMais } from "@/components/entregavel/BriefingComVerMais";
+import { EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { EditarClassificacaoEntrega } from "@/components/entregavel/EditarClassificacaoEntrega";
 import { minutosEstimados } from "@/lib/horasEstimadas";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { TextoComLinks } from "@/lib/autolink";
@@ -388,6 +391,11 @@ export default function EntregavelDetalhe() {
           {proj?.client_name && <><span>·</span><span>{proj.client_name}</span></>}
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <EtiquetasEntrega item={{...entregavel,titulo:form.titulo,formato:form.formato}}/>
+          <EditarClassificacaoEntrega key={entregavel.id} item={{...entregavel,titulo:form.titulo,formato:form.formato}}/>
+        </div>
+
         <div aria-label="Informações principais" className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4 lg:grid-cols-4">
             <Campo label="Responsável">
               <Select value={form.responsavel_id || "__none__"} onValueChange={(v) => setJa({ responsavel_id: v === "__none__" ? "" : v })}>
@@ -484,7 +492,7 @@ export default function EntregavelDetalhe() {
             <Label>Briefing e orientações</Label>
             <IndicadorAutosave status={auto.status} />
           </div>
-          <BriefingComVerMais valor={form.descricao} onChange={(v) => set({ descricao: v })} />
+          <BriefingComVerMais key={did} valor={form.descricao} onChange={(v) => set({ descricao: v })} onConcluir={() => { void auto.gravarAgora(); }} />
         </CardContent>
       </Card>
 
@@ -1694,71 +1702,6 @@ function FaturamentoPeca({ did, valor, doProjeto, onChanged }: {
         <p className="mt-1 text-[10px] text-warning">
           {BALDES.find((b) => b.id === (v === HERDA ? doProjetoOk : v))?.ajuda}
         </p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Briefing: fechado por padrão, com "ver mais".
- *
- * O problema não era o tamanho da caixa — era não haver sinal nenhum de que
- * havia MAIS texto embaixo. Um textarea com barra de rolagem interna esconde
- * o resto sem avisar, e quem lê acha que leu tudo. Aqui o corte é
- * proposital: some o fim do texto atrás de um degradê e um botão diz quantas
- * linhas faltam — obriga o clique, que é o ponto.
- *
- * Clicar em qualquer lugar do texto abre pra edição. Briefing curto (até 6
- * linhas) nunca corta: não há o que esconder.
- */
-function BriefingComVerMais({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
-  const [aberto, setAberto] = useState(false);
-  const [editando, setEditando] = useState(false);
-  const linhas = (valor || "").split("\n");
-  const LIMITE = 6;
-  const cortado = !aberto && linhas.length > LIMITE;
-
-  if (editando || !valor) {
-    return (
-      <Textarea
-        autoFocus={!!valor}
-        rows={Math.min(20, Math.max(5, linhas.length + 1))}
-        value={valor}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => setEditando(false)}
-        placeholder="Direcionamento, referências…"
-      />
-    );
-  }
-
-  return (
-    <div>
-      <div
-        onClick={() => setEditando(true)}
-        title="Clique para editar"
-        className="relative cursor-text whitespace-pre-wrap rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm leading-relaxed text-foreground"
-      >
-        {cortado ? linhas.slice(0, LIMITE).join("\n") : valor}
-        {/* O degradê é o sinal: o texto morre no meio, e isso se vê. */}
-        {cortado && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-md bg-gradient-to-t from-card to-transparent" />
-        )}
-      </div>
-      {linhas.length > LIMITE && (
-        // Centralizado, em caixa, PULSANDO — pedido do Djêisson depois de ver
-        // o link discreto: "o ver mais tá MUITO discreto". Um texto pequeno
-        // no canto perde justamente pra quem já achou que leu tudo; o que
-        // precisa acontecer aqui é a pessoa notar sem estar procurando.
-        <div className="mt-2 flex justify-center">
-          <button
-            onClick={() => setAberto((v) => !v)}
-            className={`rounded-lg border border-primary/60 px-4 py-1.5 text-xs font-semibold text-primary transition-shadow ${
-              aberto ? "" : "animate-pulse shadow-[0_0_16px_2px_hsl(var(--primary)/0.55)]"
-            }`}
-          >
-            {aberto ? "ver menos" : `ver mais (+${linhas.length - LIMITE} linhas)`}
-          </button>
-        </div>
       )}
     </div>
   );

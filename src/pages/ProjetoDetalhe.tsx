@@ -41,7 +41,9 @@ import { DiariasFechamento } from "@/components/producao/DiariasFechamento";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
-import { agruparEntregaveis } from "@/lib/familiaEntregavel";
+import { agruparPorCategoria, correspondeCategoria } from "@/lib/classificacaoEntrega";
+import { EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { useFiltro } from "@/hooks/useFiltro";
 import { nomeDeEntregavel } from "@/lib/nomeCurto";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
@@ -1544,6 +1546,7 @@ function LinhaEntregavel({
           {d.codigo && <span className="mr-1.5 font-mono text-[10px] font-normal text-primary">{d.codigo}</span>}
           {d.titulo}
         </span>
+        <span className="mt-1 block"><EtiquetasEntrega item={d}/></span>
         {/* Quem pediu, embaixo do nome: é linha de apoio, não coluna — a
             tabela já tem sete e a pergunta "quem pediu isso?" só aparece
             quando alguém está olhando aquela peça específica. */}
@@ -1635,29 +1638,8 @@ function LinhaEntregavel({
   );
 }
 
-// Cor por grupo de semelhança — o que separa visualmente um bloco do outro.
-// Fica na ordem em que os grupos aparecem (maior primeiro), então o olho
-// aprende o padrão. "Avulsos" é sempre neutro: não é uma família, é o resto.
-// O `light:` escurece o matiz no tema claro: o -500 puro fica em ~2,2:1 no
-// branco. A família continua sendo reconhecida pela cor, só que legível.
-const CORES_GRUPO = [
-  { borda: "border-l-primary", chip: "bg-primary/15 text-primary" },
-  { borda: "border-l-blue-500", chip: "bg-blue-500/15 text-blue-500 light:text-blue-700" },
-  { borda: "border-l-emerald-500", chip: "bg-emerald-500/15 text-emerald-500 light:text-emerald-700" },
-  { borda: "border-l-purple-500", chip: "bg-purple-500/15 text-purple-500 light:text-purple-700" },
-  { borda: "border-l-amber-500", chip: "bg-amber-500/15 text-amber-500 light:text-amber-700" },
-  { borda: "border-l-cyan-500", chip: "bg-cyan-500/15 text-cyan-500 light:text-cyan-700" },
-] as const;
-
-const COR_AVULSOS = {
-  borda: "border-l-border",
-  chip: "bg-muted/60 text-muted-foreground",
-} as const;
-
-function corDoGrupo(chave: string, indice: number) {
-  if (chave === "__avulsos__") return COR_AVULSOS;
-  return CORES_GRUPO[indice % CORES_GRUPO.length];
-}
+// Grupos neutros: os alertas de prazo e status mantêm o destaque de cor.
+const ESTILO_GRUPO = {borda:"border-l-border",chip:"bg-muted/60 text-muted-foreground"} as const;
 
 // Status do entregável em português. O valor cru do banco ("em_edicao",
 // "ajuste_solicitado") não diz nada pra quem bate o olho na lista.
@@ -1692,6 +1674,7 @@ function rotuloStatus(status: string | null | undefined): string {
 function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa, canSeeHours }: { projectId: string; clienteNome?: string | null; profiles: any[]; onAbrirConversa: (deliverableId: string) => void; canSeeHours: boolean }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [categoria,setCategoria] = useFiltro<string>("categoria","todos",`entregaveis:${projectId}`);
   const [agrupar, setAgrupar] = useLocalPref<"sim" | "nao">("entregaveis:agrupar", "sim", ["sim", "nao"]);
 
   /**
@@ -1765,12 +1748,8 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
     },
   });
 
-  // Junta o que é parecido (formato/duração quando preenchidos; senão, o nome).
-  // Devolve null quando agrupar não ajudaria — aí a lista sai reta, como antes.
-  const grupos = useMemo(
-    () => (agrupar === "nao" ? null : agruparEntregaveis(items)),
-    [items, agrupar],
-  );
+  const filtrados = useMemo(() => items.filter(i=>correspondeCategoria(i,categoria)), [items,categoria]);
+  const grupos = useMemo(() => agrupar === "nao" ? null : agruparPorCategoria(filtrados), [filtrados,agrupar]);
 
   const criar = useMutation({
     mutationFn: async () => {
@@ -1816,7 +1795,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
           {(grupos || agrupar === "nao") && items.length >= 3 && (
             <button
               onClick={() => setAgrupar(agrupar === "sim" ? "nao" : "sim")}
-              title={agrupar === "sim" ? "Ver como lista corrida" : "Juntar os parecidos"}
+              title={agrupar === "sim" ? "Ver como lista corrida" : "Agrupar por categoria"}
               className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
             >
               <Rows3 className="h-3 w-3" />
@@ -1825,6 +1804,8 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
           )}
         </div>
 
+        <FiltrosEntrega itens={items} valor={categoria} onChange={setCategoria}/>
+        {filtrados.length===0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum entregável nesta categoria.</p>}
         {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
             lixeira ficava pra fora do card. */}
         <div className="-mx-1 space-y-4 overflow-x-auto px-1 pb-1">
@@ -1833,7 +1814,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
             o tempo foi. Aqui responde "qual peça consumiu o quê", que é a
             pergunta que se faz de verdade. O timesheet manual do editor
             continua dentro da peça, intocado. */}
-        {items.length > 0 && (
+        {filtrados.length > 0 && (
           <div className={`grid min-w-[680px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${COLS(canSeeHours)}`}>
             <span>Entregável</span>
             <span>Formato</span>
@@ -1846,8 +1827,8 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
           </div>
         )}
         {grupos
-          ? grupos.map((g, i) => {
-              const cor = corDoGrupo(g.chave, i);
+          ? grupos.map((g) => {
+              const cor = ESTILO_GRUPO;
               return (
                 <div
                   key={g.chave}
@@ -1879,7 +1860,7 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
                 </div>
               );
             })
-          : items.map((d) => (
+          : filtrados.map((d) => (
               <LinhaEntregavel
                 key={d.id}
                 d={d}

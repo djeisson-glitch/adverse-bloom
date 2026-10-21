@@ -1,3 +1,5 @@
+import { EtiquetasEntrega, FiltrosEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { correspondeCategoria } from "@/lib/classificacaoEntrega";
 import { useMemo, useState } from "react";
 import { useFiltro } from "@/hooks/useFiltro";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +34,7 @@ export default function EntregasDoMes() {
   // Filtros na URL + memória da aba: dá pra abrir um entregável, voltar, e
   // encontrar a tela como estava. Antes zerava e refazia-se tudo.
   const [ref, setRef] = useFiltro("mes", mesISO(-1), "entregas-mes");
+  const [categoria,setCategoria] = useFiltro<string>("categoria","todos","entregas-mes");
   const [cliente, setCliente] = useFiltro<string>("cliente", "todos", "entregas-mes");
 
   const [ano, mes] = ref.split("-").map(Number);
@@ -70,7 +73,7 @@ export default function EntregasDoMes() {
       }
 
       const qEnt = (supabase as any).from("deliverables")
-        .select("id, titulo, codigo, status, data_entrega, criado_em, created_at, project_id, responsavel_id, tipo_cobranca, cobranca_percent, faturamento");
+        .select("id, titulo, formato, classificacao_visual, codigo, status, data_entrega, criado_em, created_at, project_id, responsavel_id, tipo_cobranca, cobranca_percent, faturamento");
 
       const [ent, proj, prof, hrs] = await Promise.all([
         base === "criacao"
@@ -101,7 +104,7 @@ export default function EntregasDoMes() {
     const porCliente = new Map<string, { nome: string; projetos: Map<string, any> }>();
     for (const e of dados.entregas) {
       const p = dados.projetos.get(e.project_id);
-      if (!p) continue;
+      if (!p || !correspondeCategoria(e,categoria)) continue;
       const cid = p.client_id || "sem-cliente";
       if (cliente !== "todos" && cid !== cliente) continue;
       const nomeCli = clientes.find((c: any) => c.id === cid)?.name || "Sem cliente";
@@ -119,7 +122,7 @@ export default function EntregasDoMes() {
         return { id, nome: g.nome, projetos, entregas, minutos: min };
       })
       .sort((a, b) => b.entregas - a.entregas);
-  }, [dados, cliente, clientes]);
+  }, [dados, cliente, clientes, categoria]);
 
   const totalEntregas = grupos.reduce((s, g) => s + g.entregas, 0);
   const totalMin = grupos.reduce((s, g) => s + g.minutos, 0);
@@ -176,6 +179,8 @@ export default function EntregasDoMes() {
         </Select>
       </div>
 
+      {dados && <FiltrosEntrega itens={dados.entregas.filter(e=>{const p=dados.projetos.get(e.project_id);return p && (cliente==="todos" || p.client_id===cliente);})} valor={categoria} onChange={setCategoria}/>}
+
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
       ) : grupos.length === 0 ? (
@@ -183,7 +188,7 @@ export default function EntregasDoMes() {
           <CardContent className="flex flex-col items-center gap-1 py-14 text-center">
             <PackageCheck className="h-8 w-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              Nenhuma entrega com data em <span className="capitalize">{mesLabel}</span>.
+              Nenhuma entrega para os filtros selecionados em <span className="capitalize">{mesLabel}</span>.
             </p>
 
           </CardContent>
@@ -223,6 +228,7 @@ export default function EntregasDoMes() {
                         <Link to={`/projetos/${projeto.id}/entregaveis/${e.id}`} className="min-w-0 flex-1 truncate text-muted-foreground hover:text-foreground">
                           {e.titulo}
                         </Link>
+                        <EtiquetasEntrega item={e}/>
                         {/* A peça foi marcada na mão, contra o que o projeto
                             diz. Sem esta marca, quem confere o mês aqui conta
                             uma peça que a carta não cobra — e as duas telas
