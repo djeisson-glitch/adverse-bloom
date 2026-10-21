@@ -18,3 +18,5 @@ Também validado no banco real, em transação revertida: classificação múlti
 ## Agrupamento por cidade
 Reconhecimento local, sem IA e sem chamadas de rede durante uso. A lista de municípios vem da [API de localidades do IBGE](https://servicodados.ibge.gov.br/api/docs/localidades), consultada em 21/10/2026 e incluída em `src/data/municipiosBR.ts`. Apenas segmentos explícitos do título, separados por ` - `, travessão ou `|`, são reconhecidos; aceita UF e variações de acento/caixa. “Campanha de Natal” não implica cidade de Natal. Nomes com mais de uma cidade ficam sem atribuição. Cidades homônimas com UFs explicitamente distintas são separadas.
 Peças não reconhecidas ficam em **Sem cidade identificada** quando outras peças têm cidade; se nenhuma tiver, a tela mantém somente os blocos por formato. Não altera os dados persistidos, o número de entregas, o fluxo ou a cobrança.
+
+Cada cidade começa recolhida. O cabeçalho mostra o nome e a contagem e permite expandir/recolher independentemente com clique ou teclado. Atualizações da lista preservam as seções abertas enquanto a tela permanece montada.
