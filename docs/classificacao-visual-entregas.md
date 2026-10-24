@@ -20,3 +20,7 @@ Reconhecimento local, sem IA e sem chamadas de rede durante uso. A lista de muni
 Peças não reconhecidas ficam em **Sem cidade identificada** quando outras peças têm cidade; se nenhuma tiver, a tela mantém somente os blocos por formato. Não altera os dados persistidos, o número de entregas, o fluxo ou a cobrança.
 
 Cada cidade começa recolhida. O cabeçalho mostra o nome e a contagem e permite expandir/recolher independentemente com clique ou teclado. Atualizações da lista preservam as seções abertas enquanto a tela permanece montada.
+
+## Escolha de agrupamento por projeto
+O seletor **Agrupar por** permite Automático, Cidade, Formato, Status e Sem agrupamento. A preferência é salva neste navegador por ID do projeto; projetos diferentes mantêm escolhas independentes. Não há alteração de banco.
+Automático usa cidade quando há ao menos duas cidades e 60% das peças identificadas; caso contrário usa formato se houver classificação, ou lista simples se não houver. O seletor informa qual modo o automático está usando. A opção Cidade mantém expansão independente; status reúne os valores legados de revisão interna em um único grupo. Nenhum modo filtra ou duplica peças.

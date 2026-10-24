@@ -40,7 +40,8 @@ import { DiariasProjeto } from "@/components/producao/DiariasProjeto";
 import { DiariasFechamento } from "@/components/producao/DiariasFechamento";
 import { corDoUsuario, handleUsuario } from "@/lib/coresUsuario";
 import { formatPrazoHora } from "@/components/prazo/SeletorPrazo";
-import { BlocosPorCidade, EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
+import { EntregaveisAgrupados } from "@/components/entregavel/EntregaveisAgrupados";
+import { EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { nomeDeEntregavel } from "@/lib/nomeCurto";
 import { IndicadorAutosave } from "@/components/autosave/AutosaveContext";
 import { MergulhoForm } from "@/components/MergulhoForm";
@@ -1778,48 +1779,15 @@ function EntregaveisSection({ projectId, clienteNome, profiles, onAbrirConversa,
   return (
     <Card className="glass-card">
       <CardContent className="space-y-3 p-6">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Entregáveis
-          </p>
-
-        </div>
-
-        {items.length===0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum entregável.</p>}
-        {/* Rola na horizontal quando a tela aperta — antes a linha vazava e a
-            lixeira ficava pra fora do card. */}
-        <div className="-mx-1 space-y-4 overflow-x-auto px-1 pb-1">
-        {/* HORAS por entregável, só pra quem pode ver tempo (admin/coord.):
-            saiu do cabeçalho do projeto, onde era um total que não dizia onde
-            o tempo foi. Aqui responde "qual peça consumiu o quê", que é a
-            pergunta que se faz de verdade. O timesheet manual do editor
-            continua dentro da peça, intocado. */}
-        {items.length > 0 && (
-          <div className={`grid min-w-[680px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${COLS(canSeeHours)}`}>
-            <span>Entregável</span>
-            <span>Formato</span>
-            <span>Duração</span>
-            <span>Responsável</span>
-            <span>Prazo interno</span>
-            <span>Status</span>
-            {canSeeHours && <span className="text-right">Horas</span>}
-            <span className="text-right">Ações</span>
-          </div>
-        )}
-        <BlocosPorCidade itens={items} className="min-w-[680px]" renderItem={(d) => (
-          <LinhaEntregavel
-            d={d}
-            alt={(mapaAlt as any)[d.id]}
+        <EntregaveisAgrupados projectId={projectId} itens={items}
+          cabecalho={<div className={`grid min-w-[680px] gap-2 px-3 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground ${COLS(canSeeHours)}`}>
+            <span>Entregável</span><span>Formato</span><span>Duração</span><span>Responsável</span><span>Prazo interno</span><span>Status</span>
+            {canSeeHours && <span className="text-right">Horas</span>}<span className="text-right">Ações</span>
+          </div>}
+          renderItem={(d)=><LinhaEntregavel d={d} alt={(mapaAlt as any)[d.id]}
             horas={canSeeHours ? (horasPorPeca.get(d.id) || 0) : undefined}
-            projectId={projectId}
-            nomeDe={nomeDe}
-            navigate={navigate}
-            onAbrirConversa={onAbrirConversa}
-            onExcluir={(id) => excluir.mutate(id)}
-          />
-        )}/>
-
-        </div>
+            projectId={projectId} nomeDe={nomeDe} navigate={navigate} onAbrirConversa={onAbrirConversa}
+            onExcluir={(id)=>excluir.mutate(id)}/>} />
 
         <div className="space-y-2 rounded-md border border-dashed border-border/60 p-3">
           <div className="grid gap-2 md:grid-cols-4">
