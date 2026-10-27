@@ -1,3 +1,4 @@
+import { EspecificacoesEntrega } from "@/components/entregavel/EspecificacoesEntrega";
 import { BriefingComVerMais } from "@/components/entregavel/BriefingComVerMais";
 import { EtiquetasEntrega } from "@/components/entregavel/ClassificacaoEntrega";
 import { EditarClassificacaoEntrega } from "@/components/entregavel/EditarClassificacaoEntrega";
@@ -237,6 +238,11 @@ export default function EntregavelDetalhe() {
       throw error;
     }
     qc.invalidateQueries({ queryKey: ["entregavel", did] });
+    if ("formato" in campos || "duracao" in campos) {
+      qc.invalidateQueries({ queryKey: ["deliverables", projectId] });
+      qc.invalidateQueries({ queryKey: ["projeto-entregas-resumo", projectId] });
+      qc.invalidateQueries({ queryKey: ["entregas-do-mes"] });
+    }
   });
 
   // Agregações de horas
@@ -385,10 +391,10 @@ export default function EntregavelDetalhe() {
               />
             </div>
           </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{form.formato || "Formato não definido"}</span><span>·</span>
-          <span>{form.duracao || "Duração não definida"}</span>
-          {proj?.client_name && <><span>·</span><span>{proj.client_name}</span></>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <EspecificacoesEntrega formato={form.formato} duracao={form.duracao}
+            onChange={set} onCommit={() => void auto.gravarAgora()} />
+          {proj?.client_name && <span className="text-xs text-muted-foreground">{proj.client_name}</span>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -560,14 +566,6 @@ export default function EntregavelDetalhe() {
           <div className="mt-3 border-t border-border/60 pt-3">
 
             <div className="mt-3 space-y-1">
-            <L label="Formato">
-              <Input value={form.formato} onChange={(e) => set({ formato: e.target.value })} placeholder="16x9"
-                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
-            </L>
-            <L label="Duração">
-              <Input value={form.duracao} onChange={(e) => set({ duracao: e.target.value })} placeholder='30"'
-                className="h-7 border-0 bg-transparent px-0 hover:bg-muted/40 focus-visible:ring-0" />
-            </L>
             <L label="Solicitado por">
               <SolicitadoPor
                 clientId={proj?.client_id}
